@@ -1,0 +1,22 @@
+<html>
+<body>
+<p>Reports module option values that ansible-core rejects when it validates the module arguments, using a port of
+  its own argument spec validation for the root's target version:</p>
+<ul>
+  <li>ANS-T001: the type check fails, for example <code>force: maybe</code> for a <code>bool</code> option or a list for an
+    <code>int</code>;</li>
+  <li>ANS-T002: an unknown key inside an option that documents sub-options;</li>
+  <li>ANS-T003: a required sub-option is missing;</li>
+  <li>ANS-T004: a value outside <code>choices</code> after coercion, for example <code>state: absentx</code> under
+    <code>ansible.builtin.file</code> (<code>follow_redirects: false</code> for <code>uri</code> passes through the boolean
+    rescue);</li>
+  <li>ANS-T005: <code>null</code> for a required or defaulted option whose type check rejects it.</li>
+</ul>
+<p>Templated values, vault values and <code>raw</code> options such as <code>mode</code> are not judged. Action plugins
+  that read some options themselves (<code>copy</code>'s <code>force</code>, <code>assert</code>, <code>fetch</code>) are
+  checked against what they really validate. These findings are always errors; with documentation from another
+  ansible-core line than the target they are at most warnings. The quick fix <b>Replace with '&lt;choice&gt;'</b> picks the
+  nearest documented choice.</p>
+<!-- tooltip end -->
+</body>
+</html>

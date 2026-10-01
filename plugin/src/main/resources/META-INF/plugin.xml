@@ -1,0 +1,47 @@
+<idea-plugin xmlns:xi="http://www.w3.org/2001/XInclude">
+    <id>de.terletzkiy.ansibility</id>
+    <name>Ansibility</name>
+    <vendor url="https://ansibility.terletzkiy.de">Daniel Terletzkiy</vendor>
+    <description><![CDATA[
+        <p><b>Ansibility</b> makes Ansible feel native in PyCharm, WebStorm, PhpStorm and IntelliJ IDEA.</p>
+        <ul>
+            <li>Role variables documented from <code>meta/argument_specs.yml</code> like JSDoc: hover, completion, Ctrl+B.</li>
+            <li>Understands group_vars/host_vars overrides, environments and inventories.</li>
+            <li>Type checks against documented types, using ansible-core's own rules.</li>
+            <li>Module, option and keyword documentation, with Ctrl+B to the docs page.</li>
+            <li>Jinja2 templates and Jinja inside YAML.</li>
+            <li>An "Ansible" tool window for environments, groups, hosts and var files.</li>
+        </ul>
+        <p><small>Ansibility is an independent project by Daniel Terletzkiy (<a href="https://ansibility.terletzkiy.de">ansibility.terletzkiy.de</a>).
+        Ansible is a registered trademark of Red Hat, Inc.; Ansibility is not affiliated with or endorsed by Red Hat.</small></p>
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>org.jetbrains.plugins.yaml</depends>
+    <depends>com.intellij.modules.json</depends>
+    <depends optional="true" config-file="ansibility-vault.xml">ru.sadv1r.ansible-vault-editor-idea-plugin</depends>
+    <!-- VCS integrations (X99 commit check, M10): com.intellij.modules.vcs is a pluginAlias of the 262 product -->
+    <depends optional="true" config-file="ansibility-vcs.xml">com.intellij.modules.vcs</depends>
+
+    <resource-bundle>messages.AnsibilityBundle</resource-bundle>
+
+    <!-- One fragment per area. This root file is written once; areas edit only their own fragment. -->
+    <xi:include href="/META-INF/ansibility-core.xml" xpointer="xpointer(/idea-plugin/*)"/>
+    <xi:include href="/META-INF/ansibility-model.xml" xpointer="xpointer(/idea-plugin/*)"/>
+    <xi:include href="/META-INF/ansibility-index.xml" xpointer="xpointer(/idea-plugin/*)"/>
+    <xi:include href="/META-INF/ansibility-runtime.xml" xpointer="xpointer(/idea-plugin/*)"/>
+    <xi:include href="/META-INF/ansibility-settings.xml" xpointer="xpointer(/idea-plugin/*)"/>
+    <xi:include href="/META-INF/ansibility-dispatch.xml" xpointer="xpointer(/idea-plugin/*)"/>
+    <xi:include href="/META-INF/ansibility-vars.xml" xpointer="xpointer(/idea-plugin/*)"/>
+    <xi:include href="/META-INF/ansibility-docs.xml" xpointer="xpointer(/idea-plugin/*)"/>
+    <xi:include href="/META-INF/ansibility-navigation.xml" xpointer="xpointer(/idea-plugin/*)"/>
+    <xi:include href="/META-INF/ansibility-types.xml" xpointer="xpointer(/idea-plugin/*)"/>
+    <xi:include href="/META-INF/ansibility-jinja.xml" xpointer="xpointer(/idea-plugin/*)"/>
+    <xi:include href="/META-INF/ansibility-inventory.xml" xpointer="xpointer(/idea-plugin/*)"/>
+    <xi:include href="/META-INF/ansibility-vault-core.xml" xpointer="xpointer(/idea-plugin/*)"/>
+    <xi:include href="/META-INF/ansibility-host.xml" xpointer="xpointer(/idea-plugin/*)"/>
+    <xi:include href="/META-INF/ansibility-workspace.xml" xpointer="xpointer(/idea-plugin/*)"/>
+    <xi:include href="/META-INF/ansibility-vault-ui.xml" xpointer="xpointer(/idea-plugin/*)"/>
+    <xi:include href="/META-INF/ansibility-vault-checks.xml" xpointer="xpointer(/idea-plugin/*)"/>
+    <xi:include href="/META-INF/ansibility-host-checks.xml" xpointer="xpointer(/idea-plugin/*)"/>
+</idea-plugin>

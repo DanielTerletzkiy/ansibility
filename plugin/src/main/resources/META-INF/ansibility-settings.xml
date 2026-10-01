@@ -1,0 +1,28 @@
+<!-- Area fragment: settings. Included from plugin.xml; only the owning work unit edits this file. -->
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- Settings › Languages & Frameworks › Ansibility (application and project sections, UI DSL v2).
+             AnsibilityAppSettings, AnsibilityProjectSettings, AnsibilitySharedProjectSettings, AnsibilityWorkspaceState,
+             SeverityPolicy, AnsibilitySettingsWiring and AnsibilityRuntimeBinding are light services (@Service) and need
+             no registration. -->
+        <projectConfigurable parentId="language"
+                             instance="de.terletzkiy.ansibility.settings.ui.AnsibilityConfigurable"
+                             id="de.terletzkiy.ansibility.settings"
+                             bundle="messages.AnsibilitySettingsBundle"
+                             key="settings.display.name"
+                             nonDefaultProject="true"/>
+
+        <!-- Installs the TargetVersionDetector override and the runtime option hooks, and follows settings changes. -->
+        <postStartupActivity implementation="de.terletzkiy.ansibility.settings.AnsibilitySettingsActivity"/>
+
+        <!-- The only CoexistenceSettings: X85 completion hiding, X03 notifications, the SchemaStore exclusion. -->
+        <applicationService serviceInterface="de.terletzkiy.ansibility.coexist.CoexistenceSettings"
+                            serviceImplementation="de.terletzkiy.ansibility.settings.AnsibilityCoexistenceSettings"/>
+    </extensions>
+
+    <applicationListeners>
+        <!-- Re-binds runtime.AnsibleRuntimeOptions (docs base, background refresh, local probe, executables). -->
+        <listener class="de.terletzkiy.ansibility.settings.RuntimeSettingsListener"
+                  topic="de.terletzkiy.ansibility.settings.AnsibilityAppSettingsListener"/>
+    </applicationListeners>
+</idea-plugin>

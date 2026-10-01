@@ -1,0 +1,45 @@
+<!-- Area fragment: host awareness (plan amendment R7/R8, A.14: AnsibleContextService, context banner, host and group
+     symbols, when: reachability). Included from plugin.xml; only the host-awareness work units (HA1-HA9) edit this file. -->
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- HA1: the Ansible context service (selection, host scopes, effective values, reach, explain). The model-side
+             helpers it builds on (model.effective.HostViews, MoleculeViews, ExecutionSources) are light @Service classes. -->
+        <projectService serviceInterface="de.terletzkiy.ansibility.api.AnsibleContextService"
+                        serviceImplementation="de.terletzkiy.ansibility.context.host.AnsibleContextServiceImpl"/>
+        <!-- /HA1 -->
+        <!-- ha3: F8.1 context banners (file scope disjoint from the selection; ex-X49 playbook dir) -->
+        <editorNotificationProvider implementation="de.terletzkiy.ansibility.context.switching.ContextOverrideBannerProvider"/>
+        <editorNotificationProvider implementation="de.terletzkiy.ansibility.context.switching.PlaybookDirBannerProvider"/>
+        <!-- /ha3 -->
+    </extensions>
+    <!-- ha3: F8.1 context switching. The X02 widget (ansibility-core.xml) shows the segments; this is the file-scope
+         one, first after the built-in text (V8's ansibilityVault and WS9's ansibilityWorkspaceScope order after it). -->
+    <extensions defaultExtensionNs="de.terletzkiy.ansibility">
+        <contextWidgetSegment id="ansibilityFileScope"
+                              implementation="de.terletzkiy.ansibility.context.switching.FileScopeSegment"/>
+    </extensions>
+    <projectListeners>
+        <listener class="de.terletzkiy.ansibility.context.switching.ContextBannerRefresher"
+                  topic="de.terletzkiy.ansibility.settings.AnsibilitySettingsListener"/>
+        <listener class="de.terletzkiy.ansibility.context.switching.ContextBannerRefresher"
+                  topic="de.terletzkiy.ansibility.context.AnsibleStructureListener"/>
+    </projectListeners>
+    <actions resource-bundle="messages.AnsibilityHostBundle">
+        <!-- "Ansibility: Switch Context…": Find Action / Search Everywhere and the Tools menu; F8.1 names no shortcut. -->
+        <action id="Ansibility.SwitchContext" class="de.terletzkiy.ansibility.context.switching.SwitchContextAction">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+        <action id="Ansibility.UseAsAnsibleContext" class="de.terletzkiy.ansibility.context.switching.UseAsAnsibleContextAction">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+        </action>
+        <!-- The popup menu of the Ansibility tool window's tree; the tree installs it (toolwindow area). -->
+        <group id="Ansibility.ToolWindow.Popup">
+            <reference ref="Ansibility.UseAsAnsibleContext"/>
+        </group>
+        <!-- The tool-window context button [falcon · prod › prod-prod1 ▾], before R9's scope selector. -->
+        <action id="Ansibility.ToolWindow.Context" class="de.terletzkiy.ansibility.context.switching.ToolWindowContextAction">
+            <add-to-group group-id="Ansibility.ToolWindow.Toolbar.Extra" anchor="after" relative-to-action="Ansibility.Scope.Combo"/>
+        </action>
+    </actions>
+    <!-- /ha3 -->
+</idea-plugin>

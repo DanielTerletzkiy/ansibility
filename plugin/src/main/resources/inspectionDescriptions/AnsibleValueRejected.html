@@ -1,0 +1,13 @@
+<html>
+<body>
+<p>Reports values that ansible-core rejects when the role's argument spec is validated: <code>check_type_&lt;type&gt;</code> raises under the target version's rules (<code>'enabled'</code> for a <code>bool</code>, <code>42.5</code> or <code>abc</code> for an <code>int</code>), or validation would crash (<code>'inf'</code> for an <code>int</code>). The role fails at its validation task.</p>
+<p>Example (ANS-T001):</p>
+<pre><code>haproxy_servers:
+  - name: web1
+    ip: 192.0.2.10
+    port: <b>abc</b></code></pre>
+<!-- tooltip end -->
+<p>Checked: role <code>defaults/</code> and <code>vars/</code> (against the role's own <code>meta/argument_specs.yml</code>), <code>group_vars</code>/<code>host_vars</code> files, inline inventory vars, play, block and task <code>vars:</code>, <code>include_role</code> vars and role parameters, and molecule inventories (against every spec of the same root that declares the variable). Templated values and vault values are not judged here.</p>
+<p>The message names the role whose spec is violated and says what the root's target ansible-core would do. When no play of the root applies that role, the message says its spec may be stale. The severity follows the root's Ansibility strictness settings (preset, "Require a reachable play for red"). Suppress a finding with <code># noinspection AnsibleValueRejected</code> on the line above the key, or with <code>#file: noinspection AnsibleValueRejected</code>.</p>
+</body>
+</html>

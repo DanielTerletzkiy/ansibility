@@ -1,0 +1,12 @@
+<html>
+<body>
+<p>Reports required module options that a task does not set (ANS-M002); ansible-core fails the task with
+  <code>missing required arguments: dest</code> (or the action plugin's own message).</p>
+<p>An option counts as set when the module mapping, <code>args:</code> or a <code>k=v</code> word gives it under its name or
+  an alias. The free-form pseudo-options of <code>command</code>, <code>raw</code> or <code>meta</code> are not real
+  options. Not reported for templated arguments, for <code>package</code> and <code>service</code> (their backend
+  modules decide), and while any file of the project uses <code>module_defaults</code>, which can supply options.</p>
+<p>The quick fix <b>Add option '&lt;name&gt;'</b> adds the option with an empty value.</p>
+<!-- tooltip end -->
+</body>
+</html>

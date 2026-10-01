@@ -1,0 +1,12 @@
+<html>
+<body>
+<p>Reports a list or dict where the spec documents <code>str</code> or <code>path</code> (or <code>elements: str</code>). ansible-core stringifies it into its Python representation, which is never what the role means.</p><p>When the items are mappings and tasks read attributes of the loop item, the message lists them, and <i>Update spec from usage</i> changes the spec to <code>elements: dict</code> with matching <code>options</code>.</p>
+<p>Example (ANS-T010):</p>
+<pre><code>admin_users:             # documented: list, elements: str
+  - <b>name: alice</b>
+    key_file: files/keys/alice.pub</code></pre>
+<!-- tooltip end -->
+<p>Checked: role <code>defaults/</code> and <code>vars/</code> (against the role's own <code>meta/argument_specs.yml</code>), <code>group_vars</code>/<code>host_vars</code> files, inline inventory vars, play, block and task <code>vars:</code>, <code>include_role</code> vars and role parameters, and molecule inventories (against every spec of the same root that declares the variable). Templated values and vault values are not judged here.</p>
+<p>The message names the role whose spec is violated and says what the root's target ansible-core would do. When no play of the root applies that role, the message says its spec may be stale. The severity follows the root's Ansibility strictness settings (preset, "Require a reachable play for red"). Suppress a finding with <code># noinspection AnsibleSpecShapeContradiction</code> on the line above the key, or with <code>#file: noinspection AnsibleSpecShapeContradiction</code>.</p>
+</body>
+</html>

@@ -1,0 +1,12 @@
+<html>
+<body>
+<p>Reports <code>null</code> for an option that is required or has a spec default. ansible-core type-checks such a <code>None</code> and rejects it; up to 2.19.0 that includes <code>str</code> options (<code>check_type_str(None)</code> raises).</p>
+<p>Example (ANS-T005):</p>
+<pre><code>app_clients:
+  - client_id: demo-app
+    secret: <b>null</b>      # required str</code></pre>
+<!-- tooltip end -->
+<p>Checked: role <code>defaults/</code> and <code>vars/</code> (against the role's own <code>meta/argument_specs.yml</code>), <code>group_vars</code>/<code>host_vars</code> files, inline inventory vars, play, block and task <code>vars:</code>, <code>include_role</code> vars and role parameters, and molecule inventories (against every spec of the same root that declares the variable). Templated values and vault values are not judged here.</p>
+<p>The message names the role whose spec is violated and says what the root's target ansible-core would do. When no play of the root applies that role, the message says its spec may be stale. The severity follows the root's Ansibility strictness settings (preset, "Require a reachable play for red"). Suppress a finding with <code># noinspection AnsibleNullForTypedOption</code> on the line above the key, or with <code>#file: noinspection AnsibleNullForTypedOption</code>.</p>
+</body>
+</html>

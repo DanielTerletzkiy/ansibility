@@ -1,0 +1,6 @@
+<!-- Loaded only when the IDE has VCS support (com.intellij.modules.vcs): the X99 vault commit check (M4.6) and the
+     M10 workflow integrations register here. -->
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+    </extensions>
+</idea-plugin>

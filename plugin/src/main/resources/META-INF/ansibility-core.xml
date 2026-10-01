@@ -1,0 +1,43 @@
+<!-- Area fragment: core (context, dispatch, settings, coexistence). Owned by the core/contracts work unit. -->
+<idea-plugin>
+    <extensionPoints>
+        <extensionPoint qualifiedName="de.terletzkiy.ansibility.siteClassifier"
+                        interface="de.terletzkiy.ansibility.api.SiteClassifier" dynamic="true"/>
+        <extensionPoint qualifiedName="de.terletzkiy.ansibility.siteDocumentation"
+                        interface="de.terletzkiy.ansibility.api.SiteDocumentation" dynamic="true"/>
+        <extensionPoint qualifiedName="de.terletzkiy.ansibility.siteNavigation"
+                        interface="de.terletzkiy.ansibility.api.SiteNavigation" dynamic="true"/>
+        <extensionPoint qualifiedName="de.terletzkiy.ansibility.completionSource"
+                        interface="de.terletzkiy.ansibility.api.CompletionSource" dynamic="true"/>
+        <extensionPoint qualifiedName="de.terletzkiy.ansibility.jinjaLocator"
+                        interface="de.terletzkiy.ansibility.api.JinjaLocator" dynamic="true"/>
+        <!-- CT0 (plan amendment R7/R8): ordered presentation contributions of the vault, host and workspace-scope tracks -->
+        <extensionPoint qualifiedName="de.terletzkiy.ansibility.cardSection"
+                        interface="de.terletzkiy.ansibility.api.CardSection" dynamic="true"/>
+        <extensionPoint qualifiedName="de.terletzkiy.ansibility.contextWidgetSegment"
+                        interface="de.terletzkiy.ansibility.api.ContextWidgetSegment" dynamic="true"/>
+        <extensionPoint qualifiedName="de.terletzkiy.ansibility.toolWindowNodeContributor"
+                        interface="de.terletzkiy.ansibility.api.ToolWindowNodeContributor" dynamic="true"/>
+    </extensionPoints>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- WU0.3 context: roots, file kinds, structure tracker (plan A.5, A.8, A.9) -->
+        <projectService serviceInterface="de.terletzkiy.ansibility.api.AnsibleWorkspace"
+                        serviceImplementation="de.terletzkiy.ansibility.context.AnsibleWorkspaceImpl"/>
+
+        <!-- X02 status-bar context widget -->
+        <statusBarWidgetFactory id="Ansibility.Context"
+                                implementation="de.terletzkiy.ansibility.context.AnsibleContextWidgetFactory"
+                                order="before Position"/>
+
+        <!-- X01 onboarding balloon and X03 plugin-conflict notification -->
+        <notificationGroup id="Ansibility" displayType="BALLOON"
+                           bundle="messages.AnsibilityCoreBundle" key="notification.group.name"/>
+        <postStartupActivity implementation="de.terletzkiy.ansibility.context.AnsibleOnboardingActivity"/>
+        <postStartupActivity implementation="de.terletzkiy.ansibility.coexist.ConflictDetectorActivity"/>
+    </extensions>
+    <!-- CT1: the tool-window toolbar group other areas join with add-to-group (HA3 context button, WS1 scope combo). -->
+    <actions>
+        <group id="Ansibility.ToolWindow.Toolbar.Extra"/>
+    </actions>
+</idea-plugin>

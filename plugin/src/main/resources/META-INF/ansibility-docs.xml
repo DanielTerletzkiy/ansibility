@@ -1,0 +1,79 @@
+<!-- Area fragment: docs. Included from plugin.xml; only the owning work unit edits this file. -->
+<idea-plugin>
+    <!-- Track B (plan R5, F5.1-F5.5, X18, X23): module, option and keyword docs in task-like files, Ctrl+B to the
+         web docs. The vars track's classifier (id ansibilityVars, order="first") runs before ours; the order
+         reference is ignored when that extension is not registered. -->
+    <extensions defaultExtensionNs="de.terletzkiy.ansibility">
+        <siteClassifier id="ansibilityTasks" order="after ansibilityVars"
+                        implementation="de.terletzkiy.ansibility.docs.TaskSiteClassifier"/>
+        <siteDocumentation id="ansibilityTasks"
+                           implementation="de.terletzkiy.ansibility.docs.TaskSiteDocumentation"/>
+        <siteNavigation id="ansibilityTasks"
+                        implementation="de.terletzkiy.ansibility.docs.DocsNavigation"/>
+    </extensions>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- psi_element://ansibility-module/… and psi_element://ansibility-option/… links inside our popups -->
+        <platform.backend.documentation.linkHandler
+                implementation="de.terletzkiy.ansibility.docs.AnsibleDocLinkHandler"/>
+    </extensions>
+
+    <!-- w4-taskcomp -->
+    <!-- M3 B5 (plan F5.7, X19): module, option, keyword and value completion in task-like files. -->
+    <extensions defaultExtensionNs="de.terletzkiy.ansibility">
+        <completionSource id="ansibilityTasks"
+                          implementation="de.terletzkiy.ansibility.completion.tasks.TaskCompletionSource"/>
+    </extensions>
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- Ctrl+Q in the completion popup; the extension point is @ApiStatus.Experimental in 262. -->
+        <platform.backend.documentation.lookupElementTargetProvider
+                implementation="de.terletzkiy.ansibility.completion.tasks.TaskLookupDocumentationProvider"/>
+    </extensions>
+    <!-- /w4-taskcomp -->
+
+    <!-- w5-modules -->
+    <!-- M4 E3 (plan A.6, F3.3, F5.6, F5.10): module option checks (ANS-M001, ANS-M002, option values) and keyword
+         checks (ANS-K001, ANS-K002) in task-like YAML files. One inspection per finding family; every problem's
+         severity comes from SeverityPolicy (the registered level is the Documented-types default). The coercion
+         inspection stays enabled although its scalar findings are silent by default (D5): SeverityPolicy reports
+         them only with the root's "Module-option scalar coercions" toggle or the Strict preset. -->
+    <extensions defaultExtensionNs="com.intellij">
+        <localInspection language="yaml" shortName="AnsibleUnknownModuleOption"
+                         bundle="messages.AnsibilityModuleChecksBundle" key="inspection.m001.display.name"
+                         groupPath="Ansibility" groupBundle="messages.AnsibilityModuleChecksBundle"
+                         groupKey="inspection.group.modules"
+                         enabledByDefault="true" level="ERROR"
+                         implementationClass="de.terletzkiy.ansibility.inspections.modules.AnsibleUnknownModuleOptionInspection"/>
+        <localInspection language="yaml" shortName="AnsibleMissingModuleOption"
+                         bundle="messages.AnsibilityModuleChecksBundle" key="inspection.m002.display.name"
+                         groupPath="Ansibility" groupBundle="messages.AnsibilityModuleChecksBundle"
+                         groupKey="inspection.group.modules"
+                         enabledByDefault="true" level="ERROR"
+                         implementationClass="de.terletzkiy.ansibility.inspections.modules.AnsibleMissingModuleOptionInspection"/>
+        <localInspection language="yaml" shortName="AnsibleModuleOptionValue"
+                         bundle="messages.AnsibilityModuleChecksBundle" key="inspection.value.display.name"
+                         groupPath="Ansibility" groupBundle="messages.AnsibilityModuleChecksBundle"
+                         groupKey="inspection.group.modules"
+                         enabledByDefault="true" level="ERROR"
+                         implementationClass="de.terletzkiy.ansibility.inspections.modules.AnsibleModuleOptionValueInspection"/>
+        <localInspection language="yaml" shortName="AnsibleModuleOptionCoercion"
+                         bundle="messages.AnsibilityModuleChecksBundle" key="inspection.coercion.display.name"
+                         groupPath="Ansibility" groupBundle="messages.AnsibilityModuleChecksBundle"
+                         groupKey="inspection.group.modules"
+                         enabledByDefault="true" level="ERROR"
+                         implementationClass="de.terletzkiy.ansibility.inspections.modules.AnsibleModuleOptionCoercionInspection"/>
+        <localInspection language="yaml" shortName="AnsibleKeywordValue"
+                         bundle="messages.AnsibilityModuleChecksBundle" key="inspection.k001.display.name"
+                         groupPath="Ansibility" groupBundle="messages.AnsibilityModuleChecksBundle"
+                         groupKey="inspection.group.keywords"
+                         enabledByDefault="true" level="ERROR"
+                         implementationClass="de.terletzkiy.ansibility.inspections.keywords.AnsibleKeywordValueInspection"/>
+        <localInspection language="yaml" shortName="AnsibleUnknownKeyword"
+                         bundle="messages.AnsibilityModuleChecksBundle" key="inspection.k002.display.name"
+                         groupPath="Ansibility" groupBundle="messages.AnsibilityModuleChecksBundle"
+                         groupKey="inspection.group.keywords"
+                         enabledByDefault="true" level="ERROR"
+                         implementationClass="de.terletzkiy.ansibility.inspections.keywords.AnsibleUnknownKeywordInspection"/>
+    </extensions>
+    <!-- /w5-modules -->
+</idea-plugin>

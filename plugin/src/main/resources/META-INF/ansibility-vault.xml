@@ -1,0 +1,13 @@
+<!-- Loaded only when the Ansible Vault Editor plugin (ru.sadv1r.ansible-vault-editor-idea-plugin) is installed. -->
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- v4: F7.12 item 3, the one-time suggestion to disable Vault Editor (only while it is loaded). -->
+        <postStartupActivity implementation="de.terletzkiy.ansibility.coexist.vault.VaultEditorSuggestionActivity"/>
+    </extensions>
+    <extensions defaultExtensionNs="de.terletzkiy.ansibility">
+        <!-- v4: spike S-V3, the lookup of Vault Editor's intentions for IntentionManagerSettings.isEnabled. This fragment
+             loads and unloads with Vault Editor, so the extension exists exactly while it is loaded
+             (coexist.vault.VaultEditorCoexistence is the gate other areas call). -->
+        <vaultEditorLookup implementation="de.terletzkiy.ansibility.coexist.vault.IntentionSettingsVaultEditorLookup"/>
+    </extensions>
+</idea-plugin>

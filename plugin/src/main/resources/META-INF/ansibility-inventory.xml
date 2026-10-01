@@ -1,0 +1,15 @@
+<!-- Area fragment: inventory. Included from plugin.xml; only the owning work unit edits this file. -->
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- w4-toolwindow: the "Ansibility" tool window (plan R6 F6.1-F6.4). Shown only when the project has a
+             non-detached Ansible root (AnsibleToolWindowFactory.isApplicableAsync). -->
+        <toolWindow id="Ansibility"
+                    anchor="left"
+                    secondary="false"
+                    canCloseContents="false"
+                    doNotActivateOnStart="true"
+                    icon="/icons/ansibilityToolWindow.svg"
+                    factoryClass="de.terletzkiy.ansibility.toolwindow.AnsibleToolWindowFactory"/>
+        <!-- /w4-toolwindow -->
+    </extensions>
+</idea-plugin>

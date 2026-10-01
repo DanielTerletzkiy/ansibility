@@ -1,0 +1,27 @@
+<!-- Area fragment: workspace scopes (plan amendment R9, A.15: WorkspaceScopeService, scope selector, cross-repo
+     features). Included from plugin.xml; only the workspace-scope work units (WS1-WS9) edit this file. -->
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- ws1 -->
+        <!-- F9.1: the workspace scope (choice, both NamedScopesHolders, coverage); narrows lists, never resolution -->
+        <projectService serviceInterface="de.terletzkiy.ansibility.api.WorkspaceScopeService"
+                        serviceImplementation="de.terletzkiy.ansibility.workspace.WorkspaceScopeServiceImpl"/>
+        <!-- the selector's dialogs and Project view hand-off, replaceable in tests -->
+        <applicationService serviceInterface="de.terletzkiy.ansibility.workspace.ScopeUi"
+                            serviceImplementation="de.terletzkiy.ansibility.workspace.DefaultScopeUi"/>
+        <!-- /ws1 -->
+    </extensions>
+
+    <actions resource-bundle="messages.AnsibilityScopeBundle">
+        <!-- ws1 -->
+        <!-- F9.1 / D45: [Scope ▾] is the first item of the tool-window toolbar's extra group (R8's context button follows) -->
+        <action id="Ansibility.Scope.Combo" class="de.terletzkiy.ansibility.workspace.actions.AnsibleScopeComboAction">
+            <add-to-group group-id="Ansibility.ToolWindow.Toolbar.Extra" anchor="first"/>
+        </action>
+        <action id="Ansibility.Scope.Switch" class="de.terletzkiy.ansibility.workspace.actions.SwitchScopeAction"/>
+        <action id="Ansibility.Scope.EditScopes" class="de.terletzkiy.ansibility.workspace.actions.EditScopesAction"/>
+        <action id="Ansibility.Scope.OpenInProjectView"
+                class="de.terletzkiy.ansibility.workspace.actions.OpenScopeInProjectViewAction"/>
+        <!-- /ws1 -->
+    </actions>
+</idea-plugin>

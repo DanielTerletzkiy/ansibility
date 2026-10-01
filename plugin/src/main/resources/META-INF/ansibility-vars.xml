@@ -1,0 +1,27 @@
+<!-- Area fragment: vars. Included from plugin.xml; only the owning work unit edits this file. -->
+<idea-plugin>
+    <extensions defaultExtensionNs="de.terletzkiy.ansibility">
+        <!-- M2 A1: variable sites. Runs before the docs track's classifier, which handles modules, options, keywords,
+             filters and tests (we return null there). -->
+        <siteClassifier id="ansibilityVars" order="first"
+                        implementation="de.terletzkiy.ansibility.vars.VarsSiteClassifier"/>
+        <!-- Text-level Jinja (M2-M4); the PSI locator of M5 registers order="first" and takes over. -->
+        <jinjaLocator id="ansibilityTextJinja" order="last"
+                      implementation="de.terletzkiy.ansibility.vars.TextJinjaLocator"/>
+        <!-- M2 A2: the variable card (F1.2, F4.3, F4.8; X06, X07, X84). -->
+        <siteDocumentation id="ansibilityVars"
+                           implementation="de.terletzkiy.ansibility.vars.VarSiteDocumentation"/>
+        <!-- M2 A3: Ctrl+B targets and chooser (F1.4, F1.5, F1.6, F4.5, F4.8; X87). -->
+        <siteNavigation id="ansibilityVars"
+                        implementation="de.terletzkiy.ansibility.vars.VarNavigation"/>
+    </extensions>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- M2 A4: Ctrl-hover hint for a single Go to Declaration target (Ctrl-hover asks PSI targets only). -->
+        <platform.backend.documentation.psiTargetProvider
+                implementation="de.terletzkiy.ansibility.vars.VarPsiDocumentationTargetProvider"/>
+        <!-- Links inside variable cards: sub-options, O(name) references, definitions. -->
+        <platform.backend.documentation.linkHandler
+                implementation="de.terletzkiy.ansibility.vars.VarDocumentationLinkHandler"/>
+    </extensions>
+</idea-plugin>

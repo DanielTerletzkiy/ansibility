@@ -1,0 +1,12 @@
+<html>
+<body>
+<p>Reports module option values whose YAML type is not the documented type although ansible-core accepts them by
+  converting them (ANS-T010, T011, T013, T014, T016), or <code>null</code> for an optional option (ANS-T015). For example
+  <code>owner: 1000</code> where the documentation says <code>str</code>: ansible-core passes <code>'1000'</code> to the
+  module.</p>
+<p>Modules receive the converted value by contract, so these findings are not shown by default (decision D5). They
+  appear when the root's Ansibility settings enable <b>Module-option scalar coercions</b>, and as errors under the
+  <b>Strict</b> preset. Every message says what ansible-core does with the value.</p>
+<!-- tooltip end -->
+</body>
+</html>

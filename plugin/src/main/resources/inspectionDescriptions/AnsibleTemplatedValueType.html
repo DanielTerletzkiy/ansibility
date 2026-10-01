@@ -1,0 +1,29 @@
+<html>
+<body>
+<p>Reports templated values of role variables whose type is certainly outside the type the role's
+  <code>meta/argument_specs.yml</code> documents (ANS-T020), for example</p>
+<pre><code>haproxy_settings_maximum_connections: 65535
+haproxy_settings_kernel_somaxconn: '{{ haproxy_settings_maximum_connections }}'   # documented: str</code></pre>
+<p>Two types are compared with the documented one, and a value is reported only when <em>both</em> are outside it:</p>
+<ul>
+  <li>the <b>logical</b> type: what the author means. A bare <code>{{ name }}</code> has the type of every definition of
+    <code>name</code> in the Ansible root (followed through further <code>{{ name }}</code> values, up to the root's
+    type chain depth); a trailing filter gives its type (<code>| int</code>, <code>| bool</code>, <code>| join</code>,
+    <code>| length</code>, <code>| to_json</code> &hellip;; <code>| default(x)</code> joins both); text around an
+    expression always gives a string;</li>
+  <li>the <b>runtime</b> type: what the root's target ansible-core passes to the argument-spec validation. Up to 2.18,
+    only a bare <code>{{ name }}</code> keeps a number or bool; every other template becomes a string unless it looks
+    like a list, dict or bool. From 2.19 on, a single expression keeps its native value.</li>
+</ul>
+<p>So <code>'{{ port | int }}'</code> for a <code>str</code> option is not reported for ansible-core 2.18 (it arrives as
+  the string <code>'8080'</code>), while <code>'{{ items | join(",") }}'</code> for an <code>int</code> option is. A value
+  is never reported when any definition on its chain is unknown (registered results, facts, loop variables,
+  <code>set_fact</code> in free form), a vault secret, or <code>null</code>.</p>
+<p>Values in role defaults and vars, <code>group_vars</code>/<code>host_vars</code>, <code>hosts.yml</code>, molecule
+  inventories, play, block and task <code>vars:</code> and role parameters are checked against every role spec of the root
+  that declares the variable, nested values included. The message names the definitions and says what ansible-core
+  would do with the value. The quick fix appends <code>| string</code> (or <code>| int</code>, <code>| float</code>,
+  <code>| bool</code>). The severity follows the root's Ansibility settings.</p>
+<!-- tooltip end -->
+</body>
+</html>

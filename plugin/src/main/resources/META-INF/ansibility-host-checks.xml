@@ -1,0 +1,22 @@
+<!-- Area fragment: host-aware checks (M4.8: HA8a..HA8d, ANS-P001..P003 and ANS-V003). Included from plugin.xml; only the owning work units edit this file, each in its own block. -->
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij"/>
+
+    <!-- ha8d -->
+    <!-- HA8d (plan amendment R7/R8, addendum F8.12): ANS-V003 possibly undefined variable. No language: role templates
+         have any file type, task and vars files are YAML (the inspection returns at once outside Ansible roots and for
+         other file kinds). The severity of each finding comes from SeverityPolicy (ERROR with a witness host). -->
+    <extensions defaultExtensionNs="com.intellij">
+        <localInspection shortName="AnsiblePossiblyUndefined"
+                         bundle="messages.AnsibilityUndefinedBundle" key="inspection.v003.display.name"
+                         groupPath="Ansibility" groupBundle="messages.AnsibilityUndefinedBundle" groupKey="inspection.group.variables"
+                         enabledByDefault="true" level="WARNING"
+                         implementationClass="de.terletzkiy.ansibility.inspections.undefined.AnsiblePossiblyUndefinedInspection"/>
+    </extensions>
+    <!-- The card rows "Not set for" and "No runtime default" (F8.2), after the vault line. -->
+    <extensions defaultExtensionNs="de.terletzkiy.ansibility">
+        <cardSection id="ansibilityUndefined" order="after ansibilityVault"
+                     implementation="de.terletzkiy.ansibility.inspections.undefined.UndefinedCardSection"/>
+    </extensions>
+    <!-- /ha8d -->
+</idea-plugin>

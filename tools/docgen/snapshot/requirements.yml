@@ -1,0 +1,18 @@
+---
+# Collections pinned for the ansible-core 2.18.8 doc snapshot.
+# Source of truth (identical in both files, checked by build.sh):
+#   ansible-infrastructure/golden/docker/ansible-molecule/requirements.yml
+#   ansible-infrastructure/golden/docker/ansible-lint/requirements.yml
+collections:
+  - name: ansible.mysql
+    version: "5.2.0"
+  - name: ansible.posix
+    version: "2.2.2"
+  - name: community.crypto
+    version: "3.3.0"
+  - name: community.docker
+    version: "5.2.1"
+  - name: community.general
+    version: "13.2.0"
+  - name: community.mysql
+    version: "5.0.2"

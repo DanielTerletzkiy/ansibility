@@ -1,0 +1,19 @@
+<html>
+<body>
+<p>Reports play, block, role entry, task, handler, <code>import_playbook</code> and <code>loop_control</code> keyword values
+  that ansible-core rejects when it loads or runs them (ANS-K001), using a port of its keyword validation
+  (<code>FieldAttributeBase</code> and the keyword loaders) for the root's target version:</p>
+<ul>
+  <li><code>retries: abc</code>, <code>delay: x</code>, <code>become: maybe</code>, <code>loop_control: {pause: x}</code>;</li>
+  <li>a list or mapping for a string keyword (<code>become_user: [root]</code>), <code>tags: 5</code>, list items of the wrong
+    type (<code>tags: [1.5]</code>, <code>gather_subset: [1]</code>);</li>
+  <li>loader errors: <code>vars</code> that is not a mapping or has invalid names, an invalid <code>register</code> name, a
+    <code>loop_control</code> that is not a literal mapping, task lists that are not lists, empty <code>hosts</code>;</li>
+  <li>play values that fail at run time: <code>serial: [a]</code>, an unknown <code>order</code>, an unknown
+    <code>debugger</code> mode.</li>
+</ul>
+<p>ansible-core wraps a scalar for a list keyword, so <code>tags: haproxy</code>, <code>notify: Reload haproxy</code>,
+  <code>when: x</code> and <code>serial: 1</code> are fine. Templated values are not judged.</p>
+<!-- tooltip end -->
+</body>
+</html>

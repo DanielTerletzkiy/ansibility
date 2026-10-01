@@ -1,0 +1,818 @@
+{
+  "version": 1,
+  "about": "Common Linux facts of the ansible.builtin.setup module (ansible-core 2.18) and facts other builtin modules set under ansible_facts. Curated by hand for completion; types follow the setup module output.",
+  "facts": {
+    "all_ipv4_addresses": {
+      "type": "list",
+      "description": "Every IPv4 address of the host except loopback.",
+      "elements": "str"
+    },
+    "all_ipv6_addresses": {
+      "type": "list",
+      "description": "Every IPv6 address of the host except loopback.",
+      "elements": "str"
+    },
+    "apparmor": {
+      "type": "dict",
+      "description": "AppArmor state.",
+      "keys": {
+        "status": {
+          "type": "str",
+          "description": "enabled or disabled."
+        }
+      }
+    },
+    "architecture": {
+      "type": "str",
+      "description": "Machine architecture, e.g. x86_64 or aarch64."
+    },
+    "bios_date": {
+      "type": "str",
+      "description": "BIOS release date."
+    },
+    "bios_vendor": {
+      "type": "str",
+      "description": "BIOS vendor."
+    },
+    "bios_version": {
+      "type": "str",
+      "description": "BIOS version."
+    },
+    "board_name": {
+      "type": "str",
+      "description": "Mainboard product name."
+    },
+    "board_vendor": {
+      "type": "str",
+      "description": "Mainboard vendor."
+    },
+    "chassis_vendor": {
+      "type": "str",
+      "description": "Chassis vendor."
+    },
+    "cmdline": {
+      "type": "dict",
+      "description": "Kernel command line parameters, name to value."
+    },
+    "date_time": {
+      "type": "dict",
+      "description": "Date and time on the host when facts were gathered.",
+      "keys": {
+        "date": {
+          "type": "str",
+          "description": "YYYY-MM-DD."
+        },
+        "day": {
+          "type": "str",
+          "description": "Day of month."
+        },
+        "epoch": {
+          "type": "str",
+          "description": "Seconds since the epoch."
+        },
+        "epoch_int": {
+          "type": "str",
+          "description": "Seconds since the epoch, integer text."
+        },
+        "hour": {
+          "type": "str",
+          "description": "Hour (24h)."
+        },
+        "iso8601": {
+          "type": "str",
+          "description": "ISO 8601 timestamp in UTC."
+        },
+        "iso8601_basic": {
+          "type": "str",
+          "description": "Basic ISO 8601 timestamp."
+        },
+        "iso8601_basic_short": {
+          "type": "str",
+          "description": "Short basic ISO 8601 timestamp."
+        },
+        "iso8601_micro": {
+          "type": "str",
+          "description": "ISO 8601 timestamp with microseconds."
+        },
+        "minute": {
+          "type": "str",
+          "description": "Minute."
+        },
+        "month": {
+          "type": "str",
+          "description": "Month number."
+        },
+        "second": {
+          "type": "str",
+          "description": "Second."
+        },
+        "time": {
+          "type": "str",
+          "description": "HH:MM:SS."
+        },
+        "tz": {
+          "type": "str",
+          "description": "Time zone abbreviation."
+        },
+        "tz_dst": {
+          "type": "str",
+          "description": "Daylight saving time zone abbreviation."
+        },
+        "tz_offset": {
+          "type": "str",
+          "description": "UTC offset, e.g. +0200."
+        },
+        "weekday": {
+          "type": "str",
+          "description": "Weekday name."
+        },
+        "weekday_number": {
+          "type": "str",
+          "description": "Weekday number (0 is Sunday)."
+        },
+        "weeknumber": {
+          "type": "str",
+          "description": "Week of the year."
+        },
+        "year": {
+          "type": "str",
+          "description": "Year."
+        }
+      }
+    },
+    "default_ipv4": {
+      "type": "dict",
+      "description": "The interface and address of the default IPv4 route.",
+      "keys": {
+        "address": {
+          "type": "str",
+          "description": "IPv4 address of the default interface."
+        },
+        "alias": {
+          "type": "str",
+          "description": "Interface alias of the default route."
+        },
+        "broadcast": {
+          "type": "str",
+          "description": "Broadcast address of the default interface's network."
+        },
+        "gateway": {
+          "type": "str",
+          "description": "Default gateway."
+        },
+        "interface": {
+          "type": "str",
+          "description": "Name of the interface that holds the default route."
+        },
+        "macaddress": {
+          "type": "str",
+          "description": "MAC address of the default interface."
+        },
+        "mtu": {
+          "type": "int",
+          "description": "MTU of the default interface."
+        },
+        "netmask": {
+          "type": "str",
+          "description": "Netmask of the default interface's network."
+        },
+        "network": {
+          "type": "str",
+          "description": "Network address of the default interface."
+        },
+        "prefix": {
+          "type": "str",
+          "description": "Prefix length of the default interface's network."
+        },
+        "type": {
+          "type": "str",
+          "description": "Interface type, e.g. ether."
+        }
+      }
+    },
+    "default_ipv6": {
+      "type": "dict",
+      "description": "The interface and address of the default IPv6 route.",
+      "keys": {
+        "address": {
+          "type": "str",
+          "description": "IPv6 address of the default interface."
+        },
+        "gateway": {
+          "type": "str",
+          "description": "Default IPv6 gateway."
+        },
+        "interface": {
+          "type": "str",
+          "description": "Name of the interface that holds the default IPv6 route."
+        },
+        "macaddress": {
+          "type": "str",
+          "description": "MAC address of the default IPv6 interface."
+        },
+        "mtu": {
+          "type": "int",
+          "description": "MTU of the default IPv6 interface."
+        },
+        "prefix": {
+          "type": "str",
+          "description": "Prefix length of the IPv6 network."
+        },
+        "scope": {
+          "type": "str",
+          "description": "Address scope, e.g. global."
+        },
+        "type": {
+          "type": "str",
+          "description": "Interface type, e.g. ether."
+        }
+      }
+    },
+    "discovered_interpreter_python": {
+      "type": "str",
+      "description": "The Python interpreter Ansible discovered on the host."
+    },
+    "distribution": {
+      "type": "str",
+      "description": "OS distribution name, e.g. Debian or Ubuntu."
+    },
+    "distribution_file_parsed": {
+      "type": "bool",
+      "description": "Whether a distribution file was parsed."
+    },
+    "distribution_file_path": {
+      "type": "str",
+      "description": "The distribution file that was read, e.g. /etc/os-release."
+    },
+    "distribution_file_variety": {
+      "type": "str",
+      "description": "The kind of distribution file that was read."
+    },
+    "distribution_major_version": {
+      "type": "str",
+      "description": "Major version of the distribution, e.g. 12."
+    },
+    "distribution_release": {
+      "type": "str",
+      "description": "Release code name, e.g. bookworm or noble."
+    },
+    "distribution_version": {
+      "type": "str",
+      "description": "Full distribution version, e.g. 12.7."
+    },
+    "dns": {
+      "type": "dict",
+      "description": "Resolver configuration from /etc/resolv.conf.",
+      "keys": {
+        "nameservers": {
+          "type": "list",
+          "description": "Name servers.",
+          "elements": "str"
+        },
+        "search": {
+          "type": "list",
+          "description": "Search domains.",
+          "elements": "str"
+        },
+        "domain": {
+          "type": "str",
+          "description": "Local domain."
+        },
+        "options": {
+          "type": "dict",
+          "description": "Resolver options."
+        }
+      }
+    },
+    "domain": {
+      "type": "str",
+      "description": "DNS domain of the host."
+    },
+    "effective_group_id": {
+      "type": "int",
+      "description": "Effective group id of the connection user."
+    },
+    "effective_user_id": {
+      "type": "int",
+      "description": "Effective user id of the connection user."
+    },
+    "env": {
+      "type": "dict",
+      "description": "Environment variables of the connection user's session."
+    },
+    "fips": {
+      "type": "bool",
+      "description": "Whether the kernel runs in FIPS mode."
+    },
+    "form_factor": {
+      "type": "str",
+      "description": "Chassis form factor, e.g. Rack Mount Chassis or Other."
+    },
+    "fqdn": {
+      "type": "str",
+      "description": "Fully qualified domain name of the host."
+    },
+    "gather_subset": {
+      "type": "list",
+      "description": "The fact subsets that were gathered.",
+      "elements": "str"
+    },
+    "getent_group": {
+      "type": "dict",
+      "description": "group entries by group name, as a list of the remaining fields.",
+      "setBy": "ansible.builtin.getent"
+    },
+    "getent_hosts": {
+      "type": "dict",
+      "description": "hosts database entries by address.",
+      "setBy": "ansible.builtin.getent"
+    },
+    "getent_passwd": {
+      "type": "dict",
+      "description": "passwd entries by user name, as a list of the remaining fields.",
+      "setBy": "ansible.builtin.getent"
+    },
+    "getent_shadow": {
+      "type": "dict",
+      "description": "shadow entries by user name (gathered as root).",
+      "setBy": "ansible.builtin.getent"
+    },
+    "hostname": {
+      "type": "str",
+      "description": "Short host name as reported by the host."
+    },
+    "hostnqn": {
+      "type": "str",
+      "description": "NVMe host NQN."
+    },
+    "interfaces": {
+      "type": "list",
+      "description": "Names of the network interfaces.",
+      "elements": "str"
+    },
+    "is_chroot": {
+      "type": "bool",
+      "description": "Whether the connection runs inside a chroot."
+    },
+    "iscsi_iqn": {
+      "type": "str",
+      "description": "iSCSI initiator name."
+    },
+    "kernel": {
+      "type": "str",
+      "description": "Kernel release, e.g. 6.1.0-18-amd64."
+    },
+    "kernel_version": {
+      "type": "str",
+      "description": "Kernel build version string."
+    },
+    "loadavg": {
+      "type": "dict",
+      "description": "Load averages.",
+      "keys": {
+        "1m": {
+          "type": "float",
+          "description": "Load average over 1 minute."
+        },
+        "5m": {
+          "type": "float",
+          "description": "Load average over 5 minutes."
+        },
+        "15m": {
+          "type": "float",
+          "description": "Load average over 15 minutes."
+        }
+      }
+    },
+    "local": {
+      "type": "dict",
+      "description": "Custom facts from /etc/ansible/facts.d."
+    },
+    "lsb": {
+      "type": "dict",
+      "description": "LSB release information.",
+      "keys": {
+        "codename": {
+          "type": "str",
+          "description": "Release code name."
+        },
+        "description": {
+          "type": "str",
+          "description": "Distribution description."
+        },
+        "id": {
+          "type": "str",
+          "description": "Distributor id."
+        },
+        "major_release": {
+          "type": "str",
+          "description": "Major release."
+        },
+        "release": {
+          "type": "str",
+          "description": "Release."
+        }
+      }
+    },
+    "lvm": {
+      "type": "dict",
+      "description": "LVM volume groups and logical volumes (gathered as root)."
+    },
+    "machine": {
+      "type": "str",
+      "description": "Machine hardware name, e.g. x86_64."
+    },
+    "machine_id": {
+      "type": "str",
+      "description": "Contents of /etc/machine-id."
+    },
+    "memfree_mb": {
+      "type": "int",
+      "description": "Free memory in MB."
+    },
+    "memory_mb": {
+      "type": "dict",
+      "description": "Memory figures in MB.",
+      "keys": {
+        "real": {
+          "type": "dict",
+          "description": "Memory figures for physical memory in MB.",
+          "keys": {
+            "free": {
+              "type": "int",
+              "description": "Free MB."
+            },
+            "total": {
+              "type": "int",
+              "description": "Total MB."
+            },
+            "used": {
+              "type": "int",
+              "description": "Used MB."
+            }
+          }
+        },
+        "swap": {
+          "type": "dict",
+          "description": "Memory figures for swap in MB.",
+          "keys": {
+            "free": {
+              "type": "int",
+              "description": "Free MB."
+            },
+            "total": {
+              "type": "int",
+              "description": "Total MB."
+            },
+            "used": {
+              "type": "int",
+              "description": "Used MB."
+            }
+          }
+        },
+        "nocache": {
+          "type": "dict",
+          "description": "Memory without buffers and caches in MB.",
+          "keys": {
+            "free": {
+              "type": "int",
+              "description": "Free MB."
+            },
+            "used": {
+              "type": "int",
+              "description": "Used MB."
+            }
+          }
+        }
+      }
+    },
+    "memtotal_mb": {
+      "type": "int",
+      "description": "Total memory in MB."
+    },
+    "mounts": {
+      "type": "list",
+      "description": "Mounted file systems.",
+      "elements": "dict",
+      "keys": {
+        "mount": {
+          "type": "str",
+          "description": "Mount point."
+        },
+        "device": {
+          "type": "str",
+          "description": "Mounted device."
+        },
+        "fstype": {
+          "type": "str",
+          "description": "File system type."
+        },
+        "options": {
+          "type": "str",
+          "description": "Mount options."
+        },
+        "uuid": {
+          "type": "str",
+          "description": "File system UUID."
+        },
+        "size_total": {
+          "type": "int",
+          "description": "Size in bytes."
+        },
+        "size_available": {
+          "type": "int",
+          "description": "Free bytes."
+        },
+        "block_size": {
+          "type": "int",
+          "description": "Block size in bytes."
+        },
+        "block_total": {
+          "type": "int",
+          "description": "Number of blocks."
+        },
+        "block_available": {
+          "type": "int",
+          "description": "Free blocks."
+        },
+        "block_used": {
+          "type": "int",
+          "description": "Used blocks."
+        },
+        "inode_total": {
+          "type": "int",
+          "description": "Number of inodes."
+        },
+        "inode_available": {
+          "type": "int",
+          "description": "Free inodes."
+        },
+        "inode_used": {
+          "type": "int",
+          "description": "Used inodes."
+        },
+        "dump": {
+          "type": "int",
+          "description": "fstab dump field."
+        },
+        "passno": {
+          "type": "int",
+          "description": "fstab pass number."
+        }
+      }
+    },
+    "nodename": {
+      "type": "str",
+      "description": "Node name reported by uname."
+    },
+    "os_family": {
+      "type": "str",
+      "description": "OS family, e.g. Debian or RedHat."
+    },
+    "packages": {
+      "type": "dict",
+      "description": "Installed packages by name; each value lists the installed versions (name, version, release, epoch, arch, source).",
+      "setBy": "ansible.builtin.package_facts"
+    },
+    "pkg_mgr": {
+      "type": "str",
+      "description": "Detected package manager, e.g. apt."
+    },
+    "proc_cmdline": {
+      "type": "dict",
+      "description": "Kernel command line parameters (repeated names become lists)."
+    },
+    "processor": {
+      "type": "list",
+      "description": "Processor descriptions.",
+      "elements": "str"
+    },
+    "processor_cores": {
+      "type": "int",
+      "description": "Cores per processor."
+    },
+    "processor_count": {
+      "type": "int",
+      "description": "Number of physical processors."
+    },
+    "processor_nproc": {
+      "type": "int",
+      "description": "Processors available to the connection user (nproc)."
+    },
+    "processor_threads_per_core": {
+      "type": "int",
+      "description": "Threads per core."
+    },
+    "processor_vcpus": {
+      "type": "int",
+      "description": "Number of virtual CPUs."
+    },
+    "product_name": {
+      "type": "str",
+      "description": "Product name from DMI."
+    },
+    "product_serial": {
+      "type": "str",
+      "description": "Product serial number from DMI."
+    },
+    "product_uuid": {
+      "type": "str",
+      "description": "Product UUID from DMI."
+    },
+    "product_version": {
+      "type": "str",
+      "description": "Product version from DMI."
+    },
+    "python": {
+      "type": "dict",
+      "description": "The Python interpreter that ran the setup module.",
+      "keys": {
+        "executable": {
+          "type": "str",
+          "description": "Path of the interpreter."
+        },
+        "has_sslcontext": {
+          "type": "bool",
+          "description": "Whether ssl.SSLContext is available."
+        },
+        "type": {
+          "type": "str",
+          "description": "Implementation, e.g. cpython."
+        },
+        "version": {
+          "type": "dict",
+          "description": "Interpreter version.",
+          "keys": {
+            "major": {
+              "type": "int",
+              "description": "Major version."
+            },
+            "minor": {
+              "type": "int",
+              "description": "Minor version."
+            },
+            "micro": {
+              "type": "int",
+              "description": "Micro version."
+            },
+            "releaselevel": {
+              "type": "str",
+              "description": "Release level, e.g. final."
+            },
+            "serial": {
+              "type": "int",
+              "description": "Serial number."
+            }
+          }
+        },
+        "version_info": {
+          "type": "list",
+          "description": "sys.version_info as a list.",
+          "elements": "raw"
+        }
+      }
+    },
+    "python_version": {
+      "type": "str",
+      "description": "Version of the Python interpreter, e.g. 3.11.2."
+    },
+    "real_group_id": {
+      "type": "int",
+      "description": "Real group id of the connection user."
+    },
+    "real_user_id": {
+      "type": "int",
+      "description": "Real user id of the connection user."
+    },
+    "selinux": {
+      "type": "dict",
+      "description": "SELinux state.",
+      "keys": {
+        "status": {
+          "type": "str",
+          "description": "enabled, disabled or missing Python bindings."
+        },
+        "mode": {
+          "type": "str",
+          "description": "Current mode."
+        },
+        "config_mode": {
+          "type": "str",
+          "description": "Configured mode."
+        },
+        "policyvers": {
+          "type": "int",
+          "description": "Policy version."
+        },
+        "type": {
+          "type": "str",
+          "description": "Policy type."
+        }
+      }
+    },
+    "selinux_python_present": {
+      "type": "bool",
+      "description": "Whether the SELinux Python bindings are installed."
+    },
+    "service_mgr": {
+      "type": "str",
+      "description": "Init system, e.g. systemd."
+    },
+    "services": {
+      "type": "dict",
+      "description": "Services by unit name; each value has name, state, status and source.",
+      "setBy": "ansible.builtin.service_facts"
+    },
+    "ssh_host_key_ecdsa_public": {
+      "type": "str",
+      "description": "Public ECDSA host key."
+    },
+    "ssh_host_key_ed25519_public": {
+      "type": "str",
+      "description": "Public Ed25519 host key."
+    },
+    "ssh_host_key_rsa_public": {
+      "type": "str",
+      "description": "Public RSA host key."
+    },
+    "swapfree_mb": {
+      "type": "int",
+      "description": "Free swap in MB."
+    },
+    "swaptotal_mb": {
+      "type": "int",
+      "description": "Total swap in MB."
+    },
+    "system": {
+      "type": "str",
+      "description": "Operating system kernel name, e.g. Linux."
+    },
+    "system_capabilities": {
+      "type": "list",
+      "description": "Capabilities of the connection user.",
+      "elements": "str"
+    },
+    "system_capabilities_enforced": {
+      "type": "str",
+      "description": "Whether capabilities are enforced."
+    },
+    "system_vendor": {
+      "type": "str",
+      "description": "System vendor from DMI."
+    },
+    "uptime_seconds": {
+      "type": "int",
+      "description": "Seconds since boot."
+    },
+    "user_dir": {
+      "type": "str",
+      "description": "Home directory of the connection user."
+    },
+    "user_gecos": {
+      "type": "str",
+      "description": "GECOS field of the connection user."
+    },
+    "user_gid": {
+      "type": "int",
+      "description": "Primary group id of the connection user."
+    },
+    "user_id": {
+      "type": "str",
+      "description": "Name of the connection user."
+    },
+    "user_shell": {
+      "type": "str",
+      "description": "Login shell of the connection user."
+    },
+    "user_uid": {
+      "type": "int",
+      "description": "User id of the connection user."
+    },
+    "userspace_architecture": {
+      "type": "str",
+      "description": "Userspace architecture."
+    },
+    "userspace_bits": {
+      "type": "str",
+      "description": "Userspace word size, 32 or 64."
+    },
+    "virtualization_role": {
+      "type": "str",
+      "description": "guest or host."
+    },
+    "virtualization_tech_guest": {
+      "type": "list",
+      "description": "Virtualization technologies the host runs under.",
+      "elements": "str"
+    },
+    "virtualization_tech_host": {
+      "type": "list",
+      "description": "Virtualization technologies the host provides.",
+      "elements": "str"
+    },
+    "virtualization_type": {
+      "type": "str",
+      "description": "Virtualization type, e.g. kvm, docker or VMware."
+    }
+  }
+}

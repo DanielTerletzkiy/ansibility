@@ -1,0 +1,5 @@
+<html>
+<body>
+Replaces a plain YAML value with an inline Ansible Vault value (<code>key: !vault |</code>, indented like the other vault values of the file, 80 columns). The vault id follows Ansible's rules (<code>vault_encrypt_identity</code>, the environment mapping, the only id), or you choose one. Warns when YAML would have typed the value differently and when it contains Jinja syntax. Encrypting does not remove the old plaintext from git history or Local History.
+</body>
+</html>

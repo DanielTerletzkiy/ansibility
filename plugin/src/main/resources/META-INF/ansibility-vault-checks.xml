@@ -1,0 +1,32 @@
+<!-- Area fragment: vault checks (V4: coexistence and ANS-V101..V103; V9: V104..V106). Included from plugin.xml; only the owning work units edit this file, each in its own block. -->
+<idea-plugin>
+    <!-- v4: Ansible Vault Editor coexistence (F7.12). The lookup of its intentions is registered by the optional
+         ansibility-vault.xml, which loads only with that plugin; coexist.vault.VaultEditorCoexistence is the gate. -->
+    <extensionPoints>
+        <extensionPoint qualifiedName="de.terletzkiy.ansibility.vaultEditorLookup"
+                        interface="de.terletzkiy.ansibility.coexist.vault.VaultEditorLookup" dynamic="true"/>
+    </extensionPoints>
+    <!-- /v4 -->
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- v4: the password-free structural vault checks ANS-V101..V103 (plan amendment R7/R8, "R7 diagnostics"). No
+             language: inline values live in YAML, whole-file vaults in files of any type. The severity of every problem
+             comes from SeverityPolicy; the registered level is the default. Nothing here decrypts. -->
+        <localInspection shortName="AnsibleVaultMalformedEnvelope"
+                         bundle="messages.AnsibilityVaultChecksBundle" key="inspection.v101.display.name"
+                         groupPath="Ansibility" groupBundle="messages.AnsibilityVaultChecksBundle" groupKey="inspection.group.vault"
+                         enabledByDefault="true" level="ERROR"
+                         implementationClass="de.terletzkiy.ansibility.inspections.vault.AnsibleVaultMalformedEnvelopeInspection"/>
+        <localInspection shortName="AnsibleVaultFoldedValue"
+                         bundle="messages.AnsibilityVaultChecksBundle" key="inspection.v102.display.name"
+                         groupPath="Ansibility" groupBundle="messages.AnsibilityVaultChecksBundle" groupKey="inspection.group.vault"
+                         enabledByDefault="true" level="ERROR"
+                         implementationClass="de.terletzkiy.ansibility.inspections.vault.AnsibleVaultFoldedValueInspection"/>
+        <localInspection shortName="AnsibleVaultTrailingWhitespace"
+                         bundle="messages.AnsibilityVaultChecksBundle" key="inspection.v103.display.name"
+                         groupPath="Ansibility" groupBundle="messages.AnsibilityVaultChecksBundle" groupKey="inspection.group.vault"
+                         enabledByDefault="true" level="ERROR"
+                         implementationClass="de.terletzkiy.ansibility.inspections.vault.AnsibleVaultTrailingWhitespaceInspection"/>
+        <!-- /v4 -->
+    </extensions>
+</idea-plugin>

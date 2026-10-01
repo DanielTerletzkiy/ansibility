@@ -1,0 +1,13 @@
+<html>
+<body>
+<p>Reports keys inside a dict, or inside the items of a list of dicts, whose spec documents <code>options</code> but not this key. ansible-core rejects unknown keys at nested levels (unknown top-level variables are never checked).</p><p>Quick fixes: remove the key, or add it as a sub-option to the role's <code>meta/argument_specs.yml</code> (same root only; the type is inferred from the value; the preview shows the spec change).</p>
+<p>Example (ANS-T002):</p>
+<pre><code>app_clients:
+  - client_id: demo-app
+    <b>extra_scopes</b>:
+      - offline_access</code></pre>
+<!-- tooltip end -->
+<p>Checked: role <code>defaults/</code> and <code>vars/</code> (against the role's own <code>meta/argument_specs.yml</code>), <code>group_vars</code>/<code>host_vars</code> files, inline inventory vars, play, block and task <code>vars:</code>, <code>include_role</code> vars and role parameters, and molecule inventories (against every spec of the same root that declares the variable). Templated values and vault values are not judged here.</p>
+<p>The message names the role whose spec is violated and says what the root's target ansible-core would do. When no play of the root applies that role, the message says its spec may be stale. The severity follows the root's Ansibility strictness settings (preset, "Require a reachable play for red"). Suppress a finding with <code># noinspection AnsibleUnsupportedSubOption</code> on the line above the key, or with <code>#file: noinspection AnsibleUnsupportedSubOption</code>.</p>
+</body>
+</html>

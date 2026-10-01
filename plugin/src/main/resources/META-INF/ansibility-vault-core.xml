@@ -1,0 +1,24 @@
+<!-- Area fragment: vault (plan amendment R7/R8, A.13: codec services, identities, intentions, banner, index).
+     Included from plugin.xml; only the vault work units (V1-V9) edit this file. The optional Vault Editor
+     coexistence lookup lives in ansibility-vault.xml. -->
+<idea-plugin>
+    <extensionPoints>
+        <!-- V2a: the surface that shows a revealed inline value (F7.1, registered by V3) -->
+        <extensionPoint qualifiedName="de.terletzkiy.ansibility.vaultRevealPresenter"
+                        interface="de.terletzkiy.ansibility.vault.VaultRevealPresenter" dynamic="true"/>
+    </extensionPoints>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- V2a: non-secret vault status for the card, the banner, the widget and the tool window (never decrypts) -->
+        <projectService serviceInterface="de.terletzkiy.ansibility.api.VaultStatusService"
+                        serviceImplementation="de.terletzkiy.ansibility.vault.VaultStatusServiceImpl"/>
+        <!-- V2a: the explicit vault operations (unlock, lock, decrypt, encrypt, reveal) -->
+        <projectService serviceInterface="de.terletzkiy.ansibility.api.VaultOperations"
+                        serviceImplementation="de.terletzkiy.ansibility.vault.VaultOperationsImpl"/>
+        <!-- V2a: the D25 consent dialog and the D26 password prompt (tests replace it) -->
+        <applicationService serviceInterface="de.terletzkiy.ansibility.vault.secrets.VaultPrompter"
+                            serviceImplementation="de.terletzkiy.ansibility.vault.secrets.VaultDialogPrompter"/>
+        <!-- /V2a; VaultIdentityRegistry, VaultSecretsService, VaultCrypto, VaultProjectSettings and VaultUserState are
+             light services (@Service) -->
+    </extensions>
+</idea-plugin>

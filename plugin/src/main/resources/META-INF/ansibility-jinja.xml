@@ -1,0 +1,112 @@
+<!-- Area fragment: jinja. Included from plugin.xml; only the owning work unit edits this file. -->
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- No extensions or patterns: files become AnsibleJinja per Ansible root, never globally (plan F2.1). -->
+        <fileType name="AnsibleJinja"
+                  language="AnsibleJinja"
+                  implementationClass="de.terletzkiy.ansibility.lang.jinja.AnsibleJinjaFileType"
+                  fieldName="INSTANCE"/>
+        <lang.syntaxHighlighterFactory
+                language="AnsibleJinja"
+                implementationClass="de.terletzkiy.ansibility.lang.jinja.highlighting.AnsibleJinjaSyntaxHighlighterFactory"/>
+        <colorSettingsPage
+                implementation="de.terletzkiy.ansibility.lang.jinja.highlighting.AnsibleJinjaColorSettingsPage"/>
+    </extensions>
+    <!-- w4-jinjacomp -->
+    <!-- M3 A5/A7/A8: Jinja variable completion, loop and template typing (F1.3, F1.6, F1.7, F2.3 text level, X10). -->
+    <extensions defaultExtensionNs="de.terletzkiy.ansibility">
+        <completionSource id="ansibilityJinjaVars"
+                          implementation="de.terletzkiy.ansibility.completion.jinja.JinjaVarCompletionSource"/>
+    </extensions>
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- A.8 renderContexts(template): the tasks that render a template (plan A.7 query-time rules). -->
+        <projectService serviceInterface="de.terletzkiy.ansibility.api.TemplateContextService"
+                        serviceImplementation="de.terletzkiy.ansibility.resolve.template.TemplateContextResolver"/>
+        <!-- Ctrl+Q in the completion popup shows the variable card (the EP interface is @ApiStatus.Experimental). -->
+        <platform.backend.documentation.lookupElementTargetProvider
+                implementation="de.terletzkiy.ansibility.completion.jinja.JinjaLookupDocumentationProvider"/>
+        <!-- The auto-popup is skipped inside string literals (every quoted YAML scalar); not at Jinja variable sites. -->
+        <completion.confidence language="any" order="first" id="ansibilityJinjaVars"
+                               implementationClass="de.terletzkiy.ansibility.completion.jinja.JinjaCompletionConfidence"/>
+        <!-- `item.`, `ansible_facts['`, `hostvars[` open the popup for members and keys. -->
+        <typedHandler id="ansibilityJinjaAutoPopup"
+                      implementation="de.terletzkiy.ansibility.completion.jinja.JinjaAutoPopupTypedHandler"/>
+    </extensions>
+    <!-- /w4-jinjacomp -->
+    <!-- w6-parser -->
+    <!-- M5 C2+C3 (plan A.5, A.9, F2.1, D8): parser and PSI, the template view provider with its outer language, the
+         layered editor highlighter, and the file type claims (no extensions: the overrider decides per Ansible root). -->
+    <extensions defaultExtensionNs="com.intellij">
+        <lang.parserDefinition language="AnsibleJinja"
+                               implementationClass="de.terletzkiy.ansibility.lang.jinja.parser.AnsibleJinjaParserDefinition"/>
+        <lang.fileViewProviderFactory language="AnsibleJinja"
+                                      implementationClass="de.terletzkiy.ansibility.lang.jinja.template.AnsibleJinjaFileViewProviderFactory"/>
+        <editorHighlighterProvider filetype="AnsibleJinja"
+                                   implementationClass="de.terletzkiy.ansibility.lang.jinja.template.AnsibleJinjaEditorHighlighterProvider"/>
+        <!-- Reformat Code never changes template text. -->
+        <lang.formatter language="AnsibleJinja"
+                        implementationClass="de.terletzkiy.ansibility.lang.jinja.template.AnsibleJinjaFormattingModelBuilder"/>
+        <!-- *.j2 inside Ansible roots, Jinja-bearing files under roles/<role>/templates; the platform's per-file override runs first. -->
+        <fileTypeOverrider implementation="de.terletzkiy.ansibility.lang.jinja.filetype.AnsibleJinjaFileTypeOverrider"/>
+        <!-- The outer tree of a template is parsed with the Jinja cut out: its syntax errors and YAML inspections are noise. -->
+        <highlightErrorFilter implementation="de.terletzkiy.ansibility.lang.jinja.template.AnsibleJinjaOuterErrorFilter"/>
+        <daemon.highlightInfoFilter implementation="de.terletzkiy.ansibility.lang.jinja.template.AnsibleJinjaOuterHighlightFilter"/>
+        <lang.inspectionSuppressor language="yaml"
+                                   implementationClass="de.terletzkiy.ansibility.lang.jinja.template.AnsibleJinjaOuterInspectionSuppressor"/>
+    </extensions>
+    <applicationListeners>
+        <!-- Re-types files when the claim settings or outer-language rules change (FileTypeManagerEx.makeFileTypesChange). -->
+        <listener class="de.terletzkiy.ansibility.lang.jinja.filetype.AnsibleJinjaSettingsListener"
+                  topic="de.terletzkiy.ansibility.settings.AnsibilityAppSettingsListener"/>
+        <!-- ansible.cfg added/removed, role markers, moved templates, Jinja appearing in files under templates/. -->
+        <listener class="de.terletzkiy.ansibility.lang.jinja.filetype.AnsibleJinjaVfsListener"
+                  topic="com.intellij.openapi.vfs.newvfs.BulkFileListenerBackgroundable"/>
+    </applicationListeners>
+    <!-- /w6-parser -->
+    <!-- w6-inject -->
+    <!-- M5 C4+C5 (plan A.5, F2.2, F2.3): Jinja injected into YAML scalars (template mode for values with {{ / {%, expression
+         mode with the "{{ " / " }}" prefix and suffix for when/changed_when/failed_when/until/assert.that/debug.var),
+         gated to Ansible files inside roots; the PSI locator goes before the text locator, which stays the fallback. -->
+    <extensions defaultExtensionNs="com.intellij">
+        <multiHostInjector implementation="de.terletzkiy.ansibility.lang.jinja.injection.AnsibleJinjaYamlInjector"/>
+    </extensions>
+    <extensions defaultExtensionNs="de.terletzkiy.ansibility">
+        <jinjaLocator id="ansibilityPsiJinja" order="first"
+                      implementation="de.terletzkiy.ansibility.lang.jinja.locator.PsiJinjaLocator"/>
+    </extensions>
+    <!-- /w6-inject -->
+    <!-- w6-editor -->
+    <!-- M5 C6 (plan F2.1, F2.7 X35, F2.9, X05): brace matching, commenter, folding, block keyword matching, typing
+         assistance (auto-close, type-over, end tags on Enter), the *-playbook.y*ml YAML overrider and the D8/F2.9
+         consent notification. The consent notification supersedes the w6-parser takeover notice; both share one
+         "shown" flag, so only one of them ever shows (integration request: drop the w6-parser postStartupActivity). -->
+    <extensions defaultExtensionNs="com.intellij">
+        <lang.braceMatcher language="AnsibleJinja"
+                           implementationClass="de.terletzkiy.ansibility.lang.jinja.editor.AnsibleJinjaBraceMatcher"/>
+        <lang.quoteHandler language="AnsibleJinja"
+                           implementationClass="de.terletzkiy.ansibility.lang.jinja.editor.AnsibleJinjaQuoteHandler"/>
+        <codeBlockSupportHandler language="AnsibleJinja"
+                                 implementationClass="de.terletzkiy.ansibility.lang.jinja.editor.AnsibleJinjaCodeBlockSupport"/>
+        <lang.commenter language="AnsibleJinja"
+                        implementationClass="de.terletzkiy.ansibility.lang.jinja.editor.AnsibleJinjaCommenter"/>
+        <lang.foldingBuilder language="AnsibleJinja"
+                             implementationClass="de.terletzkiy.ansibility.lang.jinja.editor.AnsibleJinjaFoldingBuilder"/>
+        <!-- X35: {{ → {{ | }}, {% → {% | %}, {# → {# | #} in templates and Ansible YAML scalars (AnsibilityAppSettings). -->
+        <typedHandler id="ansibilityJinjaTyping" order="first"
+                      implementation="de.terletzkiy.ansibility.lang.jinja.editor.AnsibleJinjaTypedHandler"/>
+        <backspaceHandlerDelegate implementation="de.terletzkiy.ansibility.lang.jinja.editor.AnsibleJinjaBackspaceHandler"/>
+        <enterHandlerDelegate id="ansibilityJinjaEnter" order="first"
+                              implementation="de.terletzkiy.ansibility.lang.jinja.editor.AnsibleJinjaEnterHandler"/>
+        <!-- X05: after the Ansible Jinja overrider, so templates stay templates. -->
+        <fileTypeOverrider order="last"
+                           implementation="de.terletzkiy.ansibility.lang.jinja.editor.coexist.AnsiblePlaybookYamlOverrider"/>
+        <!-- D8/F2.9: "Ansibility now opens .j2 files inside Ansible roots as Ansible Jinja2 (<outer>)", once. -->
+        <postStartupActivity implementation="de.terletzkiy.ansibility.lang.jinja.editor.consent.AnsibleJinjaTakeoverConsentActivity"/>
+    </extensions>
+    <applicationListeners>
+        <!-- X05: "Defer .j2 to PyCharm Jinja2" decides the *-playbook.y*ml overrider; a change re-types the files. -->
+        <listener class="de.terletzkiy.ansibility.lang.jinja.editor.coexist.AnsiblePlaybookYamlSettingsListener"
+                  topic="de.terletzkiy.ansibility.settings.AnsibilityAppSettingsListener"/>
+    </applicationListeners>
+    <!-- /w6-editor -->
+</idea-plugin>

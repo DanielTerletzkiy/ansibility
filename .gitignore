@@ -1,0 +1,27 @@
+.gradle/
+.intellijPlatform/
+build/
+*/build/
+.kotlin/
+.idea/
+*.iml
+out/
+
+# Sanitised copy of a private infrastructure repo (company data): kept locally for the tests, never committed
+# until it is replaced by synthetic data (decision pending).
+plugin/src/test/testData/infra/
+/plugin/src/test/testData/
+
+# Local-only notes and the real-name mapping of the fixture tools (company-specific; never committed).
+docs/local/
+tools/fixtures/local/
+# The manifest describes the (git-ignored) fixture file by file.
+tools/fixtures/manifest.tsv
+# Machine-specific settings (local IDE paths).
+local.properties
+
+# TODO: commit after cleanup
+/tools/fixtures/
+/tools/vault/
+/docs/
+/semantics/

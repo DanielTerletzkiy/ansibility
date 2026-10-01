@@ -1,0 +1,24 @@
+<!-- Area fragment: navigation. Included from plugin.xml; only the owning work unit edits this file. -->
+<idea-plugin>
+    <!-- M3 F0 (plan F1.8, X50): role-internal navigation. The classifier runs after the vars track's (which owns Jinja
+         ranges) and before the docs track's (modules, options, keywords); order references to ids of other fragments
+         resolve over the whole extension point, and are ignored when an id is not registered. -->
+    <extensions defaultExtensionNs="de.terletzkiy.ansibility">
+        <siteClassifier id="ansibilityRefs" order="after ansibilityVars, before ansibilityTasks"
+                        implementation="de.terletzkiy.ansibility.navigation.RefsSiteClassifier"/>
+        <siteNavigation id="ansibilityRefs"
+                        implementation="de.terletzkiy.ansibility.navigation.RefsNavigation"/>
+        <completionSource id="ansibilityRefs"
+                          implementation="de.terletzkiy.ansibility.navigation.RefsCompletionSource"/>
+    </extensions>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- 🟣 CLAUDE ANS-R001 (plan A.6, D7). No language: task files are YAML, role templates any type (the inspection
+             returns at once outside Ansible roots and for other file kinds). The severity comes from SeverityPolicy. -->
+        <localInspection shortName="AnsibleUnresolvedReference"
+                         bundle="messages.AnsibilityNavigationBundle" key="inspection.r001.display.name"
+                         groupBundle="messages.AnsibilityNavigationBundle" groupKey="inspection.group.ansible"
+                         enabledByDefault="true" level="ERROR"
+                         implementationClass="de.terletzkiy.ansibility.inspections.references.AnsibleUnresolvedReferenceInspection"/>
+    </extensions>
+</idea-plugin>

@@ -1,0 +1,10 @@
+<html>
+<body>
+<p>Reports a YAML scalar of another type for an <code>int</code>, <code>float</code> or <code>bool</code> option: an int for a <code>bool</code>, a float or bool for an <code>int</code>, a bool for a <code>float</code>. An int for a <code>float</code> is fine (it only widens).</p><p>Quick fix: replace with the literal ansible-core converts it to.</p>
+<p>Example (ANS-T013):</p>
+<pre><code>haproxy_apply_kernel_params: <b>1</b>     # documented: bool</code></pre>
+<!-- tooltip end -->
+<p>Checked: role <code>defaults/</code> and <code>vars/</code> (against the role's own <code>meta/argument_specs.yml</code>), <code>group_vars</code>/<code>host_vars</code> files, inline inventory vars, play, block and task <code>vars:</code>, <code>include_role</code> vars and role parameters, and molecule inventories (against every spec of the same root that declares the variable). Templated values and vault values are not judged here.</p>
+<p>The message names the role whose spec is violated and says what the root's target ansible-core would do. When no play of the root applies that role, the message says its spec may be stale. The severity follows the root's Ansibility strictness settings (preset, "Require a reachable play for red"). Suppress a finding with <code># noinspection AnsibleScalarTypeMismatch</code> on the line above the key, or with <code>#file: noinspection AnsibleScalarTypeMismatch</code>.</p>
+</body>
+</html>

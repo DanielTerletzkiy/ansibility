@@ -1,0 +1,20 @@
+<html>
+<body>
+<p>Reports keys that ansible-core fails to load (ANS-K002):</p>
+<ul>
+  <li>a key of a play, block, <code>import_playbook</code> entry or <code>loop_control</code> that is not one of its keywords
+    for the target version (<code>'retries' is not a valid attribute for a Block</code>);</li>
+  <li>a second action key in a task: a typo such as <code>become_usr: root</code> next to <code>ansible.builtin.file:</code> is
+    read as a second module (<code>conflicting action statements: ansible.builtin.file, become_usr</code>);</li>
+  <li>a keyword that the dynamic includes <code>include_tasks</code> and <code>include_role</code> do not accept, such as
+    <code>become</code> or <code>delegate_to</code> (use <code>apply:</code> or a block).</li>
+</ul>
+<p>Keys of a role entry that are not keywords are role parameters and are never reported. A
+  <code>with_&lt;name&gt;</code> key whose lookup the bundled documentation does not list is not reported either: the
+  lookup may be a plugin of the project, and otherwise it is a module option (<code>with_dependencies</code> of
+  <code>community.general.jenkins_plugin</code>). With
+  <code>invalid_task_attribute_failed = False</code> in <code>ansible.cfg</code>, task keys ansible-core then only warns
+  about are warnings. The quick fix <b>Rename to '&lt;keyword&gt;'</b> picks the nearest keyword.</p>
+<!-- tooltip end -->
+</body>
+</html>

@@ -1,0 +1,11 @@
+<html>
+<body>
+<p>Reports spaces or TABs at the end of a payload line of a vault envelope (ANS-V103). ansible-vault concatenates the
+  payload lines without stripping them, so the blanks become part of the hex and decryption fails with
+  <code>Odd-length string</code> or <code>Non-hexadecimal digit found</code>. Editors and scripts that pad lines (for
+  example an <code>awk</code> step of a rotation script) can produce them.</p>
+<p>Quick fix: <b>Strip trailing whitespace</b> removes the blanks from every line of the value. Nothing is decrypted
+  or re-encrypted.</p>
+<!-- tooltip end -->
+</body>
+</html>

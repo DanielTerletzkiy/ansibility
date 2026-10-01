@@ -1,0 +1,21 @@
+<!-- Area fragment: index. Included from plugin.xml; only the owning work unit edits this file. -->
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- WU1.6: the six file-based indexes (plan A.7). Indexers are pure per file; roots are resolved at query time. -->
+        <fileBasedIndex implementation="de.terletzkiy.ansibility.index.VarDefIndex"/>
+        <fileBasedIndex implementation="de.terletzkiy.ansibility.index.VarUseIndex"/>
+        <fileBasedIndex implementation="de.terletzkiy.ansibility.index.TemplateUseIndex"/>
+        <fileBasedIndex implementation="de.terletzkiy.ansibility.index.HandlerIndex"/>
+        <fileBasedIndex implementation="de.terletzkiy.ansibility.index.ModuleUseIndex"/>
+        <fileBasedIndex implementation="de.terletzkiy.ansibility.index.PlayIndex"/>
+
+        <!-- v2b: `ansible.vault` (plan amendment R7/R8, A.7): raw label -> inline and whole-file vault envelopes, header
+             facts only (never plaintext, never the payload); queries in index.vault.VaultIndexQueries. -->
+        <fileBasedIndex implementation="de.terletzkiy.ansibility.index.vault.VaultIndex"/>
+        <!-- /v2b -->
+
+        <!-- WU1.6: variable definitions and spec bindings per root (plan A.8). -->
+        <projectService serviceInterface="de.terletzkiy.ansibility.api.VarService"
+                        serviceImplementation="de.terletzkiy.ansibility.resolve.VarServiceImpl"/>
+    </extensions>
+</idea-plugin>

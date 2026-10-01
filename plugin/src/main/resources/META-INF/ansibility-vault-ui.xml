@@ -1,0 +1,81 @@
+<!-- Area fragment: vault UI (V3/V3b: reveal, edit popup, card section, X16 folding, value intentions, X93 gutter). Included from plugin.xml; only the owning work units edit this file, each in its own block. -->
+<idea-plugin>
+    <!-- v3 -->
+    <extensions defaultExtensionNs="de.terletzkiy.ansibility">
+        <!-- F7.1: the timed, masked Reveal popup VaultOperations.reveal hands the plaintext to -->
+        <vaultRevealPresenter implementation="de.terletzkiy.ansibility.vault.ui.VaultPopupRevealPresenter"/>
+        <!-- F7.14: the card's Vault row (status only, never decrypts) -->
+        <cardSection id="ansibilityVault" order="after ansibilityHostDefinition"
+                     implementation="de.terletzkiy.ansibility.vault.ui.VaultCardSection"/>
+    </extensions>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- F7.14: the card's Reveal link -->
+        <platform.backend.documentation.linkHandler implementation="de.terletzkiy.ansibility.vault.ui.VaultCardLinkHandler"/>
+        <!-- X16: fold !vault | bodies (next to YAMLFoldingBuilder, spike S-V2) -->
+        <lang.foldingBuilder language="yaml" implementationClass="de.terletzkiy.ansibility.vault.ui.VaultFoldingBuilder"/>
+        <!-- X93: lock gutter, click = Reveal -->
+        <codeInsight.lineMarkerProvider language="yaml" implementationClass="de.terletzkiy.ansibility.vault.ui.VaultLineMarkerProvider"/>
+        <!-- The questions of the value actions (tests replace it) -->
+        <applicationService serviceInterface="de.terletzkiy.ansibility.vault.actions.VaultActionPrompts"
+                            serviceImplementation="de.terletzkiy.ansibility.vault.actions.VaultDialogPrompts"/>
+
+        <!-- F7.1-F7.6: classic intentions (startInWriteAction = false, HTML previews without the value) -->
+        <intentionAction>
+            <language>yaml</language>
+            <className>de.terletzkiy.ansibility.vault.actions.VaultRevealIntention</className>
+            <bundleName>messages.AnsibilityVaultUiBundle</bundleName>
+            <categoryKey>intention.category</categoryKey>
+            <skipBeforeAfter>true</skipBeforeAfter>
+        </intentionAction>
+        <intentionAction>
+            <language>yaml</language>
+            <className>de.terletzkiy.ansibility.vault.actions.VaultCopyIntention</className>
+            <bundleName>messages.AnsibilityVaultUiBundle</bundleName>
+            <categoryKey>intention.category</categoryKey>
+            <skipBeforeAfter>true</skipBeforeAfter>
+        </intentionAction>
+        <intentionAction>
+            <language>yaml</language>
+            <className>de.terletzkiy.ansibility.vault.actions.VaultEditIntention</className>
+            <bundleName>messages.AnsibilityVaultUiBundle</bundleName>
+            <categoryKey>intention.category</categoryKey>
+            <skipBeforeAfter>true</skipBeforeAfter>
+        </intentionAction>
+        <intentionAction>
+            <language>yaml</language>
+            <className>de.terletzkiy.ansibility.vault.actions.VaultEncryptIntention</className>
+            <bundleName>messages.AnsibilityVaultUiBundle</bundleName>
+            <categoryKey>intention.category</categoryKey>
+            <skipBeforeAfter>true</skipBeforeAfter>
+        </intentionAction>
+        <intentionAction>
+            <language>yaml</language>
+            <className>de.terletzkiy.ansibility.vault.actions.VaultDecryptToPlainIntention</className>
+            <bundleName>messages.AnsibilityVaultUiBundle</bundleName>
+            <categoryKey>intention.category</categoryKey>
+            <skipBeforeAfter>true</skipBeforeAfter>
+        </intentionAction>
+        <intentionAction>
+            <language>yaml</language>
+            <className>de.terletzkiy.ansibility.vault.actions.VaultRekeyIntention</className>
+            <bundleName>messages.AnsibilityVaultUiBundle</bundleName>
+            <categoryKey>intention.category</categoryKey>
+            <skipBeforeAfter>true</skipBeforeAfter>
+        </intentionAction>
+        <intentionAction>
+            <language>yaml</language>
+            <className>de.terletzkiy.ansibility.vault.actions.VaultChangeIdIntention</className>
+            <bundleName>messages.AnsibilityVaultUiBundle</bundleName>
+            <categoryKey>intention.category</categoryKey>
+            <skipBeforeAfter>true</skipBeforeAfter>
+        </intentionAction>
+    </extensions>
+
+    <projectListeners>
+        <!-- X93: re-run the lock gutter of open vault files when a lock state changes -->
+        <listener class="de.terletzkiy.ansibility.vault.ui.VaultGutterRefresher"
+                  topic="de.terletzkiy.ansibility.api.VaultStatusListener"/>
+    </projectListeners>
+    <!-- /v3 -->
+</idea-plugin>

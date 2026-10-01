@@ -1,0 +1,153 @@
+package de.terletzkiy.ansibility.vault.actions
+
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.components.service
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.ComboBox
+import com.intellij.openapi.ui.DialogWrapper
+import com.intellij.openapi.ui.Messages
+import com.intellij.openapi.util.NlsContexts
+import com.intellij.ui.dsl.builder.AlignX
+import com.intellij.ui.dsl.builder.panel
+import com.intellij.ui.dsl.listCellRenderer.textListCellRenderer
+import com.intellij.util.concurrency.ThreadingAssertions
+import de.terletzkiy.ansibility.api.VaultLockState
+import de.terletzkiy.ansibility.semantics.vault.VaultEnvelope
+import de.terletzkiy.ansibility.vault.ui.AnsibilityVaultUiBundle
+import javax.swing.JComponent
+
+/** One vault id offered by a chooser: its label, the header it writes and whether its secret is loaded. Not secret. */
+class VaultIdentityChoice(val label: String, val lockState: VaultLockState) {
+    /** `1.1` for `default`, else `1.2` (the header the id writes). */
+    val version: String get() = VaultEnvelope.versionFor(label)
+
+    override fun toString(): String = "VaultIdentityChoice($label, $lockState)"
+}
+
+/** "Which vault id?" for Rekey to id… and Change id… (F7.5, F7.6). */
+class VaultIdentityRequest(
+    @NlsContexts.DialogTitle val title: String,
+    @NlsContexts.Label val message: String,
+    val choices: List<VaultIdentityChoice>,
+    val preselected: String?,
+)
+
+/** The Encrypt value confirmation (F7.3): warnings about the value (never the value itself) and the id choice. */
+class VaultEncryptRequest(
+    val keyName: String,
+    val warnings: List<@NlsContexts.Label String>,
+    val choices: List<VaultIdentityChoice>,
+    val preselected: String?,
+)
+
+/** The Decrypt to plain value confirmation (F7.4). */
+class VaultDecryptRequest(val keyName: String?, val fileName: String)
+
+/**
+ * The questions the vault value actions ask (on the EDT). Tests replace the service; the default implementation
+ * uses IDE dialogs whose texts never contain a password or a plaintext.
+ */
+interface VaultActionPrompts {
+    /** The id to rekey or relabel to, or null when cancelled. */
+    fun chooseIdentity(project: Project, request: VaultIdentityRequest): String?
+
+    /** Confirms Encrypt value, returning the chosen id (one of [VaultEncryptRequest.choices]) or null when cancelled. */
+    fun confirmEncrypt(project: Project, request: VaultEncryptRequest): String?
+
+    /** Confirms Decrypt to plain value: true only on an explicit yes; Cancel is the default button. */
+    fun confirmDecryptToPlain(project: Project, request: VaultDecryptRequest): Boolean
+
+    /** Change id… found that [target]'s secret does not decrypt the value ([decryptsWith] does): encrypt it with [target]? */
+    fun confirmRekeyForChangeId(project: Project, target: String, decryptsWith: String): Boolean
+
+    /** The edit popup has unsaved changes: discard them? */
+    fun confirmDiscard(project: Project): Boolean
+
+    companion object {
+        fun getInstance(): VaultActionPrompts = ApplicationManager.getApplication().service()
+    }
+}
+
+/** [VaultActionPrompts] with IDE dialogs. */
+class VaultDialogPrompts : VaultActionPrompts {
+    override fun chooseIdentity(project: Project, request: VaultIdentityRequest): String? {
+        ThreadingAssertions.assertEventDispatchThread()
+        val dialog = IdentityDialog(project, request.title, request.message, emptyList(), request.choices, request.preselected, null)
+        return if (dialog.showAndGet()) dialog.selected else null
+    }
+
+    override fun confirmEncrypt(project: Project, request: VaultEncryptRequest): String? {
+        ThreadingAssertions.assertEventDispatchThread()
+        val dialog = IdentityDialog(
+            project, message("encrypt.title"), message("encrypt.message", request.keyName), request.warnings, request.choices,
+            request.preselected, message("encrypt.ok"),
+        )
+        return if (dialog.showAndGet()) dialog.selected else null
+    }
+
+    override fun confirmDecryptToPlain(project: Project, request: VaultDecryptRequest): Boolean {
+        ThreadingAssertions.assertEventDispatchThread()
+        val options = arrayOf(message("decrypt.ok"), message("decrypt.cancel"))
+        val answer = Messages.showDialog(
+            project, message("decrypt.message", request.keyName ?: "-", request.fileName), message("decrypt.title"), options,
+            1, Messages.getWarningIcon(),
+        )
+        return answer == 0
+    }
+
+    override fun confirmRekeyForChangeId(project: Project, target: String, decryptsWith: String): Boolean {
+        ThreadingAssertions.assertEventDispatchThread()
+        val options = arrayOf(message("change.id.rekey.ok", target), message("decrypt.cancel"))
+        val answer = Messages.showDialog(
+            project, message("change.id.rekey.message", target, decryptsWith), message("change.id.rekey.title"), options, 1,
+            Messages.getQuestionIcon(),
+        )
+        return answer == 0
+    }
+
+    override fun confirmDiscard(project: Project): Boolean {
+        ThreadingAssertions.assertEventDispatchThread()
+        val options = arrayOf(message("edit.discard.yes"), message("edit.discard.no"))
+        return Messages.showDialog(project, message("edit.discard.message"), message("edit.discard.title"), options, 1, Messages.getQuestionIcon()) == 0
+    }
+
+    /** A message, optional warnings and a vault-id combo box. */
+    private class IdentityDialog(
+        project: Project,
+        @NlsContexts.DialogTitle title: String,
+        @NlsContexts.Label private val text: String,
+        private val warnings: List<String>,
+        private val choices: List<VaultIdentityChoice>,
+        preselected: String?,
+        okText: String?,
+    ) : DialogWrapper(project) {
+        private val combo = ComboBox(choices.toTypedArray()).apply {
+            renderer = textListCellRenderer { choice -> choice?.let { message("identity.item", it.label, stateText(it)) } }
+            selectedItem = choices.firstOrNull { it.label == preselected } ?: choices.firstOrNull()
+        }
+
+        val selected: String? get() = (combo.selectedItem as? VaultIdentityChoice)?.label
+
+        init {
+            this.title = title
+            okText?.let { setOKButtonText(it) }
+            init()
+        }
+
+        override fun createCenterPanel(): JComponent = panel {
+            row { label(text) }
+            for (warning in warnings) row { label("⚠ $warning") }
+            row(message("encrypt.identity")) { cell(combo).align(AlignX.FILL) }
+        }
+
+        override fun getPreferredFocusedComponent(): JComponent = combo
+
+        private fun stateText(choice: VaultIdentityChoice): String = when (choice.lockState) {
+            VaultLockState.UNLOCKED -> message("identity.state.unlocked")
+            VaultLockState.LOCKED -> message("identity.state.locked")
+            VaultLockState.NO_IDENTITY -> message("identity.state.none")
+        }
+    }
+}
+
+private fun message(key: String, vararg params: Any): String = AnsibilityVaultUiBundle.message(key, *params)

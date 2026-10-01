@@ -1,0 +1,14 @@
+<html>
+<body>
+<p>Reports <code>!vault</code> values whose envelope YAML folds or flattens (ANS-V102): a folded block
+  (<code>!vault &gt;</code>) joins the payload lines with spaces, and a plain scalar, or a quoted one whose line
+  breaks YAML folds, delivers the envelope on one line. ansible-vault cannot read either.</p>
+<pre><code>db_password: !vault &gt;
+  $ANSIBLE_VAULT;1.1;AES256
+  6264356538...</code></pre>
+<p>Quick fix: <b>Convert to literal block</b> turns <code>&gt;</code> into <code>|</code>, or rewrites a one-line value
+  as a literal block at the indentation the file already uses, with the payload wrapped at 80 columns. It changes
+  the layout only: nothing is decrypted or re-encrypted.</p>
+<!-- tooltip end -->
+</body>
+</html>

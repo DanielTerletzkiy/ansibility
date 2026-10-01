@@ -1,0 +1,97 @@
+<!-- Area fragment: types. Included from plugin.xml; only the owning work unit edits this file. -->
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+    </extensions>
+
+    <!-- w4-keycomp -->
+    <!-- M3 A6: vars-file key and nested key completion (F4.2) and value completion from choices and bools (X19). -->
+    <extensions defaultExtensionNs="de.terletzkiy.ansibility">
+        <completionSource id="ansibilityVarsKeys"
+                          implementation="de.terletzkiy.ansibility.completion.keys.VarsKeyCompletionSource"/>
+        <completionSource id="ansibilityVarsValues"
+                          implementation="de.terletzkiy.ansibility.completion.keys.VarsValueCompletionSource"/>
+    </extensions>
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- Ctrl+Q on those items shows the variable card (the EP interface is @ApiStatus.Experimental in 262). -->
+        <platform.backend.documentation.lookupElementTargetProvider
+                implementation="de.terletzkiy.ansibility.completion.keys.VarLookupDocumentationTargetProvider"/>
+    </extensions>
+    <!-- /w4-keycomp -->
+
+    <!-- w5-rolevars -->
+    <!-- M4 E1 + E4 (plan A.6, F3.2, F4.4, F3.6; X79, X80): role-variable values checked against their documented types.
+         One inspection per code; the levels are the "Documented types" preset defaults, the reported severity always
+         comes from SeverityPolicy. `# noinspection <ShortName>` works through the YAML plugin's own suppressor. -->
+    <extensions defaultExtensionNs="com.intellij">
+        <projectService serviceInterface="de.terletzkiy.ansibility.api.TypeCheckService"
+                        serviceImplementation="de.terletzkiy.ansibility.types.TypeCheckServiceImpl"/>
+        <localInspection language="yaml" shortName="AnsibleValueRejected"
+                         bundle="messages.AnsibilityTypesBundle" key="inspection.t001.display.name"
+                         groupPath="Ansibility" groupBundle="messages.AnsibilityTypesBundle" groupKey="inspection.group.types"
+                         enabledByDefault="true" level="ERROR"
+                         implementationClass="de.terletzkiy.ansibility.inspections.types.AnsibleValueRejectedInspection"/>
+        <localInspection language="yaml" shortName="AnsibleUnsupportedSubOption"
+                         bundle="messages.AnsibilityTypesBundle" key="inspection.t002.display.name"
+                         groupPath="Ansibility" groupBundle="messages.AnsibilityTypesBundle" groupKey="inspection.group.types"
+                         enabledByDefault="true" level="ERROR"
+                         implementationClass="de.terletzkiy.ansibility.inspections.types.AnsibleUnsupportedSubOptionInspection"/>
+        <localInspection language="yaml" shortName="AnsibleMissingRequiredSubOption"
+                         bundle="messages.AnsibilityTypesBundle" key="inspection.t003.display.name"
+                         groupPath="Ansibility" groupBundle="messages.AnsibilityTypesBundle" groupKey="inspection.group.types"
+                         enabledByDefault="true" level="ERROR"
+                         implementationClass="de.terletzkiy.ansibility.inspections.types.AnsibleMissingRequiredSubOptionInspection"/>
+        <localInspection language="yaml" shortName="AnsibleChoiceMismatch"
+                         bundle="messages.AnsibilityTypesBundle" key="inspection.t004.display.name"
+                         groupPath="Ansibility" groupBundle="messages.AnsibilityTypesBundle" groupKey="inspection.group.types"
+                         enabledByDefault="true" level="ERROR"
+                         implementationClass="de.terletzkiy.ansibility.inspections.types.AnsibleChoiceMismatchInspection"/>
+        <localInspection language="yaml" shortName="AnsibleNullForTypedOption"
+                         bundle="messages.AnsibilityTypesBundle" key="inspection.t005.display.name"
+                         groupPath="Ansibility" groupBundle="messages.AnsibilityTypesBundle" groupKey="inspection.group.types"
+                         enabledByDefault="true" level="ERROR"
+                         implementationClass="de.terletzkiy.ansibility.inspections.types.AnsibleNullForTypedOptionInspection"/>
+        <localInspection language="yaml" shortName="AnsibleSpecShapeContradiction"
+                         bundle="messages.AnsibilityTypesBundle" key="inspection.t010.display.name"
+                         groupPath="Ansibility" groupBundle="messages.AnsibilityTypesBundle" groupKey="inspection.group.types"
+                         enabledByDefault="true" level="ERROR"
+                         implementationClass="de.terletzkiy.ansibility.inspections.types.AnsibleSpecShapeContradictionInspection"/>
+        <localInspection language="yaml" shortName="AnsibleCoercedScalar"
+                         bundle="messages.AnsibilityTypesBundle" key="inspection.t011.display.name"
+                         groupPath="Ansibility" groupBundle="messages.AnsibilityTypesBundle" groupKey="inspection.group.types"
+                         enabledByDefault="true" level="ERROR"
+                         implementationClass="de.terletzkiy.ansibility.inspections.types.AnsibleCoercedScalarInspection"/>
+        <localInspection language="yaml" shortName="AnsibleScalarTypeMismatch"
+                         bundle="messages.AnsibilityTypesBundle" key="inspection.t013.display.name"
+                         groupPath="Ansibility" groupBundle="messages.AnsibilityTypesBundle" groupKey="inspection.group.types"
+                         enabledByDefault="true" level="ERROR"
+                         implementationClass="de.terletzkiy.ansibility.inspections.types.AnsibleScalarTypeMismatchInspection"/>
+        <localInspection language="yaml" shortName="AnsibleLegacyCoercion"
+                         bundle="messages.AnsibilityTypesBundle" key="inspection.t014.display.name"
+                         groupPath="Ansibility" groupBundle="messages.AnsibilityTypesBundle" groupKey="inspection.group.types"
+                         enabledByDefault="true" level="ERROR"
+                         implementationClass="de.terletzkiy.ansibility.inspections.types.AnsibleLegacyCoercionInspection"/>
+        <localInspection language="yaml" shortName="AnsibleNullForOptional"
+                         bundle="messages.AnsibilityTypesBundle" key="inspection.t015.display.name"
+                         groupPath="Ansibility" groupBundle="messages.AnsibilityTypesBundle" groupKey="inspection.group.types"
+                         enabledByDefault="true" level="WEAK WARNING"
+                         implementationClass="de.terletzkiy.ansibility.inspections.types.AnsibleNullForOptionalInspection"/>
+        <localInspection language="yaml" shortName="AnsibleStringForNumberOrBool"
+                         bundle="messages.AnsibilityTypesBundle" key="inspection.t016.display.name"
+                         groupPath="Ansibility" groupBundle="messages.AnsibilityTypesBundle" groupKey="inspection.group.types"
+                         enabledByDefault="true" level="ERROR"
+                         implementationClass="de.terletzkiy.ansibility.inspections.types.AnsibleStringForNumberOrBoolInspection"/>
+    </extensions>
+    <!-- /w5-rolevars -->
+
+    <!-- w5-templated -->
+    <!-- M4 E2 (plan A.5, A.6, F3.4): ANS-T020, a templated value of a spec'd variable whose logical and runtime types
+         are both outside the documented type. The severity of each finding comes from SeverityPolicy. -->
+    <extensions defaultExtensionNs="com.intellij">
+        <localInspection language="yaml" shortName="AnsibleTemplatedValueType"
+                         bundle="messages.AnsibilityTypeflowBundle" key="inspection.t020.display.name"
+                         groupPath="Ansibility" groupBundle="messages.AnsibilityTypeflowBundle" groupKey="inspection.group.types"
+                         enabledByDefault="true" level="ERROR"
+                         implementationClass="de.terletzkiy.ansibility.inspections.templated.AnsibleTemplatedValueTypeInspection"/>
+    </extensions>
+    <!-- /w5-templated -->
+</idea-plugin>

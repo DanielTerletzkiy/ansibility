@@ -1,0 +1,26 @@
+<!-- Area fragment: dispatch. Included from plugin.xml; only the owning work unit edits this file. -->
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- Plan A.4: the global-precedence platform EPs are registered exactly once, here; features implement the
+             internal siteClassifier / siteDocumentation / siteNavigation / completionSource EPs. -->
+        <platform.backend.documentation.targetProvider
+                implementation="de.terletzkiy.ansibility.dispatch.AnsibleDocumentationTargetProvider"/>
+        <gotoDeclarationHandler id="AnsibilityGotoDeclaration" order="first"
+                                implementation="de.terletzkiy.ansibility.dispatch.AnsibleGotoDeclarationHandler"/>
+        <!-- language="any" until M5 (covers .j2 files of any type); returns at once outside Ansible roots. -->
+        <completion.contributor id="AnsibilityCompletion" language="any" order="first"
+                                implementationClass="de.terletzkiy.ansibility.dispatch.AnsibleCompletionContributor"/>
+
+        <!-- Coexistence: SchemaStore Tasks/Playbook schemas stay off the files we own (Argument Specs, Meta, Vars kept). -->
+        <!-- Its switch, coexist.CoexistenceSettings, is registered with the settings (ansibility-settings.xml). -->
+        <json.catalog.exclusion implementation="de.terletzkiy.ansibility.coexist.AnsibleSchemaStoreExclusion"/>
+    </extensions>
+
+    <actions resource-bundle="messages.AnsibilityDispatchBundle">
+        <!-- X75 -->
+        <action id="Ansibility.ShowAnsibleContext" class="de.terletzkiy.ansibility.dispatch.ShowAnsibleContextAction">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+        </action>
+    </actions>
+</idea-plugin>

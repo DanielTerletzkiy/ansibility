@@ -1,0 +1,22 @@
+<!-- Area fragment: runtime. Included from plugin.xml; only the owning work unit edits this file. -->
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- WU-B1 documentation catalog (plan A.11, F5.1): bundled snapshots + local refresh, merged per root -->
+        <projectService serviceInterface="de.terletzkiy.ansibility.api.AnsibleDocService"
+                        serviceImplementation="de.terletzkiy.ansibility.runtime.AnsibleDocServiceImpl"/>
+
+        <!-- External tools: ansible, ansible-doc, ansible-inventory (plan A.11); never on the EDT or in the repo -->
+        <applicationService serviceInterface="de.terletzkiy.ansibility.runtime.ProcessRunner"
+                            serviceImplementation="de.terletzkiy.ansibility.runtime.ProcessRunnerImpl"/>
+
+        <!-- D10 step 4: "target guessed from local install" -->
+        <applicationService serviceInterface="de.terletzkiy.ansibility.api.LocalAnsibleRuntime"
+                            serviceImplementation="de.terletzkiy.ansibility.runtime.LocalAnsibleRuntimeImpl"/>
+
+        <!-- Parses the snapshots the project's roots need in the background, so the first popup does not wait -->
+        <postStartupActivity implementation="de.terletzkiy.ansibility.runtime.DocWarmUpActivity"/>
+
+        <!-- D14: after indexing and after structure changes, asks for local docs of the modules each root uses -->
+        <postStartupActivity implementation="de.terletzkiy.ansibility.runtime.LocalDocPrefetchActivity"/>
+    </extensions>
+</idea-plugin>

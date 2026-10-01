@@ -1,0 +1,16 @@
+<html>
+<body>
+<p>Reports vault envelopes that ansible-vault refuses to read (ANS-V101), in inline <code>!vault</code> values and in
+  whole-file vaults: the value does not start with <code>$ANSIBLE_VAULT</code> (whitespace, a blank line or a byte
+  order mark before it, or an empty value), the header has fewer than three fields, the cipher is not
+  <code>AES256</code> (it is case-sensitive: <code>aes256</code> fails), the payload has a non-hex digit, an odd number
+  of digits, a TAB, or lacks the separators between salt, HMAC and ciphertext.</p>
+<p>Ansible stops at such a value without trying any password, so a play that uses it fails. The check reads the
+  envelope's structure only; it never decrypts anything and needs no password. A folded or flattened value
+  (ANS-V102) and trailing whitespace (ANS-V103) are reported by their own inspections.</p>
+<p>Accepted, as ansible-vault does: <code>|</code>, <code>|-</code> and <code>|+</code> blocks, CRLF line ends,
+  re-wrapped or single-line hex, uppercase hex, a blank line after the header and double-quoted values with
+  <code>\n</code> escapes.</p>
+<!-- tooltip end -->
+</body>
+</html>

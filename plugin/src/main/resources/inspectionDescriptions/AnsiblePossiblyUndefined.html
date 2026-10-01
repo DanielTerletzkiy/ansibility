@@ -1,0 +1,34 @@
+<html>
+<body>
+<p>Reports a Jinja use of a variable that has <b>no runtime default</b> and is <b>not guarded</b> (ANS-V003), for
+  example <code>bearer_token = "{{ alloy_tenant_api_key }}"</code> in a role template when the role's
+  <code>defaults/</code> do not set <code>alloy_tenant_api_key</code> and no
+  <code>{% if alloy_tenant_api_key is defined and alloy_tenant_api_key %}</code> surrounds it.</p>
+<p>Templates, role task and handler files, role <code>defaults/</code>/<code>vars/</code> files and playbook tasks are
+  checked. A use is guarded by <code>x is defined</code> (also inside <code>and</code>, <code>or</code>,
+  <code>not</code> and <code>{% if %}</code>/<code>{% elif %}</code>/<code>{% else %}</code> branches),
+  <code>| default(…)</code> or <code>| d(…)</code>, <code>… if x is defined else …</code>, a condition that is
+  false while <code>x</code> is undefined (<code>{% if x | default(false) %}</code>,
+  <code>x | default('') | length &gt; 0</code>), or such a <code>when:</code> on the task that runs it, its blocks,
+  its include chain or the role's entry in the play. <code>{% if x %}</code> is <em>not</em> a guard: ansible-core
+  fails on an undefined <code>x</code> there.</p>
+<p>The severity depends on every environment, host and play that runs the use, whatever context is selected:</p>
+<ul>
+  <li><b>Error</b> when some reachable host has no definition in any layer and runs the use unconditionally: the
+    message names the environment and the hosts where rendering certainly fails.</li>
+  <li><b>Warning</b> when such a host runs the use only under a condition (a <code>when</code>, a loop over a
+    variable, a handler, an <code>{% if %}</code> branch, a template chosen by a variable): it fails there whenever it
+    runs.</li>
+  <li><b>Warning</b> when every host defines the variable today only through the inventory (it works only because
+    each environment sets it, while the role's argument spec says it is optional), or when no play applies the
+    role.</li>
+</ul>
+<p>Variables the argument spec marks <code>required: true</code> are left to ANS-P003. A spec <code>default:</code> is
+  documentation only: ansible-core never sets the variable from it. <code>| mandatory</code> uses are reported only
+  with a host that certainly lacks the value. The root setting "Unguarded optional variables without a default are
+  always errors" turns every warning into an error. Quick fixes wrap the statement in an <code>is defined</code>
+  guard, append <code>| default('')</code>, add <code>when: x is defined</code> to the task, or add the variable to
+  the role's <code>defaults/main.yml</code> and its argument spec.</p>
+<!-- tooltip end -->
+</body>
+</html>

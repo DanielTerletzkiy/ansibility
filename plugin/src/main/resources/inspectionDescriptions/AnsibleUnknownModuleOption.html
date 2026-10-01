@@ -1,0 +1,27 @@
+<html>
+<body>
+<p>Reports module options that the module's documentation for the root's target ansible-core does not list
+  (ANS-M001). ansible-core fails such a task: modules reject unknown parameters
+  (<code>Unsupported parameters for (ansible.builtin.copy) module: dst</code>) and action plugins and includes reject
+  unknown options (<code>Invalid options for ansible.builtin.assert: vars</code>).</p>
+<p>Aliases count as documented. Not reported:</p>
+<ul>
+  <li>free-form modules (<code>command</code>, <code>shell</code>, <code>raw</code>, <code>script</code>,
+    <code>meta</code>) and modules that accept arbitrary keys (<code>set_fact</code>, <code>add_host</code>);</li>
+  <li>arguments that come from a template (<code>args: "{{ copy_args }}"</code>, a templated module value);</li>
+  <li>action plugins that ignore or hand on unknown arguments (<code>fetch</code>, <code>gather_facts</code>,
+    <code>package</code>, <code>service</code>), and the options the <code>template</code> action hands to
+    <code>copy</code>;</li>
+  <li>modules that no documentation source knows.</li>
+</ul>
+<p>Options from <code>args:</code> and <code>k=v</code> words are checked like the module mapping. When the documentation
+  comes from another ansible-core line than the target, the finding is at most a warning (or hidden, as set per root).</p>
+<p>Quick fixes: <b>Move '&lt;key&gt;' to task level</b> for a task keyword written among the options, for example
+<pre><code>- ansible.builtin.assert:
+    that: db_one | length == 1
+    vars:
+      db_one: "{{ ... }}"</code></pre>
+  where <code>vars:</code> belongs to the task; and <b>Rename to '&lt;option&gt;'</b> for a misspelt option.</p>
+<!-- tooltip end -->
+</body>
+</html>

@@ -1,0 +1,19 @@
+<!-- Area fragment: model. Included from plugin.xml; only the owning work units edit this file. -->
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- wu15-roles-plays: role registry and play graph (plan A.5, A.8, F1.1). Light services of the same
+             work unit (ContainerPathMapper, TaskSyntaxService) are declared with @Service. -->
+        <projectService serviceInterface="de.terletzkiy.ansibility.api.RoleRegistry"
+                        serviceImplementation="de.terletzkiy.ansibility.model.role.RoleRegistryImpl"/>
+        <projectService serviceInterface="de.terletzkiy.ansibility.api.PlayGraph"
+                        serviceImplementation="de.terletzkiy.ansibility.model.play.PlayGraphService"/>
+        <!-- /wu15-roles-plays -->
+
+        <!-- wu15-inventory: inventory model and effective vars (plan A.5, F4.1, R6) -->
+        <projectService serviceInterface="de.terletzkiy.ansibility.api.InventoryService"
+                        serviceImplementation="de.terletzkiy.ansibility.model.inventory.InventoryServiceImpl"/>
+        <projectService serviceInterface="de.terletzkiy.ansibility.api.EffectiveVarsService"
+                        serviceImplementation="de.terletzkiy.ansibility.model.effective.EffectiveVarsServiceImpl"/>
+        <!-- /wu15-inventory -->
+    </extensions>
+</idea-plugin>

@@ -1,0 +1,10 @@
+<html>
+<body>
+<p>Reports values outside the documented <code>choices</code>, compared after ansible-core's coercion and per list item (including the rescue that maps a YAML boolean to the one boolean-like choice; <code>raw</code> options are compared without coercion).</p><p>Quick fix: replace with the nearest choice.</p>
+<p>Example (ANS-T004):</p>
+<pre><code>haproxy_balance: <b>roundrobbin</b></code></pre>
+<!-- tooltip end -->
+<p>Checked: role <code>defaults/</code> and <code>vars/</code> (against the role's own <code>meta/argument_specs.yml</code>), <code>group_vars</code>/<code>host_vars</code> files, inline inventory vars, play, block and task <code>vars:</code>, <code>include_role</code> vars and role parameters, and molecule inventories (against every spec of the same root that declares the variable). Templated values and vault values are not judged here.</p>
+<p>The message names the role whose spec is violated and says what the root's target ansible-core would do. When no play of the root applies that role, the message says its spec may be stale. The severity follows the root's Ansibility strictness settings (preset, "Require a reachable play for red"). Suppress a finding with <code># noinspection AnsibleChoiceMismatch</code> on the line above the key, or with <code>#file: noinspection AnsibleChoiceMismatch</code>.</p>
+</body>
+</html>

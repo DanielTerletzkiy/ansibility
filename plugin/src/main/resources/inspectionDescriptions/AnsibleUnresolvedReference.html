@@ -1,0 +1,22 @@
+<html>
+<body>
+<p>Reports static references that ansible-core cannot resolve and fails on (ANS-R001):</p>
+<ul>
+  <li><code>include_tasks</code>/<code>import_tasks</code> targets and <code>tasks_from</code>, <code>handlers_from</code>,
+    <code>vars_from</code>, <code>defaults_from</code> of <code>include_role</code>/<code>import_role</code>;</li>
+  <li><code>template</code> and <code>copy</code> <code>src</code> files, searched like ansible-core does
+    (<code>&lt;role&gt;/templates</code> or <code>&lt;role&gt;/files</code>, the role, the task file's directory);</li>
+  <li><code>notify</code> names that no handler answers to (by name, <code>listen</code> topic or <code>role : name</code>),
+    looking at the own role, every play that applies it, and the rest of the root;</li>
+  <li>roles (plays, includes, <code>meta/main.yml</code> dependencies, molecule's <code>/ansible/roles/&lt;role&gt;</code>)
+    when the role search path is limited to project directories by <code>roles_path</code>;</li>
+  <li><code>vars_files</code>, <code>import_playbook</code> and <code>{% include %}</code> in role templates.</li>
+</ul>
+<p>Not reported: a <code>copy</code> with a truthy <code>remote_src</code>, templated values, absolute paths outside the
+  project that no container mapping covers (<code>/etc/&hellip;</code>, <code>/tmp/&hellip;</code>), and names that may
+  exist at runtime (templated handler names, roles the project cannot find).</p>
+<p>The quick fix changes the value to the nearest existing name, for example <code>tasks_from: configure</code> to
+  <code>configuration</code>. The severity follows the root's Ansibility settings.</p>
+<!-- tooltip end -->
+</body>
+</html>

@@ -1,0 +1,302 @@
+{
+  "version": 1,
+  "about": "Special (magic), template-only and connection variables of ansible-core 2.18 (docs: reference_appendices/special_variables).",
+  "vars": {
+    "ansible_become": {
+      "type": "bool",
+      "description": "Whether privilege escalation is on.",
+      "connection": true
+    },
+    "ansible_become_method": {
+      "type": "str",
+      "description": "Privilege escalation method, e.g. sudo.",
+      "connection": true
+    },
+    "ansible_become_user": {
+      "type": "str",
+      "description": "User to become.",
+      "connection": true
+    },
+    "ansible_check_mode": {
+      "type": "bool",
+      "description": "True when the playbook runs in check mode (--check)."
+    },
+    "ansible_collection_name": {
+      "type": "str",
+      "description": "Collection of the current role, if any."
+    },
+    "ansible_config_file": {
+      "type": "str",
+      "description": "Path of the ansible.cfg in use."
+    },
+    "ansible_connection": {
+      "type": "str",
+      "description": "Connection plugin used for the host, e.g. ssh or local.",
+      "connection": true
+    },
+    "ansible_dependent_role_names": {
+      "type": "list",
+      "description": "Names of the roles imported as dependencies of the current role.",
+      "elements": "str"
+    },
+    "ansible_diff_mode": {
+      "type": "bool",
+      "description": "True when the playbook runs in diff mode (--diff)."
+    },
+    "ansible_facts": {
+      "type": "dict",
+      "description": "The facts gathered for the current host (setup and other fact modules)."
+    },
+    "ansible_failed_result": {
+      "type": "dict",
+      "description": "The result of the task that failed and triggered the current rescue section."
+    },
+    "ansible_failed_task": {
+      "type": "dict",
+      "description": "The task that failed and triggered the current rescue section."
+    },
+    "ansible_forks": {
+      "type": "int",
+      "description": "Number of forks available to this run."
+    },
+    "ansible_host": {
+      "type": "str",
+      "description": "Address to connect to, when it differs from the inventory name.",
+      "connection": true
+    },
+    "ansible_index_var": {
+      "type": "str",
+      "description": "Name of the loop_control.index_var of the current loop."
+    },
+    "ansible_inventory_sources": {
+      "type": "list",
+      "description": "The inventory sources of this run.",
+      "elements": "str"
+    },
+    "ansible_limit": {
+      "type": "str",
+      "description": "The --limit pattern of this run."
+    },
+    "ansible_local": {
+      "type": "dict",
+      "description": "Custom facts from /etc/ansible/facts.d."
+    },
+    "ansible_loop_var": {
+      "type": "str",
+      "description": "Name of the loop_control.loop_var of the current loop."
+    },
+    "ansible_managed": {
+      "type": "str",
+      "description": "The DEFAULT_MANAGED_STR marker text for generated files.",
+      "templateOnly": true
+    },
+    "ansible_parent_role_names": {
+      "type": "list",
+      "description": "Names of the roles that included the current role, innermost first.",
+      "elements": "str"
+    },
+    "ansible_parent_role_paths": {
+      "type": "list",
+      "description": "Paths of the roles that included the current role, innermost first.",
+      "elements": "str"
+    },
+    "ansible_play_batch": {
+      "type": "list",
+      "description": "Hosts of the current play batch (serial), without failed or unreachable ones.",
+      "elements": "str"
+    },
+    "ansible_play_hosts": {
+      "type": "list",
+      "description": "Hosts of the current play that are still active.",
+      "elements": "str"
+    },
+    "ansible_play_hosts_all": {
+      "type": "list",
+      "description": "Every host the current play targets.",
+      "elements": "str"
+    },
+    "ansible_play_name": {
+      "type": "str",
+      "description": "Name of the play that is running."
+    },
+    "ansible_play_role_names": {
+      "type": "list",
+      "description": "Names of the roles the current play applies (without dependencies).",
+      "elements": "str"
+    },
+    "ansible_playbook_python": {
+      "type": "str",
+      "description": "Path of the Python interpreter that runs ansible-playbook."
+    },
+    "ansible_port": {
+      "type": "int",
+      "description": "Port of the connection.",
+      "connection": true
+    },
+    "ansible_python_interpreter": {
+      "type": "str",
+      "description": "Python interpreter on the managed host.",
+      "connection": true
+    },
+    "ansible_role_name": {
+      "type": "str",
+      "description": "Fully qualified name of the current role."
+    },
+    "ansible_role_names": {
+      "type": "list",
+      "description": "Names of the roles the current play applies, dependencies included.",
+      "elements": "str"
+    },
+    "ansible_run_tags": {
+      "type": "list",
+      "description": "The --tags of this run.",
+      "elements": "str"
+    },
+    "ansible_search_path": {
+      "type": "list",
+      "description": "Paths searched for files, templates and lookups.",
+      "elements": "str"
+    },
+    "ansible_skip_tags": {
+      "type": "list",
+      "description": "The --skip-tags of this run.",
+      "elements": "str"
+    },
+    "ansible_ssh_common_args": {
+      "type": "str",
+      "description": "Extra arguments for ssh, scp and sftp.",
+      "connection": true
+    },
+    "ansible_ssh_private_key_file": {
+      "type": "str",
+      "description": "Private key file of the SSH connection.",
+      "connection": true
+    },
+    "ansible_user": {
+      "type": "str",
+      "description": "User of the connection.",
+      "connection": true
+    },
+    "ansible_verbosity": {
+      "type": "int",
+      "description": "The verbosity level of this run."
+    },
+    "ansible_version": {
+      "type": "dict",
+      "description": "Version of ansible-core.",
+      "keys": {
+        "full": {
+          "type": "str",
+          "description": "Full version, e.g. 2.18.8."
+        },
+        "major": {
+          "type": "int",
+          "description": "Major version."
+        },
+        "minor": {
+          "type": "int",
+          "description": "Minor version."
+        },
+        "revision": {
+          "type": "int",
+          "description": "Revision."
+        },
+        "string": {
+          "type": "str",
+          "description": "Version string."
+        }
+      }
+    },
+    "group_names": {
+      "type": "list",
+      "description": "Groups the current host belongs to (without all and ungrouped).",
+      "elements": "str"
+    },
+    "groups": {
+      "type": "dict",
+      "description": "Every inventory group with its hosts."
+    },
+    "hostvars": {
+      "type": "dict",
+      "description": "The variables of every inventory host, by host name."
+    },
+    "inventory_dir": {
+      "type": "str",
+      "description": "Directory of the inventory source that defined the current host."
+    },
+    "inventory_file": {
+      "type": "str",
+      "description": "The inventory source that defined the current host."
+    },
+    "inventory_hostname": {
+      "type": "str",
+      "description": "Inventory name of the current host."
+    },
+    "inventory_hostname_short": {
+      "type": "str",
+      "description": "Inventory name of the current host up to the first dot."
+    },
+    "omit": {
+      "type": "str",
+      "description": "Special value: an option set to omit is left out of the module call."
+    },
+    "play_hosts": {
+      "type": "list",
+      "description": "Hosts of the current play batch.",
+      "elements": "str",
+      "deprecated": "Use ansible_play_batch."
+    },
+    "playbook_dir": {
+      "type": "str",
+      "description": "Directory of the playbook that is running."
+    },
+    "role_name": {
+      "type": "str",
+      "description": "Name of the current role."
+    },
+    "role_names": {
+      "type": "list",
+      "description": "Names of the roles the current play applies.",
+      "elements": "str"
+    },
+    "role_path": {
+      "type": "str",
+      "description": "Directory of the current role."
+    },
+    "template_destpath": {
+      "type": "str",
+      "description": "Destination path of the file being rendered.",
+      "templateOnly": true
+    },
+    "template_fullpath": {
+      "type": "str",
+      "description": "Absolute path of the template being rendered.",
+      "templateOnly": true
+    },
+    "template_host": {
+      "type": "str",
+      "description": "Name of the machine that renders the template.",
+      "templateOnly": true
+    },
+    "template_mtime": {
+      "type": "str",
+      "description": "Modification time of the template.",
+      "templateOnly": true
+    },
+    "template_path": {
+      "type": "str",
+      "description": "Path of the template being rendered.",
+      "templateOnly": true
+    },
+    "template_run_date": {
+      "type": "str",
+      "description": "Date and time of the render.",
+      "templateOnly": true
+    },
+    "template_uid": {
+      "type": "str",
+      "description": "Owner of the template file.",
+      "templateOnly": true
+    }
+  }
+}
