@@ -1,0 +1,180 @@
+{
+ "note": "Synthetic test vectors. Every password was invented for testing (tools/vault/SYNTHETIC.md); none relates to a real vault.",
+ "generator": "tools/vault/vectors.sh",
+ "passwords": {
+  "pw1": {
+   "label": "default",
+   "hex": "746573742d706173732d31",
+   "source": "file",
+   "sourceHex": "746573742d706173732d310a"
+  },
+  "dev": {
+   "label": "dev",
+   "hex": "6465762d706173732d32",
+   "source": "file",
+   "sourceHex": "6465762d706173732d320a"
+  },
+  "prod": {
+   "label": "prod",
+   "hex": "70726f642d706173732d33",
+   "source": "file",
+   "sourceHex": "70726f642d706173732d330a"
+  },
+  "spaced": {
+   "label": "default",
+   "hex": "73706163656420706173732034",
+   "source": "file",
+   "sourceHex": "202073706163656420706173732034200d0a"
+  },
+  "nonutf8": {
+   "label": "default",
+   "hex": "ff706173732de9",
+   "source": "file",
+   "sourceHex": "ff706173732de90a"
+  },
+  "utf8": {
+   "label": "ops",
+   "hex": "70c3a4737377c3b672642de29c93",
+   "source": "file",
+   "sourceHex": "70c3a4737377c3b672642de29c930a"
+  },
+  "ws": {
+   "label": "default",
+   "hex": "77732070617373",
+   "source": "file",
+   "sourceHex": "090b777320706173730c0a0a"
+  },
+  "inner": {
+   "label": "prod",
+   "hex": "2020696e6e6572207061737320",
+   "source": "vaulted file",
+   "sourceHex": "2020696e6e65722070617373200d0a"
+  },
+  "script": {
+   "label": "dev",
+   "hex": "20736372697074207061737320",
+   "source": "script",
+   "sourceHex": "207363726970742070617373200d0a"
+  },
+  "prompt": {
+   "label": "dev",
+   "hex": "70c3a4737377c3b672642de29c93",
+   "source": "prompt",
+   "sourceHex": "202070c3a4737377c3b672642de29c932009"
+  }
+ },
+ "vectors": [
+  {
+   "id": "v01",
+   "kind": "inline",
+   "header": "$ANSIBLE_VAULT;1.1;AES256",
+   "passwordId": "pw1",
+   "description": "encrypt_string, no label -> 1.1"
+  },
+  {
+   "id": "v02",
+   "kind": "inline",
+   "header": "$ANSIBLE_VAULT;1.2;AES256;dev",
+   "passwordId": "dev",
+   "description": "encrypt_string --vault-id dev@file -> 1.2 label dev"
+  },
+  {
+   "id": "v03",
+   "kind": "inline",
+   "header": "$ANSIBLE_VAULT;1.2;AES256;prod",
+   "passwordId": "prod",
+   "description": "encrypt_string --vault-id prod@file -> 1.2 label prod (same key as v02: per-env multi-vault)"
+  },
+  {
+   "id": "v04",
+   "kind": "file",
+   "header": "$ANSIBLE_VAULT;1.1;AES256",
+   "passwordId": "pw1",
+   "description": "whole-file vault of an EMPTY file (plaintext 0 bytes; the ciphertext is one full PKCS7 block)"
+  },
+  {
+   "id": "v05",
+   "kind": "inline",
+   "header": "$ANSIBLE_VAULT;1.1;AES256",
+   "passwordId": "pw1",
+   "description": "encrypt_string from stdin, multi-line value with a blank line, no trailing newline"
+  },
+  {
+   "id": "v06",
+   "kind": "inline",
+   "header": "$ANSIBLE_VAULT;1.1;AES256",
+   "passwordId": "pw1",
+   "description": "encrypt_string, non-ASCII UTF-8 (umlaut, en dash, CJK, emoji)"
+  },
+  {
+   "id": "v07",
+   "kind": "file",
+   "header": "$ANSIBLE_VAULT;1.1;AES256",
+   "passwordId": "pw1",
+   "description": "whole-file vault of binary data (all 256 byte values + NUL CR LF 0xFF): 260 B -> 272 B ciphertext"
+  },
+  {
+   "id": "v08",
+   "kind": "file",
+   "header": "$ANSIBLE_VAULT;1.2;AES256;dev",
+   "passwordId": "dev",
+   "description": "whole-file vault of a YAML vars file, --vault-id dev -> 1.2;AES256;dev"
+  },
+  {
+   "id": "v09",
+   "kind": "file",
+   "header": "$ANSIBLE_VAULT;1.1;AES256",
+   "passwordId": "pw1",
+   "description": "whole-file vault of the same YAML vars file, default id -> 1.1"
+  },
+  {
+   "id": "v10",
+   "kind": "inline",
+   "header": "$ANSIBLE_VAULT;1.1;AES256",
+   "passwordId": "pw1",
+   "description": "ANSIBLE_VAULT_ENCRYPT_SALT=fixed-salt-for-tests: the salt is the UTF-8 bytes of that string (20 bytes, not 32); re-encrypting reproduces it byte for byte"
+  },
+  {
+   "id": "v11",
+   "kind": "inline",
+   "header": "$ANSIBLE_VAULT;1.1;AES256",
+   "passwordId": "pw1",
+   "description": "plaintext of exactly 16 bytes -> PKCS7 adds a full block (32-byte ciphertext)"
+  },
+  {
+   "id": "v12",
+   "kind": "inline",
+   "header": "$ANSIBLE_VAULT;1.1;AES256",
+   "passwordId": "spaced",
+   "description": "the password FILE holds \"  spaced pass 4 \\r\\n\"; Ansible strips the surrounding whitespace -> secret \"spaced pass 4\""
+  },
+  {
+   "id": "v13",
+   "kind": "inline",
+   "header": "$ANSIBLE_VAULT;1.2;AES256;dev",
+   "passwordId": "prod",
+   "description": "MISLABELLED: the header label is dev, but the prod password encrypted it (--vault-id dev@pw-prod.txt); decrypts only when every secret is tried (vault_id_match off)"
+  },
+  {
+   "id": "v14",
+   "kind": "inline",
+   "header": "$ANSIBLE_VAULT;1.1;AES256",
+   "passwordId": "prod",
+   "description": "1.1 (no label) encrypted with the prod password (--vault-id pw-prod.txt -> label default -> 1.1); found only by trying every secret"
+  },
+  {
+   "id": "v15",
+   "kind": "inline",
+   "header": "$ANSIBLE_VAULT;1.1;AES256",
+   "passwordId": "nonutf8",
+   "description": "the password file holds the raw bytes ff 70 61 73 73 2d e9 (not UTF-8): PBKDF2 must run over raw bytes; a char[]-based PBEKeySpec cannot reproduce it"
+  },
+  {
+   "id": "v16",
+   "kind": "inline",
+   "header": "$ANSIBLE_VAULT;1.2;AES256;ops",
+   "passwordId": "utf8",
+   "description": "UTF-8 password with non-ASCII characters, label ops (1.2)"
+  }
+ ]
+}

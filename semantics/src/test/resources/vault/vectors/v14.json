@@ -1,0 +1,32 @@
+{
+  "id": "v14",
+  "description": "1.1 (no label) encrypted with the prod password (--vault-id pw-prod.txt -> label default -> 1.1); found only by trying every secret",
+  "generatedWith": "ansible-core 2.21.4 (ansible-vault CLI)",
+  "passwordId": "prod",
+  "password": "prod-pass-3",
+  "passwordHex": "70726f642d706173732d33",
+  "passwordSourceHex": "70726f642d706173732d330a",
+  "kind": "inline",
+  "yamlKey": "unlabeled_prod",
+  "rawFile": "raw/v14.yml",
+  "header": "$ANSIBLE_VAULT;1.1;AES256",
+  "formatVersion": "1.1",
+  "cipher": "AES256",
+  "label": null,
+  "labelAsParsedByAnsible": "default",
+  "envelope": "$ANSIBLE_VAULT;1.1;AES256\n65626433313330343563336261643830366230653539393130376638643636353861333064306436\n3364386262616439313838323039313132346663613934660a363466383039613366373765633931\n33636433326465636538646566653062343637363438386338653565353237323934343365336237\n3231363964623164380a653662396464633563323333396531353365643336366665326436663162\n6330\n",
+  "sourceFileText": "unlabeled_prod: !vault |\n          $ANSIBLE_VAULT;1.1;AES256\n          65626433313330343563336261643830366230653539393130376638643636353861333064306436\n          3364386262616439313838323039313132346663613934660a363466383039613366373765633931\n          33636433326465636538646566653062343637363438386338653565353237323934343365336237\n          3231363964623164380a653662396464633563323333396531353365643336366665326436663162\n          6330\n",
+  "plaintextBase64": "dW5sYWJlbGVkIHByb2Q=",
+  "plaintextHex": "756e6c6162656c65642070726f64",
+  "plaintextUtf8": "unlabeled prod",
+  "saltHex": "ebd313045c3bad806b0e599107f8d6658a30d0d63d8bbad91882091124fca94f",
+  "saltLength": 32,
+  "hmacHex": "64f809a3f77ec913cd32dece8defe0b4676488c8e5e52729443e3b72169db1d8",
+  "ciphertextHex": "e6b9ddc5c2339e153ed366fe2d6f1bc0",
+  "ciphertextLength": 16,
+  "derived": {
+    "cipherKeyHex": "df28d4d9077ebe359639ca02b6570c950cb729aee8a1e7cdb2c73e3433c45fad",
+    "hmacKeyHex": "7899728f18ed421bd3e324b33eaac7c90c925f7bf1456291d57467bcfc545f0e",
+    "ivHex": "78401fa0f8a2883e53b57d5ec245a10a"
+  }
+}

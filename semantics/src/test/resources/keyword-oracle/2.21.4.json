@@ -1,0 +1,2864 @@
+{
+ "ansible_core": "2.21.4",
+ "cases": [
+  {
+   "case": "task.retries=abc",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'retries': The value 'abc' could not be converted to 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      retries: abc\n"
+  },
+  {
+   "case": "task.retries=3",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      retries: 3\n"
+  },
+  {
+   "case": "task.retries=\"3\"",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      retries: \"3\"\n"
+  },
+  {
+   "case": "task.retries=3.0",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      retries: 3.0\n"
+  },
+  {
+   "case": "task.retries=3.5",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'retries': The value 3.5 could not be converted to 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      retries: 3.5\n"
+  },
+  {
+   "case": "task.retries=true",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      retries: true\n"
+  },
+  {
+   "case": "task.retries=\"1e3\"",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      retries: \"1e3\"\n"
+  },
+  {
+   "case": "task.retries=\" 4 \"",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      retries: \" 4 \"\n"
+  },
+  {
+   "case": "task.retries=\"0x1F\"",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'retries': The value '0x1F' could not be converted to 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      retries: \"0x1F\"\n"
+  },
+  {
+   "case": "task.retries=[1]",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'retries': The value [1] could not be converted to 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      retries: [1]\n"
+  },
+  {
+   "case": "task.retries={a: 1}",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'retries': The value {'a': 1} could not be converted to 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      retries: {a: 1}\n"
+  },
+  {
+   "case": "task.retries=~",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      retries: ~\n"
+  },
+  {
+   "case": "task.retries=\"inf\"",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'retries': cannot convert Infinity to integer",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      retries: \"inf\"\n"
+  },
+  {
+   "case": "task.retries=\"nan\"",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'retries': The value 'nan' could not be converted to 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      retries: \"nan\"\n"
+  },
+  {
+   "case": "task.retries=\"4_2\"",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      retries: \"4_2\"\n"
+  },
+  {
+   "case": "task.retries=2024-01-01",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'retries': The value datetime.date(2024, 1, 1) could not be converted to 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      retries: 2024-01-01\n"
+  },
+  {
+   "case": "task.retries=\"{{ x }}\"",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      retries: \"{{ x }}\"\n"
+  },
+  {
+   "case": "task.retries=\"{{ x }}y\"",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'retries': The value '1y' could not be converted to 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      retries: \"{{ x }}y\"\n"
+  },
+  {
+   "case": "task.async=abc",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'async_val': The value 'abc' could not be converted to 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      async: abc\n"
+  },
+  {
+   "case": "task.async=5",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      async: 5\n"
+  },
+  {
+   "case": "task.async=5.5",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'async_val': The value 5.5 could not be converted to 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      async: 5.5\n"
+  },
+  {
+   "case": "task.async=[1]",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'async_val': The value [1] could not be converted to 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      async: [1]\n"
+  },
+  {
+   "case": "task.poll=abc",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'poll': The value 'abc' could not be converted to 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      poll: abc\n"
+  },
+  {
+   "case": "task.poll=5",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      poll: 5\n"
+  },
+  {
+   "case": "task.poll=5.5",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'poll': The value 5.5 could not be converted to 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      poll: 5.5\n"
+  },
+  {
+   "case": "task.poll=[1]",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'poll': The value [1] could not be converted to 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      poll: [1]\n"
+  },
+  {
+   "case": "task.throttle=abc",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'throttle': The value 'abc' could not be converted to 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      throttle: abc\n"
+  },
+  {
+   "case": "task.throttle=5",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      throttle: 5\n"
+  },
+  {
+   "case": "task.throttle=5.5",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'throttle': The value 5.5 could not be converted to 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      throttle: 5.5\n"
+  },
+  {
+   "case": "task.throttle=[1]",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'throttle': The value [1] could not be converted to 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      throttle: [1]\n"
+  },
+  {
+   "case": "task.timeout=abc",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'timeout': The value 'abc' could not be converted to 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      timeout: abc\n"
+  },
+  {
+   "case": "task.timeout=5",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      timeout: 5\n"
+  },
+  {
+   "case": "task.timeout=5.5",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'timeout': The value 5.5 could not be converted to 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      timeout: 5.5\n"
+  },
+  {
+   "case": "task.timeout=[1]",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'timeout': The value [1] could not be converted to 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      timeout: [1]\n"
+  },
+  {
+   "case": "task.port=abc",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'port': The value 'abc' could not be converted to 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      port: abc\n"
+  },
+  {
+   "case": "task.port=5",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      port: 5\n"
+  },
+  {
+   "case": "task.port=5.5",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'port': The value 5.5 could not be converted to 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      port: 5.5\n"
+  },
+  {
+   "case": "task.port=[1]",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'port': The value [1] could not be converted to 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      port: [1]\n"
+  },
+  {
+   "case": "task.delay=x",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'delay': The value 'x' could not be converted to 'float'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      delay: x\n      retries: 1\n      until: true\n"
+  },
+  {
+   "case": "task.delay=1.5",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      delay: 1.5\n      retries: 1\n      until: true\n"
+  },
+  {
+   "case": "task.delay=\"1.5\"",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      delay: \"1.5\"\n      retries: 1\n      until: true\n"
+  },
+  {
+   "case": "task.delay=\"inf\"",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      delay: \"inf\"\n      retries: 1\n      until: true\n"
+  },
+  {
+   "case": "task.delay=true",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      delay: true\n      retries: 1\n      until: true\n"
+  },
+  {
+   "case": "task.delay=[1]",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'delay': The value [1] could not be converted to 'float'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      delay: [1]\n      retries: 1\n      until: true\n"
+  },
+  {
+   "case": "task.delay={a: 1}",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'delay': The value {'a': 1} could not be converted to 'float'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      delay: {a: 1}\n      retries: 1\n      until: true\n"
+  },
+  {
+   "case": "task.delay=2",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      delay: 2\n      retries: 1\n      until: true\n"
+  },
+  {
+   "case": "task.delay=\"1e3\"",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      delay: \"1e3\"\n      retries: 1\n      until: true\n"
+  },
+  {
+   "case": "task.delay=2024-01-01",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'delay': The value datetime.date(2024, 1, 1) could not be converted to 'float'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      delay: 2024-01-01\n      retries: 1\n      until: true\n"
+  },
+  {
+   "case": "task.become=maybe",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'become': The value 'maybe' could not be converted to 'bool'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      become: maybe\n"
+  },
+  {
+   "case": "task.become=yes",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      become: yes\n"
+  },
+  {
+   "case": "task.become=\"yes\"",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      become: \"yes\"\n"
+  },
+  {
+   "case": "task.become=1",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      become: 1\n"
+  },
+  {
+   "case": "task.become=2",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'become': The value 2 could not be converted to 'bool'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      become: 2\n"
+  },
+  {
+   "case": "task.become=0.0",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      become: 0.0\n"
+  },
+  {
+   "case": "task.become=\"on\"",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      become: \"on\"\n"
+  },
+  {
+   "case": "task.become=[true]",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'become': The value [True] could not be converted to 'bool'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      become: [true]\n"
+  },
+  {
+   "case": "task.become=~",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      become: ~\n"
+  },
+  {
+   "case": "task.become=\"{{ b }}\"",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      become: \"{{ b }}\"\n"
+  },
+  {
+   "case": "task.become=\"Y\"",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      become: \"Y\"\n"
+  },
+  {
+   "case": "task.become=1.5",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'become': The value 1.5 could not be converted to 'bool'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      become: 1.5\n"
+  },
+  {
+   "case": "task.become={a: 1}",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'become': The value {'a': 1} could not be converted to 'bool'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      become: {a: 1}\n"
+  },
+  {
+   "case": "task.no_log=maybe",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'no_log': The value 'maybe' could not be converted to 'bool'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      no_log: maybe\n"
+  },
+  {
+   "case": "task.no_log=yes",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      no_log: yes\n"
+  },
+  {
+   "case": "task.no_log=2",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'no_log': The value 2 could not be converted to 'bool'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      no_log: 2\n"
+  },
+  {
+   "case": "task.ignore_errors=maybe",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'ignore_errors': The value 'maybe' could not be converted to 'bool'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      ignore_errors: maybe\n"
+  },
+  {
+   "case": "task.ignore_errors=yes",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      ignore_errors: yes\n"
+  },
+  {
+   "case": "task.ignore_errors=2",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'ignore_errors': The value 2 could not be converted to 'bool'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      ignore_errors: 2\n"
+  },
+  {
+   "case": "task.run_once=maybe",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'run_once': The value 'maybe' could not be converted to 'bool'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      run_once: maybe\n"
+  },
+  {
+   "case": "task.run_once=yes",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      run_once: yes\n"
+  },
+  {
+   "case": "task.run_once=2",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'run_once': The value 2 could not be converted to 'bool'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      run_once: 2\n"
+  },
+  {
+   "case": "task.check_mode=maybe",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'check_mode': The value 'maybe' could not be converted to 'bool'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      check_mode: maybe\n"
+  },
+  {
+   "case": "task.check_mode=yes",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      check_mode: yes\n"
+  },
+  {
+   "case": "task.check_mode=2",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'check_mode': The value 2 could not be converted to 'bool'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      check_mode: 2\n"
+  },
+  {
+   "case": "task.diff=maybe",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'diff': The value 'maybe' could not be converted to 'bool'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      diff: maybe\n"
+  },
+  {
+   "case": "task.diff=yes",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      diff: yes\n"
+  },
+  {
+   "case": "task.diff=2",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'diff': The value 2 could not be converted to 'bool'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      diff: 2\n"
+  },
+  {
+   "case": "task.any_errors_fatal=maybe",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'any_errors_fatal': The value 'maybe' could not be converted to 'bool'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      any_errors_fatal: maybe\n"
+  },
+  {
+   "case": "task.any_errors_fatal=yes",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      any_errors_fatal: yes\n"
+  },
+  {
+   "case": "task.any_errors_fatal=2",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'any_errors_fatal': The value 2 could not be converted to 'bool'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      any_errors_fatal: 2\n"
+  },
+  {
+   "case": "task.delegate_facts=maybe",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'delegate_facts': The value 'maybe' could not be converted to 'bool'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      delegate_facts: maybe\n"
+  },
+  {
+   "case": "task.delegate_facts=yes",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      delegate_facts: yes\n"
+  },
+  {
+   "case": "task.delegate_facts=2",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'delegate_facts': The value 2 could not be converted to 'bool'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      delegate_facts: 2\n"
+  },
+  {
+   "case": "task.ignore_unreachable=maybe",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'ignore_unreachable': The value 'maybe' could not be converted to 'bool'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      ignore_unreachable: maybe\n"
+  },
+  {
+   "case": "task.ignore_unreachable=yes",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      ignore_unreachable: yes\n"
+  },
+  {
+   "case": "task.ignore_unreachable=2",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'ignore_unreachable': The value 2 could not be converted to 'bool'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      ignore_unreachable: 2\n"
+  },
+  {
+   "case": "task.become_user=[a]",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'become_user' is supposed to be a string type, however the incoming data structure is a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedList'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      become_user: [a]\n"
+  },
+  {
+   "case": "task.become_user={a: 1}",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'become_user' is supposed to be a string type, however the incoming data structure is a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedDict'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      become_user: {a: 1}\n"
+  },
+  {
+   "case": "task.become_user=1",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      become_user: 1\n"
+  },
+  {
+   "case": "task.become_user=true",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      become_user: true\n"
+  },
+  {
+   "case": "task.become_user=~",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      become_user: ~\n"
+  },
+  {
+   "case": "task.become_user=abc",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      become_user: abc\n"
+  },
+  {
+   "case": "task.become_user=\"{{ x }}\"",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      become_user: \"{{ x }}\"\n"
+  },
+  {
+   "case": "task.name=[a]",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'name' is supposed to be a string type, however the incoming data structure is a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedList'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      name: [a]\n"
+  },
+  {
+   "case": "task.name={a: 1}",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'name' is supposed to be a string type, however the incoming data structure is a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedDict'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      name: {a: 1}\n"
+  },
+  {
+   "case": "task.name=1",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      name: 1\n"
+  },
+  {
+   "case": "task.delegate_to=[a]",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'delegate_to' is supposed to be a string type, however the incoming data structure is a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedList'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      delegate_to: [a]\n"
+  },
+  {
+   "case": "task.delegate_to={a: 1}",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'delegate_to' is supposed to be a string type, however the incoming data structure is a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedDict'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      delegate_to: {a: 1}\n"
+  },
+  {
+   "case": "task.delegate_to=1",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      delegate_to: 1\n"
+  },
+  {
+   "case": "task.connection=[a]",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'connection' is supposed to be a string type, however the incoming data structure is a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedList'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      connection: [a]\n"
+  },
+  {
+   "case": "task.connection={a: 1}",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'connection' is supposed to be a string type, however the incoming data structure is a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedDict'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      connection: {a: 1}\n"
+  },
+  {
+   "case": "task.connection=1",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      connection: 1\n"
+  },
+  {
+   "case": "task.remote_user=[a]",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'remote_user' is supposed to be a string type, however the incoming data structure is a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedList'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      remote_user: [a]\n"
+  },
+  {
+   "case": "task.remote_user={a: 1}",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'remote_user' is supposed to be a string type, however the incoming data structure is a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedDict'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      remote_user: {a: 1}\n"
+  },
+  {
+   "case": "task.remote_user=1",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      remote_user: 1\n"
+  },
+  {
+   "case": "task.become_method=[a]",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'become_method' is supposed to be a string type, however the incoming data structure is a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedList'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      become_method: [a]\n"
+  },
+  {
+   "case": "task.become_method={a: 1}",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'become_method' is supposed to be a string type, however the incoming data structure is a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedDict'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      become_method: {a: 1}\n"
+  },
+  {
+   "case": "task.become_method=1",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      become_method: 1\n"
+  },
+  {
+   "case": "task.become_flags=[a]",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'become_flags' is supposed to be a string type, however the incoming data structure is a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedList'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      become_flags: [a]\n"
+  },
+  {
+   "case": "task.become_flags={a: 1}",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'become_flags' is supposed to be a string type, however the incoming data structure is a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedDict'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      become_flags: {a: 1}\n"
+  },
+  {
+   "case": "task.become_flags=1",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      become_flags: 1\n"
+  },
+  {
+   "case": "task.become_exe=[a]",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'become_exe' is supposed to be a string type, however the incoming data structure is a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedList'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      become_exe: [a]\n"
+  },
+  {
+   "case": "task.become_exe={a: 1}",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'become_exe' is supposed to be a string type, however the incoming data structure is a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedDict'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      become_exe: {a: 1}\n"
+  },
+  {
+   "case": "task.become_exe=1",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      become_exe: 1\n"
+  },
+  {
+   "case": "task.tags=haproxy",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      tags: haproxy\n"
+  },
+  {
+   "case": "task.tags=[a, 1]",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      tags: [a, 1]\n"
+  },
+  {
+   "case": "task.tags=5",
+   "error_class": "AnsibleError",
+   "message": "tags must be specified as a list",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      tags: 5\n"
+  },
+  {
+   "case": "task.tags=~",
+   "error_class": "AnsibleError",
+   "message": "tags must be specified as a list",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      tags: ~\n"
+  },
+  {
+   "case": "task.tags=[1.5]",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'tags': Keyword 'tags' items must be of type 'str' or 'int', not 'float'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      tags: [1.5]\n"
+  },
+  {
+   "case": "task.tags=[[a]]",
+   "error_class": "TypeError",
+   "message": "unhashable type: '_AnsibleTaggedList'",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      tags: [[a]]\n"
+  },
+  {
+   "case": "task.tags=[{a: 1}]",
+   "error_class": "TypeError",
+   "message": "unhashable type: '_AnsibleTaggedDict'",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      tags: [{a: 1}]\n"
+  },
+  {
+   "case": "task.tags=[~]",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      tags: [~]\n"
+  },
+  {
+   "case": "task.tags=\"a,b\"",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      tags: \"a,b\"\n"
+  },
+  {
+   "case": "task.tags=true",
+   "error_class": "AnsibleError",
+   "message": "tags must be specified as a list",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      tags: true\n"
+  },
+  {
+   "case": "task.tags={a: 1}",
+   "error_class": "AnsibleError",
+   "message": "tags must be specified as a list",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      tags: {a: 1}\n"
+  },
+  {
+   "case": "task.tags=[true]",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      tags: [true]\n"
+  },
+  {
+   "case": "task.tags=\"{{ t }}\"",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      tags: \"{{ t }}\"\n"
+  },
+  {
+   "case": "task.tags=[\"{{ t }}\"]",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      tags: [\"{{ t }}\"]\n"
+  },
+  {
+   "case": "task.tags=2024-01-01",
+   "error_class": "AnsibleError",
+   "message": "tags must be specified as a list",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      tags: 2024-01-01\n"
+  },
+  {
+   "case": "task.tags=[2024-01-01]",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'tags': Keyword 'tags' items must be of type 'str' or 'int', not 'date'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      tags: [2024-01-01]\n"
+  },
+  {
+   "case": "task.notify=x",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      notify: x\n"
+  },
+  {
+   "case": "task.notify=[x]",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      notify: [x]\n"
+  },
+  {
+   "case": "task.notify=1",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      notify: 1\n"
+  },
+  {
+   "case": "task.notify={a: 1}",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      notify: {a: 1}\n"
+  },
+  {
+   "case": "task.notify=~",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      notify: ~\n"
+  },
+  {
+   "case": "task.notify=[1]",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      notify: [1]\n"
+  },
+  {
+   "case": "task.notify=[[x]]",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      notify: [[x]]\n"
+  },
+  {
+   "case": "task.when=x",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      when: x\n"
+  },
+  {
+   "case": "task.when=[x]",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      when: [x]\n"
+  },
+  {
+   "case": "task.when=true",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      when: true\n"
+  },
+  {
+   "case": "task.when=1",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      when: 1\n"
+  },
+  {
+   "case": "task.when={a: 1}",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      when: {a: 1}\n"
+  },
+  {
+   "case": "task.when=~",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      when: ~\n"
+  },
+  {
+   "case": "task.changed_when=5",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      changed_when: 5\n"
+  },
+  {
+   "case": "task.failed_when={a: 1}",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      failed_when: {a: 1}\n"
+  },
+  {
+   "case": "task.until=7",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      until: 7\n"
+  },
+  {
+   "case": "task.changed_when=[1]",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      changed_when: [1]\n"
+  },
+  {
+   "case": "task.register=ok_name",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      register: ok_name\n"
+  },
+  {
+   "case": "task.register=\"bad-name\"",
+   "error_class": "AnsibleParserError",
+   "message": "Invalid 'register' specified: Invalid variable name 'bad-name'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      register: \"bad-name\"\n"
+  },
+  {
+   "case": "task.register=\"{{ x }}\"",
+   "error_class": "AnsibleParserError",
+   "message": "Invalid 'register' specified: Invalid variable name '{{ x }}'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      register: \"{{ x }}\"\n"
+  },
+  {
+   "case": "task.register=1",
+   "error_class": "AnsibleParserError",
+   "message": "Invalid 'register' specified: Invalid variable name '1' of type 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      register: 1\n"
+  },
+  {
+   "case": "task.register=[a]",
+   "error_class": "AnsibleParserError",
+   "message": "Invalid 'register' specified: Invalid variable name of type 'list'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      register: [a]\n"
+  },
+  {
+   "case": "task.register=~",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      register: ~\n"
+  },
+  {
+   "case": "task.register=\"_ok\"",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      register: \"_ok\"\n"
+  },
+  {
+   "case": "task.register=\"1st\"",
+   "error_class": "AnsibleParserError",
+   "message": "Invalid 'register' specified: Invalid variable name '1st'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      register: \"1st\"\n"
+  },
+  {
+   "case": "task.register=\"True\"",
+   "error_class": "AnsibleParserError",
+   "message": "Invalid 'register' specified: Invalid variable name 'True'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      register: \"True\"\n"
+  },
+  {
+   "case": "task.register=\"for\"",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      register: \"for\"\n"
+  },
+  {
+   "case": "task.vars={ok: 1}",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      vars: {ok: 1}\n"
+  },
+  {
+   "case": "task.vars={bad-key: 1}",
+   "error_class": "AnsibleError",
+   "message": "Invalid variable name 'bad-key'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      vars: {bad-key: 1}\n"
+  },
+  {
+   "case": "task.vars=[a]",
+   "error_class": "AnsibleParserError",
+   "message": "Vars in a Task must be specified as a dictionary.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      vars: [a]\n"
+  },
+  {
+   "case": "task.vars=x",
+   "error_class": "AnsibleParserError",
+   "message": "Vars in a Task must be specified as a dictionary.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      vars: x\n"
+  },
+  {
+   "case": "task.vars=~",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      vars: ~\n"
+  },
+  {
+   "case": "task.vars=[{a: 1}]",
+   "error_class": "AnsibleParserError",
+   "message": "Vars in a Task must be specified as a dictionary.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      vars: [{a: 1}]\n"
+  },
+  {
+   "case": "task.vars={\"1a\": 1}",
+   "error_class": "AnsibleError",
+   "message": "Invalid variable name '1a'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      vars: {\"1a\": 1}\n"
+  },
+  {
+   "case": "task.vars={\"for\": 1}",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      vars: {\"for\": 1}\n"
+  },
+  {
+   "case": "task.vars={\"{{ k }}\": 1}",
+   "error_class": "AnsibleError",
+   "message": "Invalid variable name '{{ k }}'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      vars: {\"{{ k }}\": 1}\n"
+  },
+  {
+   "case": "loop_control=x",
+   "error_class": "AnsibleParserError",
+   "message": "the `loop_control` value must be specified as a dictionary and cannot be a variable itself (though it can contain variables)",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      loop_control: x\n"
+  },
+  {
+   "case": "loop_control=\"{{ lc }}\"",
+   "error_class": "AnsibleParserError",
+   "message": "the `loop_control` value must be specified as a dictionary and cannot be a variable itself (though it can contain variables)",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      loop_control: \"{{ lc }}\"\n"
+  },
+  {
+   "case": "loop_control={pause: x}",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'loop_control': Error processing keyword 'pause': The value 'x' could not be converted to 'float'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      loop_control: {pause: x}\n"
+  },
+  {
+   "case": "loop_control={pause: 2}",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      loop_control: {pause: 2}\n"
+  },
+  {
+   "case": "loop_control={pause: \"2\"}",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      loop_control: {pause: \"2\"}\n"
+  },
+  {
+   "case": "loop_control={extended: maybe}",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'loop_control': Error processing keyword 'extended': The value 'maybe' could not be converted to 'bool'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      loop_control: {extended: maybe}\n"
+  },
+  {
+   "case": "loop_control={loop_var: [a]}",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'loop_var' is supposed to be a string type, however the incoming data structure is a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedList'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      loop_control: {loop_var: [a]}\n"
+  },
+  {
+   "case": "loop_control={label: [a]}",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'label' is supposed to be a string type, however the incoming data structure is a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedList'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      loop_control: {label: [a]}\n"
+  },
+  {
+   "case": "loop_control={label: \"{{ x }}\"}",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      loop_control: {label: \"{{ x }}\"}\n"
+  },
+  {
+   "case": "loop_control={index_var: {a: 1}}",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'index_var' is supposed to be a string type, however the incoming data structure is a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedDict'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      loop_control: {index_var: {a: 1}}\n"
+  },
+  {
+   "case": "loop_control={extended_allitems: 1}",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      loop_control: {extended_allitems: 1}\n"
+  },
+  {
+   "case": "loop_control={extended_allitems: 2}",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'loop_control': Error processing keyword 'extended_allitems': The value 2 could not be converted to 'bool'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      loop_control: {extended_allitems: 2}\n"
+  },
+  {
+   "case": "loop_control={break_when: 5}",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      loop_control: {break_when: 5}\n"
+  },
+  {
+   "case": "loop_control={bogus: 1}",
+   "error_class": "AnsibleParserError",
+   "message": "'bogus' is not a valid attribute for a LoopControl",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      loop_control: {bogus: 1}\n"
+  },
+  {
+   "case": "loop_control=~",
+   "error_class": "AnsibleParserError",
+   "message": "the `loop_control` value must be specified as a dictionary and cannot be a variable itself (though it can contain variables)",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      loop_control: ~\n"
+  },
+  {
+   "case": "loop_control=[a]",
+   "error_class": "AnsibleParserError",
+   "message": "the `loop_control` value must be specified as a dictionary and cannot be a variable itself (though it can contain variables)",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      loop_control: [a]\n"
+  },
+  {
+   "case": "loop_control={pause: \"{{ p }}\"}",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      loop_control: {pause: \"{{ p }}\"}\n"
+  },
+  {
+   "case": "loop_control={loop_var: \"{{ v }}\"}",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      loop_control: {loop_var: \"{{ v }}\"}\n"
+  },
+  {
+   "case": "loop_control={loop_var: 1}",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'loop_control': Invalid 'loop_var': Invalid variable name '1'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      loop_control: {loop_var: 1}\n"
+  },
+  {
+   "case": "loop_control={pause: [1]}",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'loop_control': Error processing keyword 'pause': The value [1] could not be converted to 'float'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      loop_control: {pause: [1]}\n"
+  },
+  {
+   "case": "task.args=x",
+   "error_class": "AnsibleParserError",
+   "message": "The value of the task `args` keyword is invalid.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug:\n      args: x\n"
+  },
+  {
+   "case": "task.args=\"{{ a }}\"",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug:\n      args: \"{{ a }}\"\n"
+  },
+  {
+   "case": "task.args={msg: hi}",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug:\n      args: {msg: hi}\n"
+  },
+  {
+   "case": "task.args=[a]",
+   "error_class": "AnsibleParserError",
+   "message": "The value of the task `args` keyword is invalid.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug:\n      args: [a]\n"
+  },
+  {
+   "case": "task.debugger=bogus",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'debugger': 'bogus' is not a valid value for debugger. Must be one of on_skipped, always, never, on_unreachable, on_failed",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      debugger: bogus\n"
+  },
+  {
+   "case": "task.debugger=always",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      debugger: always\n"
+  },
+  {
+   "case": "task.debugger=true",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      debugger: true\n"
+  },
+  {
+   "case": "task.debugger=never",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      debugger: never\n"
+  },
+  {
+   "case": "task.debugger=[a]",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'debugger' is supposed to be a string type, however the incoming data structure is a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedList'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      debugger: [a]\n"
+  },
+  {
+   "case": "task.module_defaults=x",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'module_defaults' is supposed to be a dictionary or list of dictionaries, the keys of which must be static action, module, or group names. Only the values may contain templates. For example: {'ping': \"{{ ping_defaults }}\"}",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      module_defaults: x\n"
+  },
+  {
+   "case": "task.module_defaults=[x]",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'module_defaults' is supposed to be a dictionary or list of dictionaries, the keys of which must be static action, module, or group names. Only the values may contain templates. For example: {'ping': \"{{ ping_defaults }}\"}",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      module_defaults: [x]\n"
+  },
+  {
+   "case": "task.module_defaults={ansible.builtin.debug: {msg: hi}}",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      module_defaults: {ansible.builtin.debug: {msg: hi}}\n"
+  },
+  {
+   "case": "task.module_defaults=\"{{ md }}\"",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'module_defaults' is supposed to be a dictionary or list of dictionaries, the keys of which must be static action, module, or group names. Only the values may contain templates. For example: {'ping': \"{{ ping_defaults }}\"}",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      module_defaults: \"{{ md }}\"\n"
+  },
+  {
+   "case": "task.module_defaults=[{ansible.builtin.debug: {msg: hi}}]",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      module_defaults: [{ansible.builtin.debug: {msg: hi}}]\n"
+  },
+  {
+   "case": "task.environment=x",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      environment: x\n"
+  },
+  {
+   "case": "task.environment=[x]",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      environment: [x]\n"
+  },
+  {
+   "case": "task.environment={A: b}",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      environment: {A: b}\n"
+  },
+  {
+   "case": "task.environment=[{A: b}]",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      environment: [{A: b}]\n"
+  },
+  {
+   "case": "task.environment=1",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      environment: 1\n"
+  },
+  {
+   "case": "task.environment=~",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      environment: ~\n"
+  },
+  {
+   "case": "task.collections=x",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      collections: x\n"
+  },
+  {
+   "case": "task.collections=[1]",
+   "error_class": "AnsibleParserError",
+   "message": "Keyword 'collections' items must be of type 'str', not 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      collections: [1]\n"
+  },
+  {
+   "case": "task.collections=[ansible.builtin]",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      collections: [ansible.builtin]\n"
+  },
+  {
+   "case": "task.collections=~",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      collections: ~\n"
+  },
+  {
+   "case": "task.collections={a: 1}",
+   "error_class": "AnsibleParserError",
+   "message": "Keyword 'collections' items must be of type 'str', not 'dict'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      collections: {a: 1}\n"
+  },
+  {
+   "case": "task.unknown_after_module",
+   "error_class": "AnsibleParserError",
+   "message": "conflicting action statements: ansible.builtin.file, become_usr",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.file: {path: /tmp/x}\n      become_usr: root\n"
+  },
+  {
+   "case": "task.unknown_before_module",
+   "error_class": "AnsibleParserError",
+   "message": "conflicting action statements: become_usr, ansible.builtin.file",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - become_usr: root\n      ansible.builtin.file: {path: /tmp/x}\n"
+  },
+  {
+   "case": "task.with_unknown_lookup",
+   "error_class": "AnsibleParserError",
+   "message": "'with_nolookup' is not a valid attribute for a Task",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      with_nolookup: [1]\n"
+  },
+  {
+   "case": "task.with_items",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      with_items: [1]\n"
+  },
+  {
+   "case": "task.async_val",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      async_val: 0\n"
+  },
+  {
+   "case": "task.loop_with",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      loop_with: items\n      loop: [1]\n"
+  },
+  {
+   "case": "task.listen",
+   "error_class": "AnsibleParserError",
+   "message": "'listen' is not a valid attribute for a Task",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      listen: x\n"
+  },
+  {
+   "case": "task.block_keyword_on_task",
+   "error_class": "AnsibleParserError",
+   "message": "'ansible.builtin.debug' is not a valid attribute for a Block",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      rescue: []\n"
+  },
+  {
+   "case": "task.local_action_and_unknown",
+   "error_class": "AnsibleParserError",
+   "message": "conflicting action statements: ansible.builtin.debug, become_usr",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - local_action: ansible.builtin.debug msg=x\n      become_usr: root\n"
+  },
+  {
+   "case": "task.action_and_module",
+   "error_class": "AnsibleParserError",
+   "message": "conflicting action statements: ansible.builtin.debug, ansible.builtin.ping",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - action: ansible.builtin.debug msg=x\n      ansible.builtin.ping:\n"
+  },
+  {
+   "case": "include_tasks.become",
+   "error_class": "AnsibleParserError",
+   "message": "'become' is not a valid attribute for a TaskInclude",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.include_tasks: x.yml\n      become: true\n"
+  },
+  {
+   "case": "import_tasks.become",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.import_tasks: x.yml\n      become: true\n"
+  },
+  {
+   "case": "include_role.become",
+   "error_class": "AnsibleParserError",
+   "message": "'become' is not a valid attribute for a IncludeRole",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.include_role: {name: r}\n      become: true\n"
+  },
+  {
+   "case": "import_role.become",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.import_role: {name: r}\n      become: true\n"
+  },
+  {
+   "case": "include_tasks.tags",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.include_tasks: x.yml\n      tags: [a]\n"
+  },
+  {
+   "case": "import_tasks.tags",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.import_tasks: x.yml\n      tags: [a]\n"
+  },
+  {
+   "case": "include_role.tags",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.include_role: {name: r}\n      tags: [a]\n"
+  },
+  {
+   "case": "import_role.tags",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.import_role: {name: r}\n      tags: [a]\n"
+  },
+  {
+   "case": "include_tasks.delegate_to",
+   "error_class": "AnsibleParserError",
+   "message": "'delegate_to' is not a valid attribute for a TaskInclude",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.include_tasks: x.yml\n      delegate_to: localhost\n"
+  },
+  {
+   "case": "import_tasks.delegate_to",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.import_tasks: x.yml\n      delegate_to: localhost\n"
+  },
+  {
+   "case": "include_role.delegate_to",
+   "error_class": "AnsibleParserError",
+   "message": "'delegate_to' is not a valid attribute for a IncludeRole",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.include_role: {name: r}\n      delegate_to: localhost\n"
+  },
+  {
+   "case": "import_role.delegate_to",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.import_role: {name: r}\n      delegate_to: localhost\n"
+  },
+  {
+   "case": "include_tasks.notify",
+   "error_class": "AnsibleParserError",
+   "message": "'notify' is not a valid attribute for a TaskInclude",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.include_tasks: x.yml\n      notify: x\n"
+  },
+  {
+   "case": "import_tasks.notify",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.import_tasks: x.yml\n      notify: x\n"
+  },
+  {
+   "case": "include_role.notify",
+   "error_class": "AnsibleParserError",
+   "message": "'notify' is not a valid attribute for a IncludeRole",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.include_role: {name: r}\n      notify: x\n"
+  },
+  {
+   "case": "import_role.notify",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.import_role: {name: r}\n      notify: x\n"
+  },
+  {
+   "case": "include_tasks.when",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.include_tasks: x.yml\n      when: true\n"
+  },
+  {
+   "case": "import_tasks.when",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.import_tasks: x.yml\n      when: true\n"
+  },
+  {
+   "case": "include_role.when",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.include_role: {name: r}\n      when: true\n"
+  },
+  {
+   "case": "import_role.when",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.import_role: {name: r}\n      when: true\n"
+  },
+  {
+   "case": "include_tasks.until",
+   "error_class": "AnsibleParserError",
+   "message": "'until' is not a valid attribute for a TaskInclude",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.include_tasks: x.yml\n      until: true\n"
+  },
+  {
+   "case": "import_tasks.until",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.import_tasks: x.yml\n      until: true\n"
+  },
+  {
+   "case": "include_role.until",
+   "error_class": "AnsibleParserError",
+   "message": "'until' is not a valid attribute for a IncludeRole",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.include_role: {name: r}\n      until: true\n"
+  },
+  {
+   "case": "import_role.until",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.import_role: {name: r}\n      until: true\n"
+  },
+  {
+   "case": "include_tasks.changed_when",
+   "error_class": "AnsibleParserError",
+   "message": "'changed_when' is not a valid attribute for a TaskInclude",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.include_tasks: x.yml\n      changed_when: false\n"
+  },
+  {
+   "case": "import_tasks.changed_when",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.import_tasks: x.yml\n      changed_when: false\n"
+  },
+  {
+   "case": "include_role.changed_when",
+   "error_class": "AnsibleParserError",
+   "message": "'changed_when' is not a valid attribute for a IncludeRole",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.include_role: {name: r}\n      changed_when: false\n"
+  },
+  {
+   "case": "import_role.changed_when",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.import_role: {name: r}\n      changed_when: false\n"
+  },
+  {
+   "case": "include_tasks.retries",
+   "error_class": "AnsibleParserError",
+   "message": "'retries' is not a valid attribute for a TaskInclude",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.include_tasks: x.yml\n      retries: 1\n"
+  },
+  {
+   "case": "import_tasks.retries",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.import_tasks: x.yml\n      retries: 1\n"
+  },
+  {
+   "case": "include_role.retries",
+   "error_class": "AnsibleParserError",
+   "message": "'retries' is not a valid attribute for a IncludeRole",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.include_role: {name: r}\n      retries: 1\n"
+  },
+  {
+   "case": "import_role.retries",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.import_role: {name: r}\n      retries: 1\n"
+  },
+  {
+   "case": "include_tasks.ignore_errors",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.include_tasks: x.yml\n      ignore_errors: true\n"
+  },
+  {
+   "case": "import_tasks.ignore_errors",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.import_tasks: x.yml\n      ignore_errors: true\n"
+  },
+  {
+   "case": "include_role.ignore_errors",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.include_role: {name: r}\n      ignore_errors: true\n"
+  },
+  {
+   "case": "import_role.ignore_errors",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.import_role: {name: r}\n      ignore_errors: true\n"
+  },
+  {
+   "case": "include_tasks.register",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.include_tasks: x.yml\n      register: r\n"
+  },
+  {
+   "case": "import_tasks.register",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.import_tasks: x.yml\n      register: r\n"
+  },
+  {
+   "case": "include_role.register",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.include_role: {name: r}\n      register: r\n"
+  },
+  {
+   "case": "import_role.register",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.import_role: {name: r}\n      register: r\n"
+  },
+  {
+   "case": "include_tasks.no_log",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.include_tasks: x.yml\n      no_log: true\n"
+  },
+  {
+   "case": "import_tasks.no_log",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.import_tasks: x.yml\n      no_log: true\n"
+  },
+  {
+   "case": "include_role.no_log",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.include_role: {name: r}\n      no_log: true\n"
+  },
+  {
+   "case": "import_role.no_log",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.import_role: {name: r}\n      no_log: true\n"
+  },
+  {
+   "case": "include_tasks.timeout",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.include_tasks: x.yml\n      timeout: 5\n"
+  },
+  {
+   "case": "import_tasks.timeout",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.import_tasks: x.yml\n      timeout: 5\n"
+  },
+  {
+   "case": "include_role.timeout",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.include_role: {name: r}\n      timeout: 5\n"
+  },
+  {
+   "case": "import_role.timeout",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.import_role: {name: r}\n      timeout: 5\n"
+  },
+  {
+   "case": "include_tasks.check_mode",
+   "error_class": "AnsibleParserError",
+   "message": "'check_mode' is not a valid attribute for a TaskInclude",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.include_tasks: x.yml\n      check_mode: false\n"
+  },
+  {
+   "case": "import_tasks.check_mode",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.import_tasks: x.yml\n      check_mode: false\n"
+  },
+  {
+   "case": "include_role.check_mode",
+   "error_class": "AnsibleParserError",
+   "message": "'check_mode' is not a valid attribute for a IncludeRole",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.include_role: {name: r}\n      check_mode: false\n"
+  },
+  {
+   "case": "import_role.check_mode",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.import_role: {name: r}\n      check_mode: false\n"
+  },
+  {
+   "case": "include_tasks.environment",
+   "error_class": "AnsibleParserError",
+   "message": "'environment' is not a valid attribute for a TaskInclude",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.include_tasks: x.yml\n      environment: {A: b}\n"
+  },
+  {
+   "case": "import_tasks.environment",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.import_tasks: x.yml\n      environment: {A: b}\n"
+  },
+  {
+   "case": "include_role.environment",
+   "error_class": "AnsibleParserError",
+   "message": "'environment' is not a valid attribute for a IncludeRole",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.include_role: {name: r}\n      environment: {A: b}\n"
+  },
+  {
+   "case": "import_role.environment",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.import_role: {name: r}\n      environment: {A: b}\n"
+  },
+  {
+   "case": "handler.listen=x",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  handlers:\n    - name: h\n      ansible.builtin.debug: {msg: x}\n      listen: x\n"
+  },
+  {
+   "case": "handler.listen=[1]",
+   "error_class": "AnsibleParserError",
+   "message": "Keyword 'listen' items must be of type 'str', not 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  handlers:\n    - name: h\n      ansible.builtin.debug: {msg: x}\n      listen: [1]\n"
+  },
+  {
+   "case": "handler.listen=[a]",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  handlers:\n    - name: h\n      ansible.builtin.debug: {msg: x}\n      listen: [a]\n"
+  },
+  {
+   "case": "handler.listen=\"{{ t }}\"",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  handlers:\n    - name: h\n      ansible.builtin.debug: {msg: x}\n      listen: \"{{ t }}\"\n"
+  },
+  {
+   "case": "handler.listen={a: 1}",
+   "error_class": "AnsibleParserError",
+   "message": "Keyword 'listen' items must be of type 'str', not 'dict'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  handlers:\n    - name: h\n      ansible.builtin.debug: {msg: x}\n      listen: {a: 1}\n"
+  },
+  {
+   "case": "handler.unknown",
+   "error_class": "AnsibleParserError",
+   "message": "conflicting action statements: ansible.builtin.debug, bogus",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  handlers:\n    - name: h\n      ansible.builtin.debug: {msg: x}\n      bogus: 1\n"
+  },
+  {
+   "case": "handler.retries=abc",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'retries': The value 'abc' could not be converted to 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  handlers:\n    - name: h\n      ansible.builtin.debug: {msg: x}\n      retries: abc\n"
+  },
+  {
+   "case": "block.block=x",
+   "error_class": "AnsibleParserError",
+   "message": "A malformed block was encountered while loading block: The ds (x) should be a list but was a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedStr'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - name: b\n      block: x\n"
+  },
+  {
+   "case": "block.block=~",
+   "error_class": "AnsibleParserError",
+   "message": "A malformed block was encountered while loading block: The ds (None) should be a list but was a <class 'NoneType'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - name: b\n      block: ~\n"
+  },
+  {
+   "case": "block.block=[]",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - name: b\n      block: []\n"
+  },
+  {
+   "case": "block.block={a: 1}",
+   "error_class": "AnsibleParserError",
+   "message": "A malformed block was encountered while loading block: The ds ({'a': 1}) should be a list but was a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedDict'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - name: b\n      block: {a: 1}\n"
+  },
+  {
+   "case": "block.rescue=x",
+   "error_class": "AnsibleParserError",
+   "message": "A malformed block was encountered while loading rescue: The ds (x) should be a list but was a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedStr'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - block:\n        - ansible.builtin.debug: {msg: x}\n      rescue: x\n"
+  },
+  {
+   "case": "block.rescue=~",
+   "error_class": "AnsibleParserError",
+   "message": "A malformed block was encountered while loading rescue: The ds (None) should be a list but was a <class 'NoneType'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - block:\n        - ansible.builtin.debug: {msg: x}\n      rescue: ~\n"
+  },
+  {
+   "case": "block.rescue=[]",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - block:\n        - ansible.builtin.debug: {msg: x}\n      rescue: []\n"
+  },
+  {
+   "case": "block.rescue={a: 1}",
+   "error_class": "AnsibleParserError",
+   "message": "A malformed block was encountered while loading rescue: The ds ({'a': 1}) should be a list but was a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedDict'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - block:\n        - ansible.builtin.debug: {msg: x}\n      rescue: {a: 1}\n"
+  },
+  {
+   "case": "block.always=x",
+   "error_class": "AnsibleParserError",
+   "message": "A malformed block was encountered while loading always: The ds (x) should be a list but was a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedStr'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - block:\n        - ansible.builtin.debug: {msg: x}\n      always: x\n"
+  },
+  {
+   "case": "block.always=~",
+   "error_class": "AnsibleParserError",
+   "message": "A malformed block was encountered while loading always: The ds (None) should be a list but was a <class 'NoneType'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - block:\n        - ansible.builtin.debug: {msg: x}\n      always: ~\n"
+  },
+  {
+   "case": "block.always=[]",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - block:\n        - ansible.builtin.debug: {msg: x}\n      always: []\n"
+  },
+  {
+   "case": "block.always={a: 1}",
+   "error_class": "AnsibleParserError",
+   "message": "A malformed block was encountered while loading always: The ds ({'a': 1}) should be a list but was a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedDict'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - block:\n        - ansible.builtin.debug: {msg: x}\n      always: {a: 1}\n"
+  },
+  {
+   "case": "block.unknown",
+   "error_class": "AnsibleParserError",
+   "message": "'bogus' is not a valid attribute for a Block",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - block:\n        - ansible.builtin.debug: {msg: x}\n      bogus: 1\n"
+  },
+  {
+   "case": "block.module_key",
+   "error_class": "AnsibleParserError",
+   "message": "'ansible.builtin.ping' is not a valid attribute for a Block",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - block:\n        - ansible.builtin.debug: {msg: x}\n      ansible.builtin.ping:\n"
+  },
+  {
+   "case": "block.retries",
+   "error_class": "AnsibleParserError",
+   "message": "'retries' is not a valid attribute for a Block",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - block:\n        - ansible.builtin.debug: {msg: x}\n      retries: 3\n"
+  },
+  {
+   "case": "block.become=maybe",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'become': The value 'maybe' could not be converted to 'bool'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - block:\n        - ansible.builtin.debug: {msg: x}\n      become: maybe\n"
+  },
+  {
+   "case": "block.notify=1",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - block:\n        - ansible.builtin.debug: {msg: x}\n      notify: 1\n"
+  },
+  {
+   "case": "block.tags=5",
+   "error_class": "AnsibleError",
+   "message": "tags must be specified as a list",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - block:\n        - ansible.builtin.debug: {msg: x}\n      tags: 5\n"
+  },
+  {
+   "case": "block.port=abc",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'port': The value 'abc' could not be converted to 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - block:\n        - ansible.builtin.debug: {msg: x}\n      port: abc\n"
+  },
+  {
+   "case": "block.when=x",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - block:\n        - ansible.builtin.debug: {msg: x}\n      when: x\n"
+  },
+  {
+   "case": "block.delegate_to=[a]",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'delegate_to' is supposed to be a string type, however the incoming data structure is a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedList'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - block:\n        - ansible.builtin.debug: {msg: x}\n      delegate_to: [a]\n"
+  },
+  {
+   "case": "play.hosts=~",
+   "error_class": "AnsibleParserError",
+   "message": "Hosts list cannot be empty. Please check your playbook",
+   "outcome": "error",
+   "yaml": "- hosts: ~\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.hosts=\"\"",
+   "error_class": "AnsibleParserError",
+   "message": "Hosts list cannot be empty. Please check your playbook",
+   "outcome": "error",
+   "yaml": "- hosts: \"\"\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.hosts=[]",
+   "error_class": "AnsibleParserError",
+   "message": "Hosts list cannot be empty. Please check your playbook",
+   "outcome": "error",
+   "yaml": "- hosts: []\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.hosts=[a, ~]",
+   "error_class": "AnsibleParserError",
+   "message": "Hosts list cannot contain values of 'None'. Please check your playbook",
+   "outcome": "error",
+   "yaml": "- hosts: [a, ~]\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.hosts=[1]",
+   "error_class": "AnsibleParserError",
+   "message": "Hosts list contains an invalid host value: '1'",
+   "outcome": "error",
+   "yaml": "- hosts: [1]\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.hosts=1",
+   "error_class": "AnsibleParserError",
+   "message": "Hosts list must be a sequence or string. Please check your playbook.",
+   "outcome": "error",
+   "yaml": "- hosts: 1\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.hosts={a: 1}",
+   "error_class": "AnsibleParserError",
+   "message": "Hosts list must be a sequence or string. Please check your playbook.",
+   "outcome": "error",
+   "yaml": "- hosts: {a: 1}\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.hosts=all",
+   "outcome": "ok",
+   "yaml": "- hosts: all\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.hosts=[all]",
+   "outcome": "ok",
+   "yaml": "- hosts: [all]\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.hosts=\"{{ h }}\"",
+   "outcome": "ok",
+   "yaml": "- hosts: \"{{ h }}\"\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.hosts=[\"\"]",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'hosts': Keyword 'hosts' is required, and cannot have empty values.",
+   "outcome": "error",
+   "yaml": "- hosts: [\"\"]\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.hosts=\" \"",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'hosts': Keyword 'hosts' is required, and cannot have empty values.",
+   "outcome": "error",
+   "yaml": "- hosts: \" \"\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.gather_facts=maybe",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'gather_facts': The value 'maybe' could not be converted to 'bool'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: maybe\n  tasks: []\n"
+  },
+  {
+   "case": "play.gather_facts=yes",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: yes\n  tasks: []\n"
+  },
+  {
+   "case": "play.gather_facts=1",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: 1\n  tasks: []\n"
+  },
+  {
+   "case": "play.gather_subset=all",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  gather_subset: all\n"
+  },
+  {
+   "case": "play.gather_subset=[1]",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'gather_subset': Keyword 'gather_subset' items must be of type 'str', not 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  gather_subset: [1]\n"
+  },
+  {
+   "case": "play.gather_subset=[all, \"!min\"]",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  gather_subset: [all, \"!min\"]\n"
+  },
+  {
+   "case": "play.gather_subset=1",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'gather_subset': Keyword 'gather_subset' items must be of type 'str', not 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  gather_subset: 1\n"
+  },
+  {
+   "case": "play.gather_subset={a: 1}",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'gather_subset': Keyword 'gather_subset' items must be of type 'str', not 'dict'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  gather_subset: {a: 1}\n"
+  },
+  {
+   "case": "play.gather_timeout=x",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'gather_timeout': The value 'x' could not be converted to 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  gather_timeout: x\n"
+  },
+  {
+   "case": "play.gather_timeout=5",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  gather_timeout: 5\n"
+  },
+  {
+   "case": "play.gather_timeout=[1]",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'gather_timeout': The value [1] could not be converted to 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  gather_timeout: [1]\n"
+  },
+  {
+   "case": "play.serial=1",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  serial: 1\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.serial=[1, \"50%\"]",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  serial: [1, \"50%\"]\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.serial=[a]",
+   "error_class": "ValueError",
+   "message": "invalid literal for int() with base 10: 'a'",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  serial: [a]\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.serial=\"50%\"",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  serial: \"50%\"\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.serial=\"x%\"",
+   "error_class": "ValueError",
+   "message": "invalid literal for int() with base 10: 'x'",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  serial: \"x%\"\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.serial=[~]",
+   "error_class": "TypeError",
+   "message": "int() argument must be a string, a bytes-like object or a real number, not 'NoneType'",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  serial: [~]\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.serial=[[1]]",
+   "error_class": "TypeError",
+   "message": "int() argument must be a string, a bytes-like object or a real number, not '_AnsibleTaggedList'",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  serial: [[1]]\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.serial=2.5",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  serial: 2.5\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.serial=\"2.5%\"",
+   "error_class": "ValueError",
+   "message": "invalid literal for int() with base 10: '2.5'",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  serial: \"2.5%\"\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.serial=\"3\"",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  serial: \"3\"\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.serial=\" 3 \"",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  serial: \" 3 \"\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.serial=\"1_0\"",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  serial: \"1_0\"\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.serial=[{a: 1}]",
+   "error_class": "TypeError",
+   "message": "int() argument must be a string, a bytes-like object or a real number, not '_AnsibleTaggedDict'",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  serial: [{a: 1}]\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.serial=\"{{ s }}\"",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  serial: \"{{ s }}\"\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.serial=[\"{{ s }}\"]",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  serial: [\"{{ s }}\"]\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.serial=true",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  serial: true\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.serial=\"%\"",
+   "error_class": "ValueError",
+   "message": "invalid literal for int() with base 10: ''",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  serial: \"%\"\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.serial=\"50%%\"",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  serial: \"50%%\"\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.serial=-1",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  serial: -1\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.serial=\"+2\"",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  serial: \"+2\"\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.serial=[1, 2.5]",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  serial: [1, 2.5]\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.serial=0",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  serial: 0\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.max_fail_percentage=50",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  max_fail_percentage: 50\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.max_fail_percentage=\"50%\"",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  max_fail_percentage: \"50%\"\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.max_fail_percentage=x",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'max_fail_percentage': The value 'x' could not be converted to 'percent'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  max_fail_percentage: x\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.max_fail_percentage=[1]",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'max_fail_percentage': The value [1] could not be converted to 'percent'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  max_fail_percentage: [1]\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.max_fail_percentage=\"5.5\"",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  max_fail_percentage: \"5.5\"\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.max_fail_percentage=~",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  max_fail_percentage: ~\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.max_fail_percentage={a: 1}",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'max_fail_percentage': The value {'a': 1} could not be converted to 'percent'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  max_fail_percentage: {a: 1}\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.max_fail_percentage=\"%\"",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'max_fail_percentage': The value '%' could not be converted to 'percent'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  max_fail_percentage: \"%\"\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.strategy=[a]",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'strategy' is supposed to be a string type, however the incoming data structure is a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedList'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  strategy: [a]\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.strategy=linear",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  strategy: linear\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.order=sorted",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  order: sorted\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.order=bogus",
+   "error_class": "AnsibleOptionsError",
+   "message": "Invalid 'order' specified for inventory hosts: bogus",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  order: bogus\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.order=inventory",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  order: inventory\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.order=reverse_sorted",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  order: reverse_sorted\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.order=reverse_inventory",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  order: reverse_inventory\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.order=shuffle",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  order: shuffle\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.order=[a]",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'order' is supposed to be a string type, however the incoming data structure is a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedList'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  order: [a]\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.order=1",
+   "error_class": "AnsibleOptionsError",
+   "message": "Invalid 'order' specified for inventory hosts: 1",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  order: 1\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.force_handlers=x",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'force_handlers': The value 'x' could not be converted to 'bool'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  force_handlers: x\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.force_handlers=true",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  force_handlers: true\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.fact_path=[a]",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'fact_path' is supposed to be a string type, however the incoming data structure is a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedList'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  fact_path: [a]\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.unknown",
+   "error_class": "AnsibleParserError",
+   "message": "'bogus' is not a valid attribute for a Play",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  bogus: 1\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.user",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  user: root\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.module_key",
+   "error_class": "AnsibleParserError",
+   "message": "'ansible.builtin.ping' is not a valid attribute for a Play",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  ansible.builtin.ping:\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.validate_argspec",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'validate_argspec': A playbook meta file is required. Considered:",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  validate_argspec: main\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.tasks=x",
+   "error_class": "AnsibleParserError",
+   "message": "A malformed block was encountered while loading tasks: x should be a list or None but is <class 'ansible.module_utils._internal._datatag._AnsibleTaggedStr'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks: x\n"
+  },
+  {
+   "case": "play.tasks=~",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks: ~\n"
+  },
+  {
+   "case": "play.tasks={a: 1}",
+   "error_class": "AnsibleParserError",
+   "message": "A malformed block was encountered while loading tasks: {'a': 1} should be a list or None but is <class 'ansible.module_utils._internal._datatag._AnsibleTaggedDict'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks: {a: 1}\n"
+  },
+  {
+   "case": "play.tasks=[]",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks: []\n"
+  },
+  {
+   "case": "play.pre_tasks=x",
+   "error_class": "AnsibleParserError",
+   "message": "A malformed block was encountered while loading pre_tasks: x should be a list or None but is <class 'ansible.module_utils._internal._datatag._AnsibleTaggedStr'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  pre_tasks: x\n"
+  },
+  {
+   "case": "play.pre_tasks=~",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  pre_tasks: ~\n"
+  },
+  {
+   "case": "play.pre_tasks={a: 1}",
+   "error_class": "AnsibleParserError",
+   "message": "A malformed block was encountered while loading pre_tasks: {'a': 1} should be a list or None but is <class 'ansible.module_utils._internal._datatag._AnsibleTaggedDict'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  pre_tasks: {a: 1}\n"
+  },
+  {
+   "case": "play.pre_tasks=[]",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  pre_tasks: []\n"
+  },
+  {
+   "case": "play.post_tasks=x",
+   "error_class": "AnsibleParserError",
+   "message": "A malformed block was encountered while loading post_tasks: x should be a list or None but is <class 'ansible.module_utils._internal._datatag._AnsibleTaggedStr'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  post_tasks: x\n"
+  },
+  {
+   "case": "play.post_tasks=~",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  post_tasks: ~\n"
+  },
+  {
+   "case": "play.post_tasks={a: 1}",
+   "error_class": "AnsibleParserError",
+   "message": "A malformed block was encountered while loading post_tasks: {'a': 1} should be a list or None but is <class 'ansible.module_utils._internal._datatag._AnsibleTaggedDict'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  post_tasks: {a: 1}\n"
+  },
+  {
+   "case": "play.post_tasks=[]",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  post_tasks: []\n"
+  },
+  {
+   "case": "play.handlers=x",
+   "error_class": "AnsibleParserError",
+   "message": "A malformed block was encountered while loading handlers: x should be a list or None but is <class 'ansible.module_utils._internal._datatag._AnsibleTaggedStr'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  handlers: x\n"
+  },
+  {
+   "case": "play.handlers=~",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  handlers: ~\n"
+  },
+  {
+   "case": "play.handlers={a: 1}",
+   "error_class": "AnsibleParserError",
+   "message": "A malformed block was encountered while loading handlers: {'a': 1} should be a list or None but is <class 'ansible.module_utils._internal._datatag._AnsibleTaggedDict'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  handlers: {a: 1}\n"
+  },
+  {
+   "case": "play.handlers=[]",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  handlers: []\n"
+  },
+  {
+   "case": "play.roles=x",
+   "error_class": "AnsibleParserError",
+   "message": "A malformed role declaration was encountered: ds (x) should be a list but was a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedStr'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  roles: x\n"
+  },
+  {
+   "case": "play.roles=~",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  roles: ~\n"
+  },
+  {
+   "case": "play.roles={a: 1}",
+   "error_class": "AnsibleParserError",
+   "message": "A malformed role declaration was encountered: ds ({'a': 1}) should be a list but was a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedDict'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  roles: {a: 1}\n"
+  },
+  {
+   "case": "play.roles=[r]",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  roles: [r]\n"
+  },
+  {
+   "case": "play.port=abc",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'port': The value 'abc' could not be converted to 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  port: abc\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.become=maybe",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'become': The value 'maybe' could not be converted to 'bool'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  become: maybe\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.timeout=abc",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'timeout': The value 'abc' could not be converted to 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  timeout: abc\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.throttle=x",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'throttle': The value 'x' could not be converted to 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  throttle: x\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.tags=5",
+   "error_class": "AnsibleError",
+   "message": "tags must be specified as a list",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tags: 5\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.tags=[1.5]",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'tags': Keyword 'tags' items must be of type 'str' or 'int', not 'float'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tags: [1.5]\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.no_log=maybe",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'no_log': The value 'maybe' could not be converted to 'bool'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  no_log: maybe\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.debugger=bogus",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'debugger': 'bogus' is not a valid value for debugger. Must be one of on_skipped, always, never, on_unreachable, on_failed",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  debugger: bogus\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.vars=[a]",
+   "error_class": "AnsibleParserError",
+   "message": "Vars in a Play must be specified as a dictionary.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  vars: [a]\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.vars={bad-key: 1}",
+   "error_class": "AnsibleError",
+   "message": "Invalid variable name 'bad-key'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  vars: {bad-key: 1}\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.module_defaults=x",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'module_defaults' is supposed to be a dictionary or list of dictionaries, the keys of which must be static action, module, or group names. Only the values may contain templates. For example: {'ping': \"{{ ping_defaults }}\"}",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  module_defaults: x\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.collections=[1]",
+   "error_class": "AnsibleParserError",
+   "message": "Keyword 'collections' items must be of type 'str', not 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  collections: [1]\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.become_user=[a]",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'become_user' is supposed to be a string type, however the incoming data structure is a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedList'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  become_user: [a]\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.name=[a]",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'name' is supposed to be a string type, however the incoming data structure is a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedList'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  name: [a]\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.remote_user={a: 1}",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'remote_user' is supposed to be a string type, however the incoming data structure is a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedDict'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  remote_user: {a: 1}\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.run_once=2",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'run_once': The value 2 could not be converted to 'bool'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  run_once: 2\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.environment=x",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  environment: x\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.vars_files=x",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  vars_files: x\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.vars_files=[x.yml]",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  vars_files: [x.yml]\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.port=abc,no_tasks",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'port': The value 'abc' could not be converted to 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  port: abc\n"
+  },
+  {
+   "case": "play.hosts=0",
+   "error_class": "AnsibleParserError",
+   "message": "Hosts list cannot be empty. Please check your playbook",
+   "outcome": "error",
+   "yaml": "- hosts: 0\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.hosts=false",
+   "error_class": "AnsibleParserError",
+   "message": "Hosts list cannot be empty. Please check your playbook",
+   "outcome": "error",
+   "yaml": "- hosts: false\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.hosts={}",
+   "error_class": "AnsibleParserError",
+   "message": "Hosts list cannot be empty. Please check your playbook",
+   "outcome": "error",
+   "yaml": "- hosts: {}\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "loop_control.loop_var=\"1a\"",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'loop_control': Invalid 'loop_var': Invalid variable name '1a'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      loop_control: {loop_var: \"1a\"}\n"
+  },
+  {
+   "case": "loop_control.index_var=\"1a\"",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'loop_control': Invalid 'index_var': Invalid variable name '1a'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      loop_control: {index_var: \"1a\"}\n"
+  },
+  {
+   "case": "loop_control.loop_var=true",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'loop_control': Invalid 'loop_var': Invalid variable name 'True'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      loop_control: {loop_var: true}\n"
+  },
+  {
+   "case": "loop_control.index_var=true",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'loop_control': Invalid 'index_var': Invalid variable name 'True'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      loop_control: {index_var: true}\n"
+  },
+  {
+   "case": "loop_control.loop_var=\"true\"",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'loop_control': Invalid 'loop_var': Invalid variable name 'true'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      loop_control: {loop_var: \"true\"}\n"
+  },
+  {
+   "case": "loop_control.index_var=\"true\"",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'loop_control': Invalid 'index_var': Invalid variable name 'true'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      loop_control: {index_var: \"true\"}\n"
+  },
+  {
+   "case": "loop_control.loop_var=my_item",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      loop_control: {loop_var: my_item}\n"
+  },
+  {
+   "case": "loop_control.index_var=my_item",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      loop_control: {index_var: my_item}\n"
+  },
+  {
+   "case": "loop_control.loop_var=\"not\"",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'loop_control': Invalid 'loop_var': Invalid variable name 'not'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      loop_control: {loop_var: \"not\"}\n"
+  },
+  {
+   "case": "loop_control.index_var=\"not\"",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'loop_control': Invalid 'index_var': Invalid variable name 'not'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      loop_control: {index_var: \"not\"}\n"
+  },
+  {
+   "case": "loop_control.loop_var=\"for\"",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      loop_control: {loop_var: \"for\"}\n"
+  },
+  {
+   "case": "loop_control.index_var=\"for\"",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      loop_control: {index_var: \"for\"}\n"
+  },
+  {
+   "case": "task.args=\"\"",
+   "error_class": "AnsibleParserError",
+   "message": "The value of the task `args` keyword is invalid.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug:\n      args: \"\"\n"
+  },
+  {
+   "case": "task.args=~",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      args: ~\n"
+  },
+  {
+   "case": "task.tags=[~, a]",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      tags: [~, a]\n"
+  },
+  {
+   "case": "task.tags=[a, ~, 1]",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      tags: [a, ~, 1]\n"
+  },
+  {
+   "case": "task.tags=[.inf]",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'tags': Keyword 'tags' items must be of type 'str' or 'int', not 'float'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      tags: [.inf]\n"
+  },
+  {
+   "case": "play.serial=.inf",
+   "error_class": "OverflowError",
+   "message": "cannot convert float infinity to integer",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  serial: .inf\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.serial=[.nan]",
+   "error_class": "ValueError",
+   "message": "cannot convert float NaN to integer",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  serial: [.nan]\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.serial=\"1e3\"",
+   "error_class": "ValueError",
+   "message": "invalid literal for int() with base 10: '1e3'",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  serial: \"1e3\"\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "play.serial=[2024-01-01]",
+   "error_class": "TypeError",
+   "message": "int() argument must be a string, a bytes-like object or a real number, not '_AnsibleTaggedDate'",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  serial: [2024-01-01]\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n"
+  },
+  {
+   "case": "task.delay=.inf",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      delay: .inf\n      retries: 1\n      until: true\n"
+  },
+  {
+   "case": "task.delay=1e400",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      delay: 1e400\n      retries: 1\n      until: true\n"
+  },
+  {
+   "case": "task.delay=\"-inf\"",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      delay: \"-inf\"\n      retries: 1\n      until: true\n"
+  },
+  {
+   "case": "task.retries=[0, [4, 2], 0]",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      retries: [0, [4, 2], 0]\n"
+  },
+  {
+   "case": "task.vars={\"true\": 1}",
+   "error_class": "AnsibleError",
+   "message": "Invalid variable name 'true'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      vars: {\"true\": 1}\n"
+  },
+  {
+   "case": "task.vars={1: a}",
+   "error_class": "AnsibleError",
+   "message": "Invalid variable name '1' of type 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      vars: {1: a}\n"
+  },
+  {
+   "case": "task.register=\"true\"",
+   "error_class": "AnsibleParserError",
+   "message": "Invalid 'register' specified: Invalid variable name 'true'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      register: \"true\"\n"
+  },
+  {
+   "case": "task.register={a: b}",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug: {msg: x}\n      register: {a: b}\n"
+  },
+  {
+   "case": "import_playbook.become=maybe",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'become': The value 'maybe' could not be converted to 'bool'.",
+   "outcome": "error",
+   "yaml": "- ansible.builtin.import_playbook: pb.yml\n  become: maybe\n"
+  },
+  {
+   "case": "import_playbook.tags=5",
+   "error_class": "AnsibleError",
+   "message": "tags must be specified as a list",
+   "outcome": "error",
+   "yaml": "- ansible.builtin.import_playbook: pb.yml\n  tags: 5\n"
+  },
+  {
+   "case": "import_playbook.tags=[1.5]",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'tags': Keyword 'tags' items must be of type 'str' or 'int', not 'float'.",
+   "outcome": "error",
+   "yaml": "- ansible.builtin.import_playbook: pb.yml\n  tags: [1.5]\n"
+  },
+  {
+   "case": "import_playbook.when=x",
+   "outcome": "ok",
+   "yaml": "- ansible.builtin.import_playbook: pb.yml\n  when: x\n"
+  },
+  {
+   "case": "import_playbook.bogus=1",
+   "error_class": "AnsibleParserError",
+   "message": "'bogus' is not a valid attribute for a PlaybookInclude",
+   "outcome": "error",
+   "yaml": "- ansible.builtin.import_playbook: pb.yml\n  bogus: 1\n"
+  },
+  {
+   "case": "import_playbook.vars=[a]",
+   "error_class": "AnsibleParserError",
+   "message": "Vars in a PlaybookInclude must be specified as a dictionary.",
+   "outcome": "error",
+   "yaml": "- ansible.builtin.import_playbook: pb.yml\n  vars: [a]\n"
+  },
+  {
+   "case": "import_playbook.vars=x",
+   "error_class": "AnsibleParserError",
+   "message": "Vars in a PlaybookInclude must be specified as a dictionary.",
+   "outcome": "error",
+   "yaml": "- ansible.builtin.import_playbook: pb.yml\n  vars: x\n"
+  },
+  {
+   "case": "import_playbook.name=[a]",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'name' is supposed to be a string type, however the incoming data structure is a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedList'>",
+   "outcome": "error",
+   "yaml": "- ansible.builtin.import_playbook: pb.yml\n  name: [a]\n"
+  },
+  {
+   "case": "import_playbook.retries=3",
+   "error_class": "AnsibleParserError",
+   "message": "'retries' is not a valid attribute for a PlaybookInclude",
+   "outcome": "error",
+   "yaml": "- ansible.builtin.import_playbook: pb.yml\n  retries: 3\n"
+  },
+  {
+   "case": "import_playbook.port=abc",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'port': The value 'abc' could not be converted to 'int'.",
+   "outcome": "error",
+   "yaml": "- ansible.builtin.import_playbook: pb.yml\n  port: abc\n"
+  },
+  {
+   "case": "import_playbook.tags=a",
+   "outcome": "ok",
+   "yaml": "- ansible.builtin.import_playbook: pb.yml\n  tags: a\n"
+  },
+  {
+   "case": "import_playbook.vars={a: 1}",
+   "outcome": "ok",
+   "yaml": "- ansible.builtin.import_playbook: pb.yml\n  vars: {a: 1}\n"
+  },
+  {
+   "case": "import_playbook.no_log=maybe",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'no_log': The value 'maybe' could not be converted to 'bool'.",
+   "outcome": "error",
+   "yaml": "- ansible.builtin.import_playbook: pb.yml\n  no_log: maybe\n"
+  },
+  {
+   "case": "import_playbook.debugger=bogus",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'debugger': 'bogus' is not a valid value for debugger. Must be one of on_skipped, always, never, on_unreachable, on_failed",
+   "outcome": "error",
+   "yaml": "- ansible.builtin.import_playbook: pb.yml\n  debugger: bogus\n"
+  },
+  {
+   "case": "import_playbook.vars=~",
+   "outcome": "ok",
+   "yaml": "- ansible.builtin.import_playbook: pb.yml\n  vars: ~\n"
+  },
+  {
+   "case": "import_playbook.int",
+   "error_class": "AnsibleFileNotFound",
+   "message": "Unable to retrieve file contents. Could not find or access '/var/folders/9r/612vq2j96j7ds6fjzbkgl_nw0000gn/T/ansibility-keywords-3vwdbcul/tmpa4lzbby7/5' on the Ansible Controller: [Errno 2] No such file or directory: '/var/folders/9r/612vq2j96j7ds6fjzbkgl_nw0000gn/T/ansibility-keywords-3vwdbcul/tmpa",
+   "outcome": "error",
+   "yaml": "- ansible.builtin.import_playbook: 5\n"
+  },
+  {
+   "case": "import_playbook.list",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'import_playbook' is supposed to be a string type, however the incoming data structure is a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedList'>",
+   "outcome": "error",
+   "yaml": "- ansible.builtin.import_playbook: [pb.yml]\n"
+  },
+  {
+   "case": "role_entry.{role: r, become: maybe}",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'become': The value 'maybe' could not be converted to 'bool'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  roles:\n    - {role: r, become: maybe}\n"
+  },
+  {
+   "case": "role_entry.{role: r, bogus: 1}",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  roles:\n    - {role: r, bogus: 1}\n"
+  },
+  {
+   "case": "role_entry.{role: r, tags: 5}",
+   "error_class": "AnsibleError",
+   "message": "tags must be specified as a list",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  roles:\n    - {role: r, tags: 5}\n"
+  },
+  {
+   "case": "role_entry.{role: r, when: x}",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  roles:\n    - {role: r, when: x}\n"
+  },
+  {
+   "case": "role_entry.{role: r, port: abc}",
+   "error_class": "AnsibleFieldAttributeError",
+   "message": "Error processing keyword 'port': The value 'abc' could not be converted to 'int'.",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  roles:\n    - {role: r, port: abc}\n"
+  },
+  {
+   "case": "role_entry.{role: r, tags: [a]}",
+   "outcome": "ok",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  roles:\n    - {role: r, tags: [a]}\n"
+  },
+  {
+   "case": "role_entry.{role: r, name: [a]}",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'name' is supposed to be a string type, however the incoming data structure is a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedList'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  roles:\n    - {role: r, name: [a]}\n"
+  },
+  {
+   "case": "role_entry.{role: r, delegate_to: [a]}",
+   "error_class": "AnsibleParserError",
+   "message": "The field 'delegate_to' is supposed to be a string type, however the incoming data structure is a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedList'>",
+   "outcome": "error",
+   "yaml": "- hosts: localhost\n  gather_facts: false\n  roles:\n    - {role: r, delegate_to: [a]}\n"
+  }
+ ],
+ "generator": "semantics/src/test/resources/keyword-oracle/gen_keywords.py",
+ "python": "3.14.7"
+}

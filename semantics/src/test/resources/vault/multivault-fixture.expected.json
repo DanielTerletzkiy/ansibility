@@ -1,0 +1,53 @@
+{
+ "secrets": [
+  [
+   "default",
+   "pw1"
+  ],
+  [
+   "dev",
+   "dev"
+  ],
+  [
+   "prod",
+   "prod"
+  ]
+ ],
+ "expected": {
+  "vault_greeting": {
+   "from": "v01",
+   "header": "$ANSIBLE_VAULT;1.1;AES256",
+   "plaintext": "hello world"
+  },
+  "vault_db_password_dev": {
+   "from": "v02",
+   "header": "$ANSIBLE_VAULT;1.2;AES256;dev",
+   "plaintext": "dev only secret"
+  },
+  "vault_db_password_prod": {
+   "from": "v03",
+   "header": "$ANSIBLE_VAULT;1.2;AES256;prod",
+   "plaintext": "prod secret"
+  },
+  "vault_mislabeled": {
+   "from": "v13",
+   "header": "$ANSIBLE_VAULT;1.2;AES256;dev",
+   "plaintext": "label lies"
+  },
+  "vault_unlabeled_prod": {
+   "from": "v14",
+   "header": "$ANSIBLE_VAULT;1.1;AES256",
+   "plaintext": "unlabeled prod"
+  },
+  "vault_unicode": {
+   "from": "v06",
+   "header": "$ANSIBLE_VAULT;1.1;AES256",
+   "plaintext": "Grüße – 日本語 🔐 ñ"
+  },
+  "vault_multiline": {
+   "from": "v05",
+   "header": "$ANSIBLE_VAULT;1.1;AES256",
+   "plaintext": "line one\nline two\n\nline four"
+  }
+ }
+}

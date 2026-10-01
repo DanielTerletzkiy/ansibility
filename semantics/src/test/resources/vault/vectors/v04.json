@@ -1,0 +1,32 @@
+{
+  "id": "v04",
+  "description": "whole-file vault of an EMPTY file (plaintext 0 bytes; the ciphertext is one full PKCS7 block)",
+  "generatedWith": "ansible-core 2.21.4 (ansible-vault CLI)",
+  "passwordId": "pw1",
+  "password": "test-pass-1",
+  "passwordHex": "746573742d706173732d31",
+  "passwordSourceHex": "746573742d706173732d310a",
+  "kind": "file",
+  "yamlKey": null,
+  "rawFile": "raw/v04.vault",
+  "header": "$ANSIBLE_VAULT;1.1;AES256",
+  "formatVersion": "1.1",
+  "cipher": "AES256",
+  "label": null,
+  "labelAsParsedByAnsible": "default",
+  "envelope": "$ANSIBLE_VAULT;1.1;AES256\n31346461386638323361623036323931643333373635383661346230333862323138373730353838\n3732663733393164636630393234653362623832343039300a396638643962663138306233653337\n32303834333037636535316136373239393065356434383462353863333961333333383461303937\n3434346564303434370a333365396565343162663266363730623334656536376362303133633034\n3938\n",
+  "sourceFileText": null,
+  "plaintextBase64": "",
+  "plaintextHex": "",
+  "plaintextUtf8": "",
+  "saltHex": "14da8f823ab06291d3376586a4b038b21877058872f7391dcf0924e3bb824090",
+  "saltLength": 32,
+  "hmacHex": "9f8d9bf180b3e372084307ce51a672990e5d484b58c39a33384a097444ed0447",
+  "ciphertextHex": "33e9ee41bf2f670b34ee67cb013c0498",
+  "ciphertextLength": 16,
+  "derived": {
+    "cipherKeyHex": "2fc73b0f504608740b3a28a06ce0f4dcc3be43bfd5cef9cca07d015ba014d778",
+    "hmacKeyHex": "2686cb967e7a33388481562b2cf7177fd12a94fb219ecd6fdeea60bfb25584ea",
+    "ivHex": "247def79db78717fc4826b2687046374"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "id": "v10",
+  "description": "ANSIBLE_VAULT_ENCRYPT_SALT=fixed-salt-for-tests: the salt is the UTF-8 bytes of that string (20 bytes, not 32); re-encrypting reproduces it byte for byte",
+  "generatedWith": "ansible-core 2.21.4 (ansible-vault CLI)",
+  "passwordId": "pw1",
+  "password": "test-pass-1",
+  "passwordHex": "746573742d706173732d31",
+  "passwordSourceHex": "746573742d706173732d310a",
+  "kind": "inline",
+  "yamlKey": "deterministic",
+  "rawFile": "raw/v10.yml",
+  "header": "$ANSIBLE_VAULT;1.1;AES256",
+  "formatVersion": "1.1",
+  "cipher": "AES256",
+  "label": null,
+  "labelAsParsedByAnsible": "default",
+  "envelope": "$ANSIBLE_VAULT;1.1;AES256\n36363639373836353634326437333631366337343264363636663732326437343635373337343733\n0a323330383264616166313862643039343330383061356131323966656563343766386439666533\n303530353337363566613434653336653261323039346432610a6563393539303861316139386562\n386561633135326533613565653066393031\n",
+  "sourceFileText": "deterministic: !vault |\n          $ANSIBLE_VAULT;1.1;AES256\n          36363639373836353634326437333631366337343264363636663732326437343635373337343733\n          0a323330383264616166313862643039343330383061356131323966656563343766386439666533\n          303530353337363566613434653336653261323039346432610a6563393539303861316139386562\n          386561633135326533613565653066393031\n",
+  "plaintextBase64": "c2FtZSBldmVyeSB0aW1l",
+  "plaintextHex": "73616d652065766572792074696d65",
+  "plaintextUtf8": "same every time",
+  "saltHex": "66697865642d73616c742d666f722d7465737473",
+  "saltLength": 20,
+  "hmacHex": "23082daaf18bd0943080a5a129feec47f8d9fe305053765fa44e36e2a2094d2a",
+  "ciphertextHex": "ec95908a1a98eb8eac152e3a5ee0f901",
+  "ciphertextLength": 16,
+  "derived": {
+    "cipherKeyHex": "24577fe334253e5cce628818a07efc8a453b5fd45a0e5769abc4b107c59cfa63",
+    "hmacKeyHex": "5c6e60efcc60bf16fb878dfed0064a005277626c6f493627e07b0e9fd8a3b859",
+    "ivHex": "1481c15d5a04a9f39d1f07bd959cb6cb"
+  },
+  "encryptSalt": "fixed-salt-for-tests"
+}

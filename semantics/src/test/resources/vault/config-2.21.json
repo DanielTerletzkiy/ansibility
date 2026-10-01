@@ -1,0 +1,2151 @@
+{
+ "version": "2.21.4",
+ "tree": {
+  "cfgdir/pw.txt": {
+   "hex": "746573742d706173732d310a",
+   "executable": false
+  },
+  "elsewhere/ed-append.sh": {
+   "hex": "23212f62696e2f73680a7072696e746620276564697465645c6e27203e3e20222431220a",
+   "executable": true
+  },
+  "elsewhere/ed-noop.sh": {
+   "hex": "23212f62696e2f73680a6578697420300a",
+   "executable": true
+  },
+  "elsewhere/multi-client.sh": {
+   "hex": "23212f62696e2f73680a232073796e746865746963207661756c7420636c69656e74207363726970743a206f6e6520746573742070617373776f726420706572202d2d7661756c742d6964206c6162656c0a7072696e7466202725735c6e2720225b242a5d22203e3e202224286469726e616d652022243022292f7363726970742d617267732e6c6f67220a63617365202224322220696e0a202064657629207072696e746620275c3134345c3134355c3136365c3035355c3136305c3134315c3136335c3136335c3035355c3036325c30313227203b3b0a202070726f6429207072696e746620275c3136305c3136325c3135375c3134345c3035355c3136305c3134315c3136335c3136335c3035355c3036335c30313227203b3b0a202064656661756c7429207072696e746620275c3136345c3134355c3136335c3136345c3035355c3136305c3134315c3136335c3136335c3035355c3036315c30313227203b3b0a20202a29206563686f2022756e6b6e6f776e207661756c7420696420243222203e26323b20657869742032203b3b0a657361630a",
+   "executable": true
+  },
+  "elsewhere/notexec-client.sh": {
+   "hex": "6465762d706173732d320a",
+   "executable": false
+  },
+  "elsewhere/plain-script.sh": {
+   "hex": "23212f62696e2f73680a232073796e74686574696320706c61696e207661756c742070617373776f72642073637269707420286e6f20617267756d656e7473290a7072696e7466202725735c6e2720225b242a5d22203e3e202224286469726e616d652022243022292f7363726970742d617267732e6c6f67220a7072696e746620275c3034305c3136335c3134335c3136325c3135315c3136305c3136345c3034305c3136305c3134315c3136335c3136335c3034305c3031355c303132270a",
+   "executable": true
+  },
+  "elsewhere/pw-dev.txt": {
+   "hex": "6465762d706173732d320a",
+   "executable": false
+  },
+  "elsewhere/pw-empty.txt": {
+   "hex": "20200d0a",
+   "executable": false
+  },
+  "elsewhere/pw-nonutf8.txt": {
+   "hex": "ff706173732de90a",
+   "executable": false
+  },
+  "elsewhere/pw-prod.txt": {
+   "hex": "70726f642d706173732d330a",
+   "executable": false
+  },
+  "elsewhere/pw-spaced.txt": {
+   "hex": "202073706163656420706173732034200d0a",
+   "executable": false
+  },
+  "elsewhere/pw-vaulted.txt": {
+   "hex": "24414e5349424c455f5641554c543b312e313b4145533235360a33373336333633313337333533363633333733343336333733363335333636353332363433363636333733323336333133363333333636333336333533323634333733333336333133363633333733340a30613636333133323337333533323636363233393635363633343338333233393631363233353632363433303333333233343635363536323335363136333634333936323632333836363632363233350a36313337363633353330333536343339363433393636363433383636333233343332363336313631363133323331363236363061333933363636333533333635333036313636333733353634363533300a3635363536363634333333303632333533303634333336343335363333373333363433380a",
+   "executable": false
+  },
+  "elsewhere/pw-ws.txt": {
+   "hex": "090b777320706173730c0a0a",
+   "executable": false
+  },
+  "elsewhere/pw.txt": {
+   "hex": "6465762d706173732d320a",
+   "executable": false
+  },
+  "elsewhere/pw1.txt": {
+   "hex": "746573742d706173732d310a",
+   "executable": false
+  },
+  "home/pw.txt": {
+   "hex": "70726f642d706173732d330a",
+   "executable": false
+  },
+  "vars/pw.txt": {
+   "hex": "70c3a4737377c3b672642de29c930a",
+   "executable": false
+  }
+ },
+ "config": [
+  {
+   "id": "defaults-none",
+   "cfg": {},
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "path-cfg-relative",
+   "cfg": {
+    "vault_password_file": "pw.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [],
+    "DEFAULT_VAULT_PASSWORD_FILE": "{T}/cfgdir/pw.txt",
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "default",
+     "type": "FileVaultSecret",
+     "filename": "{T}/cfgdir/pw.txt",
+     "clientVaultId": null,
+     "bytesHex": "746573742d706173732d31"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "path-cfg-dotdot",
+   "cfg": {
+    "vault_password_file": "../cfgdir/./pw.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [],
+    "DEFAULT_VAULT_PASSWORD_FILE": "{T}/cfgdir/pw.txt",
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "default",
+     "type": "FileVaultSecret",
+     "filename": "{T}/cfgdir/pw.txt",
+     "clientVaultId": null,
+     "bytesHex": "746573742d706173732d31"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "path-cfg-cwd-magic",
+   "cfg": {
+    "vault_password_file": "{{CWD}}/pw.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [],
+    "DEFAULT_VAULT_PASSWORD_FILE": "{T}/elsewhere/pw.txt",
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "default",
+     "type": "FileVaultSecret",
+     "filename": "{T}/elsewhere/pw.txt",
+     "clientVaultId": null,
+     "bytesHex": "6465762d706173732d32"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "path-cfg-home",
+   "cfg": {
+    "vault_password_file": "~/pw.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [],
+    "DEFAULT_VAULT_PASSWORD_FILE": "{T}/home/pw.txt",
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "default",
+     "type": "FileVaultSecret",
+     "filename": "{T}/home/pw.txt",
+     "clientVaultId": null,
+     "bytesHex": "70726f642d706173732d33"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "path-cfg-envvar",
+   "cfg": {
+    "vault_password_file": "$PWDIR/pw.txt"
+   },
+   "env": {
+    "PWDIR": "{T}/vars"
+   },
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [],
+    "DEFAULT_VAULT_PASSWORD_FILE": "{T}/vars/pw.txt",
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "default",
+     "type": "FileVaultSecret",
+     "filename": "{T}/vars/pw.txt",
+     "clientVaultId": null,
+     "bytesHex": "70c3a4737377c3b672642de29c93"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "path-cfg-envvar-braces",
+   "cfg": {
+    "vault_password_file": "${PWDIR}/pw.txt"
+   },
+   "env": {
+    "PWDIR": "{T}/vars"
+   },
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [],
+    "DEFAULT_VAULT_PASSWORD_FILE": "{T}/vars/pw.txt",
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "default",
+     "type": "FileVaultSecret",
+     "filename": "{T}/vars/pw.txt",
+     "clientVaultId": null,
+     "bytesHex": "70c3a4737377c3b672642de29c93"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "path-cfg-envvar-unset",
+   "cfg": {
+    "vault_password_file": "$NOPE/pw.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [],
+    "DEFAULT_VAULT_PASSWORD_FILE": "{T}/cfgdir/$NOPE/pw.txt",
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [],
+   "error": "AnsibleError",
+   "scriptArgs": []
+  },
+  {
+   "id": "path-cfg-absolute",
+   "cfg": {
+    "vault_password_file": "{T}/vars/pw.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [],
+    "DEFAULT_VAULT_PASSWORD_FILE": "{T}/vars/pw.txt",
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "default",
+     "type": "FileVaultSecret",
+     "filename": "{T}/vars/pw.txt",
+     "clientVaultId": null,
+     "bytesHex": "70c3a4737377c3b672642de29c93"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "path-cfg-quoted",
+   "cfg": {
+    "vault_password_file": "\"pw.txt\""
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [],
+    "DEFAULT_VAULT_PASSWORD_FILE": "{T}/cfgdir/\"pw.txt\"",
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [],
+   "error": "AnsibleError",
+   "scriptArgs": []
+  },
+  {
+   "id": "path-env-relative",
+   "cfg": {},
+   "env": {
+    "ANSIBLE_VAULT_PASSWORD_FILE": "pw.txt"
+   },
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [],
+    "DEFAULT_VAULT_PASSWORD_FILE": "{T}/elsewhere/pw.txt",
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "default",
+     "type": "FileVaultSecret",
+     "filename": "{T}/elsewhere/pw.txt",
+     "clientVaultId": null,
+     "bytesHex": "6465762d706173732d32"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "path-env-beats-ini",
+   "cfg": {
+    "vault_password_file": "pw.txt"
+   },
+   "env": {
+    "ANSIBLE_VAULT_PASSWORD_FILE": "pw.txt"
+   },
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [],
+    "DEFAULT_VAULT_PASSWORD_FILE": "{T}/elsewhere/pw.txt",
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "default",
+     "type": "FileVaultSecret",
+     "filename": "{T}/elsewhere/pw.txt",
+     "clientVaultId": null,
+     "bytesHex": "6465762d706173732d32"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "path-list-relative-to-cwd",
+   "cfg": {
+    "vault_identity_list": "dev@pw.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [
+     "dev@pw.txt"
+    ],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "dev",
+     "type": "FileVaultSecret",
+     "filename": "{T}/elsewhere/pw.txt",
+     "clientVaultId": null,
+     "bytesHex": "6465762d706173732d32"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "path-list-cwd-is-cfgdir",
+   "cfg": {
+    "vault_identity_list": "dev@pw.txt"
+   },
+   "env": {},
+   "cwd": "cfgdir",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [
+     "dev@pw.txt"
+    ],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "dev",
+     "type": "FileVaultSecret",
+     "filename": "{T}/cfgdir/pw.txt",
+     "clientVaultId": null,
+     "bytesHex": "746573742d706173732d31"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "path-list-home",
+   "cfg": {
+    "vault_identity_list": "dev@~/pw.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [
+     "dev@~/pw.txt"
+    ],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "dev",
+     "type": "FileVaultSecret",
+     "filename": "{T}/home/pw.txt",
+     "clientVaultId": null,
+     "bytesHex": "70726f642d706173732d33"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "path-list-envvar",
+   "cfg": {
+    "vault_identity_list": "dev@$PWDIR/pw.txt"
+   },
+   "env": {
+    "PWDIR": "{T}/vars"
+   },
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [
+     "dev@$PWDIR/pw.txt"
+    ],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "dev",
+     "type": "FileVaultSecret",
+     "filename": "{T}/vars/pw.txt",
+     "clientVaultId": null,
+     "bytesHex": "70c3a4737377c3b672642de29c93"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "path-list-absolute",
+   "cfg": {
+    "vault_identity_list": "dev@{T}/vars/pw.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [
+     "dev@{T}/vars/pw.txt"
+    ],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "dev",
+     "type": "FileVaultSecret",
+     "filename": "{T}/vars/pw.txt",
+     "clientVaultId": null,
+     "bytesHex": "70c3a4737377c3b672642de29c93"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "order-list-then-password-file",
+   "cfg": {
+    "vault_identity_list": "prod@pw-prod.txt , dev@pw-dev.txt",
+    "vault_password_file": "pw.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [
+     "prod@pw-prod.txt",
+     "dev@pw-dev.txt"
+    ],
+    "DEFAULT_VAULT_PASSWORD_FILE": "{T}/cfgdir/pw.txt",
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "prod",
+     "type": "FileVaultSecret",
+     "filename": "{T}/elsewhere/pw-prod.txt",
+     "clientVaultId": null,
+     "bytesHex": "70726f642d706173732d33"
+    },
+    {
+     "label": "dev",
+     "type": "FileVaultSecret",
+     "filename": "{T}/elsewhere/pw-dev.txt",
+     "clientVaultId": null,
+     "bytesHex": "6465762d706173732d32"
+    },
+    {
+     "label": "default",
+     "type": "FileVaultSecret",
+     "filename": "{T}/cfgdir/pw.txt",
+     "clientVaultId": null,
+     "bytesHex": "746573742d706173732d31"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "order-env-list-beats-ini",
+   "cfg": {
+    "vault_identity_list": "prod@pw-prod.txt"
+   },
+   "env": {
+    "ANSIBLE_VAULT_IDENTITY_LIST": "dev@pw-dev.txt,prod@pw-prod.txt"
+   },
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [
+     "dev@pw-dev.txt",
+     "prod@pw-prod.txt"
+    ],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "dev",
+     "type": "FileVaultSecret",
+     "filename": "{T}/elsewhere/pw-dev.txt",
+     "clientVaultId": null,
+     "bytesHex": "6465762d706173732d32"
+    },
+    {
+     "label": "prod",
+     "type": "FileVaultSecret",
+     "filename": "{T}/elsewhere/pw-prod.txt",
+     "clientVaultId": null,
+     "bytesHex": "70726f642d706173732d33"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "order-duplicates-kept",
+   "cfg": {
+    "vault_identity_list": "dev@pw-dev.txt, dev@pw-dev.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [
+     "dev@pw-dev.txt",
+     "dev@pw-dev.txt"
+    ],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "dev",
+     "type": "FileVaultSecret",
+     "filename": "{T}/elsewhere/pw-dev.txt",
+     "clientVaultId": null,
+     "bytesHex": "6465762d706173732d32"
+    },
+    {
+     "label": "dev",
+     "type": "FileVaultSecret",
+     "filename": "{T}/elsewhere/pw-dev.txt",
+     "clientVaultId": null,
+     "bytesHex": "6465762d706173732d32"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "order-missing-skipped",
+   "cfg": {
+    "vault_identity_list": "dev@missing.txt, prod@pw-prod.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [
+     "dev@missing.txt",
+     "prod@pw-prod.txt"
+    ],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "prod",
+     "type": "FileVaultSecret",
+     "filename": "{T}/elsewhere/pw-prod.txt",
+     "clientVaultId": null,
+     "bytesHex": "70726f642d706173732d33"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "label-none",
+   "cfg": {
+    "vault_identity_list": "pw-dev.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [
+     "pw-dev.txt"
+    ],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "default",
+     "type": "FileVaultSecret",
+     "filename": "{T}/elsewhere/pw-dev.txt",
+     "clientVaultId": null,
+     "bytesHex": "6465762d706173732d32"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "label-empty",
+   "cfg": {
+    "vault_identity_list": "@pw-dev.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [
+     "@pw-dev.txt"
+    ],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "default",
+     "type": "FileVaultSecret",
+     "filename": "{T}/elsewhere/pw-dev.txt",
+     "clientVaultId": null,
+     "bytesHex": "6465762d706173732d32"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "label-at-in-path",
+   "cfg": {
+    "vault_identity_list": "dev@pw@x.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [
+     "dev@pw@x.txt"
+    ],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [],
+   "error": "AnsibleError",
+   "scriptArgs": []
+  },
+  {
+   "id": "label-identity-renamed",
+   "cfg": {
+    "vault_identity": "team",
+    "vault_identity_list": "pw-dev.txt",
+    "vault_password_file": "pw.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [
+     "pw-dev.txt"
+    ],
+    "DEFAULT_VAULT_PASSWORD_FILE": "{T}/cfgdir/pw.txt",
+    "DEFAULT_VAULT_IDENTITY": "team",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "team",
+     "type": "FileVaultSecret",
+     "filename": "{T}/elsewhere/pw-dev.txt",
+     "clientVaultId": null,
+     "bytesHex": "6465762d706173732d32"
+    },
+    {
+     "label": "team",
+     "type": "FileVaultSecret",
+     "filename": "{T}/cfgdir/pw.txt",
+     "clientVaultId": null,
+     "bytesHex": "746573742d706173732d31"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "list-quoted-items",
+   "cfg": {
+    "vault_identity_list": "\"dev@pw-dev.txt\", 'prod@pw-prod.txt'"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [
+     "dev@pw-dev.txt",
+     "prod@pw-prod.txt"
+    ],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "dev",
+     "type": "FileVaultSecret",
+     "filename": "{T}/elsewhere/pw-dev.txt",
+     "clientVaultId": null,
+     "bytesHex": "6465762d706173732d32"
+    },
+    {
+     "label": "prod",
+     "type": "FileVaultSecret",
+     "filename": "{T}/elsewhere/pw-prod.txt",
+     "clientVaultId": null,
+     "bytesHex": "70726f642d706173732d33"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "list-quoted-whole",
+   "cfg": {
+    "vault_identity_list": "\"dev@pw-dev.txt, prod@pw-prod.txt\""
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [
+     "\"dev@pw-dev.txt",
+     "prod@pw-prod.txt\""
+    ],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "\"dev",
+     "type": "FileVaultSecret",
+     "filename": "{T}/elsewhere/pw-dev.txt",
+     "clientVaultId": null,
+     "bytesHex": "6465762d706173732d32"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "list-trailing-comma",
+   "cfg": {
+    "vault_identity_list": "dev@pw-dev.txt,"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [
+     "dev@pw-dev.txt",
+     ""
+    ],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "dev",
+     "type": "FileVaultSecret",
+     "filename": "{T}/elsewhere/pw-dev.txt",
+     "clientVaultId": null,
+     "bytesHex": "6465762d706173732d32"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "strip-spaced",
+   "cfg": {
+    "vault_identity_list": "default@pw-spaced.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [
+     "default@pw-spaced.txt"
+    ],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "default",
+     "type": "FileVaultSecret",
+     "filename": "{T}/elsewhere/pw-spaced.txt",
+     "clientVaultId": null,
+     "bytesHex": "73706163656420706173732034"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "strip-ws",
+   "cfg": {
+    "vault_identity_list": "default@pw-ws.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [
+     "default@pw-ws.txt"
+    ],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "default",
+     "type": "FileVaultSecret",
+     "filename": "{T}/elsewhere/pw-ws.txt",
+     "clientVaultId": null,
+     "bytesHex": "77732070617373"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "strip-nonutf8",
+   "cfg": {
+    "vault_identity_list": "default@pw-nonutf8.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [
+     "default@pw-nonutf8.txt"
+    ],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "default",
+     "type": "FileVaultSecret",
+     "filename": "{T}/elsewhere/pw-nonutf8.txt",
+     "clientVaultId": null,
+     "bytesHex": "ff706173732de9"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "strip-empty-refused",
+   "cfg": {
+    "vault_identity_list": "default@pw-empty.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [
+     "default@pw-empty.txt"
+    ],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [],
+   "error": "AnsibleVaultPasswordError",
+   "scriptArgs": []
+  },
+  {
+   "id": "vaulted-file-after-its-secret",
+   "cfg": {
+    "vault_identity_list": "default@pw1.txt, prod@pw-vaulted.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [
+     "default@pw1.txt",
+     "prod@pw-vaulted.txt"
+    ],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "default",
+     "type": "FileVaultSecret",
+     "filename": "{T}/elsewhere/pw1.txt",
+     "clientVaultId": null,
+     "bytesHex": "746573742d706173732d31"
+    },
+    {
+     "label": "prod",
+     "type": "FileVaultSecret",
+     "filename": "{T}/elsewhere/pw-vaulted.txt",
+     "clientVaultId": null,
+     "bytesHex": "2020696e6e6572207061737320"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "vaulted-file-before-its-secret",
+   "cfg": {
+    "vault_identity_list": "prod@pw-vaulted.txt, default@pw1.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [
+     "prod@pw-vaulted.txt",
+     "default@pw1.txt"
+    ],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "default",
+     "type": "FileVaultSecret",
+     "filename": "{T}/elsewhere/pw1.txt",
+     "clientVaultId": null,
+     "bytesHex": "746573742d706173732d31"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "vaulted-file-match-off",
+   "cfg": {
+    "vault_identity_list": "x@pw1.txt, prod@pw-vaulted.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [
+     "x@pw1.txt",
+     "prod@pw-vaulted.txt"
+    ],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "x",
+     "type": "FileVaultSecret",
+     "filename": "{T}/elsewhere/pw1.txt",
+     "clientVaultId": null,
+     "bytesHex": "746573742d706173732d31"
+    },
+    {
+     "label": "prod",
+     "type": "FileVaultSecret",
+     "filename": "{T}/elsewhere/pw-vaulted.txt",
+     "clientVaultId": null,
+     "bytesHex": "2020696e6e6572207061737320"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "vaulted-file-match-on",
+   "cfg": {
+    "vault_identity_list": "x@pw1.txt, prod@pw-vaulted.txt",
+    "vault_id_match": "yes"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [
+     "x@pw1.txt",
+     "prod@pw-vaulted.txt"
+    ],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": "yes",
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "x",
+     "type": "FileVaultSecret",
+     "filename": "{T}/elsewhere/pw1.txt",
+     "clientVaultId": null,
+     "bytesHex": "746573742d706173732d31"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "client-labelled",
+   "cfg": {
+    "vault_identity_list": "prod@multi-client.sh"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [
+     "prod@multi-client.sh"
+    ],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "prod",
+     "type": "ClientScriptVaultSecret",
+     "filename": "{T}/elsewhere/multi-client.sh",
+     "clientVaultId": "prod",
+     "bytesHex": "70726f642d706173732d33"
+    }
+   ],
+   "error": null,
+   "scriptArgs": [
+    "[--vault-id prod]"
+   ]
+  },
+  {
+   "id": "client-unlabelled",
+   "cfg": {
+    "vault_identity_list": "multi-client.sh"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [
+     "multi-client.sh"
+    ],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [],
+   "error": "AnsibleError",
+   "scriptArgs": [
+    "[]"
+   ]
+  },
+  {
+   "id": "client-empty-label",
+   "cfg": {
+    "vault_identity_list": "@multi-client.sh"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [
+     "@multi-client.sh"
+    ],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [],
+   "error": "AnsibleError",
+   "scriptArgs": [
+    "[]"
+   ]
+  },
+  {
+   "id": "client-password-file",
+   "cfg": {
+    "vault_password_file": "../elsewhere/multi-client.sh"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [],
+    "DEFAULT_VAULT_PASSWORD_FILE": "{T}/elsewhere/multi-client.sh",
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "default",
+     "type": "ClientScriptVaultSecret",
+     "filename": "{T}/elsewhere/multi-client.sh",
+     "clientVaultId": "default",
+     "bytesHex": "746573742d706173732d31"
+    }
+   ],
+   "error": null,
+   "scriptArgs": [
+    "[--vault-id default]"
+   ]
+  },
+  {
+   "id": "client-unknown-id",
+   "cfg": {
+    "vault_identity_list": "staging@multi-client.sh"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [
+     "staging@multi-client.sh"
+    ],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [],
+   "error": "AnsibleError",
+   "scriptArgs": [
+    "[--vault-id staging]"
+   ]
+  },
+  {
+   "id": "client-renamed-default",
+   "cfg": {
+    "vault_identity": "team",
+    "vault_password_file": "../elsewhere/multi-client.sh"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [],
+    "DEFAULT_VAULT_PASSWORD_FILE": "{T}/elsewhere/multi-client.sh",
+    "DEFAULT_VAULT_IDENTITY": "team",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [],
+   "error": "AnsibleError",
+   "scriptArgs": [
+    "[--vault-id team]"
+   ]
+  },
+  {
+   "id": "client-not-executable",
+   "cfg": {
+    "vault_identity_list": "dev@notexec-client.sh"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [
+     "dev@notexec-client.sh"
+    ],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "dev",
+     "type": "FileVaultSecret",
+     "filename": "{T}/elsewhere/notexec-client.sh",
+     "clientVaultId": null,
+     "bytesHex": "6465762d706173732d32"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "script-plain",
+   "cfg": {
+    "vault_identity_list": "dev@plain-script.sh"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [
+     "dev@plain-script.sh"
+    ],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "dev",
+     "type": "ScriptVaultSecret",
+     "filename": "{T}/elsewhere/plain-script.sh",
+     "clientVaultId": null,
+     "bytesHex": "20736372697074207061737320"
+    }
+   ],
+   "error": null,
+   "scriptArgs": [
+    "[]"
+   ]
+  },
+  {
+   "id": "prompt-labelled",
+   "cfg": {
+    "vault_identity_list": "dev@prompt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": "202070c3a4737377c3b672642de29c932009",
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [
+     "dev@prompt"
+    ],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "dev",
+     "type": "PromptVaultSecret",
+     "filename": null,
+     "clientVaultId": null,
+     "bytesHex": "70c3a4737377c3b672642de29c93"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "prompt-ask-vault-pass",
+   "cfg": {
+    "vault_identity_list": "prompt_ask_vault_pass"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": "202070c3a4737377c3b672642de29c932009",
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [
+     "prompt_ask_vault_pass"
+    ],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "default",
+     "type": "PromptVaultSecret",
+     "filename": null,
+     "clientVaultId": null,
+     "bytesHex": "70c3a4737377c3b672642de29c93"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "prompt-empty-label",
+   "cfg": {
+    "vault_identity_list": "@prompt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": "202070c3a4737377c3b672642de29c932009",
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [
+     "@prompt"
+    ],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "default",
+     "type": "PromptVaultSecret",
+     "filename": null,
+     "clientVaultId": null,
+     "bytesHex": "70c3a4737377c3b672642de29c93"
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "prompt-whitespace-only",
+   "cfg": {
+    "vault_identity_list": "dev@prompt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": "202009",
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [
+     "dev@prompt"
+    ],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [
+    {
+     "label": "dev",
+     "type": "PromptVaultSecret",
+     "filename": null,
+     "clientVaultId": null,
+     "bytesHex": ""
+    }
+   ],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "match-ini-false",
+   "cfg": {
+    "vault_id_match": "false"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": "false",
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "match-ini-zero",
+   "cfg": {
+    "vault_id_match": "0"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": "0",
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "match-ini-quoted-empty",
+   "cfg": {
+    "vault_id_match": "\"\""
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": "",
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "match-ini-empty",
+   "cfg": {
+    "vault_id_match": ""
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": "",
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "match-ini-single-quoted-no",
+   "cfg": {
+    "vault_id_match": "'no'"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": "no",
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "match-env-false",
+   "cfg": {},
+   "env": {
+    "ANSIBLE_VAULT_ID_MATCH": "false"
+   },
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": "false",
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "match-env-empty-beats-ini",
+   "cfg": {
+    "vault_id_match": "True"
+   },
+   "env": {
+    "ANSIBLE_VAULT_ID_MATCH": ""
+   },
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": "",
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "match-env-quoted-empty",
+   "cfg": {},
+   "env": {
+    "ANSIBLE_VAULT_ID_MATCH": "\"\""
+   },
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": "\"\"",
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "identity-ini-quoted",
+   "cfg": {
+    "vault_identity": "'team'"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "team",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "identity-env",
+   "cfg": {},
+   "env": {
+    "ANSIBLE_VAULT_IDENTITY": "team"
+   },
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "team",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "encrypt-identity-ini-quoted",
+   "cfg": {
+    "vault_encrypt_identity": "\"dev\""
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": "dev",
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "encrypt-identity-env",
+   "cfg": {
+    "vault_encrypt_identity": "dev"
+   },
+   "env": {
+    "ANSIBLE_VAULT_ENCRYPT_IDENTITY": "prod"
+   },
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": "prod",
+    "VAULT_ENCRYPT_SALT": null
+   },
+   "secrets": [],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "encrypt-salt-ini",
+   "cfg": {
+    "vault_encrypt_salt": "fixed-salt-for-tests"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": "fixed-salt-for-tests"
+   },
+   "secrets": [],
+   "error": null,
+   "scriptArgs": []
+  },
+  {
+   "id": "encrypt-salt-env",
+   "cfg": {},
+   "env": {
+    "ANSIBLE_VAULT_ENCRYPT_SALT": "env salt"
+   },
+   "cwd": "elsewhere",
+   "promptHex": null,
+   "constants": {
+    "DEFAULT_VAULT_IDENTITY_LIST": [],
+    "DEFAULT_VAULT_PASSWORD_FILE": null,
+    "DEFAULT_VAULT_IDENTITY": "default",
+    "DEFAULT_VAULT_ID_MATCH": false,
+    "DEFAULT_VAULT_ENCRYPT_IDENTITY": null,
+    "VAULT_ENCRYPT_SALT": "env salt"
+   },
+   "secrets": [],
+   "error": null,
+   "scriptArgs": []
+  }
+ ],
+ "tries": [
+  {
+   "id": "tries-all-match-off",
+   "cfg": {
+    "vault_identity_list": "prod@pw-prod.txt, dev@pw-dev.txt",
+    "vault_password_file": "pw.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "envelope": "v15",
+   "tried": [
+    "prod",
+    "dev",
+    "default"
+   ],
+   "result": "FAILED",
+   "via": null
+  },
+  {
+   "id": "tries-label-not-first",
+   "cfg": {
+    "vault_identity_list": "prod@pw-prod.txt, dev@pw-dev.txt",
+    "vault_password_file": "pw.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "envelope": "v02",
+   "tried": [
+    "prod",
+    "dev"
+   ],
+   "result": "OK",
+   "via": "dev"
+  },
+  {
+   "id": "tries-match-on-label-only",
+   "cfg": {
+    "vault_identity_list": "prod@pw-prod.txt, dev@pw-dev.txt",
+    "vault_password_file": "pw.txt",
+    "vault_id_match": "false"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "envelope": "v02",
+   "tried": [
+    "dev"
+   ],
+   "result": "OK",
+   "via": "dev"
+  },
+  {
+   "id": "tries-match-on-mislabelled",
+   "cfg": {
+    "vault_identity_list": "prod@pw-prod.txt, dev@pw-dev.txt",
+    "vault_id_match": "false"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "envelope": "v13",
+   "tried": [
+    "dev"
+   ],
+   "result": "FAILED",
+   "via": null
+  },
+  {
+   "id": "tries-match-on-unlabelled",
+   "cfg": {
+    "vault_identity_list": "prod@pw-prod.txt, dev@pw-dev.txt",
+    "vault_password_file": "pw.txt",
+    "vault_id_match": "false"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "envelope": "v14",
+   "tried": [
+    "default"
+   ],
+   "result": "FAILED",
+   "via": null
+  },
+  {
+   "id": "tries-match-off-unlabelled",
+   "cfg": {
+    "vault_identity_list": "dev@pw-dev.txt, prod@pw-prod.txt",
+    "vault_password_file": "pw.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "envelope": "v14",
+   "tried": [
+    "dev",
+    "prod"
+   ],
+   "result": "OK",
+   "via": "prod"
+  },
+  {
+   "id": "tries-renamed-default-match-on",
+   "cfg": {
+    "vault_identity": "team",
+    "vault_password_file": "pw.txt",
+    "vault_id_match": "on"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "envelope": "v01",
+   "tried": [
+    "team"
+   ],
+   "result": "OK",
+   "via": "team"
+  },
+  {
+   "id": "tries-env-match-false",
+   "cfg": {
+    "vault_identity_list": "dev@pw-dev.txt, prod@pw-prod.txt"
+   },
+   "env": {
+    "ANSIBLE_VAULT_ID_MATCH": "false"
+   },
+   "cwd": "elsewhere",
+   "envelope": "v13",
+   "tried": [
+    "dev"
+   ],
+   "result": "FAILED",
+   "via": null
+  }
+ ],
+ "encrypt": [
+  {
+   "id": "encrypt-two-ids-refused",
+   "cfg": {
+    "vault_identity_list": "dev@pw-dev.txt, prod@pw-prod.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "result": "REFUSED",
+   "refusal": "AMBIGUOUS",
+   "header": null,
+   "decryptsWith": null
+  },
+  {
+   "id": "encrypt-default-writes-1.1",
+   "cfg": {
+    "vault_password_file": "pw.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "result": "OK",
+   "refusal": null,
+   "header": "$ANSIBLE_VAULT;1.1;AES256",
+   "decryptsWith": "pw1"
+  },
+  {
+   "id": "encrypt-renamed-default",
+   "cfg": {
+    "vault_identity": "team",
+    "vault_password_file": "pw.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "result": "OK",
+   "refusal": null,
+   "header": "$ANSIBLE_VAULT;1.2;AES256;team",
+   "decryptsWith": "pw1"
+  },
+  {
+   "id": "encrypt-identity-chooses",
+   "cfg": {
+    "vault_identity_list": "dev@pw-dev.txt, prod@pw-prod.txt",
+    "vault_encrypt_identity": "prod"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "result": "OK",
+   "refusal": null,
+   "header": "$ANSIBLE_VAULT;1.2;AES256;prod",
+   "decryptsWith": "prod"
+  },
+  {
+   "id": "encrypt-identity-not-found",
+   "cfg": {
+    "vault_identity_list": "dev@pw-dev.txt",
+    "vault_encrypt_identity": "qa"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "result": "REFUSED",
+   "refusal": "NOT_FOUND",
+   "header": null,
+   "decryptsWith": null
+  },
+  {
+   "id": "encrypt-default-label-dev-password",
+   "cfg": {
+    "vault_identity_list": "default@pw-dev.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "result": "OK",
+   "refusal": null,
+   "header": "$ANSIBLE_VAULT;1.1;AES256",
+   "decryptsWith": "dev"
+  },
+  {
+   "id": "encrypt-duplicate-labels-refused",
+   "cfg": {
+    "vault_identity_list": "pw1.txt, pw1.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "result": "REFUSED",
+   "refusal": "AMBIGUOUS",
+   "header": null,
+   "decryptsWith": null
+  },
+  {
+   "id": "encrypt-identity-env",
+   "cfg": {
+    "vault_identity_list": "dev@pw-dev.txt, prod@pw-prod.txt"
+   },
+   "env": {
+    "ANSIBLE_VAULT_ENCRYPT_IDENTITY": "dev"
+   },
+   "cwd": "elsewhere",
+   "result": "OK",
+   "refusal": null,
+   "header": "$ANSIBLE_VAULT;1.2;AES256;dev",
+   "decryptsWith": "dev"
+  },
+  {
+   "id": "encrypt-identity-default-name",
+   "cfg": {
+    "vault_identity_list": "default@pw1.txt, dev@pw-dev.txt",
+    "vault_encrypt_identity": "default"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "result": "OK",
+   "refusal": null,
+   "header": "$ANSIBLE_VAULT;1.1;AES256",
+   "decryptsWith": "pw1"
+  },
+  {
+   "id": "encrypt-identity-first-of-duplicates",
+   "cfg": {
+    "vault_identity_list": "dev@pw-dev.txt, dev@pw1.txt",
+    "vault_encrypt_identity": "dev"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "result": "OK",
+   "refusal": null,
+   "header": "$ANSIBLE_VAULT;1.2;AES256;dev",
+   "decryptsWith": "dev"
+  }
+ ],
+ "edit": [
+  {
+   "id": "edit-1.1-renamed-default",
+   "cfg": {
+    "vault_identity": "team",
+    "vault_password_file": "pw.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "originalHeader": "$ANSIBLE_VAULT;1.1;AES256",
+   "originalPassword": "pw1",
+   "originalHex": "24414e5349424c455f5641554c543b312e313b4145533235360a33373336333633313337333533363633333733343336333733363335333636353332363433363636333733323336333133363333333636333336333533323634333733333336333133363633333733340a30613633333433333333333933323338333933373635333436333330363636363632333836323337333033393636333233353331333733313335363633383331333433393335333133383339363133300a33353635333133323339363136333635333236313332333236363333363633323330333633363632333133313633333336363061363333353631363333333339333133303636333133353634363533360a36313337363536353337333136313333333136313337333433323335333533393631333933313633363133313331333936333333333933313338363333363636363333323332333133323635333036350a36313333333033333331363533363634333833340a",
+   "result": "OK",
+   "unchanged": false,
+   "header": "$ANSIBLE_VAULT;1.2;AES256;team",
+   "decryptsWith": "pw1",
+   "plaintextHex": "73796e746865746963206564697420706c61696e746578740a6564697465640a"
+  },
+  {
+   "id": "edit-1.1-with-label-field",
+   "cfg": {
+    "vault_identity_list": "dev@pw-dev.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "originalHeader": "$ANSIBLE_VAULT;1.1;AES256;dev",
+   "originalPassword": "dev",
+   "originalHex": "24414e5349424c455f5641554c543b312e313b4145533235363b6465760a33373336333633313337333533363633333733343336333733363335333636353332363433363636333733323336333133363333333636333336333533323634333733333336333133363633333733340a30613334363536363330333433383339333936343330333133363334333736343336333036313337363633303336333633313337333333303631363636343636333233363636363133333331333736350a36363334363233303330333936343634333133323330333133373339363533363635333233373332363436343331333633353061363533363634333033363338363236313339363133363331363536360a33353632333236353330333236343338333033373335333936313635363236323633333336313632333136323334363536353335333033393634333533313633333233393332333236343636333233340a33393633333336313333363333343632333933340a",
+   "result": "OK",
+   "unchanged": false,
+   "header": "$ANSIBLE_VAULT;1.2;AES256;dev",
+   "decryptsWith": "dev",
+   "plaintextHex": "73796e746865746963206564697420706c61696e746578740a6564697465640a"
+  },
+  {
+   "id": "edit-1.2-without-label",
+   "cfg": {
+    "vault_password_file": "pw.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "originalHeader": "$ANSIBLE_VAULT;1.2;AES256",
+   "originalPassword": "pw1",
+   "originalHex": "24414e5349424c455f5641554c543b312e323b4145533235360a33373336333633313337333533363633333733343336333733363335333636353332363433363636333733323336333133363333333636333336333533323634333733333336333133363633333733340a30613633333433333333333933323338333933373635333436333330363636363632333836323337333033393636333233353331333733313335363633383331333433393335333133383339363133300a33353635333133323339363136333635333236313332333236363333363633323330333633363632333133313633333336363061363333353631363333333339333133303636333133353634363533360a36313337363536353337333136313333333136313337333433323335333533393631333933313633363133313331333936333333333933313338363333363636363333323332333133323635333036350a36313333333033333331363533363634333833340a",
+   "result": "OK",
+   "unchanged": false,
+   "header": "$ANSIBLE_VAULT;1.1;AES256",
+   "decryptsWith": "pw1",
+   "plaintextHex": "73796e746865746963206564697420706c61696e746578740a6564697465640a"
+  },
+  {
+   "id": "edit-mislabelled-keeps-label",
+   "cfg": {
+    "vault_identity_list": "dev@pw-dev.txt, prod@pw-prod.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "originalHeader": "$ANSIBLE_VAULT;1.2;AES256;dev",
+   "originalPassword": "prod",
+   "originalHex": "24414e5349424c455f5641554c543b312e323b4145533235363b6465760a33373336333633313337333533363633333733343336333733363335333636353332363433363636333733323336333133363333333636333336333533323634333733333336333133363633333733340a30613330363133323334333333323334363533383339363136313333333033353332333533373330363236333631333633343631363133373338363433323330363336323335333436343632363636330a36313338333533313339333736313334363433383337333833373330333136363339363133383332333033363339333033323061363336363335363633393632333133363330363433343332333033370a33323636363436353331333336323334363336353633363136313333333036313634333233333334363433353336363333363336333636323330333233343631363633313633333133363631333733340a33313633333836343631363633363631363333360a",
+   "result": "OK",
+   "unchanged": false,
+   "header": "$ANSIBLE_VAULT;1.2;AES256;dev",
+   "decryptsWith": "prod",
+   "plaintextHex": "73796e746865746963206564697420706c61696e746578740a6564697465640a"
+  },
+  {
+   "id": "edit-labelled-keeps-label",
+   "cfg": {
+    "vault_identity_list": "prod@pw-prod.txt, dev@pw-dev.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "originalHeader": "$ANSIBLE_VAULT;1.2;AES256;dev",
+   "originalPassword": "dev",
+   "originalHex": "24414e5349424c455f5641554c543b312e323b4145533235363b6465760a33373336333633313337333533363633333733343336333733363335333636353332363433363636333733323336333133363333333636333336333533323634333733333336333133363633333733340a30613334363536363330333433383339333936343330333133363334333736343336333036313337363633303336333633313337333333303631363636343636333233363636363133333331333736350a36363334363233303330333936343634333133323330333133373339363533363635333233373332363436343331333633353061363533363634333033363338363236313339363133363331363536360a33353632333236353330333236343338333033373335333936313635363236323633333336313632333136323334363536353335333033393634333533313633333233393332333236343636333233340a33393633333336313333363333343632333933340a",
+   "result": "OK",
+   "unchanged": false,
+   "header": "$ANSIBLE_VAULT;1.2;AES256;dev",
+   "decryptsWith": "dev",
+   "plaintextHex": "73796e746865746963206564697420706c61696e746578740a6564697465640a"
+  },
+  {
+   "id": "edit-no-change-writes-nothing",
+   "cfg": {
+    "vault_password_file": "pw.txt"
+   },
+   "env": {},
+   "cwd": "elsewhere",
+   "originalHeader": "$ANSIBLE_VAULT;1.1;AES256",
+   "originalPassword": "pw1",
+   "originalHex": "24414e5349424c455f5641554c543b312e313b4145533235360a33373336333633313337333533363633333733343336333733363335333636353332363433363636333733323336333133363333333636333336333533323634333733333336333133363633333733340a30613633333433333333333933323338333933373635333436333330363636363632333836323337333033393636333233353331333733313335363633383331333433393335333133383339363133300a33353635333133323339363136333635333236313332333236363333363633323330333633363632333133313633333336363061363333353631363333333339333133303636333133353634363533360a36313337363536353337333136313333333136313337333433323335333533393631333933313633363133313331333936333333333933313338363333363636363333323332333133323635333036350a36313333333033333331363533363634333833340a",
+   "result": "OK",
+   "unchanged": true,
+   "header": "$ANSIBLE_VAULT;1.1;AES256",
+   "decryptsWith": "pw1",
+   "plaintextHex": "73796e746865746963206564697420706c61696e746578740a"
+  }
+ ]
+}
