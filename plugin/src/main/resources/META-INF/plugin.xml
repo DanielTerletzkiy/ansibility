@@ -3,15 +3,23 @@
     <name>Ansibility</name>
     <vendor url="https://ansibility.terletzkiy.de">Daniel Terletzkiy</vendor>
     <description><![CDATA[
-        <p><b>Ansibility</b> makes Ansible feel native in PyCharm, WebStorm, PhpStorm and IntelliJ IDEA.</p>
+        <p><b>AI-ASSISTED DEVELOPMENT DISCLAIMER:</b> This plugin has been extensively developed with the assistance of Artificial Intelligence (LLMs). While rigorously designed, typed, and tested against real-world Ansible environments and specifications, please be aware of its AI-assisted origins and feel free to report any unexpected behavior or issues.</p>
+
+        <p><b>Ansibility</b> makes Ansible feel truly native in PyCharm, WebStorm, PhpStorm, and IntelliJ IDEA.</p>
+
+        <p><b>Key Features:</b></p>
         <ul>
-            <li>Role variables documented from <code>meta/argument_specs.yml</code> like JSDoc: hover, completion, Ctrl+B.</li>
-            <li>Understands group_vars/host_vars overrides, environments and inventories.</li>
-            <li>Type checks against documented types, using ansible-core's own rules.</li>
-            <li>Module, option and keyword documentation, with Ctrl+B to the docs page.</li>
-            <li>Jinja2 templates and Jinja inside YAML.</li>
-            <li>An "Ansible" tool window for environments, groups, hosts and var files.</li>
+            <li><b>Host Awareness & Context Switching:</b> Full understanding of inventories, environments, group hierarchies, and <code>group_vars</code>/<code>host_vars</code> inheritance. Switch active host context via the status bar widget or quick actions.</li>
+            <li><b>Variable Precedence & Deep Inspection:</b> Variable cards with interactive <i>"Explain Precedence"</i> view showing values across all inventory, playbook, and role layers.</li>
+            <li><b>Seamless Ansible Vault Integration:</b> In-editor inline vault reveal/edit/encrypt/decrypt/rekey, whole-file vault tabs with safe synchronization protection, lock gutter icons, and structural envelope inspections.</li>
+            <li><b>Role Argument Specs & Strict Type Checking:</b> JSDoc-like documentation from <code>meta/argument_specs.yml</code>, hover cards, auto-completion, and static type checking against ansible-core's type rules.</li>
+            <li><b>Jinja2 & YAML Language Injection:</b> Full Jinja2 syntax support for <code>*.j2</code> and automatic injection into YAML expressions (<code>when:</code>, <code>changed_when:</code>, templates) with smart variable, fact, and filter completion.</li>
+            <li><b>Live Template Split Preview:</b> Preview rendered Jinja2 templates directly in a split editor for the active host/play context.</li>
+            <li><b>Module & Keyword Intelligence:</b> Built-in documentation hover, auto-completion, and inspections for Ansible modules, options, and play/task keywords with direct links to official docs.</li>
+            <li><b>Navigation, Find Usages & Refactoring:</b> Go to Definition (Ctrl+B), Find Usages (Alt+F7), Highlight Usages (Ctrl+Shift+F7), and safe renaming for variables and roles.</li>
+            <li><b>Ansible Tool Window & Workspace Scopes:</b> Dedicated tool window for exploring environments, groups, hosts, playbooks, roles, effective variables table, and workspace scopes filtering.</li>
         </ul>
+
         <p><small>Ansibility is an independent project by Daniel Terletzkiy (<a href="https://ansibility.terletzkiy.de">ansibility.terletzkiy.de</a>).
         Ansible is a registered trademark of Red Hat, Inc.; Ansibility is not affiliated with or endorsed by Red Hat.</small></p>
     ]]></description>
