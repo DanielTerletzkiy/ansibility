@@ -1,0 +1,7 @@
+<!-- Area fragment: refactoring (variable and role rename). Included from plugin.xml. -->
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+        <renameHandler implementation="de.terletzkiy.ansibility.refactoring.RoleRenameHandler" order="first"/>
+        <renameHandler implementation="de.terletzkiy.ansibility.refactoring.VarRenameHandler" order="first"/>
+    </extensions>
+</idea-plugin>

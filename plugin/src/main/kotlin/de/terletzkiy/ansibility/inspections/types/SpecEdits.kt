@@ -51,7 +51,7 @@ internal object SpecEdits {
         addSubOptions(option, subOptions)
     }
 
-    private fun addSubOptions(option: YAMLMapping, subOptions: Map<String, List<Pair<String, String>>>) {
+    fun addSubOptions(option: YAMLMapping, subOptions: Map<String, List<Pair<String, String>>>) {
         val project = option.project
         val optionIndent = YAMLUtil.getIndentToThisElement(option)
         val existing = option.getKeyValueByKey("options")?.value as? YAMLMapping

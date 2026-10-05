@@ -1,0 +1,17 @@
+<html>
+<body>
+<p><b>ANS-S002.</b> Reports a variable a role takes from outside that its <code>meta/argument_specs.yml</code> does not declare.
+ansible-core validates only declared options, and the variable card has no type, description or choices for the others.</p>
+<p>Role inputs are the top-level keys of <code>defaults/</code> and the Jinja uses in tasks, handlers and templates of names
+nothing inside the role sets (no <code>vars/</code> key, <code>set_fact</code>, <code>register</code>, task <code>vars:</code>,
+loop variable, Jinja local, magic variable or fact).</p>
+<p>A role without an argument spec gets the same findings as a weak warning, with a fix that creates
+<code>meta/argument_specs.yml</code>. The fixes infer <code>type</code> (and <code>elements</code>) from the values:</p>
+<pre><code>argument_specs:
+  main:
+    options:
+      nginx_port:
+        type: int
+</code></pre>
+</body>
+</html>

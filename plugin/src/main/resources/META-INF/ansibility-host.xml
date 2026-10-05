@@ -7,6 +7,10 @@
         <projectService serviceInterface="de.terletzkiy.ansibility.api.AnsibleContextService"
                         serviceImplementation="de.terletzkiy.ansibility.context.host.AnsibleContextServiceImpl"/>
         <!-- /HA1 -->
+        <!-- r11-8: the host value seam for rendering (api/HostValues.kt) -->
+        <projectService serviceInterface="de.terletzkiy.ansibility.api.HostValueService"
+                        serviceImplementation="de.terletzkiy.ansibility.context.host.values.HostValueServiceImpl"/>
+        <!-- /r11-8 -->
         <!-- ha3: F8.1 context banners (file scope disjoint from the selection; ex-X49 playbook dir) -->
         <editorNotificationProvider implementation="de.terletzkiy.ansibility.context.switching.ContextOverrideBannerProvider"/>
         <editorNotificationProvider implementation="de.terletzkiy.ansibility.context.switching.PlaybookDirBannerProvider"/>

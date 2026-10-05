@@ -78,4 +78,29 @@
                   topic="de.terletzkiy.ansibility.api.VaultStatusListener"/>
     </projectListeners>
     <!-- /v3 -->
+    <!-- v6a -->
+    <extensions defaultExtensionNs="de.terletzkiy.ansibility">
+        <!-- F7.7: the src hover of a whole-file vault; null for every other src -->
+        <siteDocumentation id="ansibilityVaultTemplateRef" order="first"
+                           implementation="de.terletzkiy.ansibility.vault.tab.VaultTemplateRefDocumentation"/>
+    </extensions>
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- F7.7: the whole-file vault banner; F7.8: the decrypted tab's banner -->
+        <editorNotificationProvider implementation="de.terletzkiy.ansibility.vault.tab.WholeFileVaultBanner"/>
+        <!-- F7.8: the save path of decrypted tabs (spike S-V1) -->
+        <fileDocumentSynchronizationVetoer implementation="de.terletzkiy.ansibility.vault.tab.DecryptedVaultSaveVetoer"/>
+        <editorTabColorProvider implementation="de.terletzkiy.ansibility.vault.tab.DecryptedVaultTabColor"/>
+        <projectCloseHandler implementation="de.terletzkiy.ansibility.vault.tab.DecryptedTabsCloseHandler"/>
+        <!-- The questions about unsaved decrypted edits (tests replace it) -->
+        <applicationService serviceInterface="de.terletzkiy.ansibility.vault.tab.DecryptedTabPrompts"
+                            serviceImplementation="de.terletzkiy.ansibility.vault.tab.DecryptedTabDialogPrompts"/>
+    </extensions>
+
+    <projectListeners>
+        <listener class="de.terletzkiy.ansibility.vault.tab.VaultTabStatusListener"
+                  topic="de.terletzkiy.ansibility.api.VaultStatusListener"/>
+        <listener class="de.terletzkiy.ansibility.vault.tab.DecryptedTabsFileListener"
+                  topic="com.intellij.openapi.fileEditor.FileEditorManagerListener"/>
+    </projectListeners>
+    <!-- /v6a -->
 </idea-plugin>

@@ -246,7 +246,8 @@ interface VaultPlaintext : AutoCloseable {
 
     /**
      * Runs [block] on the plaintext. The array must not be kept, and it may be turned into a `String` only by a
-     * surface that shows or writes the value on explicit request (Reveal, Edit, the decrypted tab, Decrypt to plain).
+     * surface that shows or writes the value on explicit request (Reveal, Edit, the decrypted tab, Decrypt to plain, the
+     * preview's "Render vault values").
      *
      * @throws IllegalStateException after [close]
      */
@@ -262,6 +263,9 @@ enum class VaultPurpose {
 
     /** The manager's Test run over a root. */
     TEST,
+
+    /** The template preview of one tab, after you turned on "Render vault values" there (off on every open). */
+    RENDER_PREVIEW,
 
     /** The opt-in analysis of decrypted values (D31); refused with [VaultFailure.ANALYSIS_DISABLED] while it is off. */
     ANALYSIS,

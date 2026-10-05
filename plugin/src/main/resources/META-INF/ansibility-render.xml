@@ -1,0 +1,19 @@
+<!-- Area fragment: rendering (plan amendment R11, A.17: the render binder, lookups, the preview service and the template
+     split editor). Included from plugin.xml; only the R11 work units edit this file. -->
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- r11-14: the template split editor (editor / editor + preview / preview, default editor only, D76) -->
+        <fileEditorProvider implementation="de.terletzkiy.ansibility.render.editor.RenderedTemplateEditorProvider"/>
+        <!-- Rendered text gets its type's colours, never warnings or errors -->
+        <daemon.highlightInfoFilter implementation="de.terletzkiy.ansibility.render.editor.PreviewProblemFilter"/>
+        <problemHighlightFilter implementation="de.terletzkiy.ansibility.render.editor.PreviewSecretsFilter"/>
+        <!-- /r11-14 -->
+    </extensions>
+    <actions resource-bundle="messages.AnsibilityRenderBundle">
+        <!-- r11-15 -->
+        <action id="Ansibility.Render.Show" class="de.terletzkiy.ansibility.render.editor.ShowRenderedTemplateAction">
+            <add-to-group group-id="EditorTabPopupMenu" anchor="last"/>
+        </action>
+        <!-- /r11-15 -->
+    </actions>
+</idea-plugin>

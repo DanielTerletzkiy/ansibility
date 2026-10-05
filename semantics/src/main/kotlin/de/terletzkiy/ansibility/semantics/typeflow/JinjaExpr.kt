@@ -32,8 +32,17 @@ sealed interface JinjaExpr {
     /** `target.attribute` (Jinja tries the attribute, then the item). */
     data class Attribute(val target: JinjaExpr, val attribute: String, override val start: Int, override val end: Int) : JinjaExpr
 
-    /** `target[key]` (Jinja tries the item, then the attribute); `.0` is `[0]`. [key] is null for a slice. */
-    data class Subscript(val target: JinjaExpr, val key: JinjaExpr?, override val start: Int, override val end: Int) : JinjaExpr
+    /**
+     * `target[key]` (Jinja tries the item, then the attribute); `.0` is `[0]`. [key] is null for a slice, whose
+     * bounds are then [slice] (start, stop, step; an omitted bound is null), and for a tuple key (both null).
+     */
+    data class Subscript(
+        val target: JinjaExpr,
+        val key: JinjaExpr?,
+        override val start: Int,
+        override val end: Int,
+        val slice: List<JinjaExpr?>? = null,
+    ) : JinjaExpr
 
     /** `target | name(args)`; [name] has its dotted segments joined (`ansible.builtin.to_json`). */
     data class Filter(
@@ -48,8 +57,16 @@ sealed interface JinjaExpr {
         val shortName: String get() = name.substringAfterLast('.')
     }
 
-    /** `target is [not] name(args)`, always a bool. */
-    data class Test(val target: JinjaExpr, val name: String, val negated: Boolean, override val start: Int, override val end: Int) : JinjaExpr
+    /** `target is [not] name(args)` (or `target is name arg`), always a bool. */
+    data class Test(
+        val target: JinjaExpr,
+        val name: String,
+        val negated: Boolean,
+        override val start: Int,
+        override val end: Int,
+        val args: List<JinjaExpr> = emptyList(),
+        val kwargs: Map<String, JinjaExpr> = emptyMap(),
+    ) : JinjaExpr
 
     /** `callee(args)`. */
     data class Call(

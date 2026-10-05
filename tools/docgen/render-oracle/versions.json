@@ -1,0 +1,11 @@
+{
+ "comment": "The ansible-core lines of the render oracle. 'primary' versions define expected/common (identical on all primary versions) and expected/<label>; 'extra' versions (spike S-R1) are stored as sparse overlays: expected/<label>/<file> or a '<label>' key only where they differ from common/'both'. Docker images are built by build_images.sh (network only while building) and always run with --network none.",
+ "primary": ["2.21", "2.18"],
+ "extra": ["2.19", "2.20"],
+ "versions": {
+  "2.21": {"core": "2.21.4", "python": "3.14.7", "jinja2": "3.1.6", "runner": "local", "where": "local Homebrew"},
+  "2.18": {"core": "2.18.8", "python": "3.13.15", "jinja2": "3.1.6", "runner": "docker", "image": "ansibility-docgen:2.18.8"},
+  "2.19": {"core": "2.19.13", "python": "3.13.16", "jinja2": "3.1.6", "runner": "docker", "image": "ansibility-docgen:2.19.13"},
+  "2.20": {"core": "2.20.9", "python": "3.13.16", "jinja2": "3.1.6", "runner": "docker", "image": "ansibility-docgen:2.20.9"}
+ }
+}

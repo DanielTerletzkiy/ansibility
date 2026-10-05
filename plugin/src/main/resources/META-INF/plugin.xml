@@ -44,4 +44,7 @@
     <xi:include href="/META-INF/ansibility-vault-ui.xml" xpointer="xpointer(/idea-plugin/*)"/>
     <xi:include href="/META-INF/ansibility-vault-checks.xml" xpointer="xpointer(/idea-plugin/*)"/>
     <xi:include href="/META-INF/ansibility-host-checks.xml" xpointer="xpointer(/idea-plugin/*)"/>
+    <xi:include href="/META-INF/ansibility-render.xml" xpointer="xpointer(/idea-plugin/*)"/>
+    <xi:include href="/META-INF/ansibility-spec-checks.xml" xpointer="xpointer(/idea-plugin/*)"/>
+    <xi:include href="/META-INF/ansibility-refactoring.xml" xpointer="xpointer(/idea-plugin/*)"/>
 </idea-plugin>

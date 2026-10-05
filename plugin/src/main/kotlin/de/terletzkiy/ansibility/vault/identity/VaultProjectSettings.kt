@@ -62,6 +62,15 @@ class VaultProjectSettings : PersistentStateComponent<VaultProjectSettings.State
     /** Bumped on every change. */
     val modificationTracker: ModificationTracker get() = tracker
 
+    /** Decrypted tabs are encrypted into the real file only by an explicit save (Cmd+S), never by autosave. Off by default. */
+    @Volatile
+    var encryptOnlyOnExplicitSave: Boolean = false
+        set(value) {
+            if (field == value) return
+            field = value
+            tracker.incModificationCount()
+        }
+
     /** The settings of the root stored under [rootKey], or the defaults. */
     fun rootSettings(rootKey: String): VaultRootSettings = roots[rootKey] ?: VaultRootSettings.DEFAULT
 
@@ -77,16 +86,21 @@ class VaultProjectSettings : PersistentStateComponent<VaultProjectSettings.State
     }
 
     override fun getState(): StateBean = StateBean().apply {
+        encryptOnlyOnExplicitSave = this@VaultProjectSettings.encryptOnlyOnExplicitSave
         roots = this@VaultProjectSettings.roots.entries.sortedBy { it.key }.map { (key, settings) -> RootBean.of(key, settings) }.toMutableList()
     }
 
     override fun loadState(state: StateBean) {
         roots = state.roots.mapNotNull { bean -> bean.key?.let { it to bean.toSettings() } }.toMap()
+        encryptOnlyOnExplicitSave = state.encryptOnlyOnExplicitSave
         tracker.incModificationCount()
     }
 
     /** XML form of the settings. */
     class StateBean {
+        @get:Attribute("encryptOnlyOnExplicitSave")
+        var encryptOnlyOnExplicitSave: Boolean = false
+
         @get:XCollection(propertyElementName = "roots", elementName = "root")
         var roots: MutableList<RootBean> = ArrayList()
     }

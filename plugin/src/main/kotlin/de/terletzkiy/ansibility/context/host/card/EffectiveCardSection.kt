@@ -1,9 +1,11 @@
 package de.terletzkiy.ansibility.context.host.card
 
 import com.intellij.lang.documentation.DocumentationMarkup
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.text.HtmlChunk
+import com.intellij.openapi.vfs.VirtualFile
 import de.terletzkiy.ansibility.api.AnsibleContextService
 import de.terletzkiy.ansibility.api.AnsibleRoot
 import de.terletzkiy.ansibility.api.CardContext
@@ -13,13 +15,18 @@ import de.terletzkiy.ansibility.api.CardSubject
 import de.terletzkiy.ansibility.api.HostKey
 import de.terletzkiy.ansibility.api.HostScopeOrigin
 import de.terletzkiy.ansibility.api.VarDefKind
+import de.terletzkiy.ansibility.api.SourceLocation
 import de.terletzkiy.ansibility.api.VarService
+import de.terletzkiy.ansibility.api.VarSourceRef
 import de.terletzkiy.ansibility.context.host.AnsibleContextServiceImpl
 import de.terletzkiy.ansibility.context.host.card.HostCardTexts.grayed
 import de.terletzkiy.ansibility.context.host.card.HostCardTexts.message
 import de.terletzkiy.ansibility.context.switching.ContextTexts
 import de.terletzkiy.ansibility.model.inventory.InventoryModels
+import de.terletzkiy.ansibility.render.service.TemplatePreviewService
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
+import de.terletzkiy.ansibility.vars.VarLocations
+import org.jetbrains.yaml.psi.YAMLScalar
 
 /**
  * The **Effective** section at the top of the variable card (plan amendment R7/R8, F8.2, ex-X13; `cardSection` id
@@ -62,10 +69,10 @@ class EffectiveCardSection : CardSection {
         val project = context.project
         // Seen from the same position as the ranked "Set in" rows ([HostCardViews.scopeOffset]).
         val view = HostCardViews.getInstance(project).view(variable.definition, context, variable.name) ?: return null
-        return Renderer(project, variable.root, view).render()
+        return Renderer(project, variable.root, view, context.file).render()
     }
 
-    private class Renderer(private val project: Project, private val root: AnsibleRoot, private val view: CardView) {
+    private class Renderer(private val project: Project, private val root: AnsibleRoot, private val view: CardView, private val file: VirtualFile) {
         private val scope = view.scope
         private val single: HostKey? = view.singleHost
 
@@ -156,9 +163,42 @@ class EffectiveCardSection : CardSection {
                 parts += HtmlChunk.link(ExplainLinks.of(view.name, target, view.runningRole, view.taskVars.applied), text)
             }
             lines += indented(indent, HostCardTexts.joined(parts))
+            renderedLine(outcome, winner)?.let { lines += indented(indent + INDENT, it) }
             for ((chain, hosts) in outcome.chains) lines += indented(indent + INDENT, chainLine(chain, hosts.takeIf { single == null }))
             shadowedLine(outcome)?.let { lines += indented(indent + INDENT, it) }
             return HostCardTexts.lines(lines)
+        }
+
+        /**
+         * `renders: https://mimir.example.de/api/v1/push (prod-prod1)` for a winner that carries Jinja: the value fully
+         * templated on the outcome's first host, with placeholders where only the run knows (facts, vault, runtime results).
+         */
+        private fun renderedLine(outcome: CardOutcome, winner: VarSourceRef): HtmlChunk? {
+            if (winner.isVault) return null
+            val preview = winner.preview ?: return null
+            if ("{{" !in preview && "{%" !in preview) return null
+            val target = outcome.explainTarget ?: return null
+            val rendered = try {
+                val scalar = VarLocations.keyValueAt(project, SourceLocation(winner.file, winner.offset))?.value as? YAMLScalar
+                TemplatePreviewService.getInstance(project).renderVariable(target, view.scope, view.name, view.runningRole, file, scalar?.textValue)
+            } catch (e: ProcessCanceledException) {
+                throw e
+            } catch (_: RuntimeException) {
+                return null
+            }
+            val text = rendered.text.takeUnless { it == preview } ?: return null
+            val shown = if (text.length > MAX_RENDERED) text.take(MAX_RENDERED) + "\u2026" else text
+            val parts = mutableListOf<HtmlChunk>(
+                grayed(message("card.effective.renders") + " "),
+                HtmlChunk.tag("code").addText(shown.replace('\n', '\u21B5')),
+            )
+            val note = when {
+                rendered.errors.isNotEmpty() -> message("card.effective.renders.error", rendered.errors.first().message)
+                single == null -> message("card.effective.renders.on", target.host.host)
+                else -> null
+            }
+            note?.let { parts += HtmlChunk.text(" "); parts += grayed(it) }
+            return HtmlChunk.fragment(*parts.toTypedArray())
         }
 
         /** `→ str 192.0.2.33 via system_ip_floating · <link> (prod-prod1, prod-prod2)`. */
@@ -255,6 +295,9 @@ class EffectiveCardSection : CardSection {
 
     private companion object {
         const val INDENT = 2
+
+        /** Characters of a rendered value the card shows before "…". */
+        const val MAX_RENDERED = 200
 
         /** Outcomes listed before "+n more values on m hosts" (hover cards stay short and cheap on large inventories). */
         const val MAX_OUTCOMES = 10

@@ -45,6 +45,10 @@ class EffectiveCardSectionTest : HostCardTestCase() {
             ha4_template: "{{ ha4_base | upper }}"
             ha4_cycle_a: "{{ ha4_cycle_b }}"
             ha4_cycle_b: "{{ ha4_cycle_a }}"
+            ha4_url: "https://{{ ha4_host | upper }}:{{ ha4_port + 1 }}/api/v1/push"
+            ha4_host: mimir.example
+            ha4_port: 8080
+            ha4_fact_url: "http://{{ ansible_default_ipv4.address }}/"
             """,
         )
         add(
@@ -192,6 +196,16 @@ class EffectiveCardSectionTest : HostCardTestCase() {
         val cycle = effective(card(CHAINS, 5, "ha4_cycle_a"))
         assertTrue(cycle, "= \"{{ ha4_cycle_b }}\"" in cycle)
         assertFalse("a cycle shows no chain: $cycle", "→" in cycle)
+    }
+
+    /** A templated winner gets the value it renders to on the host, placeholders where only the run knows. */
+    fun testTemplatedWinnerShowsTheRenderedValue() {
+        val url = effective(card(CHAINS, 7, "ha4_url"))
+        assertTrue(url, "renders: https://MIMIR.EXAMPLE:8081/api/v1/push" in url)
+        val fact = effective(card(CHAINS, 10, "ha4_fact_url"))
+        assertTrue(fact, "renders: http://⟨fact: ansible_default_ipv4⟩/" in fact)
+        val literal = effective(card(CHAINS, 8, "ha4_host"))
+        assertFalse("a literal winner has no renders line: $literal", "renders:" in literal)
     }
 
     /** Seven names share one address in test, and get different ports: the card says why. */

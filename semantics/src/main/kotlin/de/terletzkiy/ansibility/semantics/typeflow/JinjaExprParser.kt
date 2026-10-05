@@ -12,42 +12,94 @@ import java.math.BigInteger
  * syntax error) makes [parse] return null, which the evaluator treats as an unknown value.
  */
 internal class JinjaExprParser private constructor(private val tokens: List<JinjaToken>) {
-    private var pos = 0
+    /** The index of the next token; statement parsers (`render.syntax`) read on from here. */
+    internal var pos = 0
 
-    private class SyntaxError : RuntimeException(null, null, false, false)
+    /** Any syntax error; [parse] turns it into null, statement parsers catch it themselves. */
+    internal class SyntaxError : RuntimeException(null, null, false, false)
 
-    private fun peek(offset: Int = 0): JinjaToken? = tokens.getOrNull(pos + offset)
+    internal fun peek(offset: Int = 0): JinjaToken? = tokens.getOrNull(pos + offset)
 
-    private fun next(): JinjaToken = tokens.getOrNull(pos++) ?: throw SyntaxError()
+    internal fun next(): JinjaToken = tokens.getOrNull(pos++) ?: throw SyntaxError()
 
-    private fun isOp(text: String, offset: Int = 0): Boolean = peek(offset)?.let { it.kind == JinjaTokenKind.OPERATOR && it.text == text } == true
+    internal fun isOp(text: String, offset: Int = 0): Boolean = peek(offset)?.let { it.kind == JinjaTokenKind.OPERATOR && it.text == text } == true
 
-    private fun isKeyword(text: String, offset: Int = 0): Boolean = peek(offset)?.let { it.kind == JinjaTokenKind.KEYWORD && it.text == text } == true
+    internal fun isKeyword(text: String, offset: Int = 0): Boolean = peek(offset)?.let { it.kind == JinjaTokenKind.KEYWORD && it.text == text } == true
 
-    private fun skipOp(text: String): Boolean = isOp(text).also { if (it) pos++ }
+    /** A keyword or a plain name with [text] (clause words such as `ignore`, `missing`, `context` lex as names). */
+    internal fun isWord(text: String, offset: Int = 0): Boolean =
+        peek(offset)?.let { (it.kind == JinjaTokenKind.KEYWORD || it.kind == JinjaTokenKind.NAME) && it.text == text } == true
 
-    private fun skipKeyword(text: String): Boolean = isKeyword(text).also { if (it) pos++ }
+    internal fun skipOp(text: String): Boolean = isOp(text).also { if (it) pos++ }
 
-    private fun expectOp(text: String): JinjaToken {
+    internal fun skipKeyword(text: String): Boolean = isKeyword(text).also { if (it) pos++ }
+
+    internal fun skipWord(text: String): Boolean = isWord(text).also { if (it) pos++ }
+
+    internal fun expectOp(text: String): JinjaToken {
         if (!isOp(text)) throw SyntaxError()
         return next()
+    }
+
+    internal val atEnd: Boolean get() = pos >= tokens.size
+
+    /**
+     * String literals keep their backslashes as written: ansible-core doubles every backslash inside a string literal
+     * of a `{{ }}` tag in a templated YAML value before Jinja lexes it (research note 5.1, golden 09).
+     */
+    internal var rawStrings: Boolean = false
+
+    /** 2.18 doubles the backslashes textually, so an escaped quote ends the literal early; 2.19+ keeps it inside. */
+    internal var escapedQuoteEnds: Boolean = true
+
+    private fun literal(text: String): String {
+        if (!rawStrings) return decodeString(text)
+        if (text.length < 2 || text.last() != text.first()) throw SyntaxError()
+        val inner = text.substring(1, text.length - 1)
+        if (!escapedQuoteEnds) return inner
+        var i = 0
+        while (i < inner.length) {
+            if (inner[i] == '\\') {
+                if (inner.getOrNull(i + 1) == text.first()) throw SyntaxError()
+                i += 2
+            } else {
+                i++
+            }
+        }
+        return inner
     }
 
     private val lastEnd: Int get() = tokens[pos - 1].end
 
     /** `parse_tuple(with_condexpr=True)` up to the end of the tokens: what an output tag holds. */
-    private fun topLevel(): JinjaExpr {
-        val first = condExpr()
+    internal fun topLevel(): JinjaExpr = tuple(withCondExpr = true)
+
+    /**
+     * `parse_tuple`: one expression, or a tuple of comma-separated ones without parentheses. The tuple ends at the end
+     * of the tokens or at a token that cannot start an expression (`%}` is not passed on, so a statement's trailing
+     * `if`/`recursive` clause ends it too). [withCondExpr] false parses `for` iterables, where `if` filters the loop.
+     */
+    internal fun tuple(withCondExpr: Boolean): JinjaExpr {
+        val parse = { if (withCondExpr) condExpr() else or() }
+        val first = parse()
         if (!isOp(",")) return first
         val items = arrayListOf(first)
         while (skipOp(",")) {
-            if (peek() == null) break
-            items += condExpr()
+            val next = peek() ?: break
+            if (!startsExpression(next)) break
+            items += parse()
         }
         return JinjaExpr.TupleLiteral(items, first.start, lastEnd)
     }
 
-    private fun condExpr(): JinjaExpr {
+    private fun startsExpression(token: JinjaToken): Boolean = when (token.kind) {
+        JinjaTokenKind.NAME, JinjaTokenKind.STRING, JinjaTokenKind.INTEGER, JinjaTokenKind.FLOAT -> true
+        JinjaTokenKind.OPERATOR -> token.text in setOf("(", "[", "{", "-", "+")
+        JinjaTokenKind.KEYWORD -> token.text in setOf("not", "true", "True", "false", "False", "none", "None")
+        else -> false
+    }
+
+    internal fun condExpr(): JinjaExpr {
         var expr = or()
         while (skipKeyword("if")) {
             val condition = or()
@@ -57,7 +109,7 @@ internal class JinjaExprParser private constructor(private val tokens: List<Jinj
         return expr
     }
 
-    private fun or(): JinjaExpr {
+    internal fun or(): JinjaExpr {
         var left = and()
         while (skipKeyword("or")) {
             val right = and()
@@ -163,11 +215,11 @@ internal class JinjaExprParser private constructor(private val tokens: List<Jinj
             }
             JinjaTokenKind.STRING -> {
                 // Adjacent string literals concatenate, as in Python.
-                val text = StringBuilder(decodeString(token.text))
+                val text = StringBuilder(literal(token.text))
                 var end = token.end
                 while (peek()?.kind == JinjaTokenKind.STRING) {
                     val more = next()
-                    text.append(decodeString(more.text))
+                    text.append(literal(more.text))
                     end = more.end
                 }
                 JinjaExpr.Const(PyValue.Str(text.toString()), token.start, end)
@@ -258,27 +310,31 @@ internal class JinjaExprParser private constructor(private val tokens: List<Jinj
      */
     private fun subscript(target: JinjaExpr): JinjaExpr {
         expectOp("[")
-        val keys = ArrayList<JinjaExpr?>()
+        val keys = ArrayList<Pair<JinjaExpr?, List<JinjaExpr?>?>>()
         while (!isOp("]")) {
             if (keys.isNotEmpty()) expectOp(",")
             keys += subscribed()
         }
         expectOp("]")
-        return JinjaExpr.Subscript(target, keys.singleOrNull(), target.start, lastEnd)
+        val single = keys.singleOrNull()
+        return JinjaExpr.Subscript(target, single?.first, target.start, lastEnd, single?.second)
     }
 
-    /** `parse_subscribed`: an expression, or null for a slice `[start]:[stop][:[step]]`. */
-    private fun subscribed(): JinjaExpr? {
+    /** `parse_subscribed`: an expression, or for a slice `[start]:[stop][:[step]]` null and its bounds. */
+    private fun subscribed(): Pair<JinjaExpr?, List<JinjaExpr?>?> {
+        var lower: JinjaExpr? = null
         if (!isOp(":")) {
             val node = condExpr()
-            if (!isOp(":")) return node
+            if (!isOp(":")) return node to null
+            lower = node
         }
         expectOp(":")
-        if (!isOp(":") && !isOp("]") && !isOp(",")) condExpr()
+        val upper = if (!isOp(":") && !isOp("]") && !isOp(",")) condExpr() else null
+        var step: JinjaExpr? = null
         if (skipOp(":")) {
-            if (!isOp("]") && !isOp(",")) condExpr()
+            if (!isOp("]") && !isOp(",")) step = condExpr()
         }
-        return null
+        return null to listOf(lower, upper, step)
     }
 
     private fun call(callee: JinjaExpr): JinjaExpr {
@@ -287,7 +343,7 @@ internal class JinjaExprParser private constructor(private val tokens: List<Jinj
     }
 
     /** `parse_call_args`: positional and keyword arguments; `*args`/`**kwargs` are read and dropped. */
-    private fun callArgs(): Pair<List<JinjaExpr>, Map<String, JinjaExpr>> {
+    internal fun callArgs(): Pair<List<JinjaExpr>, Map<String, JinjaExpr>> {
         expectOp("(")
         val args = ArrayList<JinjaExpr>()
         val kwargs = LinkedHashMap<String, JinjaExpr>()
@@ -338,13 +394,15 @@ internal class JinjaExprParser private constructor(private val tokens: List<Jinj
     private fun test(target: JinjaExpr): JinjaExpr {
         if (!skipKeyword("is")) throw SyntaxError()
         val negated = skipKeyword("not")
-        val name = dottedName()
+        // Jinja's lexer makes keywords names, so `is none` and `is in(...)` name the tests `none` and `in`.
+        val name = if (peek()?.kind == JinjaTokenKind.KEYWORD) next().text else dottedName()
         val next = peek()
-        when {
+        val (args, kwargs) = when {
             isOp("(") -> callArgs()
-            next != null && startsTestArgument(next) -> postfix(primary())
+            next != null && startsTestArgument(next) -> listOf(postfix(primary())) to emptyMap()
+            else -> emptyList<JinjaExpr>() to emptyMap()
         }
-        return JinjaExpr.Test(target, name, negated, target.start, lastEnd)
+        return JinjaExpr.Test(target, name, negated, target.start, lastEnd, args, kwargs)
     }
 
     /** `x is divisibleby 3`: a test takes one argument without parentheses when it is a primary. */
@@ -369,6 +427,9 @@ internal class JinjaExprParser private constructor(private val tokens: List<Jinj
 
     companion object {
         private val COMPARE_OPERATORS = setOf("==", "!=", "<", ">", "<=", ">=")
+
+        /** A parser over [tokens] for statement parsers, which read expressions and clause words in turn. */
+        internal fun cursor(tokens: List<JinjaToken>): JinjaExprParser = JinjaExprParser(tokens)
 
         /** The expression of one output tag ([tokens] without delimiters), or null when it is not supported or invalid. */
         fun parse(tokens: List<JinjaToken>): JinjaExpr? {

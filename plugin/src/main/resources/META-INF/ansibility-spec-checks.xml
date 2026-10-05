@@ -1,0 +1,11 @@
+<!-- Area fragment: argument spec checks (ANS-S002 role inputs the spec does not declare). Included from plugin.xml. -->
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- No language: role templates have any file type; the inspection returns at once outside role files. -->
+        <localInspection shortName="AnsibleRoleInputNotInSpec"
+                         bundle="messages.AnsibilitySpecBundle" key="inspection.s002.display.name"
+                         groupPath="Ansibility" groupBundle="messages.AnsibilitySpecBundle" groupKey="inspection.group.variables"
+                         enabledByDefault="true" level="WARNING"
+                         implementationClass="de.terletzkiy.ansibility.inspections.spec.AnsibleRoleInputNotInSpecInspection"/>
+    </extensions>
+</idea-plugin>

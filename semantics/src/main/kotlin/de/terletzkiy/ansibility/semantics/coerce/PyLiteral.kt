@@ -30,6 +30,20 @@ internal object PyLiteral {
         return toPyValue(literal) as PyValue.Dict
     }
 
+    /**
+     * `literal_eval(text)` of any literal; raises what Python raises, and [IndeterminateValueException] for a valid
+     * literal [PyValue] cannot hold (a tuple, set, bytes …).
+     */
+    fun eval(text: String): PyValue {
+        val tokens = Tokenizer(text.trimStart(' ', '\t')).tokens()
+        val parser = Parser(tokens)
+        val node = parser.expression()
+        parser.expectEnd()
+        val literal = convert(node)
+        checkHashable(literal)
+        return toPyValue(literal)
+    }
+
     // ------------------------------------------------------------------------------------------ values
 
     private sealed interface Lit {
