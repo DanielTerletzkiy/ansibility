@@ -67,6 +67,64 @@ class VarLoopItemTest : VarsTestCase() {
         assertEquals("the bare item goes to the task's loop", listOf("$nginxTasks:31"), targets(nginxTasks, 29, "item.floating", 1))
     }
 
+    fun testItemMemberInIncludedTaskFileUsesIncludingTasksLoop() {
+        val role = "site/roles/netboot"
+        val included = "$role/tasks/install_netbox.yml"
+        val include = "$role/tasks/install.yml"
+        val argumentSpecs = "$role/meta/argument_specs.yml"
+        createFile(
+            argumentSpecs,
+            """
+            argument_specs:
+              main:
+                options:
+                  app_pxe_bootloaders:
+                    type: list
+                    elements: dict
+                    required: true
+                    description: Defines the netboot bootloader archives to download
+                    options:
+                      architecture:
+                        type: str
+                        choices: [amd64, arm64]
+                        default: amd64
+                      debian_version:
+                        type: str
+                        choices: [trixie, bookworm, forky]
+                        required: true
+                        description: Defines the Debian version of the bootloader
+                      bootloader_version:
+                        type: str
+                        default: current
+            """.trimIndent(),
+        )
+        createFile(
+            include,
+            """
+            - name: Install and prepare netboot images
+              ansible.builtin.include_tasks: install_netbox.yml
+              loop: "{{ app_pxe_bootloaders }}"
+            """.trimIndent(),
+        )
+        createFile(
+            included,
+            """
+            ---
+            - name: Install netboot image
+              ansible.builtin.get_url:
+                url: "https://deb.debian.org/debian/dists/{{ item.debian_version }}/main/installer-{{ item.architecture | default('amd64') }}/{{ item.bootloader_version | default('current') }}/images/netboot/netboot.tar.gz"
+                dest: "/tmp/debian-netboot.tar.gz"
+            """.trimIndent(),
+        )
+
+        val card = text(html(hover(included, offsetAt(included, 4, "debian_version", 2))))
+        assertTrue(card, card.startsWith("app_pxe_bootloaders.debian_version : str"))
+        assertTrue(card, "Defines the Debian version of the bootloader" in card)
+        assertTrue(card, "item is one element of app_pxe_bootloaders, iterated by the task at roles/netboot/tasks/install.yml:1." in card)
+        assertEquals(listOf("$argumentSpecs:14"), targets(included, 4, "debian_version", 2))
+        assertEquals("the bare item goes to the including task's loop", listOf("$include:3"), targets(included, 4, "item.debian_version", 1))
+    }
+
     fun testLoopVarNamedItems() {
         val card = text(html(hover(alerting, offsetAt(alerting, 33, "grafana_alert.name", "grafana_alert.".length + 1))))
         assertTrue(card, card.startsWith("grafana_alerting.name : str"))

@@ -7,6 +7,7 @@ import de.terletzkiy.ansibility.api.AnsibleRoot
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.FileKind
 import de.terletzkiy.ansibility.api.RenderLoop
+import de.terletzkiy.ansibility.api.RoleRegistry
 import de.terletzkiy.ansibility.api.SourceLocation
 import de.terletzkiy.ansibility.api.TemplateContextService
 import de.terletzkiy.ansibility.api.VarService
@@ -15,14 +16,16 @@ import de.terletzkiy.ansibility.model.task.TaskNode
 import de.terletzkiy.ansibility.model.task.YamlFiles
 import de.terletzkiy.ansibility.resolve.loop.LoopItemTyper
 import de.terletzkiy.ansibility.resolve.loop.TaskChains
+import de.terletzkiy.ansibility.resolve.register.RoleTaskOrder
 import de.terletzkiy.ansibility.yaml.YamlPaths
 
 /**
  * Loop variables at a Jinja reference (plan F2.4 "the same targets as F1.2 and F1.4", F1.7, X78): which loop defines
  * `item` (or a `loop_control.loop_var`, `index_var`, `ansible_loop`) where it is used, and what it iterates.
  *
- * - In a task file the loop is the one of the task around the reference ([LoopItemTyper]); inside the loop's own
- *   expression the variable is not defined yet.
+ * - In a task file the loops are the one of the task around the reference ([LoopItemTyper]) and those of enclosing
+ *   `include_tasks`/`import_tasks`, nearest first. Inside a loop's own expression that loop variable is not defined
+ *   yet, but an outer include's differently named loop variable remains in scope.
  * - In a template the loops are those of the tasks that render it ([TemplateContextService]); several rendering tasks
  *   agree on the iterated variable only when all of them iterate the same one.
  *
@@ -59,7 +62,8 @@ internal object LoopItems {
 
     /**
      * The loop that defines [name] at [offset] of [file], or null: in a template (a role template or any `.j2` file)
-     * the loops of its rendering tasks, in a YAML task list the loop of the task around [offset].
+     * the loops of its rendering tasks, in a YAML task list the loop of the task around [offset] or of an enclosing
+     * static task include.
      */
     fun bindingAt(project: Project, file: VirtualFile, offset: Int, name: String): Binding? {
         val context = AnsibleWorkspace.getInstance(project).contextOf(file) ?: return null
@@ -68,10 +72,32 @@ internal object LoopItems {
         if (!YamlPaths.isTopLevelSequence(yaml)) return null
         val chain = TaskChains.chainAt(TaskFileModels.of(yaml), offset)
         val task = TaskChains.taskOf(chain) ?: return null
-        if (inLoopValue(task, offset)) return null
-        val typed = LoopItemTyper.typeOf(project, yaml, task, chain) ?: return null
-        if (name !in typed.names) return null
-        return Binding(typed.loop, listOf(LoopTask(SourceLocation(file, task.range.startOffset), SourceLocation(file, loopKeyOffset(task)))))
+        if (!inLoopValue(task, offset)) {
+            val typed = LoopItemTyper.typeOf(project, yaml, task, chain)
+            if (typed != null && name in typed.names) {
+                return Binding(
+                    typed.loop,
+                    listOf(LoopTask(SourceLocation(file, task.range.startOffset), SourceLocation(file, loopKeyOffset(task)))),
+                )
+            }
+        }
+        val roleName = context.roleName ?: return null
+        val role = RoleRegistry.getInstance(project).role(context.root, roleName) ?: return null
+        for (include in RoleTaskOrder(project, role).enclosingIncludes(file)) {
+            ProgressManager.checkCanceled()
+            val typed = LoopItemTyper.typeOf(project, include.yaml, include.task, include.chain) ?: continue
+            if (name !in typed.names) continue
+            return Binding(
+                typed.loop,
+                listOf(
+                    LoopTask(
+                        SourceLocation(include.file, include.task.range.startOffset),
+                        SourceLocation(include.file, loopKeyOffset(include.task)),
+                    ),
+                ),
+            )
+        }
+        return null
     }
 
     /**
