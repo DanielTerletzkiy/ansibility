@@ -1,0 +1,3 @@
+{
+  "description": "Host ranges (padding, letters, strides, several ranges, :port), string host sections, ansible_group_priority overriding name order, depth beating priority, inline host vars set from two groups, a group defined twice."
+}

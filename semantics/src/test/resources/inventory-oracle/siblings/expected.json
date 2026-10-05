@@ -1,0 +1,201 @@
+{
+  "ansible_core": "2.21.4",
+  "inventory": {
+    "_meta": {
+      "hostvars": {
+        "app1": {
+          "ansible_host": "192.0.2.11",
+          "ansible_port": 2222,
+          "ansible_user": "deploy",
+          "deep_value": "nested-dir",
+          "empty_value": null,
+          "enabled": true,
+          "env_name": "siblings",
+          "float_version": 3.1,
+          "host_specific": "app1-second-file",
+          "layered": "from-playbook-web",
+          "nested": {
+            "a": 1,
+            "b": [
+              "x",
+              "y"
+            ]
+          },
+          "noext_value": "loaded",
+          "octal_mode": 420,
+          "playbook_only": true,
+          "quoted": "0644",
+          "region_name": "us",
+          "relay_host": "relay.internal.example.test",
+          "shared_key": "from-host-vars",
+          "tier": "web",
+          "unsafe_value": {
+            "__ansible_unsafe": "{{ not_templated }}"
+          },
+          "vault_db_password": {
+            "__ansible_vault": "$ANSIBLE_VAULT;1.1;AES256\n30303030303030303030303030303030\n"
+          },
+          "web_name": "base",
+          "web_port": 8080,
+          "when_date": "2024-01-01",
+          "zone_label": "playbook-shallow-group"
+        },
+        "app2": {
+          "ansible_host": "{{ host_ips['app2'] }}",
+          "ansible_port": 2222,
+          "ansible_user": "deploy",
+          "deep_value": "nested-dir",
+          "empty_value": null,
+          "enabled": true,
+          "env_name": "siblings",
+          "float_version": 3.1,
+          "host_specific": "app2-playbook",
+          "layered": "from-playbook-web",
+          "nested": {
+            "a": 1,
+            "b": [
+              "x",
+              "y"
+            ]
+          },
+          "noext_value": "loaded",
+          "octal_mode": 420,
+          "playbook_only": true,
+          "quoted": "0644",
+          "region_name": "eu-west",
+          "relay_host": "relay.internal.example.test",
+          "shared_key": "from-inventory-group-vars-all",
+          "tier": "web",
+          "unsafe_value": {
+            "__ansible_unsafe": "{{ not_templated }}"
+          },
+          "vault_db_password": {
+            "__ansible_vault": "$ANSIBLE_VAULT;1.1;AES256\n30303030303030303030303030303030\n"
+          },
+          "web_name": "base",
+          "web_port": 8080,
+          "when_date": "2024-01-01",
+          "zone": "eu-west-inline",
+          "zone_label": "playbook-shallow-group"
+        },
+        "db1": {
+          "ansible_host": "192.0.2.22",
+          "ansible_port": 2222,
+          "ansible_user": "deploy",
+          "cache_size": 64,
+          "db_engine": "postgres",
+          "empty_value": null,
+          "enabled": true,
+          "env_name": "siblings",
+          "float_version": 3.1,
+          "nested": {
+            "a": 1,
+            "b": [
+              "x",
+              "y"
+            ]
+          },
+          "octal_mode": 420,
+          "playbook_only": true,
+          "quoted": "0644",
+          "region_name": "us",
+          "relay_host": "relay.internal.example.test",
+          "shared_key": "from-inventory-group-vars-all",
+          "tier": "database-files",
+          "unsafe_value": {
+            "__ansible_unsafe": "{{ not_templated }}"
+          },
+          "vault_db_password": {
+            "__ansible_vault": "$ANSIBLE_VAULT;1.1;AES256\n30303030303030303030303030303030\n"
+          },
+          "when_date": "2024-01-01"
+        },
+        "lonely": {
+          "ansible_host": "192.0.2.99",
+          "ansible_port": 2222,
+          "ansible_user": "deploy",
+          "empty_value": null,
+          "enabled": true,
+          "env_name": "siblings",
+          "float_version": 3.1,
+          "nested": {
+            "a": 1,
+            "b": [
+              "x",
+              "y"
+            ]
+          },
+          "octal_mode": 420,
+          "playbook_only": true,
+          "quoted": "0644",
+          "relay_host": "relay.internal.example.test",
+          "shared_key": "from-inventory-group-vars-all",
+          "ungrouped_marker": true,
+          "unsafe_value": {
+            "__ansible_unsafe": "{{ not_templated }}"
+          },
+          "vault_db_password": {
+            "__ansible_vault": "$ANSIBLE_VAULT;1.1;AES256\n30303030303030303030303030303030\n"
+          },
+          "when_date": "2024-01-01"
+        }
+      },
+      "profile": "inventory_legacy"
+    },
+    "all": {
+      "children": [
+        "ungrouped",
+        "web",
+        "empty_group",
+        "region",
+        "cache"
+      ]
+    },
+    "cache": {
+      "children": [
+        "database"
+      ]
+    },
+    "database": {
+      "hosts": [
+        "db1"
+      ]
+    },
+    "region": {
+      "children": [
+        "region_eu",
+        "region_us"
+      ]
+    },
+    "region_eu": {
+      "children": [
+        "region_eu_west"
+      ],
+      "hosts": [
+        "app1"
+      ]
+    },
+    "region_eu_west": {
+      "hosts": [
+        "app2"
+      ]
+    },
+    "region_us": {
+      "hosts": [
+        "app1",
+        "db1"
+      ]
+    },
+    "ungrouped": {
+      "hosts": [
+        "lonely"
+      ]
+    },
+    "web": {
+      "hosts": [
+        "app1",
+        "app2"
+      ]
+    }
+  }
+}

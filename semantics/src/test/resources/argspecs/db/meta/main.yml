@@ -1,0 +1,171 @@
+---
+# Synthetic role metadata written for the ArgSpecParser parity test (Ansibility test corpus).
+# Shapes: the spec lives under `argument_specs` of meta/main.yml next to galaxy_info and dependencies,
+# string choices that look like numbers, a date default, an integer beyond 64 bits, nested defaults with YAML 1.1 booleans.
+galaxy_info:
+  role_name: db
+  author: Ansibility test corpus
+  description: Relational database server for the parity tests.
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions: [bookworm]
+dependencies: []
+argument_specs:
+  main:
+    short_description: Relational database server with users, databases and backups.
+    options:
+      db_version:
+        type: str
+        choices: ["15", "16", "17"]
+        default: "17"
+        description: Major version; quoted so that the choices stay strings.
+      db_port:
+        type: int
+        default: 5433
+        description: TCP port.
+      db_listen_addresses:
+        type: list
+        elements: str
+        default: [localhost, 192.0.2.20]
+        description: Addresses the server listens on.
+      db_superuser_password:
+        type: str
+        required: true
+        no_log: true
+        description: Password of the database superuser.
+      db_shared_buffers:
+        type: bytes
+        default: 128MB
+        description: Shared memory for the buffer cache.
+      db_max_wal_size:
+        type: int
+        default: 18446744073709551616
+        description: Upper bound in bytes; larger than a signed 64-bit integer.
+      db_statement_timeout:
+        type: int
+        default: 0
+        description: Milliseconds before a statement is cancelled; V(0) disables the limit.
+      db_settings:
+        type: dict
+        default:
+          max_connections: 100
+          log_min_duration_statement: 250ms
+          ssl: on
+          jit: off
+          work_mem: 4MB
+        description: Server settings; plain V(on) and V(off) are YAML 1.1 booleans.
+      db_hba:
+        type: list
+        elements: dict
+        default:
+          - {type: local, database: all, user: all, method: peer}
+          - {type: host, database: all, user: all, address: 192.0.2.0/24, method: scram-sha-256}
+        description: Client authentication rules, first match wins.
+        options:
+          type:
+            type: str
+            choices: [local, host, hostssl, hostnossl]
+            required: true
+            description: Connection type.
+          database:
+            type: str
+            default: all
+            description: Database the rule applies to.
+          user:
+            type: str
+            default: all
+            description: Role the rule applies to.
+          address:
+            type: str
+            description: Client network in CIDR notation, for example V(198.51.100.0/24).
+          method:
+            type: str
+            choices: [trust, reject, peer, md5, scram-sha-256]
+            required: true
+            description: Authentication method.
+      db_databases:
+        type: list
+        elements: dict
+        default: []
+        description: Databases to create.
+        options:
+          name:
+            type: str
+            required: true
+            description: Database name.
+          owner:
+            type: str
+            description: Owning role.
+          encoding:
+            type: str
+            default: UTF8
+            description: Character encoding.
+          extensions:
+            type: list
+            elements: str
+            default: []
+            description: Extensions installed into the database.
+      db_users:
+        type: list
+        elements: dict
+        default: []
+        description: Database roles.
+        options:
+          name:
+            type: str
+            required: true
+            description: Role name.
+          password:
+            type: str
+            no_log: true
+            description: Password of the role.
+          privileges:
+            type: list
+            elements: str
+            choices: [SELECT, INSERT, UPDATE, DELETE, ALL]
+            default: [SELECT]
+            description: Table privileges granted on O(db_users[].databases).
+          databases:
+            type: list
+            elements: str
+            default: []
+            description: Databases the privileges apply to.
+          valid_until:
+            type: str
+            default: 2030-01-01
+            description: Expiry of the password; the unquoted value is a YAML date.
+          state:
+            type: str
+            choices: [present, absent]
+            default: present
+            description: Whether the role exists.
+      db_backup:
+        type: dict
+        default:
+          enabled: true
+          schedule: "15 3 * * *"
+        description: Nightly dumps.
+        options:
+          enabled:
+            type: bool
+            default: true
+            description: Run the backup timer.
+          schedule:
+            type: str
+            default: "15 3 * * *"
+            description: Cron expression of the timer.
+          retention_days:
+            type: int
+            default: 7
+            description: Days dumps are kept.
+          target:
+            type: path
+            default: /var/backups/db
+            description: Directory of the dumps.
+          compress_level:
+            type: int
+            choices: [0, 1, 6, 9]
+            default: 6
+            description: Compression level; V(0) stores the dump uncompressed.

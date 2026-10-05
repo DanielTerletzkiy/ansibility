@@ -3,6 +3,7 @@ package de.terletzkiy.ansibility.completion.jinja
 import de.terletzkiy.ansibility.api.SourceLocation
 import de.terletzkiy.ansibility.facts.FactSpec
 import de.terletzkiy.ansibility.facts.MagicVar
+import de.terletzkiy.ansibility.resolve.register.RegisteredResult
 import de.terletzkiy.ansibility.semantics.schema.OptionSpec
 import javax.swing.Icon
 
@@ -50,6 +51,12 @@ internal sealed interface CandidateDoc {
     data class Group(val name: String, val hosts: List<String>, val environments: List<String>) : CandidateDoc
 
     data class Host(val name: String, val environments: List<String>) : CandidateDoc
+
+    /**
+     * A member of a registered result (plan amendment FU, F1.12): `result.path…`, shown as [display]; the popup shows
+     * the return value's card.
+     */
+    data class Registered(val result: RegisteredResult, val path: List<String>, val display: String) : CandidateDoc
 }
 
 /** How accepting a candidate edits the text beyond replacing the prefix. */

@@ -1,0 +1,146 @@
+{
+  "ansible_core": "2.21.4",
+  "inventory": {
+    "_meta": {
+      "hostvars": {
+        "api.example.test": {
+          "ansible_port": 8443,
+          "file_prio": "frontends",
+          "prio_var": "frontends"
+        },
+        "db1": {
+          "file_prio": "zeta",
+          "prio_var": "backends",
+          "second_definition": "backends-again"
+        },
+        "db2": {
+          "prio_var": "backends",
+          "second_definition": "backends-again"
+        },
+        "edge-a.example.test": {
+          "file_prio": "frontends",
+          "prio_var": "frontends"
+        },
+        "edge-b.example.test": {
+          "file_prio": "frontends",
+          "prio_var": "frontends"
+        },
+        "edge-c.example.test": {
+          "file_prio": "frontends",
+          "prio_var": "frontends"
+        },
+        "multi1-x": {
+          "file_prio": "frontends",
+          "prio_var": "frontends"
+        },
+        "multi1-y": {
+          "file_prio": "frontends",
+          "prio_var": "frontends"
+        },
+        "multi2-x": {
+          "file_prio": "frontends",
+          "prio_var": "frontends"
+        },
+        "multi2-y": {
+          "file_prio": "frontends",
+          "prio_var": "frontends"
+        },
+        "stride1": {
+          "file_prio": "frontends",
+          "prio_var": "frontends"
+        },
+        "stride5": {
+          "file_prio": "frontends",
+          "prio_var": "frontends"
+        },
+        "stride9": {
+          "file_prio": "frontends",
+          "prio_var": "frontends"
+        },
+        "web01": {
+          "file_prio": "frontends",
+          "prio_var": "frontends",
+          "role_hint": "web"
+        },
+        "web02": {
+          "ansible_group_priority": 99,
+          "extra_inline": "beta",
+          "file_prio": "frontends",
+          "host_inline": "second",
+          "prio_var": "frontends",
+          "role_hint": "web"
+        },
+        "web03": {
+          "file_prio": "beta_child",
+          "prio_var": "beta_child",
+          "role_hint": "web"
+        }
+      },
+      "profile": "inventory_legacy"
+    },
+    "all": {
+      "children": [
+        "ungrouped",
+        "frontends",
+        "backends",
+        "zeta",
+        "alpha",
+        "beta",
+        "standalone"
+      ]
+    },
+    "alpha": {
+      "hosts": [
+        "web02"
+      ]
+    },
+    "backends": {
+      "hosts": [
+        "db1",
+        "db2"
+      ]
+    },
+    "beta": {
+      "children": [
+        "beta_child"
+      ],
+      "hosts": [
+        "web02"
+      ]
+    },
+    "beta_child": {
+      "hosts": [
+        "web03"
+      ]
+    },
+    "frontends": {
+      "hosts": [
+        "web01",
+        "web02",
+        "web03",
+        "edge-a.example.test",
+        "edge-b.example.test",
+        "edge-c.example.test",
+        "stride1",
+        "stride5",
+        "stride9",
+        "multi1-x",
+        "multi1-y",
+        "multi2-x",
+        "multi2-y",
+        "api.example.test"
+      ]
+    },
+    "standalone": {
+      "hosts": [
+        "solo"
+      ]
+    },
+    "zeta": {
+      "hosts": [
+        "web01",
+        "db1"
+      ]
+    }
+  }
+}

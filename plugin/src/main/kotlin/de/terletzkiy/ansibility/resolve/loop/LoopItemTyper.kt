@@ -22,6 +22,7 @@ import de.terletzkiy.ansibility.model.task.LoopInfo
 import de.terletzkiy.ansibility.model.task.TaskFileModels
 import de.terletzkiy.ansibility.model.task.TaskItem
 import de.terletzkiy.ansibility.model.task.TaskNode
+import de.terletzkiy.ansibility.resolve.register.RegisteredResults
 import de.terletzkiy.ansibility.semantics.schema.OptionSpec
 import de.terletzkiy.ansibility.semantics.schema.OptionType
 import de.terletzkiy.ansibility.semantics.yaml.YMap
@@ -187,7 +188,7 @@ object LoopItemTyper {
         val control = task.loopControl
         val virtualFile = file.originalFile.virtualFile ?: return null
         val context = AnsibleWorkspace.getInstance(project).contextOf(virtualFile)
-        val source = sourceOf(project, context, chain, loop)
+        val source = sourceOf(project, context, chain, loop, SourceLocation(virtualFile, task.range.startOffset))
         val item = when (val collection = source.collection) {
             is Collection.Sequence -> collection.element?.copy(name = loopVar)
             is Collection.Mapping -> if (loop.lookup == "dict") keyValue(loopVar) else null
@@ -204,14 +205,14 @@ object LoopItemTyper {
         return LoopItemType(renderLoop, loop.keyword, SourceLocation(virtualFile, task.range.startOffset))
     }
 
-    private fun sourceOf(project: Project, context: FileContext?, chain: List<TaskItem>, loop: LoopInfo): Source {
+    private fun sourceOf(project: Project, context: FileContext?, chain: List<TaskItem>, loop: LoopInfo, site: SourceLocation): Source {
         val lookup = loop.lookup
         if (lookup != null && lookup in STRING_LOOKUPS) return Source(Collection.Sequence(OptionSpec("item", OptionType.Str)), null, emptyList())
         if (lookup != null && lookup !in setOf("items", "list", "dict", "flattened", "random_choice")) return Source(Collection.Unknown, null, emptyList())
         return when (val value = loop.value) {
             is YSeq -> Source(Collection.Sequence(LiteralShapes.elementOf("item", value.items, flatten = lookup == "items" || lookup == "flattened")), null, emptyList())
             is YMap -> if (lookup == "dict") literalDict(value) else Source(Collection.Unknown, null, emptyList())
-            is YScalar -> expressionSource(project, context, chain, value.text, flatten = lookup == "items", withDict = lookup == "dict")
+            is YScalar -> expressionSource(project, context, chain, value.text, flatten = lookup == "items", withDict = lookup == "dict", site)
             else -> Source(Collection.Unknown, null, emptyList())
         }
     }
@@ -229,6 +230,7 @@ object LoopItemTyper {
         text: String,
         flatten: Boolean,
         withDict: Boolean,
+        site: SourceLocation,
     ): Source {
         val body = WHOLE_EXPRESSION.matchEntire(text)?.groupValues?.get(1)
         if (body == null || body.contains("{{")) {
@@ -236,7 +238,7 @@ object LoopItemTyper {
             return if (!text.contains("{{") && !text.contains("{%")) Source(Collection.Sequence(OptionSpec("item", OptionType.Str)), null, emptyList())
             else Source(Collection.Unknown, null, emptyList())
         }
-        return iterationSource(body, { name, path -> variableType(project, context, chain, name, path) }, flatten, withDict)
+        return iterationSource(body, { name, path -> variableType(project, context, chain, name, path, site) }, flatten, withDict)
     }
 
     /** What iterating a Jinja expression yields: the element type, and the variable (with accessors) iterated. */
@@ -366,14 +368,25 @@ object LoopItemTyper {
     }
 
     /**
-     * The type of variable [name] at [path] as the task sees it: its own or enclosing blocks' literal `vars:`, then
-     * the root's spec bindings (the file's role first), then the first literal container definition in the root.
+     * The type of variable [name] at [path] as the task sees it, by ansible-core's precedence: at a known [site] (the
+     * looping task), the typed result of a `register:` visible there ([RegisteredResults], plan amendment FU F1.12:
+     * `loop: "{{ x.results }}"` types `item.stdout`; registered results rank above task and block vars, but not
+     * above the `vars:` of an include task, which are include parameters); else its own or enclosing blocks' literal
+     * `vars:`, then the root's spec bindings (the file's role first), then the first literal container definition in
+     * the root.
      */
-    fun variableType(project: Project, context: FileContext?, chain: List<TaskItem>, name: String, path: List<String>): OptionSpec? {
-        for (item in chain.asReversed()) {
-            val value = TaskChains.varsOf(item)?.get(name) ?: continue
-            return walk(LiteralShapes.of(name, value), path)
-        }
+    fun variableType(
+        project: Project,
+        context: FileContext?,
+        chain: List<TaskItem>,
+        name: String,
+        path: List<String>,
+        site: SourceLocation? = null,
+    ): OptionSpec? {
+        val local = chain.asReversed().firstNotNullOfOrNull { item -> TaskChains.varsOf(item)?.get(name)?.let { item to it } }
+        val includeParameter = (local?.first as? TaskNode)?.let { it.taskInclude != null || it.roleInclude != null } == true
+        if (!includeParameter) site?.let { RegisteredResults.getInstance(project).at(it.file, it.offset, name) }?.let { return it.option(path) }
+        local?.let { (_, value) -> return walk(LiteralShapes.of(name, value), path) }
         val root = context?.root ?: return null
         val symbol = VarService.getInstance(project).symbol(root, name)
         val bindings = symbol.specBindings.sortedBy { if (it.role.name == context.roleName) 0 else 1 }

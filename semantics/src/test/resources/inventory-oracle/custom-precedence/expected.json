@@ -1,0 +1,29 @@
+{
+  "ansible_core": "2.21.4",
+  "inventory": {
+    "_meta": {
+      "hostvars": {
+        "p1": {
+          "everywhere": "all_inventory",
+          "pair_a": "all_inventory",
+          "pair_b": "groups_inventory",
+          "pair_c": "all_plugins_inventory",
+          "pair_d": "groups_plugins_inventory",
+          "pair_e": "all_plugins_play"
+        }
+      },
+      "profile": "inventory_legacy"
+    },
+    "all": {
+      "children": [
+        "ungrouped",
+        "grp"
+      ]
+    },
+    "grp": {
+      "hosts": [
+        "p1"
+      ]
+    }
+  }
+}

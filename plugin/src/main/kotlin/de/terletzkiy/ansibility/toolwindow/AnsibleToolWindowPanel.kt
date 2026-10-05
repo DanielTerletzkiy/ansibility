@@ -3,6 +3,7 @@ package de.terletzkiy.ansibility.toolwindow
 import com.intellij.icons.AllIcons
 import com.intellij.ide.CommonActionsManager
 import com.intellij.ide.DefaultTreeExpander
+import com.intellij.ide.TreeExpander
 import com.intellij.ide.util.treeView.NodeRenderer
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.ActionGroup
@@ -14,8 +15,11 @@ import com.intellij.openapi.actionSystem.CommonShortcuts
 import com.intellij.openapi.actionSystem.DataSink
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.EDT
 import com.intellij.openapi.application.ModalityState
+import com.intellij.openapi.application.readAction
 import com.intellij.openapi.project.DumbAwareAction
+import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.SimpleToolWindowPanel
 import com.intellij.openapi.util.Disposer
@@ -27,17 +31,32 @@ import com.intellij.ui.ScrollPaneFactory
 import com.intellij.ui.TreeSpeedSearch
 import com.intellij.ui.tree.AsyncTreeModel
 import com.intellij.ui.tree.StructureTreeModel
+import com.intellij.ui.tree.TreeVisitor
 import com.intellij.ui.treeStructure.Tree
 import com.intellij.util.ui.tree.TreeModelAdapter
 import com.intellij.util.ui.tree.TreeUtil
+import de.terletzkiy.ansibility.api.HostKey
 import de.terletzkiy.ansibility.api.PlayGraph
+import de.terletzkiy.ansibility.settings.AnsibilitySettingsListener
+import de.terletzkiy.ansibility.settings.WorkspaceState
+import de.terletzkiy.ansibility.toolwindow.host.EffectivePlayChoices
+import de.terletzkiy.ansibility.toolwindow.host.PlayChoice
 import de.terletzkiy.ansibility.toolwindow.model.AnsibleTreeNode
 import de.terletzkiy.ansibility.toolwindow.model.NavigationTarget
+import de.terletzkiy.ansibility.toolwindow.model.NodeDetails
 import de.terletzkiy.ansibility.toolwindow.model.TreeContext
 import de.terletzkiy.ansibility.toolwindow.model.WorkspaceSnapshot
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.jetbrains.concurrency.AsyncPromise
+import org.jetbrains.concurrency.Promise
 import java.awt.event.MouseEvent
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.atomic.AtomicLong
 import javax.swing.JComponent
+import javax.swing.JTree
 import javax.swing.ToolTipManager
 import javax.swing.event.TreeModelEvent
 import javax.swing.tree.TreePath
@@ -54,6 +73,13 @@ import javax.swing.tree.TreeSelectionModel
  *   [CommonDataKeys.NAVIGATABLE_ARRAY].
  * - [AnsibleTreeRefresher] rebuilds the snapshot in a background read action; [applySnapshot] swaps it in on the EDT
  *   and invalidates the model, which keeps expansion and selection.
+ * - The details of the selected node are computed in a background read action ([updateDetails]) and shown on the EDT:
+ *   HA7's details (Effective vars, reach, play matches) evaluate the host context. A newer selection cancels the
+ *   computation of an older one.
+ * - A play chosen in the Effective vars selector ([choosePlay]), a change of the Ansible context (HA3's
+ *   `workspaceStateChanged`) and the end of indexing re-render the tree from the current snapshot: nothing is rebuilt,
+ *   the cached tables answer (or compute what the indexes now allow).
+ * - Expand All ([expandAll]) leaves the per-host subtrees collapsed (a host's Effective vars and Targeted by).
  */
 class AnsibleToolWindowPanel(private val project: Project) : SimpleToolWindowPanel(true, true), Disposable {
     private val structure = AnsibleTreeStructure(project, TreeContext { PlayGraph.getInstance(project).playsOf(it) })
@@ -64,11 +90,28 @@ class AnsibleToolWindowPanel(private val project: Project) : SimpleToolWindowPan
     val tree: Tree = Tree(asyncModel)
 
     /** The details pane; public for tests. */
-    val detailsView: AnsibleDetailsView = AnsibleDetailsView(::navigate)
+    val detailsView: AnsibleDetailsView = AnsibleDetailsView(::navigate, ::choosePlay)
+
+    /** What the toolbar's Expand All and Collapse All act on; Expand All is [expandAll]. Public for tests. */
+    val treeExpander: TreeExpander = object : DefaultTreeExpander(tree) {
+        override fun expandAll(tree: JTree) {
+            this@AnsibleToolWindowPanel.expandAll()
+        }
+    }
 
     private val refresher: AnsibleTreeRefresher
     private var expandedOnce = false
     private var detailsUpdateScheduled = false
+    private var detailsJob: Job? = null
+    private var detailsGeneration = 0L
+    private val shownDetails = AtomicLong()
+
+    /** The node whose details the pane shows now (null: the hint); tests wait for it after a selection. */
+    var detailsNode: AnsibleTreeNode? = null
+        private set
+
+    /** How many details were shown so far (tests wait on it). */
+    val detailsCount: Long get() = shownDetails.get()
 
     init {
         tree.isRootVisible = false
@@ -98,6 +141,23 @@ class AnsibleToolWindowPanel(private val project: Project) : SimpleToolWindowPan
         setToolbar(createToolbar())
 
         refresher = AnsibleTreeRefresher.start(project, this, ::applySnapshot)
+        val connection = project.messageBus.connect(this)
+        // HA3 switches the Ansible context: the selected environment of plays and Auto play choices follow it (D33).
+        connection.subscribe(
+            AnsibilitySettingsListener.TOPIC,
+            object : AnsibilitySettingsListener {
+                override fun workspaceStateChanged(old: WorkspaceState, new: WorkspaceState) {
+                    if (old.roots != new.roots) scheduleRerender()
+                }
+            },
+        )
+        // Runtime markers (variable index) and var-file effects (the background summary) wait for the indexes.
+        connection.subscribe(
+            DumbService.DUMB_MODE,
+            object : DumbService.DumbModeListener {
+                override fun exitDumbMode() = scheduleRerender()
+            },
+        )
     }
 
     /** The snapshot the tree shows now. */
@@ -163,13 +223,53 @@ class AnsibleToolWindowPanel(private val project: Project) : SimpleToolWindowPan
 
     override fun dispose() {
         isDisposed = true
+        detailsJob?.cancel()
+    }
+
+    /**
+     * Stores [choice] for [host]'s Effective vars and re-renders: the tree's Effective vars nodes and the details pane
+     * pick it up, computing the new table in the background. Must be called on the EDT.
+     */
+    fun choosePlay(host: HostKey, choice: PlayChoice) {
+        if (EffectivePlayChoices.getInstance(project).set(host, choice)) rerender()
+    }
+
+    private fun scheduleRerender() = ApplicationManager.getApplication().invokeLater({ rerender() }, ModalityState.any()) { isDisposed }
+
+    /** Re-renders every visible node from the current snapshot (the presentation changed, the structure did not). */
+    private fun rerender() {
+        if (isDisposed) return
+        structureModel.invalidateAsync()
+        updateDetails()
     }
 
     private fun nodeOf(path: TreePath?): AnsibleTreeNode? =
         path?.let { TreeUtil.getLastUserObject(AnsibleNodeDescriptor::class.java, it) }?.node
 
+    /**
+     * Computes the selected node's details in a background read action and shows them on the EDT; until then the pane
+     * keeps what it shows. A newer call cancels an older computation.
+     */
     private fun updateDetails() {
-        detailsView.show(selectedNode()?.details())
+        val node = selectedNode()
+        detailsJob?.cancel()
+        val generation = ++detailsGeneration
+        if (node == null) {
+            showDetails(null, null)
+            return
+        }
+        detailsJob = AnsibleToolWindowScope.getInstance(project).scope.launch(Dispatchers.Default) {
+            val details = readAction { node.details() }
+            withContext(Dispatchers.EDT) {
+                if (!isDisposed && generation == detailsGeneration) showDetails(node, details)
+            }
+        }
+    }
+
+    private fun showDetails(node: AnsibleTreeNode?, details: NodeDetails?) {
+        detailsNode = node
+        detailsView.show(details)
+        shownDetails.incrementAndGet()
     }
 
     private fun scheduleDetailsUpdate() {
@@ -202,13 +302,39 @@ class AnsibleToolWindowPanel(private val project: Project) : SimpleToolWindowPan
             .registerCustomShortcutSet(CommonShortcuts.getEditSource(), tree, this)
     }
 
+    /**
+     * Expands every node except the ones that leave their subtree to the user ([AnsibleTreeNode.expandsWithAll]: a
+     * host's Effective vars and Targeted by), as the toolbar's Expand All does; the promise is done once the rows show.
+     * The platform's expand-all would open every variable of every host under every group it is in, tens of thousands
+     * of rows that never finish loading. Must be called on the EDT.
+     */
+    fun expandAll(): Promise<*> {
+        val paths = ArrayList<TreePath>()
+        val done = AsyncPromise<Any?>()
+        // The visitor runs on the EDT (TreeVisitor's default); visiting loads the children it continues into.
+        TreeUtil.promiseVisit(tree) { path ->
+            val node = nodeOf(path)
+            if (node?.expandsWithAll == false) {
+                TreeVisitor.Action.SKIP_CHILDREN
+            } else {
+                if (node?.isLeaf != true) paths += path
+                TreeVisitor.Action.CONTINUE
+            }
+        }.onProcessed {
+            ApplicationManager.getApplication().invokeLater({
+                if (!isDisposed) TreeUtil.expandPaths(tree, paths)
+                done.setResult(null)
+            }, ModalityState.any())
+        }
+        return done
+    }
+
     private fun createToolbar(): JComponent {
-        val expander = DefaultTreeExpander(tree)
         val actions = CommonActionsManager.getInstance()
         val group = DefaultActionGroup(
             RefreshAction(),
-            actions.createExpandAllAction(expander, tree),
-            actions.createCollapseAllAction(expander, tree),
+            actions.createExpandAllAction(treeExpander, tree),
+            actions.createCollapseAllAction(treeExpander, tree),
         )
         // Context (HA3) and workspace-scope (WS1) actions join from their own fragments (`add-to-group`).
         (ActionManager.getInstance().getAction(TOOLBAR_EXTRA_GROUP) as? ActionGroup)?.let {

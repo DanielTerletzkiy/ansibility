@@ -14,12 +14,17 @@ import de.terletzkiy.ansibility.api.VarService
 import de.terletzkiy.ansibility.facts.FactsCatalog
 import de.terletzkiy.ansibility.index.ValueSummary
 import de.terletzkiy.ansibility.model.task.YamlFiles
+import de.terletzkiy.ansibility.resolve.register.RegisteredResult
+import de.terletzkiy.ansibility.resolve.register.RegisteredResults
+import de.terletzkiy.ansibility.semantics.registered.ResultShapes
+import de.terletzkiy.ansibility.semantics.typeflow.AValue
 import de.terletzkiy.ansibility.semantics.typeflow.VariableDefinition
 import de.terletzkiy.ansibility.semantics.typeflow.VariableResolver
 import de.terletzkiy.ansibility.semantics.yaml.YVault
 import de.terletzkiy.ansibility.semantics.yaml.YValue
 import de.terletzkiy.ansibility.yaml.PsiYValueAdapter
 import org.jetbrains.yaml.psi.YAMLKeyValue
+import java.util.Optional
 
 /**
  * The [VariableResolver] of the T020 chains (plan A.5, F3.4): every definition [VarService] knows for a name in
@@ -34,6 +39,10 @@ import org.jetbrains.yaml.psi.YAMLKeyValue
  *   free-form `set_fact`, and names that facts or special variables provide at runtime (injected `ansible_*` facts,
  *   `ansible_facts`, `hostvars`, `inventory_hostname` …; connection variables such as `ansible_port` are ordinary
  *   inventory variables). Such a name is not followed, so its chain stays unknown.
+ * - **Registered members** (plan amendment FU, F1.12): a member of a registered result has its documented type as
+ *   logical type ([memberType]: `{{ x.rc }}` is an `int`), from the union of the name's `register:` tasks in the checked
+ *   file's role (the root outside roles); undocumented members, types the tasks disagree on and names with other
+ *   definitions stay unknown.
  * - **Secrets**: values in vault files, of `vault_*` names and `!vault` values are typed but never shown
  *   ([ValueSummary.isSecret], [ValueSummary.isVaultFileName]).
  * - **Labels** are `path:line`, relative to [roleDir] for files of the checked file's role, else relative to the root.
@@ -49,6 +58,28 @@ internal class ChainResolver(
     private val memo = HashMap<String, List<VariableDefinition>?>()
 
     override fun definitions(name: String): List<VariableDefinition>? = memo.getOrPut(name) { compute(name) }
+
+    private val registered = HashMap<String, Optional<RegisteredResult>>()
+
+    /**
+     * The logical type of the member `name.path…` of a registered result: its documented type ([ResultShapes.logicalType]),
+     * or null when [name] is no registered variable (some definition of it in the root is not a `register:`), the result
+     * does not document [path], or its type says nothing checkable. Only members have a type: the whole result stays
+     * unknown.
+     */
+    override fun memberType(name: String, path: List<String>): AValue? {
+        if (path.isEmpty()) return null
+        val result = registered.getOrPut(name) { Optional.ofNullable(registeredResult(name)) }.orElse(null) ?: return null
+        return result.member(path)?.let(ResultShapes::logicalType)
+    }
+
+    private fun registeredResult(name: String): RegisteredResult? {
+        ProgressManager.checkCanceled()
+        if (isRuntimeProvided(name)) return null
+        val definitions = service.symbol(root, name).definitions.filter { it.kind != VarDefKind.SPEC_OPTION }
+        if (definitions.isEmpty() || definitions.any { it.kind != VarDefKind.REGISTER }) return null
+        return RegisteredResults.getInstance(project).inScope(root, roleDir, name)
+    }
 
     private fun compute(name: String): List<VariableDefinition>? {
         ProgressManager.checkCanceled()

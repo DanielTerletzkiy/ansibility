@@ -1,0 +1,207 @@
+{
+    "users": {
+        "collection": null,
+        "entry_points": {
+            "main": {
+                "description": [
+                    "Creates the groups in O(users_groups) first and the accounts in O(users_accounts) after them.",
+                    "Accounts not listed are left alone unless O(users_purge=true)."
+                ],
+                "options": {
+                    "users_accounts": {
+                        "default": [],
+                        "description": "Accounts to manage.",
+                        "elements": "dict",
+                        "options": {
+                            "comment": {
+                                "default": "",
+                                "description": "GECOS field.",
+                                "type": "str"
+                            },
+                            "expires": {
+                                "default": -1.0,
+                                "description": "Expiry as seconds since the epoch; V(-1.0) never expires.",
+                                "type": "float",
+                                "version_added": "1.1.0"
+                            },
+                            "groups": {
+                                "default": [],
+                                "description": "Supplementary groups.",
+                                "elements": "str",
+                                "type": "list"
+                            },
+                            "name": {
+                                "aliases": [
+                                    "user",
+                                    "login"
+                                ],
+                                "description": "Login name.",
+                                "required": true,
+                                "type": "str"
+                            },
+                            "password": {
+                                "description": "Password hash.",
+                                "no_log": true,
+                                "type": "str"
+                            },
+                            "shell": {
+                                "choices": [
+                                    "/bin/bash",
+                                    "/bin/sh",
+                                    "/usr/sbin/nologin"
+                                ],
+                                "description": "Login shell.",
+                                "type": "str"
+                            },
+                            "ssh_keys": {
+                                "default": [],
+                                "description": "Authorized keys of the account.",
+                                "elements": "dict",
+                                "options": {
+                                    "exclusive": {
+                                        "default": false,
+                                        "description": "Remove keys that are not listed.",
+                                        "type": "bool",
+                                        "version_added": "1.2.0"
+                                    },
+                                    "key": {
+                                        "description": "Public key line, for example V(ssh-ed25519 AAAA... demo@example.test).",
+                                        "required": true,
+                                        "type": "str"
+                                    },
+                                    "options": {
+                                        "default": [],
+                                        "description": "Key options such as V(from=\"192.0.2.0/24\").",
+                                        "elements": "str",
+                                        "type": "list"
+                                    }
+                                },
+                                "type": "list"
+                            },
+                            "state": {
+                                "choices": [
+                                    "present",
+                                    "absent",
+                                    "locked"
+                                ],
+                                "default": "present",
+                                "description": "Whether the account exists and may log in.",
+                                "type": "str"
+                            },
+                            "sudo": {
+                                "description": "Sudo rule of the account.",
+                                "options": {
+                                    "commands": {
+                                        "default": [
+                                            "ALL"
+                                        ],
+                                        "description": "Commands the account may run.",
+                                        "elements": "str",
+                                        "type": "list"
+                                    },
+                                    "nopasswd": {
+                                        "default": false,
+                                        "description": "Allow the commands without a password.",
+                                        "type": "bool"
+                                    },
+                                    "run_as": {
+                                        "aliases": [
+                                            "runas"
+                                        ],
+                                        "default": "root",
+                                        "description": "Target user.",
+                                        "type": "str"
+                                    }
+                                },
+                                "type": "dict"
+                            },
+                            "uid": {
+                                "description": "Numeric user id.",
+                                "type": "int"
+                            }
+                        },
+                        "type": "list"
+                    },
+                    "users_allowed_login_methods": {
+                        "choices": [
+                            "password",
+                            "publickey",
+                            "keyboard-interactive"
+                        ],
+                        "default": [
+                            "publickey"
+                        ],
+                        "description": "SSH authentication methods offered to managed accounts.",
+                        "elements": "str",
+                        "type": "list"
+                    },
+                    "users_default_shell": {
+                        "default": "/bin/bash",
+                        "description": "Shell of accounts that do not set O(users_accounts[].shell).",
+                        "type": "path"
+                    },
+                    "users_groups": {
+                        "default": [],
+                        "description": "Groups to create.",
+                        "elements": "dict",
+                        "options": {
+                            "gid": {
+                                "description": "Numeric group id.",
+                                "type": "int"
+                            },
+                            "name": {
+                                "description": "Group name.",
+                                "required": true,
+                                "type": "str"
+                            },
+                            "system": {
+                                "default": false,
+                                "description": "Create a system group.",
+                                "type": "bool"
+                            }
+                        },
+                        "type": "list"
+                    },
+                    "users_manage_home": {
+                        "default": true,
+                        "description": "Create home directories.",
+                        "type": "bool"
+                    },
+                    "users_purge": {
+                        "default": false,
+                        "description": "Remove accounts with a UID of at least O(users_uid_min) that are not listed.",
+                        "type": "bool"
+                    },
+                    "users_uid_min": {
+                        "default": 1000,
+                        "description": "Lowest UID managed by the role.",
+                        "type": "int"
+                    }
+                },
+                "short_description": "Local groups, accounts, SSH keys and sudo rules."
+            },
+            "remove": {
+                "options": {
+                    "users_remove": {
+                        "description": "Login names to remove.",
+                        "elements": "str",
+                        "required": true,
+                        "type": "list"
+                    },
+                    "users_remove_grace_days": {
+                        "default": 0,
+                        "description": "Days to keep a locked account before it is deleted.",
+                        "type": "int"
+                    },
+                    "users_remove_home": {
+                        "default": false,
+                        "description": "Also delete the home directories.",
+                        "type": "bool"
+                    }
+                },
+                "short_description": "Remove accounts and optionally their home directories."
+            }
+        },
+        "path": "semantics/src/test/resources/argspecs/users"
+    }
+}

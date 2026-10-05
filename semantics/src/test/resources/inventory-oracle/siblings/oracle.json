@@ -1,0 +1,3 @@
+{
+  "description": "Groups as siblings of all, null and commented-out host lists, 3-level children, group_vars directories with several files, playbook group_vars beating inventory group_vars, sibling collision decided by name, host_vars beating inline host vars."
+}

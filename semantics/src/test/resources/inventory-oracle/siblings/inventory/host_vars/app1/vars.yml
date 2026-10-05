@@ -1,0 +1,2 @@
+host_specific: app1
+shared_key: from-host-vars

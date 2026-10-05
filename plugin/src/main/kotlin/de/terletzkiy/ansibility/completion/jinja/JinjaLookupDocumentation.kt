@@ -20,6 +20,7 @@ import de.terletzkiy.ansibility.vars.VarCard
 import de.terletzkiy.ansibility.vars.VarDocumentationTarget
 import de.terletzkiy.ansibility.vars.VarLocations
 import de.terletzkiy.ansibility.vars.VarSubject
+import de.terletzkiy.ansibility.vars.registered.RegisteredMemberDocumentationTarget
 import javax.swing.Icon
 
 /**
@@ -30,8 +31,9 @@ import javax.swing.Icon
  * interface is implemented, its `@Internal` `EP_NAME` is never touched.
  *
  * Variables (role options, defaults, registers, inventory names, loop items typed by a spec) get the M2 variable card
- * ([VarDocumentationTarget]) of the variable and nested option; facts, special variables, Jinja locals, untyped loop
- * variables, inferred keys, groups and hosts get a small [JinjaSymbolDocumentationTarget].
+ * ([VarDocumentationTarget]) of the variable and nested option; members of registered results the return value's card
+ * ([RegisteredMemberDocumentationTarget]); facts, special variables, Jinja locals, untyped loop variables, inferred
+ * keys, groups and hosts get a small [JinjaSymbolDocumentationTarget].
  */
 class JinjaLookupDocumentationProvider : LookupElementDocumentationTargetProvider {
     override fun documentationTarget(psiFile: PsiFile, element: LookupElement, offset: Int): DocumentationTarget? {
@@ -50,6 +52,7 @@ internal object JinjaDocumentation {
                 if (DumbService.isDumb(project)) return null
                 VarDocumentationTarget(project, VarSubject.referenceTo(root, doc.name, doc.path, item.file, item.offset))
             }
+            is CandidateDoc.Registered -> RegisteredMemberDocumentationTarget(project, doc.result, doc.path, doc.display)
             else -> JinjaSymbolDocumentationTarget(symbolOf(root, item.candidate, doc))
         }
     }
@@ -124,6 +127,7 @@ internal object JinjaDocumentation {
             icon = AllIcons.Nodes.Plugin,
         )
         is CandidateDoc.Variable -> error("variables have a variable card")
+        is CandidateDoc.Registered -> error("registered members have a member card")
     }
 
     private fun hostsText(hosts: List<String>): String =

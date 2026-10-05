@@ -1,0 +1,203 @@
+---
+# Synthetic role spec written for the ArgSpecParser parity test (Ansibility test corpus).
+# Shapes: nesting five levels deep, list elements of dicts, sub-option constraints, a null entry point.
+argument_specs:
+  main:
+    short_description: Serve static sites and proxied apps from a small web server.
+    description:
+      - Installs the C(webd) package, renders one virtual host per item of O(web_vhosts) and keeps the service running.
+      - Every virtual host may proxy locations to an upstream; see O(web_vhosts[].locations[].proxy).
+    author:
+      - Ansibility test corpus
+    options:
+      web_package:
+        type: str
+        default: webd
+        description: Package that provides the web server binary.
+      web_service_state:
+        type: str
+        choices: [started, stopped, restarted, reloaded]
+        default: started
+        description: Desired state of the C(webd) service.
+      web_listen_address:
+        type: str
+        default: 0.0.0.0
+        description: Address of the default server.
+      web_worker_processes:
+        type: raw
+        default: auto
+        description: Number of worker processes, an integer or V(auto).
+      web_worker_connections:
+        type: int
+        default: 1024
+        description: Connections per worker.
+      web_client_max_body_size:
+        type: bytes
+        default: 8M
+        description: Largest accepted request body.
+      web_keepalive_timeout:
+        type: float
+        default: 65.0
+        description: Seconds an idle keep-alive connection stays open.
+      web_gzip:
+        type: bool
+        default: yes
+        description: Compress text responses.
+      web_gzip_types:
+        type: list
+        elements: str
+        default:
+          - text/css
+          - application/javascript
+          - application/json
+        description: MIME types compressed when O(web_gzip=true).
+      web_log_dir:
+        type: path
+        default: /var/log/webd
+        description: Directory for access and error logs.
+      web_default_headers:
+        type: dict
+        default:
+          X-Content-Type-Options: nosniff
+          Referrer-Policy: same-origin
+        description: Response headers added to every virtual host (header name to value).
+      web_vhosts:
+        type: list
+        elements: dict
+        default: []
+        description: Virtual hosts, one configuration file each.
+        options:
+          name:
+            type: str
+            required: true
+            description: File name of the virtual host, without C(.conf).
+          server_names:
+            type: list
+            elements: str
+            required: true
+            aliases: [hostnames]
+            description: Host names matched by this virtual host, for example V(www.example.test).
+          root:
+            type: path
+            description: Document root for static files.
+          index:
+            type: list
+            elements: str
+            default: [index.html]
+            description: Index files tried in order.
+          listen:
+            type: list
+            elements: dict
+            default:
+              - port: 80
+            description: Sockets this virtual host listens on.
+            options:
+              port:
+                type: int
+                required: true
+                description: TCP port.
+              address:
+                type: str
+                default: "*"
+                description: Bind address; V(*) means every address.
+              tls:
+                type: bool
+                default: false
+                description: Terminate TLS on this socket.
+              http2:
+                type: bool
+                default: no
+                description: Offer HTTP/2 (requires O(web_vhosts[].listen[].tls=true)).
+          locations:
+            type: list
+            elements: dict
+            default: []
+            description: Location blocks, matched in order.
+            required_if:
+              - [return_code, 301, [redirect_to]]
+              - [return_code, 302, [redirect_to]]
+            options:
+              path:
+                type: str
+                required: true
+                description: URI prefix, for example V(/api/).
+              return_code:
+                type: int
+                choices: [301, 302, 307, 308, 404, 410]
+                description: Answer with this status instead of serving content.
+              redirect_to:
+                type: str
+                description: Target of the redirect when O(web_vhosts[].locations[].return_code) is a redirect.
+              proxy:
+                type: dict
+                description: Proxy requests of this location to an upstream.
+                mutually_exclusive:
+                  - [upstream, socket]
+                required_one_of:
+                  - [upstream, socket]
+                options:
+                  upstream:
+                    type: str
+                    description: Upstream URL, for example V(http://192.0.2.10:8080).
+                  socket:
+                    type: path
+                    description: Unix socket of the upstream.
+                  headers:
+                    type: dict
+                    default: {}
+                    description: Extra request headers sent upstream.
+                  timeouts:
+                    type: dict
+                    default:
+                      connect: 5
+                      read: 60
+                    description: Upstream timeouts in seconds.
+                    options:
+                      connect:
+                        type: int
+                        default: 5
+                        description: Time allowed to open the connection.
+                      read:
+                        type: int
+                        default: 60
+                        description: Time allowed between two reads.
+                      send:
+                        type: float
+                        default: 60.0
+                        description: Time allowed between two writes.
+                  buffering:
+                    type: bool
+                    default: true
+                    description: Buffer upstream responses.
+  certs:
+    short_description: Install TLS certificates for the virtual hosts.
+    description: Copies certificate and key pairs and reloads the server when they change.
+    options:
+      web_certificates:
+        type: list
+        elements: dict
+        required: true
+        description: Certificate and key pairs.
+        options:
+          name:
+            type: str
+            required: true
+            description: Base name of the installed files.
+          cert:
+            type: str
+            required: true
+            description: PEM certificate chain.
+          key:
+            type: str
+            required: true
+            no_log: true
+            description: PEM private key.
+      web_cert_dir:
+        type: path
+        default: /etc/webd/tls
+        description: Directory the pairs are written to.
+      web_cert_mode:
+        type: str
+        default: "0640"
+        description: File mode of the written keys, quoted so that it stays a string.
+  reload:

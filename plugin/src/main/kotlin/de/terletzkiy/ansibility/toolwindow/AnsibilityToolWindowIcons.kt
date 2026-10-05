@@ -42,7 +42,14 @@ object AnsibilityToolWindowIcons {
         NodeIcon.CONFIG -> AllIcons.FileTypes.Config
         NodeIcon.PLAYBOOK -> AllIcons.FileTypes.Yaml
         NodeIcon.PLAY -> AllIcons.Nodes.Target
+        NodeIcon.VARIABLE -> AllIcons.Nodes.Variable
+        NodeIcon.SHADOWED -> ShadowedVariable
+        NodeIcon.ROLE -> AllIcons.Nodes.Package
+        NodeIcon.RUNTIME -> AllIcons.Actions.Lightning
     }
+
+    /** A definition another one shadows: the variable icon, greyed. */
+    private val ShadowedVariable: Icon by lazy { IconLoader.getDisabledIcon(AllIcons.Nodes.Variable) }
 
     private fun load(path: String): Icon = IconLoader.getIcon(path, AnsibilityToolWindowIcons::class.java)
 }

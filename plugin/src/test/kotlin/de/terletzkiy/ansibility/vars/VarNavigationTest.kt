@@ -120,13 +120,44 @@ class VarNavigationTest : VarsTestCase() {
         assertEquals("the root name goes to the variable", "site/roles/web/meta/argument_specs.yml:8", targets(TASKS, 4, "web_nested", 1).first())
     }
 
+    /**
+     * A nested key is never its own target (before, Ctrl+B on a nested argument_specs option that one role declares
+     * jumped to itself): the nested option of the other declaring roles, or nothing, as on a role's own declaration.
+     */
+    fun testANestedSpecOptionNeverGoesToItself() {
+        copyVarsData("site")
+        assertEquals("only web declares web_nested.inner", emptyList<String>(), targets(SPEC, 11, "inner", 1))
+        assertEquals("a nested defaults key still goes to the nested option", listOf("$SPEC:11"), targets(DEFAULTS, 5, "inner", 1))
+
+        val third = "site/roles/third/meta/argument_specs.yml"
+        createFile(
+            third,
+            """
+            ---
+            argument_specs:
+              main:
+                options:
+                  web_nested:
+                    type: dict
+                    options:
+                      inner:
+                        type: int
+            """.trimIndent() + "\n",
+        )
+        assertEquals("the other declaring role only", listOf("$third:8"), targets(SPEC, 11, "inner", 1))
+        assertEquals(listOf("$SPEC:11"), targets(third, 8, "inner", 1))
+    }
+
     fun testVarsFileKeys() {
         copyVarsData("site")
         assertEquals(
             listOf("site/roles/web/meta/argument_specs.yml:5", "site/roles/web/defaults/main.yml:3", "site/roles/other/meta/argument_specs.yml:5"),
             targets(GROUP_VARS, 2, "web_port", 1),
         )
-        assertEquals("from the defaults key: the spec, never itself", listOf("site/roles/web/meta/argument_specs.yml:5", "site/roles/other/meta/argument_specs.yml:5"), targets(DEFAULTS, 3, "web_port", 1))
+        // D-FU1 (plan amendment FU): a role's own declaration gets no targets; the platform then shows its usages.
+        assertEquals("from the defaults key: nothing, Ctrl+B shows usages", emptyList<String>(), targets(DEFAULTS, 3, "web_port", 1))
+        assertEquals("from the spec option: nothing, Ctrl+B shows usages", emptyList<String>(), targets(SPEC, 5, "web_port", 1))
+        assertEquals("from a role vars key: nothing", emptyList<String>(), targets("site/roles/web/vars/main.yml", 2, "web_internal", 1))
         assertEquals("X87: an inventory-only key offers its siblings", listOf("site/environments/stage/group_vars/all/vars.yml:2"), targets(GROUP_VARS, 5, "inventory_only", 1))
         assertEquals("vault indirection", listOf("site/environments/dev/group_vars/all/vault.yml:2"), targets(GROUP_VARS, 6, "vault_web_secret", 1))
     }
@@ -261,6 +292,7 @@ class VarNavigationTest : VarsTestCase() {
     companion object {
         const val TASKS = "site/roles/web/tasks/main.yml"
         const val DEFAULTS = "site/roles/web/defaults/main.yml"
+        const val SPEC = "site/roles/web/meta/argument_specs.yml"
         const val TEMPLATE = "site/roles/web/templates/site.conf.j2"
         const val GROUP_VARS = "site/environments/dev/group_vars/all/vars.yml"
         const val PLAYBOOK = "site/playbook.yml"

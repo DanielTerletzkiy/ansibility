@@ -130,8 +130,11 @@ class RootSnapshot(
 /** A detached worktree (X01): shown as a single node, never expanded into roots. */
 class WorktreeSnapshot(val name: String, val dir: VirtualFile, val roots: List<AnsibleRoot>)
 
-/** Everything the tool window shows, captured in one read action; immutable. */
-class WorkspaceSnapshot(val roots: List<RootSnapshot>, val worktrees: List<WorktreeSnapshot>) {
+/**
+ * Everything the tool window shows, captured in one read action; immutable. [project] is the project it was built for
+ * (null for synthetic snapshots): nodes reach it through [AnsibleTreeNode.project] to ask the Ansible services.
+ */
+class WorkspaceSnapshot(val roots: List<RootSnapshot>, val worktrees: List<WorktreeSnapshot>, val project: Project? = null) {
     val isEmpty: Boolean get() = roots.isEmpty() && worktrees.isEmpty()
 
     fun root(dir: VirtualFile): RootSnapshot? = roots.firstOrNull { it.dir == dir }
@@ -159,7 +162,7 @@ object WorkspaceSnapshotBuilder {
             ProgressManager.checkCanceled()
             rootSnapshot(project, workspace, root, all)
         }
-        return WorkspaceSnapshot(roots, worktrees(project, all.filter { it.detached }))
+        return WorkspaceSnapshot(roots, worktrees(project, all.filter { it.detached }), project)
     }
 
     /**

@@ -1,0 +1,94 @@
+{
+    "base": {
+        "collection": null,
+        "entry_points": {
+            "describe": {
+                "description": [
+                    "An entry point with a description but no short description and no options."
+                ]
+            },
+            "facts": {
+                "options": {},
+                "short_description": "Gather custom facts only."
+            },
+            "main": {
+                "description": null,
+                "options": {
+                    "base_hosts_entries": {
+                        "default": [
+                            {
+                                "address": "203.0.113.5",
+                                "names": [
+                                    "repo.example.test"
+                                ]
+                            }
+                        ],
+                        "description": "Static entries for C(/etc/hosts).",
+                        "elements": "dict",
+                        "options": {
+                            "address": {
+                                "description": "IPv4 or IPv6 address.",
+                                "required": true,
+                                "type": "str"
+                            },
+                            "names": {
+                                "description": "Host names of the address.",
+                                "elements": "str",
+                                "required": true,
+                                "type": "list"
+                            }
+                        },
+                        "type": "list"
+                    },
+                    "base_locale": {
+                        "description": "System locale; the type defaults to C(str) and there is no default."
+                    },
+                    "base_motd": {
+                        "description": [],
+                        "type": "str"
+                    },
+                    "base_ntp_servers": {
+                        "aliases": [],
+                        "default": [
+                            "ntp1.example.test",
+                            "ntp2.example.test"
+                        ],
+                        "description": "Time servers.",
+                        "elements": "str",
+                        "type": "list"
+                    },
+                    "base_packages": {
+                        "default": [
+                            "ca-certificates",
+                            "curl",
+                            "less"
+                        ],
+                        "description": "Packages installed on every host.",
+                        "elements": "str",
+                        "type": "list"
+                    },
+                    "base_reboot_allowed": {
+                        "type": "bool"
+                    },
+                    "base_sysctl": {
+                        "default": {
+                            "net.ipv4.ip_forward": 0,
+                            "vm.swappiness": 10
+                        },
+                        "description": "Kernel parameters, dotted names as plain keys.",
+                        "type": "dict"
+                    },
+                    "base_timezone": {
+                        "default": "Etc/UTC",
+                        "description": "System time zone.",
+                        "type": "str"
+                    }
+                },
+                "short_description": "Baseline settings every host gets.",
+                "version_added": "0.1.0"
+            },
+            "noop": {}
+        },
+        "path": "semantics/src/test/resources/argspecs/base"
+    }
+}

@@ -1,0 +1,4 @@
+scalar_then_dict:
+  now: dict
+config:
+  g: inv-g2

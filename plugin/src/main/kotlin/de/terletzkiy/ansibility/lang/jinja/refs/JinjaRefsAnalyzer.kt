@@ -10,9 +10,18 @@ import de.terletzkiy.ansibility.lang.jinja.lexer.JinjaLexMode
 /**
  * The implementation of [JinjaRefs]: lexes once, groups the significant tokens of each `{{ }}` / `{% %}` tag, and walks
  * the tags in order with a stack of frames that mirrors Jinja's scopes (`for`, `macro`, `call`, `filter`, `with`,
- * `block` and block `set` open one; `if` does not, but carries the guards of its current branch).
+ * `block` and block `set` open one; `if` does not, but carries the guards of its current branch). Each free `hostvars`,
+ * `vars`, `lookup`, `query` or `q` is also checked for a member it reads by name ([JinjaIndirectRef]).
+ *
+ * [masked] are the ranges of [text] that [JinjaBracedExpressions] filled in for braced parts: a string literal that
+ * overlaps one has no known value (no constant accessor, member name or lookup term). Every other string is taken as
+ * written, whatever characters it holds.
  */
-internal class JinjaRefsAnalyzer(private val text: CharSequence, private val mode: JinjaLexMode) {
+internal class JinjaRefsAnalyzer(
+    private val text: CharSequence,
+    private val mode: JinjaLexMode,
+    private val masked: List<TextRange> = emptyList(),
+) {
     private class Tok(val type: IElementType, val start: Int, val end: Int)
 
     private enum class TagKind { OUTPUT, STATEMENT, EXPRESSION }
@@ -60,14 +69,25 @@ internal class JinjaRefsAnalyzer(private val text: CharSequence, private val mod
         val local: LocalBuilder?,
     )
 
-    /** What a condition tells about definedness when it is true and when it is false. */
+    /**
+     * What a condition tells about definedness when it is true and when it is false: root names, plus
+     * [memberGuard] keys for tested `hostvars`/`vars` members (which never equal a name, so direct references are not
+     * affected by them).
+     */
     private class Guards(val whenTrue: Set<String>, val whenFalse: Set<String>) {
         fun negate() = Guards(whenFalse, whenTrue)
     }
 
+    /** The postfix chain after a name: its constant [path] (ending at text offset [pathEnd]) and the index after it. */
+    private class Chain(val path: List<String>, val pathEnd: Int, val called: Boolean, val end: Int)
+
+    /** A constant member name (`.x`, `['x']` or a `'x'` argument): its text range and the token index after it. */
+    private class MemberName(val name: String, val range: TextRange, val next: Int)
+
     private val frames = ArrayList<Frame>()
     private val localBuilders = ArrayList<LocalBuilder>()
     private val refBuilders = ArrayList<RefBuilder>()
+    private val indirectRefs = ArrayList<JinjaIndirectRef>()
     private val filterSites = ArrayList<JinjaNameSite>()
     private val testSites = ArrayList<JinjaNameSite>()
 
@@ -97,6 +117,7 @@ internal class JinjaRefsAnalyzer(private val text: CharSequence, private val mod
             locals = locals,
             filterNames = filterSites.sortedBy { it.range.startOffset },
             testNames = testSites.sortedBy { it.range.startOffset },
+            indirectReferences = indirectRefs.sortedBy { it.nameRange.startOffset },
         )
     }
 
@@ -454,11 +475,28 @@ internal class JinjaRefsAnalyzer(private val text: CharSequence, private val mod
 
     private fun reference(toks: List<Tok>, index: Int, to: Int, guards: Set<String>) {
         val root = toks[index]
+        val chain = chain(toks, index + 1, root.end, to)
+        val name = textOf(root)
+        val local = lookup(name)
+        val guarded = isGuard(toks, chain.end, to)
+        refBuilders += RefBuilder(
+            name = name, path = chain.path, nameRange = range(root), range = TextRange(root.start, chain.pathEnd),
+            guarded = guarded, guardedByCondition = name in guards, called = chain.called, local = local,
+        )
+        if (local == null && name in INDIRECTION_ROOTS) indirect(toks, index, to, chain, guarded, guards)
+    }
+
+    /**
+     * The postfix chain from `toks[first]` (`.name`, `[…]`, `(…)`) with its constant accessors: `.attr`, `['key']`,
+     * `[0]` and `.0`, up to the first dynamic subscript, slice or method call. [start] is the text offset where the
+     * chain's target ends (the path end when nothing constant follows). `called` is set when the chain starts with a call.
+     */
+    private fun chain(toks: List<Tok>, first: Int, start: Int, to: Int): Chain {
         val path = ArrayList<String>()
-        var pathEnd = root.end
+        var pathEnd = start
         var open = true
         var called = false
-        var j = index + 1
+        var j = first
         chain@ while (j < to) {
             when (toks[j].type) {
                 T.DOT -> {
@@ -476,7 +514,7 @@ internal class JinjaRefsAnalyzer(private val text: CharSequence, private val mod
                 T.LBRACKET -> {
                     val close = matchingClose(toks, j, to)
                     val key = toks.getOrNull(j + 1)
-                    if (open && close == j + 2 && key != null && (key.type == T.STRING || key.type == T.INTEGER)) {
+                    if (open && close == j + 2 && key != null && (isConstantString(key) || key.type == T.INTEGER)) {
                         path += if (key.type == T.STRING) stringValue(key) else textOf(key).replace("_", "")
                         pathEnd = toks[close].end
                     } else {
@@ -489,7 +527,7 @@ internal class JinjaRefsAnalyzer(private val text: CharSequence, private val mod
                     j = close + 1
                 }
                 T.LPAREN -> {
-                    if (j == index + 1) called = true
+                    if (j == first) called = true
                     open = false
                     val close = matchingClose(toks, j, to)
                     if (close < 0) {
@@ -501,12 +539,198 @@ internal class JinjaRefsAnalyzer(private val text: CharSequence, private val mod
                 else -> break@chain
             }
         }
-        val name = textOf(root)
-        refBuilders += RefBuilder(
-            name = name, path = path, nameRange = range(root), range = TextRange(root.start, pathEnd),
-            guarded = isGuard(toks, j, to), guardedByCondition = name in guards, called = called, local = lookup(name),
-        )
+        return Chain(path, pathEnd, called, j)
     }
+
+    // ------------------------------------------------------------------------------------------------ indirect reads
+
+    /**
+     * Records the member a free `hostvars`, `vars`, `lookup`, `query` or `q` at [index] reads by name, if any (see
+     * [JinjaIndirectRef]). [chain] is the root's postfix chain, [guarded] its direct guard.
+     */
+    private fun indirect(toks: List<Tok>, index: Int, to: Int, chain: Chain, guarded: Boolean, guards: Set<String>) {
+        val root = toks[index]
+        when (textOf(root)) {
+            HOSTVARS -> {
+                val extract = extractMember(toks, index, to)
+                if (extract != null) {
+                    indirectRefs += indirectRef(extract.first, JinjaIndirection.HOSTVARS, extract.second, root, guarded = false, byCondition = false)
+                    return
+                }
+                val selectorEnd = hostSelectorEnd(toks, index + 1, to) ?: return
+                val member = memberName(toks, selectorEnd, to) ?: return
+                val path = chain(toks, member.next, member.range.endOffset, to)
+                val byCondition = memberGuard(JinjaIndirection.HOSTVARS, member.name, hostKey(toks, index + 1, selectorEnd)) in guards
+                indirectRefs += indirectRef(member, JinjaIndirection.HOSTVARS, path, root, guarded, byCondition)
+            }
+            VARS -> {
+                val member = memberName(toks, index + 1, to) ?: return
+                val path = chain(toks, member.next, member.range.endOffset, to)
+                indirectRefs += indirectRef(member, JinjaIndirection.VARS, path, root, guarded, varsGuarded(member.name, guards))
+            }
+            else -> if (chain.called) varsLookup(toks, index, to, guards)
+        }
+    }
+
+    /** The read of [member] through [via], with the constant accessors of [path] after it. */
+    private fun indirectRef(
+        member: MemberName,
+        via: JinjaIndirection,
+        path: Chain,
+        root: Tok,
+        guarded: Boolean,
+        byCondition: Boolean,
+    ): JinjaIndirectRef = JinjaIndirectRef(
+        name = member.name, via = via, attrPath = path.path, nameRange = member.range,
+        range = TextRange(member.range.startOffset, maxOf(member.range.endOffset, path.pathEnd)), rootRange = range(root),
+        guarded = guarded, guardedByCondition = byCondition,
+    )
+
+    /** A `vars` read of [name] is guarded by a test of the same member or of the plain name (`x is defined`). */
+    private fun varsGuarded(name: String, guards: Set<String>): Boolean = memberGuard(JinjaIndirection.VARS, name) in guards || name in guards
+
+    /** The host selector `toks[from, to)` of a `hostvars` access as written, without whitespace (`[h]`, `.web1`). */
+    private fun hostKey(toks: List<Tok>, from: Int, to: Int): String = (from until to).joinToString("") { textOf(toks[it]) }
+
+    /**
+     * The index after the host selector of `hostvars` starting at [at]: any subscript (`[h]`, `['web1']`,
+     * `[groups['g'][0]]`) or a constant attribute (`.web1`), or null when no selector follows.
+     */
+    private fun hostSelectorEnd(toks: List<Tok>, at: Int, to: Int): Int? {
+        if (at >= to) return null
+        return when (toks[at].type) {
+            T.DOT -> {
+                val segment = toks.getOrNull(at + 1)?.type
+                val constant = at + 1 < to && (segment == T.IDENTIFIER || segment == T.INTEGER)
+                if (!constant || at + 2 < to && toks[at + 2].type == T.LPAREN) null else at + 2
+            }
+            T.LBRACKET -> matchingClose(toks, at, to).takeIf { it >= 0 }?.plus(1)
+            else -> null
+        }
+    }
+
+    /** The constant member accessor at [at]: `.x` (not a method call) or `['x']` with a plain variable name. */
+    private fun memberName(toks: List<Tok>, at: Int, to: Int): MemberName? {
+        if (at >= to) return null
+        return when (toks[at].type) {
+            T.DOT -> {
+                val segment = toks.getOrNull(at + 1)?.takeIf { at + 1 < to && it.type == T.IDENTIFIER } ?: return null
+                if (at + 2 < to && toks[at + 2].type == T.LPAREN) return null
+                MemberName(textOf(segment), range(segment), at + 2)
+            }
+            T.LBRACKET -> {
+                if (matchingClose(toks, at, to) != at + 2) return null
+                val body = variableNameString(toks[at + 1]) ?: return null
+                MemberName(textOf(body), body, at + 3)
+            }
+            else -> null
+        }
+    }
+
+    /**
+     * `hosts | map('extract', hostvars, <keys>)` or `host | extract(hostvars, <keys>)` with the `hostvars` at [index]:
+     * the member (the first key) and the constant keys after it with the end offset of the last one. `<keys>` is a
+     * string or a list literal (`['ansible_default_ipv4', 'address']`), as `extract`'s `morekeys` argument.
+     */
+    private fun extractMember(toks: List<Tok>, index: Int, to: Int): Pair<MemberName, Chain>? {
+        val before = toks.getOrNull(index - 1)?.type
+        val viaMap = before == T.COMMA && index >= 4 && toks[index - 2].let { isConstantString(it) && stringValue(it) in EXTRACT_FILTERS } &&
+            toks[index - 3].type == T.LPAREN && filterNameEndingAt(toks, index - 4) == "map"
+        val direct = before == T.LPAREN && index >= 2 && filterNameEndingAt(toks, index - 2) in EXTRACT_FILTERS
+        if (!viaMap && !direct) return null
+        if (index + 2 >= to || toks[index + 1].type != T.COMMA) return null
+        val at = index + 2
+        val argumentEnd = { next: Int -> next < to && (toks[next].type == T.COMMA || toks[next].type == T.RPAREN) }
+        return when (toks[at].type) {
+            T.STRING -> {
+                val body = variableNameString(toks[at])?.takeIf { argumentEnd(at + 1) } ?: return null
+                MemberName(textOf(body), body, at + 1) to Chain(emptyList(), body.endOffset, called = false, end = at + 1)
+            }
+            T.LBRACKET -> {
+                val close = matchingClose(toks, at, to)
+                if (close < 0 || !argumentEnd(close + 1)) return null
+                val elements = splitTopLevel(toks, at + 1, close, T.COMMA)
+                val (first, firstEnd) = elements.first()
+                if (firstEnd - first != 1) return null
+                val body = variableNameString(toks[first]) ?: return null
+                val path = ArrayList<String>()
+                var pathEnd = body.endOffset
+                for ((from, end) in elements.drop(1)) {
+                    val key = toks.getOrNull(from)?.takeIf { end - from == 1 && (isConstantString(it) || it.type == T.INTEGER) } ?: break
+                    path += if (key.type == T.STRING) stringValue(key) else textOf(key).replace("_", "")
+                    pathEnd = key.end
+                }
+                MemberName(textOf(body), body, close + 1) to Chain(path, pathEnd, called = false, end = close + 1)
+            }
+            else -> null
+        }
+    }
+
+    /**
+     * `lookup('vars', 'a', 'b', default='')`, `query('vars', 'a')`, `q('ansible.builtin.vars', 'a')` with the callee at
+     * [index]: one [JinjaIndirection.VARS] read per constant term. A `default=` argument guards them; dynamic terms are
+     * skipped.
+     */
+    private fun varsLookup(toks: List<Tok>, index: Int, to: Int, guards: Set<String>) {
+        val open = index + 1
+        val close = matchingClose(toks, open, to)
+        if (close < 0) return
+        val arguments = splitTopLevel(toks, open + 1, close, T.COMMA)
+        val (pluginFrom, pluginTo) = arguments.first()
+        if (pluginTo - pluginFrom != 1 || !isConstantString(toks[pluginFrom]) || stringValue(toks[pluginFrom]) !in VARS_LOOKUPS) return
+        var hasDefault = false
+        val terms = ArrayList<MemberName>()
+        for ((from, end) in arguments.drop(1)) {
+            if (from >= end) continue
+            if (end - from >= 2 && toks[from].type == T.IDENTIFIER && toks[from + 1].type == T.ASSIGN) {
+                if (textOf(toks[from]) == "default") hasDefault = true
+                continue
+            }
+            if (end - from != 1) continue
+            val body = variableNameString(toks[from]) ?: continue
+            terms += MemberName(textOf(body), body, from + 1)
+        }
+        for (term in terms) {
+            val noPath = Chain(emptyList(), term.range.endOffset, called = false, end = term.next)
+            indirectRefs += indirectRef(term, JinjaIndirection.VARS, noPath, toks[index], hasDefault, varsGuarded(term.name, guards))
+        }
+    }
+
+    /** The dotted filter name whose last segment is `toks[last]` (`ansible.builtin.extract`), or null. */
+    private fun filterNameEndingAt(toks: List<Tok>, last: Int): String? {
+        if (toks.getOrNull(last)?.type != T.FILTER_NAME) return null
+        var first = last
+        while (first >= 2 && toks[first - 1].type == T.DOT && toks[first - 2].type == T.FILTER_NAME) first -= 2
+        return (first..last step 2).joinToString(".") { textOf(toks[it]) }
+    }
+
+    /**
+     * The [memberGuard] key of the `hostvars`/`vars` member that `toks[from, end)` accesses (`hostvars[h].x`,
+     * `vars['x']`), or null.
+     */
+    private fun testedMember(toks: List<Tok>, from: Int, end: Int): String? {
+        val root = textOf(toks[from])
+        if (lookup(root) != null) return null
+        return when (root) {
+            HOSTVARS -> {
+                val selectorEnd = hostSelectorEnd(toks, from + 1, end) ?: return null
+                memberName(toks, selectorEnd, end)?.let { memberGuard(JinjaIndirection.HOSTVARS, it.name, hostKey(toks, from + 1, selectorEnd)) }
+            }
+            VARS -> memberName(toks, from + 1, end)?.let { memberGuard(JinjaIndirection.VARS, it.name) }
+            else -> null
+        }
+    }
+
+    /** The body range of a terminated, constant string literal that is exactly a plain variable name (no escapes), or null. */
+    private fun variableNameString(tok: Tok): TextRange? {
+        if (!isConstantString(tok) || tok.end - tok.start < 3 || text[tok.end - 1] != text[tok.start]) return null
+        val body = TextRange(tok.start + 1, tok.end - 1)
+        return body.takeIf { isVariableName(textOf(it)) }
+    }
+
+    /** A string literal whose value is known: it overlaps no [masked] braced part. */
+    private fun isConstantString(tok: Tok): Boolean =
+        tok.type == T.STRING && masked.none { it.startOffset < tok.end && tok.start < it.endOffset }
 
     /** Whether `toks[at]` starts `is [not] defined|undefined` or `| default|d`. */
     private fun isGuard(toks: List<Tok>, at: Int, to: Int): Boolean {
@@ -587,8 +811,9 @@ internal class JinjaRefsAnalyzer(private val text: CharSequence, private val mod
             "undefined" -> not
             else -> return NO_GUARDS
         }
-        val name = setOf(textOf(toks[from]))
-        return if (positive) Guards(name, emptySet()) else Guards(emptySet(), name)
+        val root = textOf(toks[from])
+        val names = testedMember(toks, from, isIndex)?.let { setOf(root, it) } ?: setOf(root)
+        return if (positive) Guards(names, emptySet()) else Guards(emptySet(), names)
     }
 
     // ------------------------------------------------------------------------------------------------ filters and tests
@@ -695,6 +920,8 @@ internal class JinjaRefsAnalyzer(private val text: CharSequence, private val mod
 
     private fun textOf(tok: Tok): String = text.subSequence(tok.start, tok.end).toString()
 
+    private fun textOf(range: TextRange): String = text.subSequence(range.startOffset, range.endOffset).toString()
+
     private fun range(tok: Tok) = TextRange(tok.start, tok.end)
 
     /** The value of a string literal: quotes removed, backslash escapes resolved. */
@@ -788,5 +1015,29 @@ internal class JinjaRefsAnalyzer(private val text: CharSequence, private val mod
         val DEFINED_TESTS = setOf("defined", "undefined")
         val DEFAULT_FILTERS = setOf("default", "d")
         val MACRO_IMPLICITS = listOf("varargs", "kwargs", "caller")
+
+        const val HOSTVARS = "hostvars"
+        const val VARS = "vars"
+
+        /** Free names whose accesses can read another variable by name. */
+        val INDIRECTION_ROOTS = setOf(HOSTVARS, VARS, "lookup", "query", "q")
+
+        /** The `vars` lookup under all its names. */
+        val VARS_LOOKUPS = setOf("vars", "ansible.builtin.vars", "ansible.legacy.vars")
+
+        /** The `extract` filter under all its names. */
+        val EXTRACT_FILTERS = setOf("extract", "ansible.builtin.extract", "ansible.legacy.extract")
+
+        /**
+         * The guard key that `<member access> is defined` adds for [member] read through [via], for `hostvars` on the
+         * [host] selector as written (`hostvars[h].x is defined` says nothing about `hostvars[other].x`); the `:` keeps
+         * it apart from every variable name, so direct references never match it.
+         */
+        fun memberGuard(via: JinjaIndirection, member: String, host: String? = null): String =
+            if (host == null) "${via.name}:$member" else "${via.name}:$host:$member"
+
+        /** A plain Python identifier, which every Ansible variable name is (`ansible-host` is not one). */
+        fun isVariableName(text: CharSequence): Boolean =
+            text.isNotEmpty() && (text[0].isLetter() || text[0] == '_') && text.all { it.isLetterOrDigit() || it == '_' }
     }
 }

@@ -19,6 +19,7 @@ import de.terletzkiy.ansibility.index.VarDefIndex
 import de.terletzkiy.ansibility.lang.jinja.refs.JinjaLocalKind
 import de.terletzkiy.ansibility.resolve.loop.LiteralShapes
 import de.terletzkiy.ansibility.resolve.loop.LoopItemTyper
+import de.terletzkiy.ansibility.resolve.register.RoleTaskOrder
 import de.terletzkiy.ansibility.semantics.schema.OptionSpec
 import de.terletzkiy.ansibility.semantics.schema.OptionType
 import de.terletzkiy.ansibility.vars.VarCard

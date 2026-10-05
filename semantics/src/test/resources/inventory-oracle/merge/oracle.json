@@ -1,0 +1,4 @@
+{
+  "description": "hash_behaviour=merge: dictionaries merge recursively across every layer, lists and scalars replace, and ansible-core's per-slot grouping (merge_hash is not associative) decides the result.",
+  "hash_behaviour": "merge"
+}

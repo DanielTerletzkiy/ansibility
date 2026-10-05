@@ -85,7 +85,8 @@ class JinjaCompletionFixtureSweepTest : JinjaCompletionTestCase() {
             val text = psi.viewProvider.contents
             for ((name, entries) in index.getFileData(VarUseIndex.NAME, file, project)) {
                 for (entry in entries) {
-                    if (entry.called) continue
+                    // FU2 members read through hostvars/vars sit after `.`/`['`: completion offers members there, not names
+                    if (entry.called || entry.isIndirect) continue
                     val where = "${file.path.substringAfter("/src/")}:${StringUtil.offsetToLineNumber(text, entry.offset) + 1}"
                     try {
                         val prefix = name.take(3)

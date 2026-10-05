@@ -1,0 +1,194 @@
+{
+    "cache": {
+        "collection": null,
+        "entry_points": {
+            "main": {
+                "description": "Installs the C(kvcache) daemon, writes its configuration and keeps the service running. Snapshots are taken according to O(cache_save_points).\n",
+                "options": {
+                    "cache_bind": {
+                        "default": [
+                            "127.0.0.1",
+                            "::1"
+                        ],
+                        "description": "Addresses the daemon listens on.",
+                        "elements": "str",
+                        "type": "list"
+                    },
+                    "cache_dir_mode": {
+                        "default": 488,
+                        "description": "Directory mode; unquoted V(0750) is the octal YAML 1.1 integer 488.",
+                        "type": "raw"
+                    },
+                    "cache_eviction_policy": {
+                        "choices": {
+                            "allkeys-lru": "Evict the least recently used keys.",
+                            "noeviction": "Reject writes once the memory limit is reached.",
+                            "volatile-ttl": [
+                                "Evict keys with a time to live first.",
+                                "The key closest to expiry goes first."
+                            ]
+                        },
+                        "default": "noeviction",
+                        "description": "What happens when O(cache_max_memory) is reached.",
+                        "type": "str"
+                    },
+                    "cache_file_mode": {
+                        "default": "0o640",
+                        "description": "File mode; V(0o640) is no YAML 1.1 integer and stays a string.",
+                        "type": "raw"
+                    },
+                    "cache_growth_factor": {
+                        "default": 1.5,
+                        "description": "Growth factor of the hash tables, written with an exponent.",
+                        "type": "float"
+                    },
+                    "cache_hz": {
+                        "choices": [
+                            1,
+                            10,
+                            100,
+                            500
+                        ],
+                        "default": 10,
+                        "description": "Background task frequency per second.",
+                        "type": "int"
+                    },
+                    "cache_io_threads": {
+                        "default": 4,
+                        "description": "I/O threads, written in hexadecimal.",
+                        "type": "int"
+                    },
+                    "cache_lazy_ratio": {
+                        "default": 0.75,
+                        "description": "Fraction of memory at which lazy freeing starts.",
+                        "type": "float"
+                    },
+                    "cache_legacy_lru": {
+                        "default": false,
+                        "deprecated": {
+                            "alternative": "Set O(cache_eviction_policy=allkeys-lru).",
+                            "removed_in": "3.0.0",
+                            "why": "The approximate LRU is gone from current daemon versions."
+                        },
+                        "description": "Use the old approximate LRU.",
+                        "removed_from_collection": "ansibility.synthetic",
+                        "removed_in_version": "3.0.0",
+                        "type": "bool"
+                    },
+                    "cache_max_clients": {
+                        "default": 10000,
+                        "description": "Client limit; YAML 1.1 accepts underscores in numbers.",
+                        "type": "int"
+                    },
+                    "cache_max_memory": {
+                        "default": "256M",
+                        "description": "Memory limit; accepts the suffixes understood by C(human_to_bytes), for example V(512M) or V(2G).",
+                        "type": "bytes"
+                    },
+                    "cache_min_free": {
+                        "default": -1,
+                        "description": "Free memory to keep in MiB; V(-1) disables the check.",
+                        "type": "int"
+                    },
+                    "cache_port": {
+                        "default": 7400,
+                        "description": "TCP port of the cache.",
+                        "type": "int"
+                    },
+                    "cache_replication_bandwidth": {
+                        "default": "100Mb",
+                        "description": "Bandwidth cap for replicas, in bits per second (V(100Mb), V(1Gb)).",
+                        "type": "bits"
+                    },
+                    "cache_requirepass": {
+                        "description": "Password clients must send before any command.",
+                        "no_log": true,
+                        "type": "str"
+                    },
+                    "cache_save_points": {
+                        "default": [
+                            {
+                                "changes": 1,
+                                "seconds": 900
+                            },
+                            {
+                                "changes": 10,
+                                "seconds": 300
+                            }
+                        ],
+                        "description": "Take a snapshot when at least O(cache_save_points[].changes) writes happened within O(cache_save_points[].seconds).",
+                        "elements": "dict",
+                        "options": {
+                            "changes": {
+                                "description": "Writes within the window.",
+                                "required": true,
+                                "type": "int"
+                            },
+                            "seconds": {
+                                "description": "Window length.",
+                                "required": true,
+                                "type": "int"
+                            }
+                        },
+                        "type": "list"
+                    },
+                    "cache_size_hint": {
+                        "default": "1e3",
+                        "description": "Stays the string V(1e3), a YAML 1.1 float needs a dot.",
+                        "type": "raw"
+                    },
+                    "cache_snapshot_interval": {
+                        "default": 90,
+                        "description": "Seconds between snapshots; the plain scalar V(1:30) is the sexagesimal YAML 1.1 integer 90.",
+                        "type": "int"
+                    }
+                },
+                "short_description": "In-memory key-value cache with optional snapshots."
+            },
+            "sentinel": {
+                "options": {
+                    "cache_sentinel_port": {
+                        "default": 27400,
+                        "description": "Port of the sentinel.",
+                        "type": "int"
+                    },
+                    "cache_sentinel_primaries": {
+                        "description": "Primaries watched by this sentinel.",
+                        "elements": "dict",
+                        "options": {
+                            "address": {
+                                "description": "Address of the primary, for example V(192.0.2.21).",
+                                "required": true,
+                                "type": "str"
+                            },
+                            "auth": {
+                                "description": "Password of the primary.",
+                                "no_log": true,
+                                "type": "str"
+                            },
+                            "down_after": {
+                                "default": 30000,
+                                "description": "Milliseconds without an answer before the primary counts as down.",
+                                "type": "int"
+                            },
+                            "name": {
+                                "description": "Name of the primary set.",
+                                "required": true,
+                                "type": "str"
+                            },
+                            "quorum": {
+                                "default": 2,
+                                "description": "Sentinels that must agree before a failover.",
+                                "type": "int"
+                            }
+                        },
+                        "required": true,
+                        "type": "list"
+                    }
+                },
+                "short_description": "Run a sentinel that fails over a cache primary."
+            }
+        },
+        "path": "semantics/src/test/resources/argspecs/cache"
+    }
+}

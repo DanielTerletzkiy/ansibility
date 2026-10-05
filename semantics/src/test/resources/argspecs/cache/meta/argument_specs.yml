@@ -1,0 +1,142 @@
+---
+# Synthetic role spec written for the ArgSpecParser parity test (Ansibility test corpus).
+# Shapes: YAML 1.1 number forms in defaults, bytes and bits, choices given as a mapping, int choices,
+# no_log, an option-level deprecation and the removal keys of ansible-core's argument spec.
+argument_specs:
+  main:
+    short_description: In-memory key-value cache with optional snapshots.
+    description: >
+      Installs the C(kvcache) daemon, writes its configuration and keeps the
+      service running. Snapshots are taken according to O(cache_save_points).
+    options:
+      cache_bind:
+        type: list
+        elements: str
+        default: [127.0.0.1, "::1"]
+        description: Addresses the daemon listens on.
+      cache_port:
+        type: int
+        default: 7400
+        description: TCP port of the cache.
+      cache_max_memory:
+        type: bytes
+        default: 256M
+        description: Memory limit; accepts the suffixes understood by C(human_to_bytes), for example V(512M) or V(2G).
+      cache_replication_bandwidth:
+        type: bits
+        default: 100Mb
+        description: Bandwidth cap for replicas, in bits per second (V(100Mb), V(1Gb)).
+      cache_eviction_policy:
+        type: str
+        default: noeviction
+        choices:
+          noeviction: Reject writes once the memory limit is reached.
+          allkeys-lru: Evict the least recently used keys.
+          volatile-ttl:
+            - Evict keys with a time to live first.
+            - The key closest to expiry goes first.
+        description: What happens when O(cache_max_memory) is reached.
+      cache_hz:
+        type: int
+        choices: [1, 10, 100, 500]
+        default: 10
+        description: Background task frequency per second.
+      cache_snapshot_interval:
+        type: int
+        default: 1:30
+        description: Seconds between snapshots; the plain scalar V(1:30) is the sexagesimal YAML 1.1 integer 90.
+      cache_max_clients:
+        type: int
+        default: 10_000
+        description: Client limit; YAML 1.1 accepts underscores in numbers.
+      cache_io_threads:
+        type: int
+        default: 0x4
+        description: I/O threads, written in hexadecimal.
+      cache_dir_mode:
+        type: raw
+        default: 0750
+        description: Directory mode; unquoted V(0750) is the octal YAML 1.1 integer 488.
+      cache_file_mode:
+        type: raw
+        default: 0o640
+        description: File mode; V(0o640) is no YAML 1.1 integer and stays a string.
+      cache_size_hint:
+        type: raw
+        default: 1e3
+        description: Stays the string V(1e3), a YAML 1.1 float needs a dot.
+      cache_lazy_ratio:
+        type: float
+        default: .75
+        description: Fraction of memory at which lazy freeing starts.
+      cache_growth_factor:
+        type: float
+        default: 1.5e+0
+        description: Growth factor of the hash tables, written with an exponent.
+      cache_min_free:
+        type: int
+        default: -1
+        description: Free memory to keep in MiB; V(-1) disables the check.
+      cache_save_points:
+        type: list
+        elements: dict
+        default:
+          - {seconds: 900, changes: 1}
+          - {seconds: 300, changes: 10}
+        description: Take a snapshot when at least O(cache_save_points[].changes) writes happened within O(cache_save_points[].seconds).
+        options:
+          seconds:
+            type: int
+            required: true
+            description: Window length.
+          changes:
+            type: int
+            required: true
+            description: Writes within the window.
+      cache_requirepass:
+        type: str
+        no_log: true
+        description: Password clients must send before any command.
+      cache_legacy_lru:
+        type: bool
+        default: false
+        description: Use the old approximate LRU.
+        deprecated:
+          why: The approximate LRU is gone from current daemon versions.
+          alternative: Set O(cache_eviction_policy=allkeys-lru).
+          removed_in: 3.0.0
+        removed_in_version: 3.0.0
+        removed_from_collection: ansibility.synthetic
+  sentinel:
+    short_description: Run a sentinel that fails over a cache primary.
+    options:
+      cache_sentinel_port:
+        type: int
+        default: 27400
+        description: Port of the sentinel.
+      cache_sentinel_primaries:
+        type: list
+        elements: dict
+        required: true
+        description: Primaries watched by this sentinel.
+        options:
+          name:
+            type: str
+            required: true
+            description: Name of the primary set.
+          address:
+            type: str
+            required: true
+            description: Address of the primary, for example V(192.0.2.21).
+          quorum:
+            type: int
+            default: 2
+            description: Sentinels that must agree before a failover.
+          down_after:
+            type: int
+            default: 30000
+            description: Milliseconds without an answer before the primary counts as down.
+          auth:
+            type: str
+            no_log: yes
+            description: Password of the primary.

@@ -8,7 +8,10 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.terletzkiy.ansibility.api.PlayGraph
 import de.terletzkiy.ansibility.context.AnsibleWorkspaceImpl
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.settings.AnsibilityWorkspaceState
+import de.terletzkiy.ansibility.toolwindow.host.EffectivePlayChoices
 import de.terletzkiy.ansibility.toolwindow.model.AnsibleTreeNode
+import de.terletzkiy.ansibility.toolwindow.model.LayerSourceNode
 import de.terletzkiy.ansibility.toolwindow.model.NavigationTarget
 import de.terletzkiy.ansibility.toolwindow.model.TreeContext
 import de.terletzkiy.ansibility.toolwindow.model.WorkspaceNode
@@ -22,6 +25,14 @@ import de.terletzkiy.ansibility.toolwindow.model.WorkspaceSnapshotBuilder
  */
 abstract class ToolWindowTestCase : BasePlatformTestCase() {
     override fun getTestDataPath(): String = InfraTestData.testDataPath.toString()
+
+    override fun setUp() {
+        super.setUp()
+        // The light project is shared between tests: the Ansible context and the play choices of an earlier test must not
+        // leak into this one.
+        AnsibilityWorkspaceState.getInstance(project).loadState(AnsibilityWorkspaceState.StateBean())
+        EffectivePlayChoices.getInstance(project).clear()
+    }
 
     /** Copies the whole fixture plus the worktree copy and re-detects the roots. */
     protected fun copyWholeFixture() {
@@ -57,6 +68,13 @@ abstract class ToolWindowTestCase : BasePlatformTestCase() {
     protected fun names(node: AnsibleTreeNode): List<String> = children(node).map { it.presentation().name }
 
     protected fun texts(node: AnsibleTreeNode): List<String> = children(node).map { it.presentation().text }
+
+    /** The level sources among the children of [node] (a host also has the contributed Effective vars and Targeted by). */
+    protected fun sources(node: AnsibleTreeNode): List<LayerSourceNode> = children(node).filterIsInstance<LayerSourceNode>()
+
+    protected fun sourceNames(node: AnsibleTreeNode): List<String> = sources(node).map { it.presentation().name }
+
+    protected fun sourceTexts(node: AnsibleTreeNode): List<String> = sources(node).map { it.presentation().text }
 
     /** The node reached from [start] by following children with these presentation names. */
     protected fun path(start: AnsibleTreeNode, vararg names: String): AnsibleTreeNode {

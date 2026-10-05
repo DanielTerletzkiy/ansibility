@@ -107,7 +107,7 @@ class AnsibleTreeModelTest : ToolWindowTestCase() {
 
     fun testFalconProdHostListsItsSourcesInLoadOrder() {
         val host = path("falcon", "Environments", "prod", "Hosts", "prod-prod1")
-        assertEquals("prod-prod1  192.0.2.29 · groups: all, app_mono, app_services, database +7", host.presentation().text)
+        assertEquals("prod-prod1  192.0.2.29  groups: all, app_mono, app_services, database +7", host.presentation().text)
         assertEquals(
             listOf(
                 "hosts.yml: ansible_user, ansible_port  L3 inventory file vars of all",
@@ -122,16 +122,17 @@ class AnsibleTreeModelTest : ToolWindowTestCase() {
                 "host_vars/prod-prod1/vars.yml  L9 env host_vars/prod-prod1 — beats every group level (L3–L7)",
                 "host_vars/prod-prod1/vault.yml  L9 env host_vars/prod-prod1 — beats every group level (L3–L7)",
             ),
-            texts(host),
+            sourceTexts(host),
         )
-        val levels = children(host).map { (it as LayerSourceNode).source.level }
+        assertEquals("HA7a: Effective vars and Targeted by follow the sources", listOf("Effective vars", "Targeted by"), names(host).takeLast(2))
+        val levels = sources(host).map { it.source.level }
         assertEquals("load order never goes down a level", levels.sorted(), levels)
 
         val details = (host as HostNode).details()
         assertEquals("Host prod-prod1", details.title)
         assertEquals("falcon › prod", details.subtitle)
         assertEquals("192.0.2.29", details.section("Address (ansible_host)")!!.items.single().text)
-        assertEquals(texts(host).map { it.substringBefore("  ") }, details.section("Var files in load order")!!.items.map { it.text })
+        assertEquals(sourceTexts(host).map { it.substringBefore("  ") }, details.section("Var files in load order")!!.items.map { it.text })
         assertEquals("all", details.section("Groups in the order they apply")!!.items.first().text)
     }
 
@@ -160,8 +161,8 @@ class AnsibleTreeModelTest : ToolWindowTestCase() {
         )
         assertEquals(
             "a host under a group lists its own sources",
-            texts(path("falcon", "Environments", "prod", "Hosts", "prod-prod1")),
-            texts(path(groups, "keycloak", "prod-prod1")),
+            sourceTexts(path("falcon", "Environments", "prod", "Hosts", "prod-prod1")),
+            sourceTexts(path(groups, "keycloak", "prod-prod1")),
         )
     }
 
@@ -169,7 +170,11 @@ class AnsibleTreeModelTest : ToolWindowTestCase() {
 
     fun testPlatformContractingAnalyticsMlflowRenders() {
         val mlflow = path("platform", "Environments", "prod", "Groups", "contracting", "analytics", "prod-mlflow1")
-        assertEquals("prod-mlflow1  {{ host_ips['prod-mlflow1'] }} · groups: all, app_mlflow, app_services, chronod +7", mlflow.presentation().text)
+        assertEquals(
+            "the templated address is evaluated with the playbook dir, the template follows in grey",
+            "prod-mlflow1  192.0.2.15  {{ host_ips['prod-mlflow1'] }} · groups: all, app_mlflow, app_services, chronod +7",
+            mlflow.presentation().text,
+        )
         val contracting = path("platform", "Environments", "prod", "Groups", "contracting")
         assertEquals("contracting  group_vars/contracting/{mysql_users,vault}.yml (L6) · → prod-mlflow1, prod-training1", contracting.presentation().text)
         assertEquals(
@@ -211,20 +216,18 @@ class AnsibleTreeModelTest : ToolWindowTestCase() {
 
     fun testTrainingHostVarsListFiveFilesInLoadOrder() {
         val training = path("platform", "Environments", "prod", "Hosts", "prod-training1")
-        val hostVars = texts(training).filter { it.startsWith("host_vars/") }
+        val hostVars = sourceTexts(training).filter { it.startsWith("host_vars/") }
         assertEquals(
             listOf("chronod.yml", "mysql.yml", "users.yml", "vars.yml", "vault.yml").map {
                 "host_vars/prod-training1/$it  L9 env host_vars/prod-training1 — beats every group level (L3–L7)"
             },
             hostVars,
         )
-        assertEquals("host files load last", hostVars, texts(training).takeLast(5))
-        assertEquals(
-            "ansible_host is shown as written, and the details say it is templated",
-            "templated: ansible-core renders it when the play runs",
-            (training as HostNode).details().section("Address (ansible_host)")!!.items.single().note,
-        )
-        val file = children(training).last() as LayerSourceNode
+        assertEquals("host files load last", hostVars, sourceTexts(training).takeLast(5))
+        val address = (training as HostNode).details().section("Address (ansible_host)")!!.items.single()
+        assertEquals("the details show the evaluated address", "192.0.2.14", address.text)
+        assertEquals("evaluated from {{ host_ips['prod-training1'] }} with the playbook dir", address.note)
+        val file = sources(training).last()
         val details = file.details()
         assertEquals("host_vars/prod-training1/vault.yml", details.title)
         assertEquals(listOf("Environment: prod", "Host: prod-training1"), details.section("Scope")!!.items.take(2).map { it.text })
@@ -273,7 +276,7 @@ class AnsibleTreeModelTest : ToolWindowTestCase() {
         assertEquals("$PELICAN/environments/", describe(path("pelican › danger_zone/database", "Environments").target))
 
         val play = path("pelican › danger_zone/database", "Playbooks", "playbook-clone-to-replisync.yml", "Clone to replisync") as PlayNode
-        assertEquals("hosts: replisync", play.presentation().extra)
+        assertEquals("hosts: replisync · 1 host", play.presentation().extra)
         assertEquals(play.play.location.file, play.target.file)
         assertEquals(play.play.location.offset, play.target.offset)
         assertEquals("$DANGER_ZONE/playbook-clone-to-replisync.yml:1", describe(path("pelican › danger_zone/database", "Playbooks", "playbook-clone-to-replisync.yml").target))

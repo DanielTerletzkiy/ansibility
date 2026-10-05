@@ -1,0 +1,4 @@
+vault_db_password: !vault |
+  $ANSIBLE_VAULT;1.1;AES256
+  30303030303030303030303030303030
+unsafe_value: !unsafe "{{ not_templated }}"

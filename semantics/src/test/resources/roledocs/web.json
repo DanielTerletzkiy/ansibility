@@ -1,0 +1,302 @@
+{
+    "web": {
+        "collection": null,
+        "entry_points": {
+            "certs": {
+                "description": "Copies certificate and key pairs and reloads the server when they change.",
+                "options": {
+                    "web_cert_dir": {
+                        "default": "/etc/webd/tls",
+                        "description": "Directory the pairs are written to.",
+                        "type": "path"
+                    },
+                    "web_cert_mode": {
+                        "default": "0640",
+                        "description": "File mode of the written keys, quoted so that it stays a string.",
+                        "type": "str"
+                    },
+                    "web_certificates": {
+                        "description": "Certificate and key pairs.",
+                        "elements": "dict",
+                        "options": {
+                            "cert": {
+                                "description": "PEM certificate chain.",
+                                "required": true,
+                                "type": "str"
+                            },
+                            "key": {
+                                "description": "PEM private key.",
+                                "no_log": true,
+                                "required": true,
+                                "type": "str"
+                            },
+                            "name": {
+                                "description": "Base name of the installed files.",
+                                "required": true,
+                                "type": "str"
+                            }
+                        },
+                        "required": true,
+                        "type": "list"
+                    }
+                },
+                "short_description": "Install TLS certificates for the virtual hosts."
+            },
+            "main": {
+                "author": [
+                    "Ansibility test corpus"
+                ],
+                "description": [
+                    "Installs the C(webd) package, renders one virtual host per item of O(web_vhosts) and keeps the service running.",
+                    "Every virtual host may proxy locations to an upstream; see O(web_vhosts[].locations[].proxy)."
+                ],
+                "options": {
+                    "web_client_max_body_size": {
+                        "default": "8M",
+                        "description": "Largest accepted request body.",
+                        "type": "bytes"
+                    },
+                    "web_default_headers": {
+                        "default": {
+                            "Referrer-Policy": "same-origin",
+                            "X-Content-Type-Options": "nosniff"
+                        },
+                        "description": "Response headers added to every virtual host (header name to value).",
+                        "type": "dict"
+                    },
+                    "web_gzip": {
+                        "default": true,
+                        "description": "Compress text responses.",
+                        "type": "bool"
+                    },
+                    "web_gzip_types": {
+                        "default": [
+                            "text/css",
+                            "application/javascript",
+                            "application/json"
+                        ],
+                        "description": "MIME types compressed when O(web_gzip=true).",
+                        "elements": "str",
+                        "type": "list"
+                    },
+                    "web_keepalive_timeout": {
+                        "default": 65.0,
+                        "description": "Seconds an idle keep-alive connection stays open.",
+                        "type": "float"
+                    },
+                    "web_listen_address": {
+                        "default": "0.0.0.0",
+                        "description": "Address of the default server.",
+                        "type": "str"
+                    },
+                    "web_log_dir": {
+                        "default": "/var/log/webd",
+                        "description": "Directory for access and error logs.",
+                        "type": "path"
+                    },
+                    "web_package": {
+                        "default": "webd",
+                        "description": "Package that provides the web server binary.",
+                        "type": "str"
+                    },
+                    "web_service_state": {
+                        "choices": [
+                            "started",
+                            "stopped",
+                            "restarted",
+                            "reloaded"
+                        ],
+                        "default": "started",
+                        "description": "Desired state of the C(webd) service.",
+                        "type": "str"
+                    },
+                    "web_vhosts": {
+                        "default": [],
+                        "description": "Virtual hosts, one configuration file each.",
+                        "elements": "dict",
+                        "options": {
+                            "index": {
+                                "default": [
+                                    "index.html"
+                                ],
+                                "description": "Index files tried in order.",
+                                "elements": "str",
+                                "type": "list"
+                            },
+                            "listen": {
+                                "default": [
+                                    {
+                                        "port": 80
+                                    }
+                                ],
+                                "description": "Sockets this virtual host listens on.",
+                                "elements": "dict",
+                                "options": {
+                                    "address": {
+                                        "default": "*",
+                                        "description": "Bind address; V(*) means every address.",
+                                        "type": "str"
+                                    },
+                                    "http2": {
+                                        "default": false,
+                                        "description": "Offer HTTP/2 (requires O(web_vhosts[].listen[].tls=true)).",
+                                        "type": "bool"
+                                    },
+                                    "port": {
+                                        "description": "TCP port.",
+                                        "required": true,
+                                        "type": "int"
+                                    },
+                                    "tls": {
+                                        "default": false,
+                                        "description": "Terminate TLS on this socket.",
+                                        "type": "bool"
+                                    }
+                                },
+                                "type": "list"
+                            },
+                            "locations": {
+                                "default": [],
+                                "description": "Location blocks, matched in order.",
+                                "elements": "dict",
+                                "options": {
+                                    "path": {
+                                        "description": "URI prefix, for example V(/api/).",
+                                        "required": true,
+                                        "type": "str"
+                                    },
+                                    "proxy": {
+                                        "description": "Proxy requests of this location to an upstream.",
+                                        "mutually_exclusive": [
+                                            [
+                                                "upstream",
+                                                "socket"
+                                            ]
+                                        ],
+                                        "options": {
+                                            "buffering": {
+                                                "default": true,
+                                                "description": "Buffer upstream responses.",
+                                                "type": "bool"
+                                            },
+                                            "headers": {
+                                                "default": {},
+                                                "description": "Extra request headers sent upstream.",
+                                                "type": "dict"
+                                            },
+                                            "socket": {
+                                                "description": "Unix socket of the upstream.",
+                                                "type": "path"
+                                            },
+                                            "timeouts": {
+                                                "default": {
+                                                    "connect": 5,
+                                                    "read": 60
+                                                },
+                                                "description": "Upstream timeouts in seconds.",
+                                                "options": {
+                                                    "connect": {
+                                                        "default": 5,
+                                                        "description": "Time allowed to open the connection.",
+                                                        "type": "int"
+                                                    },
+                                                    "read": {
+                                                        "default": 60,
+                                                        "description": "Time allowed between two reads.",
+                                                        "type": "int"
+                                                    },
+                                                    "send": {
+                                                        "default": 60.0,
+                                                        "description": "Time allowed between two writes.",
+                                                        "type": "float"
+                                                    }
+                                                },
+                                                "type": "dict"
+                                            },
+                                            "upstream": {
+                                                "description": "Upstream URL, for example V(http://192.0.2.10:8080).",
+                                                "type": "str"
+                                            }
+                                        },
+                                        "required_one_of": [
+                                            [
+                                                "upstream",
+                                                "socket"
+                                            ]
+                                        ],
+                                        "type": "dict"
+                                    },
+                                    "redirect_to": {
+                                        "description": "Target of the redirect when O(web_vhosts[].locations[].return_code) is a redirect.",
+                                        "type": "str"
+                                    },
+                                    "return_code": {
+                                        "choices": [
+                                            301,
+                                            302,
+                                            307,
+                                            308,
+                                            404,
+                                            410
+                                        ],
+                                        "description": "Answer with this status instead of serving content.",
+                                        "type": "int"
+                                    }
+                                },
+                                "required_if": [
+                                    [
+                                        "return_code",
+                                        301,
+                                        [
+                                            "redirect_to"
+                                        ]
+                                    ],
+                                    [
+                                        "return_code",
+                                        302,
+                                        [
+                                            "redirect_to"
+                                        ]
+                                    ]
+                                ],
+                                "type": "list"
+                            },
+                            "name": {
+                                "description": "File name of the virtual host, without C(.conf).",
+                                "required": true,
+                                "type": "str"
+                            },
+                            "root": {
+                                "description": "Document root for static files.",
+                                "type": "path"
+                            },
+                            "server_names": {
+                                "aliases": [
+                                    "hostnames"
+                                ],
+                                "description": "Host names matched by this virtual host, for example V(www.example.test).",
+                                "elements": "str",
+                                "required": true,
+                                "type": "list"
+                            }
+                        },
+                        "type": "list"
+                    },
+                    "web_worker_connections": {
+                        "default": 1024,
+                        "description": "Connections per worker.",
+                        "type": "int"
+                    },
+                    "web_worker_processes": {
+                        "default": "auto",
+                        "description": "Number of worker processes, an integer or V(auto).",
+                        "type": "raw"
+                    }
+                },
+                "short_description": "Serve static sites and proxied apps from a small web server."
+            },
+            "reload": {}
+        },
+        "path": "semantics/src/test/resources/argspecs/web"
+    }
+}

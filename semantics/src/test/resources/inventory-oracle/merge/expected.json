@@ -1,0 +1,83 @@
+{
+  "ansible_core": "2.21.4",
+  "inventory": {
+    "_meta": {
+      "hostvars": {
+        "m1": {
+          "assoc": {
+            "from_all": 1,
+            "from_g1": 1
+          },
+          "config": {
+            "a": 1,
+            "b": "g1-inline",
+            "c": "g2",
+            "d": "inv-all",
+            "e": "play-all",
+            "f": "inv-g1",
+            "g": "inv-g2",
+            "h": "play-g1",
+            "i": "host-vars",
+            "list": [
+              3
+            ],
+            "nested": {
+              "x": "play",
+              "y": "g1",
+              "z": "host-inline"
+            }
+          },
+          "replaced_by_scalar": "now-a-scalar",
+          "scalar_then_dict": {
+            "now": "dict"
+          }
+        },
+        "m2": {
+          "assoc": {
+            "from_all": 1,
+            "from_g1": 1
+          },
+          "config": {
+            "a": 1,
+            "b": "g1-inline",
+            "c": "g2",
+            "d": "inv-all",
+            "e": "play-all",
+            "f": "inv-g1",
+            "g": "inv-g2",
+            "h": "play-g1",
+            "list": [
+              3
+            ],
+            "nested": {
+              "x": "play",
+              "y": "g1"
+            }
+          },
+          "replaced_by_scalar": "now-a-scalar",
+          "scalar_then_dict": {
+            "now": "dict"
+          }
+        }
+      },
+      "profile": "inventory_legacy"
+    },
+    "all": {
+      "children": [
+        "ungrouped",
+        "g2"
+      ]
+    },
+    "g1": {
+      "hosts": [
+        "m1",
+        "m2"
+      ]
+    },
+    "g2": {
+      "children": [
+        "g1"
+      ]
+    }
+  }
+}

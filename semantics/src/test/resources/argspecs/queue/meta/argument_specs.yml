@@ -1,0 +1,198 @@
+---
+# Synthetic role spec written for the ArgSpecParser parity test (Ansibility test corpus).
+# Shapes: three entry points, entry-point constraints (mutually_exclusive, required_together, required_one_of,
+# required_if, required_by), aliases with deprecated_aliases, version_added and the descriptive entry-point keys.
+argument_specs:
+  main:
+    short_description: Message broker with optional clustering.
+    description:
+      - Installs the C(mqd) broker and configures listeners, users and clustering.
+      - Exactly one of O(queue_password) and O(queue_password_file) must be set.
+    version_added: "1.0.0"
+    author: Ansibility test corpus
+    notes:
+      - The broker restarts when O(queue_mode) changes.
+    requirements:
+      - A systemd based distribution.
+    seealso:
+      - module: ansible.builtin.service
+      - link: https://docs.example.test/mqd/clustering
+        name: Clustering guide
+        description: How peers find each other.
+    attributes:
+      check_mode:
+        support: full
+        description: Can run in check mode.
+    mutually_exclusive:
+      - [queue_password, queue_password_file]
+    required_one_of:
+      - [queue_password, queue_password_file]
+    required_together:
+      - [queue_tls_cert, queue_tls_key]
+    required_if:
+      - [queue_mode, cluster, [queue_peers]]
+      - [queue_mode, mirror, [queue_peers, queue_mirror_of], true]
+    required_by:
+      queue_tls_cert: queue_tls_ca
+      queue_federation: [queue_peers, queue_cluster_name]
+    options:
+      queue_cluster_name:
+        type: str
+        default: demo
+        aliases: [cluster_name, queue_cluster]
+        deprecated_aliases:
+          - name: cluster_name
+            version: "2.0.0"
+            collection_name: ansibility.synthetic
+          - name: queue_cluster
+            date: "2027-03-31"
+            collection_name: ansibility.synthetic
+        description: Name shared by all peers of one cluster.
+      queue_mode:
+        type: str
+        choices: [single, cluster, mirror]
+        default: single
+        description: Deployment shape of the broker.
+      queue_peers:
+        type: list
+        elements: str
+        default: []
+        description: Other brokers, for example V(mq2.example.test).
+      queue_mirror_of:
+        type: str
+        version_added: "1.2.0"
+        description: Cluster mirrored when O(queue_mode=mirror).
+      queue_federation:
+        type: bool
+        default: false
+        version_added: 1.3.0
+        description: Federate exchanges with the peers.
+      queue_password:
+        type: str
+        no_log: true
+        description: Password of the administrative user.
+      queue_password_file:
+        type: path
+        description: File holding the password of the administrative user.
+      queue_tls_cert:
+        type: path
+        description: Server certificate.
+      queue_tls_key:
+        type: path
+        no_log: false
+        description: Private key of O(queue_tls_cert).
+      queue_tls_ca:
+        type: path
+        description: CA bundle used to verify peers.
+      queue_listeners:
+        type: list
+        elements: dict
+        default:
+          - {port: 5670, protocol: amqp}
+        description: Listening sockets.
+        options:
+          port:
+            type: int
+            required: true
+            description: TCP port.
+          protocol:
+            type: str
+            choices: [amqp, mqtt, stomp]
+            default: amqp
+            description: Wire protocol.
+          bind:
+            type: str
+            default: 0.0.0.0
+            aliases: [address]
+            description: Bind address.
+      queue_vhosts:
+        type: list
+        elements: dict
+        default: [{name: /}]
+        description: Virtual hosts and their permissions.
+        options:
+          name:
+            type: str
+            required: true
+            description: Virtual host name.
+          permissions:
+            type: list
+            elements: dict
+            default: []
+            description: User permissions in this virtual host.
+            options:
+              user:
+                type: str
+                required: true
+                description: User name.
+              configure:
+                type: str
+                default: .*
+                description: Regular expression of configurable resources.
+              write:
+                type: str
+                default: .*
+                description: Regular expression of writable resources.
+              read:
+                type: str
+                default: .*
+                description: Regular expression of readable resources.
+  producer:
+    short_description: Configure the client side of applications that publish messages.
+    description:
+      - Writes C(/etc/mqd/producer.d/*.conf) files.
+    options:
+      queue_producer_targets:
+        type: list
+        elements: dict
+        required: true
+        description: Exchanges an application publishes to.
+        options:
+          exchange:
+            type: str
+            required: true
+            description: Exchange name.
+          routing_key:
+            type: str
+            default: ""
+            description: Routing key; empty for fan-out exchanges.
+          delivery_mode:
+            type: int
+            choices: [1, 2]
+            default: 2
+            description: V(1) is transient, V(2) is persistent.
+          confirm:
+            type: bool
+            default: true
+            description: Wait for publisher confirms.
+      queue_producer_url:
+        type: str
+        default: amqp://mq.example.test:5670/
+        description: Broker URL used by the producers.
+  consumer:
+    short_description: Configure consumers and their dead-letter handling.
+    options:
+      queue_consumer_prefetch:
+        type: int
+        default: 10
+        description: Messages delivered before an acknowledgement is required.
+      queue_consumer_ack:
+        type: str
+        choices: [auto, manual, none]
+        default: manual
+        description: Acknowledgement mode.
+      queue_consumer_dead_letter:
+        type: dict
+        description: Dead-letter settings.
+        required_together:
+          - [exchange, ttl]
+        options:
+          exchange:
+            type: str
+            description: Exchange that receives rejected messages.
+          ttl:
+            type: int
+            description: Milliseconds a message may wait before it is dead-lettered.
+          max_length:
+            type: int
+            description: Queue length limit.

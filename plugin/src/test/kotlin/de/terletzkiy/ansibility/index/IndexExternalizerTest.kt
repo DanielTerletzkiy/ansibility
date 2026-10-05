@@ -3,6 +3,7 @@ package de.terletzkiy.ansibility.index
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.util.io.DataExternalizer
 import de.terletzkiy.ansibility.api.ValueShape
+import de.terletzkiy.ansibility.lang.jinja.refs.JinjaIndirection
 import org.junit.Assert.assertThrows
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -42,6 +43,15 @@ class IndexExternalizerTest : BasePlatformTestCase() {
             UseEntry(i * 1000, container, guarded = i % 2 == 0, guardedByCondition = i == 1, called = i == 2, attrPath = List(i) { "p$it" })
         }
         assertEquals(entries, roundTrip(VarUseIndex.EXTERNALIZER, entries))
+        // FU2: the INDIRECT flag and its kind, alone and next to every other flag
+        val indirect = listOf(null, JinjaIndirection.HOSTVARS, JinjaIndirection.VARS).flatMap { via ->
+            listOf(
+                UseEntry(7, UseContainer.YAML_TEMPLATE, guarded = false, guardedByCondition = false, called = false, attrPath = emptyList(), indirect = via),
+                UseEntry(70_000, UseContainer.YAML_EXPRESSION, guarded = true, guardedByCondition = true, called = false, attrPath = listOf("a", "0"), indirect = via),
+            )
+        }
+        assertEquals(indirect, roundTrip(VarUseIndex.EXTERNALIZER, indirect))
+        assertEquals(listOf(false, false, true, true, true, true), indirect.map { it.isIndirect })
     }
 
     fun testTaskIndexEntriesRoundTrip() {

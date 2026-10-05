@@ -6,6 +6,7 @@ import com.intellij.psi.tree.IElementType
 import de.terletzkiy.ansibility.lang.jinja.lexer.AnsibleJinjaTokenTypes as T
 import de.terletzkiy.ansibility.lang.jinja.lexer.JinjaLexMode
 import de.terletzkiy.ansibility.lang.jinja.refs.JinjaRefs
+import de.terletzkiy.ansibility.lang.jinja.refs.JinjaRefsResult
 import de.terletzkiy.ansibility.lang.jinja.refs.JinjaVarRef
 
 /**
@@ -17,6 +18,14 @@ import de.terletzkiy.ansibility.lang.jinja.refs.JinjaVarRef
  * [ConditionFacts], per `if`/`elif`/`else` branch and inline `and`/`or`/`if`), `| mandatory`, tolerant type tests (up
  * to 2.18), a `default` later in a filter chain (from 2.19), `default(…)` arguments, `for` iterables and the tag to
  * wrap. It follows the rules of [PsiJinjaUses] (a parity test pins that on the fixture).
+ *
+ * Deliberately left out (FU2): the members read by name ([JinjaRefsResult.indirectReferences]). A `hostvars[h].x` or
+ * `map('extract', hostvars, 'x')` member is some host's variable, and even `hostvars[inventory_hostname]` lacks play
+ * and role variables, so it is never a use of the current host's `x`. `vars['x']` and `lookup('vars', 'x')` do read the
+ * current host's `x`, but under other rules (only a `default=` argument guards the lookup, `| default` does not) and
+ * the PSI front end has no such shapes, so judging them here would break the parity. A braced implicit expression is
+ * analysed as the template it is first rendered as; its outside names ([JinjaRefs.analyzeBracedExpression]) are
+ * indexed for usages but not checked, for the same parity reason.
  */
 internal object TextJinjaUses {
     /** The uses of [text] analysed in [mode] (a template, or one bare expression), in source order. */

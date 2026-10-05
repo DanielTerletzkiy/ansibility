@@ -1,0 +1,2 @@
+relay_host: relay.internal.example.test
+playbook_only: true

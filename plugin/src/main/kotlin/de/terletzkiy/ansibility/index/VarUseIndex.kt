@@ -10,7 +10,9 @@ import com.intellij.util.io.EnumeratorStringDescriptor
 import com.intellij.util.io.KeyDescriptor
 import de.terletzkiy.ansibility.api.JinjaContainer
 import de.terletzkiy.ansibility.lang.jinja.lexer.JinjaLexMode
+import de.terletzkiy.ansibility.lang.jinja.refs.JinjaIndirection
 import de.terletzkiy.ansibility.lang.jinja.refs.JinjaRefs
+import de.terletzkiy.ansibility.lang.jinja.refs.JinjaRefsResult
 import de.terletzkiy.ansibility.yaml.YamlPaths
 import de.terletzkiy.ansibility.yaml.YamlPsi
 import org.jetbrains.yaml.psi.YAMLScalar
@@ -31,12 +33,16 @@ enum class UseContainer(val code: Int, val container: JinjaContainer) {
 
 /**
  * One free variable reference in Jinja (an `ansible.var.use` value): [offset] is the file offset of the root name,
- * whose length is the key's length.
+ * whose length is the key's length. For an [indirect] read the key is the member read by name and [offset] that
+ * member's offset (inside the quotes of `['x']`).
  */
 data class UseEntry(
     val offset: Int,
     val container: UseContainer,
-    /** Directly followed by `is defined`/`is undefined` or `| default`/`| d`. */
+    /**
+     * Directly followed by `is defined`/`is undefined` or `| default`/`| d`; for a `lookup`/`query('vars', …)` read,
+     * a `default=` argument of the lookup.
+     */
     val guarded: Boolean,
     /** Inside a condition that asserts the name is defined (`x is defined and x.y`, `{% if x is defined %}`). */
     val guardedByCondition: Boolean,
@@ -44,13 +50,30 @@ data class UseEntry(
     val called: Boolean,
     /** Constant accessors after the root name (`item.floating.ssl` → `["floating", "ssl"]`). */
     val attrPath: List<String>,
-)
+    /**
+     * Null for a direct reference. Otherwise the name is read by name through another object (FU2, the INDIRECT
+     * flag): [JinjaIndirection.HOSTVARS] for `hostvars[h].x`, `hostvars[h]['x']` and `map('extract', hostvars, 'x')`,
+     * a member of some host's variables that readers must not take for the current host's variable;
+     * [JinjaIndirection.VARS] for `vars['x']`, `vars.x` and `lookup`/`query('vars', 'x')`, the current host's
+     * variable by name. [attrPath] then follows the member; [called] is always false.
+     */
+    val indirect: JinjaIndirection? = null,
+) {
+    /** True for a read by name through `hostvars` or `vars` (see [indirect]). */
+    val isIndirect: Boolean get() = indirect != null
+}
 
 /**
  * `ansible.var.use`: root variable name → its free references (plan A.7). Input: template files (lexed whole, in
  * TEMPLATE mode) and YAML scalars that pass [JinjaBearing.isJinjaBearingScalar], lexed directly with the Jinja lexer
  * (TEMPLATE mode for `{{`/`{%`, EXPRESSION mode for implicit-expression keys), with offsets mapped back through the
  * scalar's own escaper.
+ *
+ * Version 2 (FU2, plan amendment FU F1.11) adds the members read by name through `hostvars` and `vars`
+ * ([UseEntry.indirect]) and the names outside the braces of braced implicit expressions
+ * ([JinjaRefs.analyzeBracedExpression], container [UseContainer.YAML_EXPRESSION]); version 3 leaves out the outside
+ * names that Jinja's whitespace control glues to a braced part (`prefix_ {{- x }}`) and ends a constant path before an
+ * attribute glued to one (`x.a{{ b }}`).
  */
 class VarUseIndex : FileBasedIndexExtension<String, List<UseEntry>>() {
     override fun getName(): ID<String, List<UseEntry>> = NAME
@@ -72,12 +95,20 @@ class VarUseIndex : FileBasedIndexExtension<String, List<UseEntry>>() {
         @JvmField
         val NAME: ID<String, List<UseEntry>> = ID.create("ansible.var.use")
 
-        const val VERSION: Int = 1
+        const val VERSION: Int = 3
+
+        /** The value layout; versions 2 and 3 only add flag bits, which version-1 data never sets. */
         private const val FORMAT: Int = 1
 
         private const val GUARDED = 1
         private const val GUARDED_BY_CONDITION = 2
         private const val CALLED = 4
+
+        /** A read by name ([UseEntry.indirect] is set). */
+        private const val INDIRECT = 8
+
+        /** With [INDIRECT]: through `hostvars` ([JinjaIndirection.HOSTVARS]); without it through `vars`. */
+        private const val VIA_HOSTVARS = 16
 
         internal val EXTERNALIZER: DataExternalizer<List<UseEntry>> =
             VersionedListExternalizer(NAME.name, FORMAT, ::writeEntry, ::readEntry)
@@ -85,8 +116,13 @@ class VarUseIndex : FileBasedIndexExtension<String, List<UseEntry>>() {
         private fun writeEntry(out: DataOutput, e: UseEntry) {
             IndexIO.writeInt(out, e.offset)
             out.writeByte(e.container.code)
+            val indirect = when (e.indirect) {
+                null -> 0
+                JinjaIndirection.HOSTVARS -> INDIRECT or VIA_HOSTVARS
+                JinjaIndirection.VARS -> INDIRECT
+            }
             val flags = (if (e.guarded) GUARDED else 0) or (if (e.guardedByCondition) GUARDED_BY_CONDITION else 0) or
-                (if (e.called) CALLED else 0)
+                (if (e.called) CALLED else 0) or indirect
             out.writeByte(flags)
             IndexIO.writeStrings(out, e.attrPath)
         }
@@ -101,6 +137,11 @@ class VarUseIndex : FileBasedIndexExtension<String, List<UseEntry>>() {
                 guardedByCondition = flags and GUARDED_BY_CONDITION != 0,
                 called = flags and CALLED != 0,
                 attrPath = IndexIO.readStrings(input),
+                indirect = when {
+                    flags and INDIRECT == 0 -> null
+                    flags and VIA_HOSTVARS != 0 -> JinjaIndirection.HOSTVARS
+                    else -> JinjaIndirection.VARS
+                },
             )
         }
     }
@@ -108,21 +149,32 @@ class VarUseIndex : FileBasedIndexExtension<String, List<UseEntry>>() {
 
 /** The `ansible.var.use` indexer, usable without the index for tests and measurements. */
 object VarUseIndexer {
+    /** The uses of one file, each name's entries in offset order. */
     fun index(input: IndexInput): Map<String, List<UseEntry>> {
         val result = HashMap<String, MutableList<UseEntry>>()
-        if (input.isTemplate) {
-            collect(input.text, JinjaLexMode.TEMPLATE, UseContainer.TEMPLATE_FILE, result) { it }
-            return result
-        }
-        if (input.facts.hint == PathHint.FILES) return result
-        val yaml = input.yaml ?: return result
-        val top = YamlPaths.topLevelValue(yaml) ?: return result
-        val expressions = JinjaBearing.implicitExpressionOffsets(input.document, input.facts)
-        YamlScalars.forEach(top) { scalar, path -> scalar(scalar, path, input.facts, expressions, result) }
+        collect(input, result)
+        // indirect reads and the outside names of braced expressions are added after the direct references
+        for (entries in result.values) if (entries.size > 1) entries.sortBy(UseEntry::offset)
         return result
     }
 
-    /** Analyses one scalar value when Ansible templates it; [expressions] are the implicit-expression scalars. */
+    private fun collect(input: IndexInput, result: HashMap<String, MutableList<UseEntry>>) {
+        if (input.isTemplate) {
+            collect(JinjaRefs.analyze(input.text, JinjaLexMode.TEMPLATE), UseContainer.TEMPLATE_FILE, result) { it }
+            return
+        }
+        if (input.facts.hint == PathHint.FILES) return
+        val yaml = input.yaml ?: return
+        val top = YamlPaths.topLevelValue(yaml) ?: return
+        val expressions = JinjaBearing.implicitExpressionOffsets(input.document, input.facts)
+        YamlScalars.forEach(top) { scalar, path -> scalar(scalar, path, input.facts, expressions, result) }
+    }
+
+    /**
+     * Analyses one scalar value when Ansible templates it; [expressions] are the implicit-expression scalars. A braced
+     * implicit expression (`that: "'{{ item }}=' in out"`) is rendered first and then evaluated, so it is analysed
+     * twice: its braced parts as a template and the rest as an expression.
+     */
     private fun scalar(
         scalar: YAMLScalar,
         path: List<String>,
@@ -142,25 +194,35 @@ object VarUseIndexer {
         if (!expression && !template) return
         val mode = if (template) JinjaLexMode.TEMPLATE else JinjaLexMode.EXPRESSION
         val container = if (template) UseContainer.YAML_TEMPLATE else UseContainer.YAML_EXPRESSION
-        collect(decoded, mode, container, result) { offset ->
+        val toFile = { offset: Int ->
             val inHost = escaper.getOffsetInHost(offset, range)
             if (inHost < 0) -1 else start + inHost
         }
+        collect(JinjaRefs.analyze(decoded, mode), container, result, toFile)
+        if (expression && template) collect(JinjaRefs.analyzeBracedExpression(decoded), UseContainer.YAML_EXPRESSION, result, toFile)
     }
 
-    /** Analyses [text] and adds its free references, mapping text offsets to file offsets with [toFile] (-1 drops). */
+    /**
+     * Adds the free references and the indirect reads of [analysis], mapping text offsets to file offsets with
+     * [toFile] (-1 drops).
+     */
     private inline fun collect(
-        text: CharSequence,
-        mode: JinjaLexMode,
+        analysis: JinjaRefsResult,
         container: UseContainer,
         result: HashMap<String, MutableList<UseEntry>>,
         toFile: (Int) -> Int,
     ) {
-        for (ref in JinjaRefs.analyze(text, mode).references) {
+        for (ref in analysis.references) {
             val offset = toFile(ref.nameRange.startOffset)
             if (offset < 0) continue
             result.getOrPut(ref.name) { ArrayList(2) } +=
                 UseEntry(offset, container, ref.guarded, ref.guardedByCondition, ref.called, ref.attrPath)
+        }
+        for (ref in analysis.indirectReferences) {
+            val offset = toFile(ref.nameRange.startOffset)
+            if (offset < 0) continue
+            result.getOrPut(ref.name) { ArrayList(2) } +=
+                UseEntry(offset, container, ref.guarded, ref.guardedByCondition, called = false, ref.attrPath, ref.via)
         }
     }
 }

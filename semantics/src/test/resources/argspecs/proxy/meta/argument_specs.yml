@@ -1,0 +1,155 @@
+---
+# Synthetic role spec written for the ArgSpecParser parity test (Ansibility test corpus).
+# Shapes: anchors, aliases and merge keys, raw/jsonarg/json types, a dict default with integer keys,
+# `options: {}` (no keys allowed) next to a free-form `options:`, flow mappings and an option named `options`.
+argument_specs:
+  main:
+    short_description: TCP and HTTP load balancer.
+    description:
+      - Renders C(/etc/lbd/lbd.cfg) from O(proxy_frontends) and O(proxy_backends).
+    options:
+      proxy_timeout_connect: &timeout
+        type: str
+        default: 5s
+        description: Time allowed to connect to a server.
+      proxy_timeout_client:
+        <<: *timeout
+        default: 30s
+        description: Inactivity timeout on the client side.
+      proxy_timeout_server:
+        <<: *timeout
+        default: 30s
+      proxy_maxconn: {type: int, default: 4096, description: Global connection limit.}
+      proxy_global_extra:
+        type: raw
+        description: Extra lines for the C(global) section, a string or a list of strings.
+      proxy_stats:
+        type: jsonarg
+        default: '{"enabled": true, "port": 8404}'
+        description: Statistics page settings as a JSON document.
+      proxy_runtime_api:
+        type: json
+        description: Runtime API settings as JSON text.
+      proxy_error_pages:
+        type: dict
+        default:
+          404: /etc/lbd/errors/404.http
+          503: /etc/lbd/errors/503.http
+        description: Error page file per HTTP status.
+      proxy_error_files:
+        type: list
+        elements: path
+        default: []
+        description: Extra error files copied to the host.
+      proxy_acl_values:
+        type: list
+        elements: raw
+        default: [1, two, 3.5, true, null]
+        description: Values of mixed types, passed through unchanged.
+      proxy_defaults:
+        type: dict
+        default: {}
+        description: Settings of the C(defaults) section.
+        options:
+          mode:
+            type: str
+            choices: [http, tcp]
+            default: http
+            description: Default proxy mode.
+          options:
+            type: list
+            elements: str
+            default: [httplog, dontlognull]
+            description: Flags written as C(option <flag>) lines.
+          retries:
+            type: int
+            default: 3
+            description: Connection retries.
+      proxy_resolvers:
+        type: dict
+        options: {}
+        description: Must be an empty mapping; reserved for later use.
+      proxy_extra_sections:
+        type: dict
+        options:
+        description: Free-form sections, section name to list of lines.
+      proxy_frontends:
+        type: list
+        elements: dict
+        default: []
+        description: Frontends accepting client connections.
+        options:
+          name: {type: str, required: true, description: Frontend name.}
+          bind:
+            type: list
+            elements: str
+            required: true
+            description: Bind specifications such as V(:443 ssl crt /etc/lbd/site.pem).
+          mode:
+            type: str
+            choices: [http, tcp]
+            description: Overrides O(proxy_defaults.mode).
+          default_backend:
+            type: str
+            description: Backend used when no rule matches.
+          http_versions:
+            type: list
+            elements: int
+            choices: [1, 2, 3]
+            default: [1, 2]
+            description: HTTP major versions offered.
+      proxy_backends:
+        type: list
+        elements: dict
+        default: []
+        description: Backends and their servers.
+        options:
+          name:
+            type: str
+            required: true
+            description: Backend name.
+          balance:
+            type: str
+            choices: [roundrobin, leastconn, source, uri]
+            default: roundrobin
+            description: Balancing algorithm.
+          servers:
+            type: list
+            elements: dict
+            default: []
+            description: Active servers.
+            options: &server_options
+              name:
+                type: str
+                required: true
+                description: Server name.
+              address:
+                type: str
+                required: true
+                description: Address and port, for example V(198.51.100.11:8080).
+              weight:
+                type: int
+                default: 100
+                description: Relative weight.
+              check:
+                type: dict
+                description: Health check of this server.
+                options:
+                  interval:
+                    type: str
+                    default: 2s
+                    description: Time between two checks.
+                  rise:
+                    type: int
+                    default: 2
+                    description: Successful checks before the server counts as up.
+                  fall:
+                    type: int
+                    default: 3
+                    description: Failed checks before the server counts as down.
+          backup_servers:
+            type: list
+            elements: dict
+            default: []
+            description: Servers used only when every active server is down.
+            options: *server_options

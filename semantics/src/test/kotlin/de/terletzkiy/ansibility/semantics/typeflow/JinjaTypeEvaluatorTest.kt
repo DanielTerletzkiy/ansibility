@@ -235,4 +235,47 @@ class JinjaTypeEvaluatorTest {
         assertEquals(TypeOrigin.Filter("int"), classic.evaluate("{{ i | int }}").origin)
         assertEquals(TypeOrigin.MultiNode, classic.evaluate("x-{{ i }}").origin)
     }
+
+    @Test
+    fun `members of runtime-only values take the resolver's member types`() {
+        val asked = ArrayList<List<String>>()
+        val resolver = object : VariableResolver {
+            override fun definitions(name: String): List<VariableDefinition>? =
+                listOf(VariableDefinition("tasks/main.yml:3", null)).takeIf { name == "r" || name == "vault_r" }
+
+            override fun memberType(name: String, path: List<String>): AValue? {
+                asked += listOf(name) + path
+                if (name != "r") return null
+                return when (path) {
+                    listOf("rc"), listOf("results", "-1", "rc") -> AValue.of(BaseType.INT)
+                    listOf("stdout"), listOf("results", "0", "stdout") -> AValue.of(BaseType.STR)
+                    listOf("items") -> AValue.of(BaseType.LIST)
+                    else -> null
+                }
+            }
+        }
+        val classic = JinjaTypeEvaluator(TemplatingRules(CORE_218, false), TestJinjaTokenizer, resolver)
+        val native = JinjaTypeEvaluator(TemplatingRules(CORE_221, false), TestJinjaTokenizer, resolver)
+
+        val rc = classic.evaluate("{{ r.rc }}")
+        assertEquals("int", describe(rc.logical))
+        assertEquals("str", describe(rc.runtime), "2.18 renders the int to a string")
+        assertEquals("int", describe(native.evaluate("{{ r.rc }}").runtime))
+        assertEquals(listOf("rc"), assertInstanceOf(TypeOrigin.Chain::class.java, rc.origin).accessors)
+        assertEquals("str", describe(classic.evaluate("{{ r['stdout'] }}").logical))
+        assertEquals("str", describe(classic.evaluate("{{ r.results[0].stdout }}").logical))
+        assertEquals("str", describe(native.evaluate("{{ r['results'][0]['stdout'] }}").runtime))
+        assertEquals("int", describe(classic.evaluate("{{ r.results[-1].rc }}").logical))
+        assertEquals("int", describe(classic.evaluate("{{ r.rc | default(0) }}").logical))
+
+        assertEquals("unknown", describe(classic.evaluate("{{ r.nope }}").logical), "undocumented")
+        assertEquals("unknown", describe(classic.evaluate("{{ r }}").logical), "the whole result")
+        asked.clear()
+        assertEquals("unknown", describe(classic.evaluate("{{ r.items }}").logical), "the dict method")
+        assertEquals("unknown", describe(classic.evaluate("{{ r[k].rc }}").logical), "a computed key")
+        assertEquals("unknown", describe(classic.evaluate("{{ (r | default({})).rc }}").logical), "not a chain")
+        assertEquals("unknown", describe(classic.evaluate("{{ vault_r.rc }}").logical), "never typed through a vault name")
+        assertEquals(emptyList<List<String>>(), asked, "the resolver is not asked for these")
+        assertNull(VariableResolver { null }.memberType("r", listOf("rc")), "the default knows no members")
+    }
 }

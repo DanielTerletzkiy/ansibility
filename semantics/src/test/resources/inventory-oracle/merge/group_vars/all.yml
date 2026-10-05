@@ -1,0 +1,4 @@
+config:
+  e: play-all
+  nested:
+    x: play

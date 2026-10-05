@@ -1,0 +1,61 @@
+---
+# Synthetic role spec written for the ArgSpecParser parity test (Ansibility test corpus).
+# Shapes: entry points without options, with `options: {}`, with a null description and without a
+# short description; options that are almost empty; a description given as an empty list.
+argument_specs:
+  main:
+    short_description: Baseline settings every host gets.
+    description:
+    version_added: "0.1.0"
+    options:
+      base_timezone:
+        type: str
+        default: Etc/UTC
+        description: System time zone.
+      base_locale:
+        description: System locale; the type defaults to C(str) and there is no default.
+      base_packages:
+        type: list
+        elements: str
+        default: [ca-certificates, curl, less]
+        description: Packages installed on every host.
+      base_sysctl:
+        type: dict
+        default:
+          vm.swappiness: 10
+          net.ipv4.ip_forward: 0
+        description: Kernel parameters, dotted names as plain keys.
+      base_ntp_servers:
+        type: list
+        elements: str
+        default: [ntp1.example.test, ntp2.example.test]
+        aliases: []
+        description: Time servers.
+      base_motd:
+        type: str
+        description: []
+      base_reboot_allowed:
+        type: bool
+      base_hosts_entries:
+        type: list
+        elements: dict
+        default:
+          - {address: 203.0.113.5, names: [repo.example.test]}
+        description: Static entries for C(/etc/hosts).
+        options:
+          address:
+            type: str
+            required: true
+            description: IPv4 or IPv6 address.
+          names:
+            type: list
+            elements: str
+            required: true
+            description: Host names of the address.
+  facts:
+    short_description: Gather custom facts only.
+    options: {}
+  noop:
+  describe:
+    description:
+      - An entry point with a description but no short description and no options.

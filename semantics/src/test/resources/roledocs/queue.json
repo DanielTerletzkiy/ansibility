@@ -1,0 +1,324 @@
+{
+    "queue": {
+        "collection": null,
+        "entry_points": {
+            "consumer": {
+                "options": {
+                    "queue_consumer_ack": {
+                        "choices": [
+                            "auto",
+                            "manual",
+                            "none"
+                        ],
+                        "default": "manual",
+                        "description": "Acknowledgement mode.",
+                        "type": "str"
+                    },
+                    "queue_consumer_dead_letter": {
+                        "description": "Dead-letter settings.",
+                        "options": {
+                            "exchange": {
+                                "description": "Exchange that receives rejected messages.",
+                                "type": "str"
+                            },
+                            "max_length": {
+                                "description": "Queue length limit.",
+                                "type": "int"
+                            },
+                            "ttl": {
+                                "description": "Milliseconds a message may wait before it is dead-lettered.",
+                                "type": "int"
+                            }
+                        },
+                        "required_together": [
+                            [
+                                "exchange",
+                                "ttl"
+                            ]
+                        ],
+                        "type": "dict"
+                    },
+                    "queue_consumer_prefetch": {
+                        "default": 10,
+                        "description": "Messages delivered before an acknowledgement is required.",
+                        "type": "int"
+                    }
+                },
+                "short_description": "Configure consumers and their dead-letter handling."
+            },
+            "main": {
+                "attributes": {
+                    "check_mode": {
+                        "description": "Can run in check mode.",
+                        "support": "full"
+                    }
+                },
+                "author": "Ansibility test corpus",
+                "description": [
+                    "Installs the C(mqd) broker and configures listeners, users and clustering.",
+                    "Exactly one of O(queue_password) and O(queue_password_file) must be set."
+                ],
+                "mutually_exclusive": [
+                    [
+                        "queue_password",
+                        "queue_password_file"
+                    ]
+                ],
+                "notes": [
+                    "The broker restarts when O(queue_mode) changes."
+                ],
+                "options": {
+                    "queue_cluster_name": {
+                        "aliases": [
+                            "cluster_name",
+                            "queue_cluster"
+                        ],
+                        "default": "demo",
+                        "deprecated_aliases": [
+                            {
+                                "collection_name": "ansibility.synthetic",
+                                "name": "cluster_name",
+                                "version": "2.0.0"
+                            },
+                            {
+                                "collection_name": "ansibility.synthetic",
+                                "date": "2027-03-31",
+                                "name": "queue_cluster"
+                            }
+                        ],
+                        "description": "Name shared by all peers of one cluster.",
+                        "type": "str"
+                    },
+                    "queue_federation": {
+                        "default": false,
+                        "description": "Federate exchanges with the peers.",
+                        "type": "bool",
+                        "version_added": "1.3.0"
+                    },
+                    "queue_listeners": {
+                        "default": [
+                            {
+                                "port": 5670,
+                                "protocol": "amqp"
+                            }
+                        ],
+                        "description": "Listening sockets.",
+                        "elements": "dict",
+                        "options": {
+                            "bind": {
+                                "aliases": [
+                                    "address"
+                                ],
+                                "default": "0.0.0.0",
+                                "description": "Bind address.",
+                                "type": "str"
+                            },
+                            "port": {
+                                "description": "TCP port.",
+                                "required": true,
+                                "type": "int"
+                            },
+                            "protocol": {
+                                "choices": [
+                                    "amqp",
+                                    "mqtt",
+                                    "stomp"
+                                ],
+                                "default": "amqp",
+                                "description": "Wire protocol.",
+                                "type": "str"
+                            }
+                        },
+                        "type": "list"
+                    },
+                    "queue_mirror_of": {
+                        "description": "Cluster mirrored when O(queue_mode=mirror).",
+                        "type": "str",
+                        "version_added": "1.2.0"
+                    },
+                    "queue_mode": {
+                        "choices": [
+                            "single",
+                            "cluster",
+                            "mirror"
+                        ],
+                        "default": "single",
+                        "description": "Deployment shape of the broker.",
+                        "type": "str"
+                    },
+                    "queue_password": {
+                        "description": "Password of the administrative user.",
+                        "no_log": true,
+                        "type": "str"
+                    },
+                    "queue_password_file": {
+                        "description": "File holding the password of the administrative user.",
+                        "type": "path"
+                    },
+                    "queue_peers": {
+                        "default": [],
+                        "description": "Other brokers, for example V(mq2.example.test).",
+                        "elements": "str",
+                        "type": "list"
+                    },
+                    "queue_tls_ca": {
+                        "description": "CA bundle used to verify peers.",
+                        "type": "path"
+                    },
+                    "queue_tls_cert": {
+                        "description": "Server certificate.",
+                        "type": "path"
+                    },
+                    "queue_tls_key": {
+                        "description": "Private key of O(queue_tls_cert).",
+                        "no_log": false,
+                        "type": "path"
+                    },
+                    "queue_vhosts": {
+                        "default": [
+                            {
+                                "name": "/"
+                            }
+                        ],
+                        "description": "Virtual hosts and their permissions.",
+                        "elements": "dict",
+                        "options": {
+                            "name": {
+                                "description": "Virtual host name.",
+                                "required": true,
+                                "type": "str"
+                            },
+                            "permissions": {
+                                "default": [],
+                                "description": "User permissions in this virtual host.",
+                                "elements": "dict",
+                                "options": {
+                                    "configure": {
+                                        "default": ".*",
+                                        "description": "Regular expression of configurable resources.",
+                                        "type": "str"
+                                    },
+                                    "read": {
+                                        "default": ".*",
+                                        "description": "Regular expression of readable resources.",
+                                        "type": "str"
+                                    },
+                                    "user": {
+                                        "description": "User name.",
+                                        "required": true,
+                                        "type": "str"
+                                    },
+                                    "write": {
+                                        "default": ".*",
+                                        "description": "Regular expression of writable resources.",
+                                        "type": "str"
+                                    }
+                                },
+                                "type": "list"
+                            }
+                        },
+                        "type": "list"
+                    }
+                },
+                "required_by": {
+                    "queue_federation": [
+                        "queue_peers",
+                        "queue_cluster_name"
+                    ],
+                    "queue_tls_cert": "queue_tls_ca"
+                },
+                "required_if": [
+                    [
+                        "queue_mode",
+                        "cluster",
+                        [
+                            "queue_peers"
+                        ]
+                    ],
+                    [
+                        "queue_mode",
+                        "mirror",
+                        [
+                            "queue_peers",
+                            "queue_mirror_of"
+                        ],
+                        true
+                    ]
+                ],
+                "required_one_of": [
+                    [
+                        "queue_password",
+                        "queue_password_file"
+                    ]
+                ],
+                "required_together": [
+                    [
+                        "queue_tls_cert",
+                        "queue_tls_key"
+                    ]
+                ],
+                "requirements": [
+                    "A systemd based distribution."
+                ],
+                "seealso": [
+                    {
+                        "module": "ansible.builtin.service"
+                    },
+                    {
+                        "description": "How peers find each other.",
+                        "link": "https://docs.example.test/mqd/clustering",
+                        "name": "Clustering guide"
+                    }
+                ],
+                "short_description": "Message broker with optional clustering.",
+                "version_added": "1.0.0"
+            },
+            "producer": {
+                "description": [
+                    "Writes C(/etc/mqd/producer.d/*.conf) files."
+                ],
+                "options": {
+                    "queue_producer_targets": {
+                        "description": "Exchanges an application publishes to.",
+                        "elements": "dict",
+                        "options": {
+                            "confirm": {
+                                "default": true,
+                                "description": "Wait for publisher confirms.",
+                                "type": "bool"
+                            },
+                            "delivery_mode": {
+                                "choices": [
+                                    1,
+                                    2
+                                ],
+                                "default": 2,
+                                "description": "V(1) is transient, V(2) is persistent.",
+                                "type": "int"
+                            },
+                            "exchange": {
+                                "description": "Exchange name.",
+                                "required": true,
+                                "type": "str"
+                            },
+                            "routing_key": {
+                                "default": "",
+                                "description": "Routing key; empty for fan-out exchanges.",
+                                "type": "str"
+                            }
+                        },
+                        "required": true,
+                        "type": "list"
+                    },
+                    "queue_producer_url": {
+                        "default": "amqp://mq.example.test:5670/",
+                        "description": "Broker URL used by the producers.",
+                        "type": "str"
+                    }
+                },
+                "short_description": "Configure the client side of applications that publish messages."
+            }
+        },
+        "path": "semantics/src/test/resources/argspecs/queue"
+    }
+}

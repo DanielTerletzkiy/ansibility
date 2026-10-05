@@ -109,7 +109,9 @@ abstract class VarsTestCase : BasePlatformTestCase() {
         const val VARS_DATA = "vars"
         val SECTIONS = arrayOf(
             "Type", "Required", "Default (spec)", "Runtime default", "Choices", "Aliases", "Options", "Declared by",
-            "Set in", "This definition",
+            "Set in", "This definition", "Used in",
+            // Rows other areas contribute after the built-in ones (host awareness, F8.2).
+            "Effect",
         )
 
         fun plain(html: String): String {

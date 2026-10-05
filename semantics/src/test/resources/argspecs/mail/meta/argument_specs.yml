@@ -1,0 +1,103 @@
+---
+# Synthetic role spec written for the ArgSpecParser parity test (Ansibility test corpus).
+# Shapes: null, empty-string, empty-list and empty-dict defaults, a templated default, `!unsafe`, YAML 1.1 flag
+# spellings (yes, True, on), a quoted type name, options without `type` or `description`, and a `...` end marker.
+argument_specs:
+  main:
+    short_description: Outbound mail relay for application hosts.
+    description: Configures the C(smtpd) relay so that local mail leaves through O(mail_relay_host).
+    options:
+      mail_hostname:
+        type: str
+        default: "{{ inventory_hostname }}"
+        description: Host name announced in C(HELO).
+      mail_domain:
+        type: 'str'
+        default: example.test
+        description: Domain appended to unqualified addresses.
+      mail_relay_host:
+        type: str
+        required: yes
+        description: Next hop, for example V([smtp.example.test]:587).
+      mail_fallback_relay:
+        type: str
+        default: ~
+        description: Relay tried when O(mail_relay_host) fails; none by default.
+      mail_networks:
+        type: list
+        elements: str
+        default:
+          - 127.0.0.0/8
+          - 192.0.2.0/24
+          - 198.51.100.0/24
+        description: Client networks allowed to relay.
+      mail_relay_auth:
+        type: dict
+        description: SMTP authentication at the relay.
+        required_together:
+          - [user, password]
+        options:
+          user:
+            type: str
+            description: Login name.
+          password:
+            type: str
+            no_log: True
+            description: Password.
+          mechanism:
+            type: str
+            choices: [plain, login, cram-md5]
+            default: plain
+            description: SASL mechanism.
+      mail_aliases:
+        type: dict
+        default:
+          postmaster: root
+          abuse: postmaster
+          root: ops@example.test
+        description: Local aliases (alias to target).
+      mail_transport_maps:
+        type: list
+        elements: dict
+        default: []
+        description: Per-domain next hops.
+        options:
+          domain:
+            type: str
+            required: on
+            description: Recipient domain, for example V(partner.example.test).
+          nexthop:
+            type: str
+            required: true
+            description: Transport and host, for example V(smtp:[203.0.113.25]:25).
+      mail_tls_policy:
+        type: str
+        choices: [none, may, encrypt, dane]
+        default: may
+        description: TLS policy towards the relay.
+      mail_message_size_limit:
+        type: int
+        default: 10240000
+        description: Largest accepted message in bytes.
+      mail_banner:
+        default: ""
+        description: Text after the host name in the greeting; the type defaults to C(str).
+      mail_header_checks:
+        type: dict
+        default: {}
+        description: Header regular expression to action.
+      mail_recipient_bcc:
+        type: list
+        elements: str
+        default: []
+      mail_bounce_footer:
+        type: str
+        default: !unsafe "Reply to {{ sender }} if this was a mistake."
+        description: Footer of bounce messages, written verbatim; C(!unsafe) keeps it from being templated.
+      mail_inet_protocols:
+        type: str
+        choices: [all, ipv4, ipv6]
+        default: all
+        required: false
+        description:
+...

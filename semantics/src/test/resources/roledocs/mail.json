@@ -1,0 +1,148 @@
+{
+    "mail": {
+        "collection": null,
+        "entry_points": {
+            "main": {
+                "description": "Configures the C(smtpd) relay so that local mail leaves through O(mail_relay_host).",
+                "options": {
+                    "mail_aliases": {
+                        "default": {
+                            "abuse": "postmaster",
+                            "postmaster": "root",
+                            "root": "ops@example.test"
+                        },
+                        "description": "Local aliases (alias to target).",
+                        "type": "dict"
+                    },
+                    "mail_banner": {
+                        "default": "",
+                        "description": "Text after the host name in the greeting; the type defaults to C(str)."
+                    },
+                    "mail_bounce_footer": {
+                        "default": "Reply to {{ sender }} if this was a mistake.",
+                        "description": "Footer of bounce messages, written verbatim; C(!unsafe) keeps it from being templated.",
+                        "type": "str"
+                    },
+                    "mail_domain": {
+                        "default": "example.test",
+                        "description": "Domain appended to unqualified addresses.",
+                        "type": "str"
+                    },
+                    "mail_fallback_relay": {
+                        "default": null,
+                        "description": "Relay tried when O(mail_relay_host) fails; none by default.",
+                        "type": "str"
+                    },
+                    "mail_header_checks": {
+                        "default": {},
+                        "description": "Header regular expression to action.",
+                        "type": "dict"
+                    },
+                    "mail_hostname": {
+                        "default": "{{ inventory_hostname }}",
+                        "description": "Host name announced in C(HELO).",
+                        "type": "str"
+                    },
+                    "mail_inet_protocols": {
+                        "choices": [
+                            "all",
+                            "ipv4",
+                            "ipv6"
+                        ],
+                        "default": "all",
+                        "description": null,
+                        "required": false,
+                        "type": "str"
+                    },
+                    "mail_message_size_limit": {
+                        "default": 10240000,
+                        "description": "Largest accepted message in bytes.",
+                        "type": "int"
+                    },
+                    "mail_networks": {
+                        "default": [
+                            "127.0.0.0/8",
+                            "192.0.2.0/24",
+                            "198.51.100.0/24"
+                        ],
+                        "description": "Client networks allowed to relay.",
+                        "elements": "str",
+                        "type": "list"
+                    },
+                    "mail_recipient_bcc": {
+                        "default": [],
+                        "elements": "str",
+                        "type": "list"
+                    },
+                    "mail_relay_auth": {
+                        "description": "SMTP authentication at the relay.",
+                        "options": {
+                            "mechanism": {
+                                "choices": [
+                                    "plain",
+                                    "login",
+                                    "cram-md5"
+                                ],
+                                "default": "plain",
+                                "description": "SASL mechanism.",
+                                "type": "str"
+                            },
+                            "password": {
+                                "description": "Password.",
+                                "no_log": true,
+                                "type": "str"
+                            },
+                            "user": {
+                                "description": "Login name.",
+                                "type": "str"
+                            }
+                        },
+                        "required_together": [
+                            [
+                                "user",
+                                "password"
+                            ]
+                        ],
+                        "type": "dict"
+                    },
+                    "mail_relay_host": {
+                        "description": "Next hop, for example V([smtp.example.test]:587).",
+                        "required": true,
+                        "type": "str"
+                    },
+                    "mail_tls_policy": {
+                        "choices": [
+                            "none",
+                            "may",
+                            "encrypt",
+                            "dane"
+                        ],
+                        "default": "may",
+                        "description": "TLS policy towards the relay.",
+                        "type": "str"
+                    },
+                    "mail_transport_maps": {
+                        "default": [],
+                        "description": "Per-domain next hops.",
+                        "elements": "dict",
+                        "options": {
+                            "domain": {
+                                "description": "Recipient domain, for example V(partner.example.test).",
+                                "required": true,
+                                "type": "str"
+                            },
+                            "nexthop": {
+                                "description": "Transport and host, for example V(smtp:[203.0.113.25]:25).",
+                                "required": true,
+                                "type": "str"
+                            }
+                        },
+                        "type": "list"
+                    }
+                },
+                "short_description": "Outbound mail relay for application hosts."
+            }
+        },
+        "path": "semantics/src/test/resources/argspecs/mail"
+    }
+}

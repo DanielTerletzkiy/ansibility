@@ -1,0 +1,145 @@
+---
+# Synthetic role spec written for the ArgSpecParser parity test (Ansibility test corpus).
+# Shapes: list elements str with choices, nested lists of dicts, aliases on sub-options, version_added on
+# sub-options, float defaults, YAML 1.1 booleans spelled False/yes, and a second entry point.
+argument_specs:
+  main:
+    short_description: Local groups, accounts, SSH keys and sudo rules.
+    description:
+      - Creates the groups in O(users_groups) first and the accounts in O(users_accounts) after them.
+      - Accounts not listed are left alone unless O(users_purge=true).
+    options:
+      users_default_shell:
+        type: path
+        default: /bin/bash
+        description: Shell of accounts that do not set O(users_accounts[].shell).
+      users_manage_home:
+        type: bool
+        default: yes
+        description: Create home directories.
+      users_purge:
+        type: bool
+        default: False
+        description: Remove accounts with a UID of at least O(users_uid_min) that are not listed.
+      users_uid_min:
+        type: int
+        default: 1000
+        description: Lowest UID managed by the role.
+      users_allowed_login_methods:
+        type: list
+        elements: str
+        choices: [password, publickey, keyboard-interactive]
+        default: [publickey]
+        description: SSH authentication methods offered to managed accounts.
+      users_groups:
+        type: list
+        elements: dict
+        default: []
+        description: Groups to create.
+        options:
+          name:
+            type: str
+            required: true
+            description: Group name.
+          gid:
+            type: int
+            description: Numeric group id.
+          system:
+            type: bool
+            default: false
+            description: Create a system group.
+      users_accounts:
+        type: list
+        elements: dict
+        default: []
+        description: Accounts to manage.
+        options:
+          name:
+            type: str
+            required: true
+            aliases: [user, login]
+            description: Login name.
+          uid:
+            type: int
+            description: Numeric user id.
+          comment:
+            type: str
+            default: ""
+            description: GECOS field.
+          shell:
+            type: str
+            choices: [/bin/bash, /bin/sh, /usr/sbin/nologin]
+            description: Login shell.
+          groups:
+            type: list
+            elements: str
+            default: []
+            description: Supplementary groups.
+          password:
+            type: str
+            no_log: true
+            description: Password hash.
+          expires:
+            type: float
+            default: -1.0
+            version_added: "1.1.0"
+            description: Expiry as seconds since the epoch; V(-1.0) never expires.
+          state:
+            type: str
+            choices: [present, absent, locked]
+            default: present
+            description: Whether the account exists and may log in.
+          ssh_keys:
+            type: list
+            elements: dict
+            default: []
+            description: Authorized keys of the account.
+            options:
+              key:
+                type: str
+                required: true
+                description: Public key line, for example V(ssh-ed25519 AAAA... demo@example.test).
+              options:
+                type: list
+                elements: str
+                default: []
+                description: Key options such as V(from="192.0.2.0/24").
+              exclusive:
+                type: bool
+                default: false
+                version_added: "1.2.0"
+                description: Remove keys that are not listed.
+          sudo:
+            type: dict
+            description: Sudo rule of the account.
+            options:
+              commands:
+                type: list
+                elements: str
+                default: [ALL]
+                description: Commands the account may run.
+              nopasswd:
+                type: bool
+                default: false
+                description: Allow the commands without a password.
+              run_as:
+                type: str
+                default: root
+                aliases: [runas]
+                description: Target user.
+  remove:
+    short_description: Remove accounts and optionally their home directories.
+    options:
+      users_remove:
+        type: list
+        elements: str
+        required: true
+        description: Login names to remove.
+      users_remove_home:
+        type: bool
+        default: false
+        description: Also delete the home directories.
+      users_remove_grace_days:
+        type: int
+        default: 0
+        description: Days to keep a locked account before it is deleted.

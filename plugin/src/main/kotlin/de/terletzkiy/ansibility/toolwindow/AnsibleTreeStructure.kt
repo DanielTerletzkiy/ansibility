@@ -9,6 +9,7 @@ import com.intellij.openapi.util.text.HtmlBuilder
 import com.intellij.ui.SimpleTextAttributes
 import com.intellij.ui.tree.LeafState
 import de.terletzkiy.ansibility.toolwindow.model.AnsibleTreeNode
+import de.terletzkiy.ansibility.toolwindow.model.NodeStyle
 import de.terletzkiy.ansibility.toolwindow.model.TreeContext
 import de.terletzkiy.ansibility.toolwindow.model.WorkspaceNode
 import de.terletzkiy.ansibility.toolwindow.model.WorkspaceSnapshot
@@ -38,7 +39,17 @@ class AnsibleTreeStructure(private val project: Project, private val context: Tr
 
     override fun isAlwaysLeaf(element: Any): Boolean = (element as? AnsibleTreeNode)?.isLeaf == true
 
-    override fun getLeafState(element: Any): LeafState = if (isAlwaysLeaf(element)) LeafState.ALWAYS else LeafState.DEFAULT
+    /**
+     * [LeafState.NEVER] for nodes whose children are loaded only when they are expanded ([AnsibleTreeNode.childrenOnDemand]:
+     * a host's Effective vars and Targeted by compute that host's models). The tree then never loads their children to
+     * find out whether they have any, so listing hosts computes none of them. Every other node is a leaf exactly when it
+     * has no children ([LeafState.DEFAULT]).
+     */
+    override fun getLeafState(element: Any): LeafState = when {
+        isAlwaysLeaf(element) -> LeafState.ALWAYS
+        (element as? AnsibleTreeNode)?.childrenOnDemand == true -> LeafState.NEVER
+        else -> LeafState.DEFAULT
+    }
 
     override fun commit() = Unit
 
@@ -46,8 +57,10 @@ class AnsibleTreeStructure(private val project: Project, private val context: Tr
 }
 
 /**
- * Renders one [AnsibleTreeNode]: icon, name, the grey extra text and an HTML tooltip. Double-click expands only
- * container nodes; nodes with a navigation target open it instead (plan F6.3).
+ * Renders one [AnsibleTreeNode]: icon, name (bold or struck through by [NodeStyle]), the badge, the grey extra text and
+ * an HTML tooltip. Double-click expands only container nodes; nodes with a navigation target open it instead (plan
+ * F6.3). [update] runs on the tree's background thread; [toString] (speed search) returns the name it computed, so the
+ * EDT never computes a presentation.
  */
 class AnsibleNodeDescriptor(
     project: Project,
@@ -56,11 +69,16 @@ class AnsibleNodeDescriptor(
 ) : PresentableNodeDescriptor<AnsibleTreeNode>(project, parent) {
     override fun getElement(): AnsibleTreeNode = node
 
+    @Volatile
+    private var name: String = ""
+
     override fun update(presentation: PresentationData) {
         val model = node.presentation()
+        name = model.name
         presentation.setIcon(AnsibilityToolWindowIcons.of(model.icon))
         presentation.presentableText = model.name
-        presentation.addText(model.name, SimpleTextAttributes.REGULAR_ATTRIBUTES)
+        presentation.addText(model.name, nameAttributes(model.style))
+        model.badge?.takeIf { it.isNotEmpty() }?.let { presentation.addText("  $it", SimpleTextAttributes.REGULAR_ATTRIBUTES) }
         model.extra?.takeIf { it.isNotEmpty() }?.let { presentation.addText("  $it", SimpleTextAttributes.GRAYED_ATTRIBUTES) }
         if (model.tooltip.isNotEmpty()) {
             val html = HtmlBuilder()
@@ -74,5 +92,15 @@ class AnsibleNodeDescriptor(
 
     override fun expandOnDoubleClick(): Boolean = !node.navigatesOnDoubleClick
 
-    override fun toString(): String = node.presentation().name
+    override fun toString(): String = name
+
+    private companion object {
+        val STRUCK: SimpleTextAttributes = SimpleTextAttributes(SimpleTextAttributes.STYLE_STRIKEOUT, null)
+
+        fun nameAttributes(style: NodeStyle): SimpleTextAttributes = when (style) {
+            NodeStyle.NORMAL -> SimpleTextAttributes.REGULAR_ATTRIBUTES
+            NodeStyle.EMPHASIZED -> SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES
+            NodeStyle.STRUCK -> STRUCK
+        }
+    }
 }

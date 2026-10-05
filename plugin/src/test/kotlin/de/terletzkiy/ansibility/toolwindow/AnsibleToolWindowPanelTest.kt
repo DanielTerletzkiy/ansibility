@@ -68,6 +68,8 @@ class AnsibleToolWindowPanelTest : ToolWindowTestCase() {
             ?: error("no ${names.joinToString(" › ")} in\n${PlatformTestUtil.print(panel.tree, false)}")
         PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
         assertEquals(found, panel.tree.selectionPath)
+        // The details are computed in a background read action; wait until the pane shows this node's.
+        PlatformTestUtil.waitWithEventsDispatching("no details for ${names.joinToString(" › ")}", { panel.detailsNode?.key == key }, TIMEOUT_SECONDS)
         return found
     }
 

@@ -24,4 +24,58 @@
         <platform.backend.documentation.linkHandler
                 implementation="de.terletzkiy.ansibility.vars.VarDocumentationLinkHandler"/>
     </extensions>
+
+    <!-- fu1 -->
+    <!-- F1.10 (plan amendment FU): Find Usages (Alt+F7), Show Usages (Ctrl+Alt+F7, and Ctrl+B on a role's own
+         declaration), Highlight Usages in File (Ctrl+Shift+F7) and the caret highlighting of variables, through the
+         classic API around one search target per variable (vars.usages.VarSymbolElement). -->
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- The target at the caret, in host and injected editors; the platform uses the first target only. -->
+        <usageTargetProvider id="ansibilityVars" order="first"
+                             implementation="de.terletzkiy.ansibility.vars.usages.VarUsageTargetProvider"/>
+        <!-- Our targets, and the YAMLKeyValue of a variable key (Ctrl+B's show-usages outcome, D-FU1/D-FU2). -->
+        <findUsagesHandlerFactory id="ansibilityVars" order="first"
+                                  implementation="de.terletzkiy.ansibility.vars.usages.VarFindUsagesHandlerFactory"/>
+        <!-- Ctrl+Shift+F7 and the caret highlighting (one handler serves both). -->
+        <highlightUsagesHandlerFactory id="ansibilityVars" order="first"
+                                       implementation="de.terletzkiy.ansibility.vars.usages.VarHighlightUsagesHandlerFactory"/>
+        <!-- Find tool window groups: Read: …, Set: …, Spec: argument spec. -->
+        <usageTypeProvider id="ansibilityVars" order="first"
+                           implementation="de.terletzkiy.ansibility.vars.usages.VarUsageTypeProvider"/>
+        <!-- Read/write icons, filters and highlight colours. -->
+        <readWriteAccessDetector id="ansibilityVars" order="first"
+                                 implementation="de.terletzkiy.ansibility.vars.usages.VarReadWriteAccessDetector"/>
+        <!-- "variable" in the usage view and the dialog; "Variable name · root" as the target node. -->
+        <elementDescriptionProvider id="ansibilityVars" order="first"
+                                    implementation="de.terletzkiy.ansibility.vars.usages.VarElementDescriptionProvider"/>
+        <!-- The card's Show usages link. -->
+        <platform.backend.documentation.linkHandler
+                implementation="de.terletzkiy.ansibility.vars.usages.UsagesCardLinkHandler"/>
+    </extensions>
+
+    <extensions defaultExtensionNs="de.terletzkiy.ansibility">
+        <!-- D-FU7: the card's "Used in" row on every variable card. -->
+        <cardSection id="ansibilityUsages" order="last"
+                     implementation="de.terletzkiy.ansibility.vars.usages.UsagesCardSection"/>
+    </extensions>
+    <!-- /fu1 -->
+
+    <!-- rv1 -->
+    <!-- WU RV1 (plan amendment FU, F1.12): typed register results. Member cards and Ctrl+B to the return value's docs
+         run before the variable card and targets, which keep the registered variable itself and undocumented members;
+         the variable card gets the "Result of" rows after the ANS-V003 rows. -->
+    <extensions defaultExtensionNs="de.terletzkiy.ansibility">
+        <siteDocumentation id="ansibilityRegistered" order="before ansibilityVars"
+                           implementation="de.terletzkiy.ansibility.vars.registered.RegisteredSiteDocumentation"/>
+        <siteNavigation id="ansibilityRegistered" order="before ansibilityVars"
+                        implementation="de.terletzkiy.ansibility.vars.registered.RegisteredNavigation"/>
+        <cardSection id="ansibilityRegistered" order="after ansibilityUndefined"
+                     implementation="de.terletzkiy.ansibility.vars.registered.RegisteredCardSection"/>
+    </extensions>
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- "Set by" and M() links inside registered member cards. -->
+        <platform.backend.documentation.linkHandler
+                implementation="de.terletzkiy.ansibility.vars.registered.RegisteredDocumentationLinkHandler"/>
+    </extensions>
+    <!-- /rv1 -->
 </idea-plugin>

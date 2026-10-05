@@ -1,11 +1,16 @@
 package de.terletzkiy.ansibility.toolwindow.model
 
+import com.intellij.openapi.diagnostic.logger
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import de.terletzkiy.ansibility.api.InventoryGroup
 import de.terletzkiy.ansibility.api.InventoryHost
+import de.terletzkiy.ansibility.api.PlayGraph
 import de.terletzkiy.ansibility.api.PlayInfo
 import de.terletzkiy.ansibility.api.RootKind
+import de.terletzkiy.ansibility.api.ToolWindowNodeContributor
 import de.terletzkiy.ansibility.context.AnsibleLayout
+import de.terletzkiy.ansibility.context.host.PlayMatch
 import de.terletzkiy.ansibility.toolwindow.AnsibilityToolWindowBundle.message
 import de.terletzkiy.ansibility.toolwindow.model.ToolWindowTexts.coreText
 import de.terletzkiy.ansibility.toolwindow.model.ToolWindowTexts.joinCapped
@@ -15,17 +20,28 @@ import org.jetbrains.annotations.Nls
 enum class NodeIcon {
     WORKSPACE, PROJECT_ROOT, ROLE_LIBRARY, NESTED_ROOT, WORKTREE, FOLDER, ENVIRONMENT, GROUP, HOST,
     VAR_FILE, VAULT_FILE, INLINE_VARS, CONFIG, PLAYBOOK, PLAY,
+
+    /** HA7: a variable of a host's Effective vars, a definition it shadows, a role a play applies, a runtime marker. */
+    VARIABLE, SHADOWED, ROLE, RUNTIME,
 }
 
-/** How a node renders: [name] in the regular colour, [extra] in grey after it, [tooltip] lines on hover. */
+/** How the name of a node is drawn: regular, bold (the selected environment of a play), struck through (a shadowed definition). */
+enum class NodeStyle { NORMAL, EMPHASIZED, STRUCK }
+
+/**
+ * How a node renders: [name] in the regular colour (bold or struck through by [style]), an optional [badge] after it in
+ * the regular colour (a host's address), [extra] in grey after that, [tooltip] lines on hover.
+ */
 data class NodePresentation(
     @Nls val name: String,
     @Nls val extra: String? = null,
     val tooltip: List<String> = emptyList(),
     val icon: NodeIcon,
+    val style: NodeStyle = NodeStyle.NORMAL,
+    @Nls val badge: String? = null,
 ) {
-    /** The row as one string (name, two spaces, extra), for speed search and tests. */
-    val text: String get() = if (extra.isNullOrEmpty()) name else "$name  $extra"
+    /** The row as one string (name, badge and extra separated by two spaces), for speed search and tests. */
+    val text: String get() = listOfNotNull(name, badge?.takeIf { it.isNotEmpty() }, extra?.takeIf { it.isNotEmpty() }).joinToString("  ")
 }
 
 /**
@@ -50,6 +66,12 @@ fun interface TreeContext {
 abstract class AnsibleTreeNode(val parent: AnsibleTreeNode?, segment: String) {
     val key: String = if (parent == null) segment else "${parent.key}/$segment"
 
+    /**
+     * The project the tree shows, found through the parent chain (the [WorkspaceNode] holds it); null for synthetic
+     * snapshots in tests. Nodes that ask the Ansible services (HA7: effective vars, play matches, reach) use it.
+     */
+    open val project: Project? get() = parent?.project
+
     abstract fun presentation(): NodePresentation
 
     /** Where double-click, Enter or F4 jumps to (plan F6.3), or null for pure containers. */
@@ -60,6 +82,19 @@ abstract class AnsibleTreeNode(val parent: AnsibleTreeNode?, segment: String) {
 
     /** True for nodes that never have children. */
     open val isLeaf: Boolean get() = false
+
+    /**
+     * True for nodes whose children are loaded only when the node is expanded, never to find out whether it has any
+     * (host nodes: their contributed children compute per-host models).
+     */
+    open val childrenOnDemand: Boolean get() = false
+
+    /**
+     * False for nodes that the toolbar's Expand All leaves collapsed: their subtree is computed per host and large (a
+     * host's Effective vars and Targeted by, a few hundred rows each, under every group the host is in). The node
+     * itself still shows; expanding it by hand loads its children as usual.
+     */
+    open val expandsWithAll: Boolean get() = true
 
     abstract fun children(context: TreeContext): List<AnsibleTreeNode>
 
@@ -75,6 +110,8 @@ abstract class AnsibleTreeNode(val parent: AnsibleTreeNode?, segment: String) {
 
 /** The invisible root: one node per non-detached root, then one per detached worktree. */
 class WorkspaceNode(val snapshot: WorkspaceSnapshot) : AnsibleTreeNode(null, "workspace") {
+    override val project: Project? get() = snapshot.project
+
     override fun presentation() = NodePresentation(message("toolwindow.title"), icon = NodeIcon.WORKSPACE)
 
     override fun children(context: TreeContext): List<AnsibleTreeNode> =
@@ -111,7 +148,7 @@ class RootNode(parent: AnsibleTreeNode, val root: RootSnapshot) : AnsibleTreeNod
             RootKind.ROLE_LIBRARY -> Unit
         }
         if (root.playbooks.isNotEmpty()) add(PlaybooksNode(this@RootNode, root))
-    }
+    }.withContributions(this)
 
     override fun details(): NodeDetails = ToolWindowDetails.root(root)
 }
@@ -194,7 +231,7 @@ class EnvironmentNode(parent: AnsibleTreeNode, val env: EnvironmentView) : Ansib
     override fun children(context: TreeContext): List<AnsibleTreeNode> = buildList {
         add(GroupsNode(this@EnvironmentNode, env))
         if (env.inventory.hosts.isNotEmpty()) add(HostsNode(this@EnvironmentNode, env))
-    }
+    }.withContributions(this)
 
     override fun details(): NodeDetails = ToolWindowDetails.environment(env)
 }
@@ -263,22 +300,28 @@ class GroupNode(
             env.childrenOf(group).filter { it.name !in ancestors && it.name != group.name }.map { GroupNode(this, env, it, ancestors + group.name) }
         }
         val hosts = group.hosts.mapNotNull(env::host).map { HostNode(this, env, it) }
-        return sources + children + hosts
+        return (sources + children + hosts).withContributions(this)
     }
 
-    override fun details(): NodeDetails = ToolWindowDetails.group(env, group)
+    /** The group's details with its reach (HA7b: the plays and roles that run on its hosts) when the services are there. */
+    override fun details(): NodeDetails = ToolWindowDetails.group(env, group, project?.let { GroupReach.of(it, env, group) })
 }
 
 /**
- * A host: `prod-prod1  192.0.2.29 · inline (2): ansible_host, ansible_user · groups: all, app_mono, …`. The inline var
- * keys of `hosts.yml` are counted and named when there is one besides `ansible_host`, which the address already shows;
- * children are its sources in load order (the inline vars as level 8).
+ * A host: `prod-prod1  192.0.2.29  inline (2): ansible_host, ansible_user · groups: all, app_mono, …`. The address is a
+ * badge in the regular colour (HA7a): a templated `ansible_host` is evaluated with the root's playbook dir and its
+ * template follows in grey, a shared address says `1 of 7 names on …`, and an address the vault-safe preview rule
+ * hides (written in a vault file, or templated through a `vault_*` name) reads `🔒 address hidden`. The inline var
+ * keys of `hosts.yml` are counted and named when there is one besides `ansible_host`, which the address already shows.
+ * Children are its sources in load order (the inline vars as level 8), then the contributed nodes (Effective vars,
+ * Targeted by).
  */
 class HostNode(parent: AnsibleTreeNode, val env: EnvironmentView, val host: InventoryHost) : AnsibleTreeNode(parent, "host:${host.name}") {
     override fun presentation(): NodePresentation {
+        val badge = HostBadge.of(project, env, host)
         val inline = host.inlineVarKeys.takeIf { keys -> keys.any { it != ANSIBLE_HOST } }?.let { message("host.inline", it.size, joinCapped(it, MAX_INLINE)) }
-        val extra = listOfNotNull(host.ansibleHost, inline, message("host.groups", joinCapped(host.groups, MAX_GROUPS))).joinToString(SEPARATOR)
-        return NodePresentation(host.name, extra, listOf(message("host.tooltip", host.name, env.name)), NodeIcon.HOST)
+        val extra = listOfNotNull(badge.template, badge.shared, inline, message("host.groups", joinCapped(host.groups, MAX_GROUPS))).joinToString(SEPARATOR)
+        return NodePresentation(host.name, extra, listOf(message("host.tooltip", host.name, env.name)), NodeIcon.HOST, badge = badge.address)
     }
 
     /** The host entry in `hosts.yml` (`all.hosts` preferred). */
@@ -286,9 +329,13 @@ class HostNode(parent: AnsibleTreeNode, val env: EnvironmentView, val host: Inve
 
     override val navigatesOnDoubleClick: Boolean get() = true
 
-    override fun children(context: TreeContext): List<AnsibleTreeNode> = env.sourcesOf(host).map { LayerSourceNode(this, env.root, env, it) }
+    /** Effective vars and Targeted by compute this host's models, so they load when the host is expanded. */
+    override val childrenOnDemand: Boolean get() = true
 
-    override fun details(): NodeDetails = ToolWindowDetails.host(env, host)
+    override fun children(context: TreeContext): List<AnsibleTreeNode> =
+        env.sourcesOf(host).map { LayerSourceNode(this, env.root, env, it) }.withContributions(this)
+
+    override fun details(): NodeDetails = ToolWindowDetails.host(env, host, HostBadge.of(project, env, host))
 }
 
 /**
@@ -336,10 +383,14 @@ class LayerSourceNode(
 
     override fun children(context: TreeContext): List<AnsibleTreeNode> = emptyList()
 
-    override fun details(): NodeDetails = ToolWindowDetails.source(root, env, source)
+    /** The source's details; a var file's also say what it achieves on its hosts (HA7b) when the services are there. */
+    override fun details(): NodeDetails {
+        val effect = (source as? LayerSource.File)?.let { file -> project?.let { VarFileEffect.of(it, root, file.varFile) } }
+        return ToolWindowDetails.source(root, env, source, effect)
+    }
 }
 
-/** The playbooks of a root (names only in v1). */
+/** The playbooks of a root; each lists its plays, and each play where it runs (HA7b). */
 class PlaybooksNode(parent: AnsibleTreeNode, val root: RootSnapshot) : AnsibleTreeNode(parent, "playbooks") {
     override fun presentation() = NodePresentation(message("playbooks.name"), root.playbooks.size.toString(), icon = NodeIcon.FOLDER)
 
@@ -355,24 +406,58 @@ class PlaybookNode(parent: AnsibleTreeNode, val root: RootSnapshot, val file: Vi
 
     override fun children(context: TreeContext): List<AnsibleTreeNode> = context.playsOf(file).map { PlayNode(this, root, it) }
 
-    override fun details(): NodeDetails = ToolWindowDetails.playbook(root, file)
+    /** The playbook's details with its plays and where each runs (HA7b). */
+    override fun details(): NodeDetails {
+        val plays = project?.let { p -> PlayGraph.getInstance(p).playsOf(file).map { it to PlayMatches.of(p, root, it.ref) } }.orEmpty()
+        return ToolWindowDetails.playbook(root, file, plays)
+    }
 }
 
-/** One play: its name and its `hosts:` pattern as written. */
+/**
+ * One play: its name, its `hosts:` pattern as written and how many hosts it matches (HA7b). Children: the matched hosts
+ * per environment (the selected environment of the Ansible context in bold), the environments it matches nothing in,
+ * then the roles it applies in execution order.
+ */
 class PlayNode(parent: AnsibleTreeNode, val root: RootSnapshot, val play: PlayInfo) : AnsibleTreeNode(parent, "play:${play.ref.playIndex}") {
     @get:Nls
     val name: String get() = play.ref.name?.takeIf { it.isNotBlank() } ?: message("play.unnamed", play.ref.playIndex + 1)
 
-    override fun presentation() = NodePresentation(name, play.ref.hostsPattern?.let { message("play.extra", it) }, icon = NodeIcon.PLAY)
+    /** Where the play runs in the root's environments, or null without the host context (synthetic snapshots). */
+    val match: PlayMatch? get() = project?.let { PlayMatches.of(it, root, play.ref) }
+
+    override fun presentation(): NodePresentation {
+        val pattern = play.ref.hostsPattern?.let { message("play.extra", it) }
+        val hosts = match?.takeIf { root.environments.isNotEmpty() }?.let(PlayMatches::countText)
+        return NodePresentation(name, listOfNotNull(pattern, hosts).joinToString(SEPARATOR).ifEmpty { null }, icon = NodeIcon.PLAY)
+    }
 
     override val target: NavigationTarget get() = NavigationTarget(play.location.file, play.location.offset)
     override val navigatesOnDoubleClick: Boolean get() = true
-    override val isLeaf: Boolean get() = true
 
-    override fun children(context: TreeContext): List<AnsibleTreeNode> = emptyList()
+    override fun children(context: TreeContext): List<AnsibleTreeNode> = PlayMatches.children(this, root, play.ref, match)
 
-    override fun details(): NodeDetails = ToolWindowDetails.play(root, this)
+    override fun details(): NodeDetails = ToolWindowDetails.play(root, this, match, project?.let { PlayMatches.selectedEnvironment(it, root) })
 }
+
+/**
+ * [this] built-in children followed by the children other areas contribute to [parent]
+ * ([ToolWindowNodeContributor.childrenOf], CT0 seam): root, environment, group and host nodes call it. A contributed
+ * node equal to a built-in or an earlier one (the same class and key) would make the tree ambiguous, so it is dropped
+ * and logged; a contributor that throws or returns a node of another parent contributes nothing (the contract logs it).
+ */
+internal fun List<AnsibleTreeNode>.withContributions(parent: AnsibleTreeNode): List<AnsibleTreeNode> {
+    val contributed = ToolWindowNodeContributor.childrenOf(parent)
+    if (contributed.isEmpty()) return this
+    val seen = HashSet<AnsibleTreeNode>(this)
+    val out = ArrayList<AnsibleTreeNode>(size + contributed.size)
+    out += this
+    for (node in contributed) {
+        if (seen.add(node)) out += node else CONTRIBUTION_LOG.warn("Ansibility: dropped a contributed tool-window node with a duplicate key ${node.key}")
+    }
+    return out
+}
+
+private val CONTRIBUTION_LOG = logger<AnsibleTreeNode>()
 
 private const val SEPARATOR = " · "
 private const val MAX_INLINE = 3

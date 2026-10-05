@@ -42,4 +42,18 @@
         </action>
     </actions>
     <!-- /ha3 -->
+    <!-- ha4: F8.2 the host-aware variable card. The Effective section is the card's first TOP section; the definition's
+         Effect row is the first SECTION row after the built-in ones (V3's ansibilityVault orders itself after it, then
+         HA8d's ansibilityUndefined). The link handler opens the Explain precedence card from the Effective section and
+         resolves definition links inside it. -->
+    <extensions defaultExtensionNs="de.terletzkiy.ansibility">
+        <cardSection id="ansibilityHostEffective" order="first"
+                     implementation="de.terletzkiy.ansibility.context.host.card.EffectiveCardSection"/>
+        <cardSection id="ansibilityHostDefinition" order="after ansibilityHostEffective"
+                     implementation="de.terletzkiy.ansibility.context.host.card.DefinitionCardSection"/>
+    </extensions>
+    <extensions defaultExtensionNs="com.intellij">
+        <platform.backend.documentation.linkHandler implementation="de.terletzkiy.ansibility.context.host.card.HostCardLinkHandler"/>
+    </extensions>
+    <!-- /ha4 -->
 </idea-plugin>

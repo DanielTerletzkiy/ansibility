@@ -3,8 +3,11 @@ package de.terletzkiy.ansibility.toolwindow.model
 import com.intellij.openapi.vfs.VirtualFile
 import de.terletzkiy.ansibility.api.InventoryGroup
 import de.terletzkiy.ansibility.api.InventoryHost
+import de.terletzkiy.ansibility.api.PlayInfo
+import de.terletzkiy.ansibility.api.PlayRef
 import de.terletzkiy.ansibility.api.RootKind
 import de.terletzkiy.ansibility.context.ContextPresentation
+import de.terletzkiy.ansibility.context.host.PlayMatch
 import de.terletzkiy.ansibility.toolwindow.AnsibilityToolWindowBundle.message
 import de.terletzkiy.ansibility.toolwindow.model.ToolWindowTexts.joinCapped
 
@@ -17,7 +20,12 @@ import de.terletzkiy.ansibility.toolwindow.model.ToolWindowTexts.joinCapped
  *   playbook-level file);
  * - roots, environments, worktrees, playbooks and plays with their key facts.
  *
- * Pure functions of the snapshot; values of variables are never read or shown.
+ * HA7 (plan amendment R7/R8 F8.7) adds what the host context computes, passed in by the nodes: a host's evaluated
+ * address and shared-address names ([HostBadge]), a group's reach ([GroupReach]: the plays and roles that run on its
+ * hosts), a var file's effect ([VarFileEffect]: "applies to n hosts · effective on k of n") and a play's matched hosts
+ * per environment ([PlayMatch]).
+ *
+ * Pure functions of their arguments; values of variables are never read or shown.
  */
 object ToolWindowDetails {
     fun root(root: RootSnapshot): NodeDetails {
@@ -61,7 +69,7 @@ object ToolWindowDetails {
         return details.build()
     }
 
-    fun group(env: EnvironmentView, group: InventoryGroup): NodeDetails {
+    fun group(env: EnvironmentView, group: InventoryGroup, reach: GroupReach? = null): NodeDetails {
         val details = DetailsBuilder(
             message("details.group.title", group.name),
             message("details.subtitle.group", env.root.root.displayName, env.name, group.depth, group.priority),
@@ -79,20 +87,25 @@ object ToolWindowDetails {
                 hostItem(env, host, note)
             },
         )
+        reach?.let { groupReach(details, env, it) }
         details.section(message("details.section.precedence"), precedenceNote(env.root))
         return details.build()
     }
 
-    fun host(env: EnvironmentView, host: InventoryHost): NodeDetails {
+    fun host(env: EnvironmentView, host: InventoryHost, badge: HostBadge = HostBadge.written(host)): NodeDetails {
         val details = DetailsBuilder(message("details.host.title", host.name), message("details.subtitle.environment", env.root.root.displayName, env.name))
         val address = host.ansibleHost
+        val location = NavigationTarget.of(host.location)
         details.section(
             message("details.section.address"),
             when {
-                address == null -> DetailItem(host.name, message("details.note.address.none"), NavigationTarget.of(host.location))
-                isTemplated(address) -> DetailItem(address, message("details.note.address.templated"), NavigationTarget.of(host.location))
-                else -> DetailItem(address, target = NavigationTarget.of(host.location))
+                badge.hidden -> DetailItem(badge.address.orEmpty(), message("details.note.address.hidden"), location)
+                badge.address != null && badge.template != null -> DetailItem(badge.address, message("details.note.address.evaluated", badge.template), location)
+                address == null -> DetailItem(host.name, message("details.note.address.none"), location)
+                isTemplated(address) -> DetailItem(address, message("details.note.address.templated"), location)
+                else -> DetailItem(address, target = location)
             },
+            badge.shared?.let { DetailItem(it, joinCapped(badge.sharedWith, MAX_HOSTS_PER_ENV)) },
         )
         details.section(message("details.section.groups"), host.groups.mapNotNull(env::group).map(::groupItem))
         details.section(message("details.section.files"), env.sourcesOf(host).map { sourceItem(env.root, it) })
@@ -101,8 +114,8 @@ object ToolWindowDetails {
         return details.build()
     }
 
-    fun source(root: RootSnapshot, env: EnvironmentView?, source: LayerSource): NodeDetails = when (source) {
-        is LayerSource.File -> varFile(root, source)
+    fun source(root: RootSnapshot, env: EnvironmentView?, source: LayerSource, effect: VarFileEffect? = null): NodeDetails = when (source) {
+        is LayerSource.File -> varFile(root, source, effect)
         is LayerSource.Inline -> {
             val view = env ?: root.environments.firstOrNull { it.hostsFile == source.hostsFile }
             val details = DetailsBuilder(message("inline.name", source.hostsFile.name, source.group.name), LayerTexts.label(source))
@@ -132,7 +145,7 @@ object ToolWindowDetails {
         }
     }
 
-    private fun varFile(root: RootSnapshot, source: LayerSource.File): NodeDetails {
+    private fun varFile(root: RootSnapshot, source: LayerSource.File, effect: VarFileEffect?): NodeDetails {
         val varFile = source.varFile
         val details = DetailsBuilder(root.displayPath(varFile), LayerTexts.label(source))
         details.section(message("details.section.layer"), layerItems(source))
@@ -154,6 +167,7 @@ object ToolWindowDetails {
             }
         }
         details.section(message("details.section.hosts"), applies)
+        effect?.let { varFileEffect(details, root, it) }
         return details.build()
     }
 
@@ -167,13 +181,27 @@ object ToolWindowDetails {
         return details.build()
     }
 
-    fun playbook(root: RootSnapshot, file: VirtualFile): NodeDetails {
+    /** A playbook; with [plays] (HA7b) also each play with the hosts it matches per environment. */
+    fun playbook(root: RootSnapshot, file: VirtualFile, plays: List<Pair<PlayInfo, PlayMatch?>> = emptyList()): NodeDetails {
         val details = DetailsBuilder(message("details.playbook.title", root.relativePath(file)), root.root.displayName)
         details.section(message("details.section.root"), DetailItem(message("details.item.path", file.presentableUrl), target = NavigationTarget(file)))
+        details.section(message("details.section.plays"), plays.map { (play, match) ->
+            val perEnvironment = match?.takeIf { root.environments.isNotEmpty() }?.let { m ->
+                if (m.templated) {
+                    message("play.matches.templated.short")
+                } else {
+                    root.environments.filter { m.hostsIn(it.name).isNotEmpty() }
+                        .joinToString(" · ") { env -> message("details.play.matches.env", env.name, m.hostsIn(env.name).size) }
+                        .ifEmpty { message("details.note.no.hosts") }
+                }
+            }
+            val note = listOfNotNull(play.ref.hostsPattern?.let { message("play.extra", it) }, perEnvironment).joinToString(" · ")
+            DetailItem(play.ref.name ?: message("play.unnamed", play.ref.playIndex + 1), note.ifEmpty { null }, NavigationTarget(play.location.file, play.location.offset))
+        })
         return details.build()
     }
 
-    fun play(root: RootSnapshot, node: PlayNode): NodeDetails {
+    fun play(root: RootSnapshot, node: PlayNode, match: PlayMatch? = null, selectedEnvironment: String? = null): NodeDetails {
         val play = node.play
         val details = DetailsBuilder(
             message("details.play.title", node.name),
@@ -183,9 +211,77 @@ object ToolWindowDetails {
             message("details.section.play"),
             play.ref.hostsPattern?.let { DetailItem(message("details.item.hosts.pattern", it)) },
             DetailItem(message("details.item.file", play.ref.file.presentableUrl), target = node.target),
+            DetailItem(message("details.item.playbook.dir", SourceLabels.playbookDir(root, play.ref.playbookDir))),
         )
+        if (match != null && root.environments.isNotEmpty()) {
+            details.section(
+                message("details.section.matches"),
+                if (match.templated) {
+                    listOf(DetailItem(message("play.matches.templated"), message("play.matches.templated.extra")))
+                } else {
+                    root.environments.map { env ->
+                        val hosts = match.hostsIn(env.name)
+                        val selected = env.name == selectedEnvironment
+                        val note = if (hosts.isEmpty()) message("details.note.no.hosts") else joinCapped(hosts, MAX_HOSTS_PER_ENV)
+                        DetailItem(env.name, if (selected) message("details.note.selected.environment", note) else note, NavigationTarget(env.hostsFile), emphasized = selected)
+                    }
+                },
+            )
+        }
+        details.section(message("details.section.roles"), play.roles.map { entry ->
+            DetailItem(entry.name, entry.requiredBy?.let { message("role.kind.dependency", it) }, NavigationTarget.of(entry.location) ?: entry.role?.dir?.let { NavigationTarget(it) })
+        })
         return details.build()
     }
+
+    // ------------------------------------------------------------------------------------------------ HA7b reach
+
+    /** The group's reach: a summary line, the plays that run on its hosts (direct ones bold) and the roles they apply there. */
+    private fun groupReach(details: DetailsBuilder, env: EnvironmentView, reach: GroupReach) {
+        val summary = when {
+            reach.members.isEmpty() -> message("details.reach.no.hosts", reach.group)
+            reach.plays.isEmpty() -> message("details.reach.no.plays", reach.group)
+            reach.direct.isEmpty() -> message("details.reach.indirect", reach.group, joinCapped(reach.reachedVia, MAX_PATTERNS))
+            else -> message("details.reach.direct", reach.direct.size, reach.plays.size - reach.direct.size)
+        }
+        val plays = reach.plays.map { play ->
+            val note = listOfNotNull(
+                play.play.hostsPattern?.let { message("play.extra", it) },
+                message("details.reach.hosts.of", play.hosts.size, reach.members.size),
+                if (play.direct) message("details.reach.direct.note") else null,
+            ).joinToString(" · ")
+            DetailItem(playLabel(env.root, play.play), note, NavigationTarget.of(play.location), emphasized = play.direct)
+        }
+        details.section(message("details.section.reach"), listOf(DetailItem(summary)) + plays)
+        details.section(message("details.section.reach.roles"), reach.roles.map { role ->
+            val note = message("details.reach.hosts.of", role.hosts.size, reach.members.size) + " · " +
+                joinCapped(role.plays.map { it.name ?: it.file.name }.distinct(), MAX_PATTERNS)
+            DetailItem(role.name, note, role.dir?.let { NavigationTarget(it) })
+        })
+    }
+
+    /** The var file's effect: "applies to n hosts · effective on k of n", then the keys no host lets win. */
+    private fun varFileEffect(details: DetailsBuilder, root: RootSnapshot, effect: VarFileEffect) {
+        val summary = DetailItem(
+            message("details.effect.summary", effect.appliesTo.size, effect.effectiveOn.size),
+            message("details.effect.keys", effect.keys, effect.ineffective.size),
+        )
+        val keys = effect.ineffective.take(MAX_INEFFECTIVE).map { key ->
+            val hosts = joinCapped(key.shadowedOn.map { it.host }, MAX_HOSTS_PER_ENV)
+            val note = when (key.winners.size) {
+                0 -> message("details.effect.shadowed", hosts)
+                1 -> message("details.effect.shadowed.by", hosts, key.winners.single().let { SourceLabels.of(root.dir, it.file, it.offset) })
+                else -> message("details.effect.shadowed.by.several", hosts, key.winners.size)
+            }
+            DetailItem(key.name, note, NavigationTarget(key.location.file, key.location.offset))
+        }
+        val more = (effect.ineffective.size - MAX_INEFFECTIVE).takeIf { it > 0 }?.let { DetailItem(message("count.more", it)) }
+        details.section(message("details.section.effect"), listOf(summary) + keys + listOfNotNull(more))
+    }
+
+    /** `playbook-setup-system.yml › System` (or the play's index when it has no name). */
+    private fun playLabel(root: RootSnapshot, play: PlayRef): String =
+        message("details.play.label", root.relativePath(play.file), play.name ?: message("play.unnamed", play.playIndex + 1))
 
     // ------------------------------------------------------------------------------------------------ items
 
@@ -239,4 +335,6 @@ object ToolWindowDetails {
 
     private const val MAX_HOSTS_PER_ENV = 12
     private const val MAX_INLINE_KEYS = 4
+    private const val MAX_PATTERNS = 6
+    private const val MAX_INEFFECTIVE = 20
 }

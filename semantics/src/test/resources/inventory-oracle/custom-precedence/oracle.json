@@ -1,0 +1,4 @@
+{
+  "description": "A custom VARIABLE_PRECEDENCE (reversed order) with an unknown entry that ansible-core ignores.",
+  "precedence": "groups_plugins_play,groups_plugins_inventory,all_plugins_play,all_plugins_inventory,groups_inventory,no_such_entry,all_inventory"
+}

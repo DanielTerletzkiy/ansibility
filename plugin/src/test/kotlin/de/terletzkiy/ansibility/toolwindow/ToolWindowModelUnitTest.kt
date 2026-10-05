@@ -1,5 +1,6 @@
 package de.terletzkiy.ansibility.toolwindow
 
+import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.testFramework.LightVirtualFile
 import de.terletzkiy.ansibility.api.AnsibleRoot
 import de.terletzkiy.ansibility.api.Inventory
@@ -25,6 +26,7 @@ import de.terletzkiy.ansibility.toolwindow.model.ToolWindowTexts
 import de.terletzkiy.ansibility.toolwindow.model.TreeContext
 import de.terletzkiy.ansibility.toolwindow.model.WorkspaceNode
 import de.terletzkiy.ansibility.toolwindow.model.WorkspaceSnapshot
+import de.terletzkiy.ansibility.vault.crypto.VaultCrypto
 
 /** Wording, parsing and ordering rules of the tool window model, on synthetic data. */
 class ToolWindowModelUnitTest : ToolWindowTestCase() {
@@ -95,9 +97,15 @@ class ToolWindowModelUnitTest : ToolWindowTestCase() {
             "/work/build/repo/ansible/danger_zone/database/playbook-clone.yml",
             "/work/build/repo/ansible/playbooks/site.yml",
             "/work/build/repo/ansible",
+            "/work/build/repo/ansible/roles/web/defaults/main.yml",
+            "/work/build/repo/ansible/roles/web/vars/main.yml",
+            "/work/build/repo/ansible/roles/web/meta/main.yml",
+            "/work/build/repo/ansible/danger_zone/database/roles/clone/defaults/main.yml",
         )
         val irrelevant = listOf(
             "/work/build/repo/ansible/roles/web/tasks/main.yml",
+            "/work/build/repo/ansible/roles/web/templates/defaults.j2",
+            "/work/build/repo/ansible/roles/defaults",
             "/work/build/repo/ansible/README.md",
             "/work/build/repo/ansible/node_modules/x/environments/hosts.yml",
             "/elsewhere/environments/prod/hosts.yml",
@@ -135,8 +143,9 @@ class ToolWindowModelUnitTest : ToolWindowTestCase() {
                 "host_vars/h1.yml",
                 "site/host_vars/h1.yml",
             ),
-            names(host),
+            sourceNames(host),
         )
+        assertEquals("HA7a: the contributed nodes follow the sources", listOf("Effective vars", "Targeted by"), names(host).takeLast(2))
         val note = (host as HostNode).details().section("Precedence")!!.items.single().text
         assertTrue(note, note.startsWith("ansible.cfg sets precedence = groups_plugins_play, all_plugins_play"))
     }
@@ -159,16 +168,17 @@ class ToolWindowModelUnitTest : ToolWindowTestCase() {
         assertEquals(emptyList<String>(), env.host("h3")!!.inlineVarKeys)
 
         val h1 = path("site", "Environments", "prod", "Hosts", "h1")
-        assertEquals("h1  192.0.2.10 · inline (3): ansible_host, ansible_user, web_port · groups: all, web", h1.presentation().text)
+        assertEquals("h1  192.0.2.10  inline (3): ansible_host, ansible_user, web_port · groups: all, web", h1.presentation().text)
+        assertEquals("the address is a badge in the regular colour", "192.0.2.10", h1.presentation().badge)
         assertEquals(
             listOf(
                 "group_vars/web.yml  L6 env group_vars/web — beats group_vars/all (L4, L5)",
                 "hosts.yml: ansible_host, ansible_user, web_port  L8 inventory file vars of host h1 — beats every group level",
                 "host_vars/h1.yml  L9 env host_vars/h1 — beats every group level (L3–L7)",
             ),
-            texts(h1),
+            sourceTexts(h1),
         )
-        val inline = children(h1)[1] as LayerSourceNode
+        val inline = sources(h1)[1]
         assertEquals(8, inline.source.level)
         assertTrue(inline.presentation().tooltip.first().startsWith("Level 8: variables written inline for host h1"))
         assertEquals("site/environments/prod/hosts.yml:3", describe(inline.target))
@@ -181,9 +191,47 @@ class ToolWindowModelUnitTest : ToolWindowTestCase() {
         )
 
         val h2 = path("site", "Environments", "prod", "Hosts", "h2")
-        assertEquals("only ansible_host: the address already shows it", "h2  192.0.2.11 · groups: all, web", h2.presentation().text)
-        assertEquals("hosts.yml: ansible_host  L8 inventory file vars of host h2 — beats every group level", texts(h2)[1])
-        assertEquals("no inline vars, no level 8", listOf("group_vars/web.yml"), names(path("site", "Environments", "prod", "Hosts", "h3")))
+        assertEquals("only ansible_host: the address already shows it", "h2  192.0.2.11  groups: all, web", h2.presentation().text)
+        assertEquals("hosts.yml: ansible_host  L8 inventory file vars of host h2 — beats every group level", sourceTexts(h2)[1])
+        assertEquals("no inline vars, no level 8", listOf("group_vars/web.yml"), sourceNames(path("site", "Environments", "prod", "Hosts", "h3")))
+    }
+
+    // ------------------------------------------------------------------ host badges under the vault-safe rule (HA7a)
+
+    fun testAddressesFromVaultFilesAndVaultNamesStayHidden() {
+        val tree = myFixture.tempDirFixture
+        tree.createFile("site/ansible.cfg", "[defaults]\n")
+        tree.createFile(
+            "site/environments/prod/hosts.yml",
+            "all:\n  hosts:\n    h1:\n    h2:\n      ansible_host: \"{{ vault_h2_ip }}\"\n    h3:\n      ansible_host: 192.0.2.201\n" +
+                "    h4:\n      ansible_host: \"{{ host_ips['h4'] }}\"\n    h5:\n      ansible_host: \"{{ ips.vault_h5 }}\"\n",
+        )
+        // h1's address is written in a vault file in plain text (a file waiting to be encrypted), h2's and h5's come from
+        // vault_ names; h3 shares h1's hidden address; h4 is an ordinary templated address.
+        tree.createFile("site/environments/prod/host_vars/h1/vault.yml", "ansible_host: 192.0.2.201\n")
+        tree.createFile(
+            "site/environments/prod/group_vars/all.yml",
+            "vault_h2_ip: 192.0.2.202\nhost_ips:\n  h4: 192.0.2.204\nips:\n  vault_h5: 192.0.2.205\n",
+        )
+        refreshRoots()
+        val decrypts = VaultCrypto.getInstance(project).decryptAttempts
+        val hosts = path("site", "Environments", "prod", "Hosts")
+        val rows = children(hosts).associate { it.presentation().name to it.presentation() }
+        assertEquals("h1  🔒 address hidden  groups: all, ungrouped", rows.getValue("h1").text)
+        assertEquals("h2  🔒 address hidden  groups: all, ungrouped", rows.getValue("h2").text)
+        assertEquals("h5  🔒 address hidden  groups: all, ungrouped", rows.getValue("h5").text)
+        assertEquals("a hidden address is nobody's shared address", "h3  192.0.2.201  groups: all, ungrouped", rows.getValue("h3").text)
+        assertEquals("h4  192.0.2.204  {{ host_ips['h4'] }} · groups: all, ungrouped", rows.getValue("h4").text)
+        val leaks = rows.values.flatMap { listOf(it.text) + it.tooltip }.filter { "192.0.2.202" in it || "192.0.2.205" in it }
+        assertTrue(leaks.toString(), leaks.isEmpty())
+
+        val h1 = runReadActionBlocking { (path(hosts, "h1") as HostNode).details() }
+        val address = h1.section("Address (ansible_host)")!!.items
+        assertEquals(listOf("🔒 address hidden"), address.map { it.text })
+        assertEquals("written in a vault file or templated through a vault_ name, so it is never shown", address.single().note)
+        val h3 = runReadActionBlocking { (path(hosts, "h3") as HostNode).details() }
+        assertEquals("no shared-address line naming h1", listOf("192.0.2.201"), h3.section("Address (ansible_host)")!!.items.map { it.text })
+        assertEquals("nothing was decrypted", decrypts, VaultCrypto.getInstance(project).decryptAttempts)
     }
 
     // ------------------------------------------------------------------ group tree on synthetic inventories

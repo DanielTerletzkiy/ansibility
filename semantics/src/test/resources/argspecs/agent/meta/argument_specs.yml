@@ -1,0 +1,124 @@
+---
+# Synthetic role spec written for the ArgSpecParser parity test (Ansibility test corpus).
+# Shapes: Ansible doc markup in descriptions, every block scalar style and chomping indicator,
+# multi-line plain scalars, quoted escapes, non-ASCII text, a trailing comment and descriptions as lists.
+argument_specs:
+  main:
+    short_description: >-
+      Ship logs and metrics from a host to one or more collectors.
+    description:
+      - >
+        Installs the C(shipd) agent. Sources are listed in O(agent_sources), collectors in
+        O(agent_endpoints[].url), for example V(https://collector.example.test:4318).
+      - |
+        The rendered configuration lives in C(/etc/shipd/config.yml).
+        Use I(check mode) to preview it; B(never) edit it by hand.
+      - See U(https://docs.example.test/shipd), L(the pipeline guide,https://docs.example.test/shipd/pipelines)
+        and R(the troubleshooting section,shipd-troubleshooting).
+      - Tasks use M(ansible.builtin.template) and P(ansible.builtin.file#lookup); the agent's E(SHIPD_HOME) defaults to C(/var/lib/shipd).
+      - HORIZONTALLINE
+      - The role registers RV(agent_result.changed) for the handlers.
+    options:
+      agent_version:
+        type: str
+        default: "2.4"
+        description: Agent release; quoted so that V(2.4) does not become a float.
+      agent_endpoints:
+        type: list
+        elements: dict
+        required: true
+        description:
+          - Collectors the agent sends data to.
+          - The first endpoint that answers O(agent_endpoints[].url) wins; the others are fall-backs.
+        options:
+          url:
+            type: str
+            required: true
+            description: Collector URL, for example V(https://198.51.100.40:4318/v1).
+          tls_verify:
+            type: bool
+            default: true
+            description: Verify the collector certificate (O(agent_endpoints[].tls_verify=false) is for tests only).
+          headers:
+            type: dict
+            default: {}
+            description: 'Extra HTTP headers, for example C({"X-Scope": "demo"}).'
+          batch:
+            type: dict
+            description: Batching of outgoing requests.
+            options:
+              max_bytes:
+                type: bytes
+                default: 1M
+                description: Flush once a batch reaches this size.
+              max_wait:
+                type: str
+                default: 5s
+                description: Flush at the latest after this time.
+      agent_sources:
+        type: list
+        elements: dict
+        default:
+          - type: journal
+        description: |-
+          Inputs of the pipeline.
+          One mapping per input.
+        options:
+          type:
+            type: str
+            choices: [journal, file, syslog]
+            required: true
+            description: Kind of input.
+          paths:
+            type: list
+            elements: path
+            default: []
+            description: |+
+              Globs read when O(agent_sources[].type=file).
+
+          units:
+            type: list
+            elements: str
+            default: []
+            description: >+
+              Journal units to read; all units when empty.
+
+
+          listen:
+            type: str
+            default: 127.0.0.1:5514
+            description: Address of the syslog listener.
+      agent_labels:
+        type: dict
+        default:
+          env: test
+          team: demo
+        description: Labels added to every record.
+      agent_pipeline:
+        type: raw
+        description:
+          This description is a plain scalar
+          that spans three lines
+          and is folded into one.
+      agent_config_overrides:
+        type: jsonarg
+        description: "JSON merged into the generated configuration.\tTabs and \"quotes\" are kept."
+      agent_drop_patterns:
+        type: list
+        elements: str
+        default: ['^DEBUG ', 'health''check']
+        description: 'Regular expressions of lines to drop; a doubled '''' is one quote.'
+      agent_greeting:
+        type: str
+        default: Grüße aus dem Test → ✓
+        description: Non-ASCII default and description (Grüße, café, 日本).
+      agent_buffer_dir:
+        type: path
+        default: /var/lib/shipd/buffer   # a trailing comment is not part of the value
+        description: Disk buffer for undelivered data.  # neither is this one
+      agent_markup_edge:
+        type: str
+        description:
+          - O(agent_markup_edge=a,b) and V(x\)y) contain escaped parentheses; C(a(b\)c) nests one.
+          - O(ansibility.synthetic.agent#role:main:agent_version) points into another role entry point.
+          - Unknown markup such as X(abc) and a literal C() stay as they are.

@@ -1,0 +1,272 @@
+{
+    "proxy": {
+        "collection": null,
+        "entry_points": {
+            "main": {
+                "description": [
+                    "Renders C(/etc/lbd/lbd.cfg) from O(proxy_frontends) and O(proxy_backends)."
+                ],
+                "options": {
+                    "proxy_acl_values": {
+                        "default": [
+                            1,
+                            "two",
+                            3.5,
+                            true,
+                            null
+                        ],
+                        "description": "Values of mixed types, passed through unchanged.",
+                        "elements": "raw",
+                        "type": "list"
+                    },
+                    "proxy_backends": {
+                        "default": [],
+                        "description": "Backends and their servers.",
+                        "elements": "dict",
+                        "options": {
+                            "backup_servers": {
+                                "default": [],
+                                "description": "Servers used only when every active server is down.",
+                                "elements": "dict",
+                                "options": {
+                                    "address": {
+                                        "description": "Address and port, for example V(198.51.100.11:8080).",
+                                        "required": true,
+                                        "type": "str"
+                                    },
+                                    "check": {
+                                        "description": "Health check of this server.",
+                                        "options": {
+                                            "fall": {
+                                                "default": 3,
+                                                "description": "Failed checks before the server counts as down.",
+                                                "type": "int"
+                                            },
+                                            "interval": {
+                                                "default": "2s",
+                                                "description": "Time between two checks.",
+                                                "type": "str"
+                                            },
+                                            "rise": {
+                                                "default": 2,
+                                                "description": "Successful checks before the server counts as up.",
+                                                "type": "int"
+                                            }
+                                        },
+                                        "type": "dict"
+                                    },
+                                    "name": {
+                                        "description": "Server name.",
+                                        "required": true,
+                                        "type": "str"
+                                    },
+                                    "weight": {
+                                        "default": 100,
+                                        "description": "Relative weight.",
+                                        "type": "int"
+                                    }
+                                },
+                                "type": "list"
+                            },
+                            "balance": {
+                                "choices": [
+                                    "roundrobin",
+                                    "leastconn",
+                                    "source",
+                                    "uri"
+                                ],
+                                "default": "roundrobin",
+                                "description": "Balancing algorithm.",
+                                "type": "str"
+                            },
+                            "name": {
+                                "description": "Backend name.",
+                                "required": true,
+                                "type": "str"
+                            },
+                            "servers": {
+                                "default": [],
+                                "description": "Active servers.",
+                                "elements": "dict",
+                                "options": {
+                                    "address": {
+                                        "description": "Address and port, for example V(198.51.100.11:8080).",
+                                        "required": true,
+                                        "type": "str"
+                                    },
+                                    "check": {
+                                        "description": "Health check of this server.",
+                                        "options": {
+                                            "fall": {
+                                                "default": 3,
+                                                "description": "Failed checks before the server counts as down.",
+                                                "type": "int"
+                                            },
+                                            "interval": {
+                                                "default": "2s",
+                                                "description": "Time between two checks.",
+                                                "type": "str"
+                                            },
+                                            "rise": {
+                                                "default": 2,
+                                                "description": "Successful checks before the server counts as up.",
+                                                "type": "int"
+                                            }
+                                        },
+                                        "type": "dict"
+                                    },
+                                    "name": {
+                                        "description": "Server name.",
+                                        "required": true,
+                                        "type": "str"
+                                    },
+                                    "weight": {
+                                        "default": 100,
+                                        "description": "Relative weight.",
+                                        "type": "int"
+                                    }
+                                },
+                                "type": "list"
+                            }
+                        },
+                        "type": "list"
+                    },
+                    "proxy_defaults": {
+                        "default": {},
+                        "description": "Settings of the C(defaults) section.",
+                        "options": {
+                            "mode": {
+                                "choices": [
+                                    "http",
+                                    "tcp"
+                                ],
+                                "default": "http",
+                                "description": "Default proxy mode.",
+                                "type": "str"
+                            },
+                            "options": {
+                                "default": [
+                                    "httplog",
+                                    "dontlognull"
+                                ],
+                                "description": "Flags written as C(option <flag>) lines.",
+                                "elements": "str",
+                                "type": "list"
+                            },
+                            "retries": {
+                                "default": 3,
+                                "description": "Connection retries.",
+                                "type": "int"
+                            }
+                        },
+                        "type": "dict"
+                    },
+                    "proxy_error_files": {
+                        "default": [],
+                        "description": "Extra error files copied to the host.",
+                        "elements": "path",
+                        "type": "list"
+                    },
+                    "proxy_error_pages": {
+                        "default": {
+                            "404": "/etc/lbd/errors/404.http",
+                            "503": "/etc/lbd/errors/503.http"
+                        },
+                        "description": "Error page file per HTTP status.",
+                        "type": "dict"
+                    },
+                    "proxy_extra_sections": {
+                        "description": "Free-form sections, section name to list of lines.",
+                        "options": null,
+                        "type": "dict"
+                    },
+                    "proxy_frontends": {
+                        "default": [],
+                        "description": "Frontends accepting client connections.",
+                        "elements": "dict",
+                        "options": {
+                            "bind": {
+                                "description": "Bind specifications such as V(:443 ssl crt /etc/lbd/site.pem).",
+                                "elements": "str",
+                                "required": true,
+                                "type": "list"
+                            },
+                            "default_backend": {
+                                "description": "Backend used when no rule matches.",
+                                "type": "str"
+                            },
+                            "http_versions": {
+                                "choices": [
+                                    1,
+                                    2,
+                                    3
+                                ],
+                                "default": [
+                                    1,
+                                    2
+                                ],
+                                "description": "HTTP major versions offered.",
+                                "elements": "int",
+                                "type": "list"
+                            },
+                            "mode": {
+                                "choices": [
+                                    "http",
+                                    "tcp"
+                                ],
+                                "description": "Overrides O(proxy_defaults.mode).",
+                                "type": "str"
+                            },
+                            "name": {
+                                "description": "Frontend name.",
+                                "required": true,
+                                "type": "str"
+                            }
+                        },
+                        "type": "list"
+                    },
+                    "proxy_global_extra": {
+                        "description": "Extra lines for the C(global) section, a string or a list of strings.",
+                        "type": "raw"
+                    },
+                    "proxy_maxconn": {
+                        "default": 4096,
+                        "description": "Global connection limit.",
+                        "type": "int"
+                    },
+                    "proxy_resolvers": {
+                        "description": "Must be an empty mapping; reserved for later use.",
+                        "options": {},
+                        "type": "dict"
+                    },
+                    "proxy_runtime_api": {
+                        "description": "Runtime API settings as JSON text.",
+                        "type": "json"
+                    },
+                    "proxy_stats": {
+                        "default": "{\"enabled\": true, \"port\": 8404}",
+                        "description": "Statistics page settings as a JSON document.",
+                        "type": "jsonarg"
+                    },
+                    "proxy_timeout_client": {
+                        "default": "30s",
+                        "description": "Inactivity timeout on the client side.",
+                        "type": "str"
+                    },
+                    "proxy_timeout_connect": {
+                        "default": "5s",
+                        "description": "Time allowed to connect to a server.",
+                        "type": "str"
+                    },
+                    "proxy_timeout_server": {
+                        "default": "30s",
+                        "description": "Time allowed to connect to a server.",
+                        "type": "str"
+                    }
+                },
+                "short_description": "TCP and HTTP load balancer."
+            }
+        },
+        "path": "semantics/src/test/resources/argspecs/proxy"
+    }
+}

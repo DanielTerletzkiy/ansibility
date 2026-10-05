@@ -1,0 +1,12 @@
+relay_host: relay.env.example.test
+shared_key: from-inventory-group-vars-all
+env_name: siblings
+nested:
+  a: 1
+  b: [x, y]
+octal_mode: 0644
+float_version: 3.10
+enabled: yes
+empty_value:
+quoted: "0644"
+when_date: 2024-01-01

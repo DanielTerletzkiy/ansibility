@@ -1,0 +1,150 @@
+{
+    "agent": {
+        "collection": null,
+        "entry_points": {
+            "main": {
+                "description": [
+                    "Installs the C(shipd) agent. Sources are listed in O(agent_sources), collectors in O(agent_endpoints[].url), for example V(https://collector.example.test:4318).\n",
+                    "The rendered configuration lives in C(/etc/shipd/config.yml).\nUse I(check mode) to preview it; B(never) edit it by hand.\n",
+                    "See U(https://docs.example.test/shipd), L(the pipeline guide,https://docs.example.test/shipd/pipelines) and R(the troubleshooting section,shipd-troubleshooting).",
+                    "Tasks use M(ansible.builtin.template) and P(ansible.builtin.file#lookup); the agent's E(SHIPD_HOME) defaults to C(/var/lib/shipd).",
+                    "HORIZONTALLINE",
+                    "The role registers RV(agent_result.changed) for the handlers."
+                ],
+                "options": {
+                    "agent_buffer_dir": {
+                        "default": "/var/lib/shipd/buffer",
+                        "description": "Disk buffer for undelivered data.",
+                        "type": "path"
+                    },
+                    "agent_config_overrides": {
+                        "description": "JSON merged into the generated configuration.\tTabs and \"quotes\" are kept.",
+                        "type": "jsonarg"
+                    },
+                    "agent_drop_patterns": {
+                        "default": [
+                            "^DEBUG ",
+                            "health'check"
+                        ],
+                        "description": "Regular expressions of lines to drop; a doubled '' is one quote.",
+                        "elements": "str",
+                        "type": "list"
+                    },
+                    "agent_endpoints": {
+                        "description": [
+                            "Collectors the agent sends data to.",
+                            "The first endpoint that answers O(agent_endpoints[].url) wins; the others are fall-backs."
+                        ],
+                        "elements": "dict",
+                        "options": {
+                            "batch": {
+                                "description": "Batching of outgoing requests.",
+                                "options": {
+                                    "max_bytes": {
+                                        "default": "1M",
+                                        "description": "Flush once a batch reaches this size.",
+                                        "type": "bytes"
+                                    },
+                                    "max_wait": {
+                                        "default": "5s",
+                                        "description": "Flush at the latest after this time.",
+                                        "type": "str"
+                                    }
+                                },
+                                "type": "dict"
+                            },
+                            "headers": {
+                                "default": {},
+                                "description": "Extra HTTP headers, for example C({\"X-Scope\": \"demo\"}).",
+                                "type": "dict"
+                            },
+                            "tls_verify": {
+                                "default": true,
+                                "description": "Verify the collector certificate (O(agent_endpoints[].tls_verify=false) is for tests only).",
+                                "type": "bool"
+                            },
+                            "url": {
+                                "description": "Collector URL, for example V(https://198.51.100.40:4318/v1).",
+                                "required": true,
+                                "type": "str"
+                            }
+                        },
+                        "required": true,
+                        "type": "list"
+                    },
+                    "agent_greeting": {
+                        "default": "Gr\u00fc\u00dfe aus dem Test \u2192 \u2713",
+                        "description": "Non-ASCII default and description (Gr\u00fc\u00dfe, caf\u00e9, \u65e5\u672c).",
+                        "type": "str"
+                    },
+                    "agent_labels": {
+                        "default": {
+                            "env": "test",
+                            "team": "demo"
+                        },
+                        "description": "Labels added to every record.",
+                        "type": "dict"
+                    },
+                    "agent_markup_edge": {
+                        "description": [
+                            "O(agent_markup_edge=a,b) and V(x\\)y) contain escaped parentheses; C(a(b\\)c) nests one.",
+                            "O(ansibility.synthetic.agent#role:main:agent_version) points into another role entry point.",
+                            "Unknown markup such as X(abc) and a literal C() stay as they are."
+                        ],
+                        "type": "str"
+                    },
+                    "agent_pipeline": {
+                        "description": "This description is a plain scalar that spans three lines and is folded into one.",
+                        "type": "raw"
+                    },
+                    "agent_sources": {
+                        "default": [
+                            {
+                                "type": "journal"
+                            }
+                        ],
+                        "description": "Inputs of the pipeline.\nOne mapping per input.",
+                        "elements": "dict",
+                        "options": {
+                            "listen": {
+                                "default": "127.0.0.1:5514",
+                                "description": "Address of the syslog listener.",
+                                "type": "str"
+                            },
+                            "paths": {
+                                "default": [],
+                                "description": "Globs read when O(agent_sources[].type=file).\n\n",
+                                "elements": "path",
+                                "type": "list"
+                            },
+                            "type": {
+                                "choices": [
+                                    "journal",
+                                    "file",
+                                    "syslog"
+                                ],
+                                "description": "Kind of input.",
+                                "required": true,
+                                "type": "str"
+                            },
+                            "units": {
+                                "default": [],
+                                "description": "Journal units to read; all units when empty.\n\n\n",
+                                "elements": "str",
+                                "type": "list"
+                            }
+                        },
+                        "type": "list"
+                    },
+                    "agent_version": {
+                        "default": "2.4",
+                        "description": "Agent release; quoted so that V(2.4) does not become a float.",
+                        "type": "str"
+                    }
+                },
+                "short_description": "Ship logs and metrics from a host to one or more collectors."
+            }
+        },
+        "path": "semantics/src/test/resources/argspecs/agent"
+    }
+}

@@ -1,0 +1,250 @@
+{
+    "db": {
+        "collection": null,
+        "entry_points": {
+            "main": {
+                "options": {
+                    "db_backup": {
+                        "default": {
+                            "enabled": true,
+                            "schedule": "15 3 * * *"
+                        },
+                        "description": "Nightly dumps.",
+                        "options": {
+                            "compress_level": {
+                                "choices": [
+                                    0,
+                                    1,
+                                    6,
+                                    9
+                                ],
+                                "default": 6,
+                                "description": "Compression level; V(0) stores the dump uncompressed.",
+                                "type": "int"
+                            },
+                            "enabled": {
+                                "default": true,
+                                "description": "Run the backup timer.",
+                                "type": "bool"
+                            },
+                            "retention_days": {
+                                "default": 7,
+                                "description": "Days dumps are kept.",
+                                "type": "int"
+                            },
+                            "schedule": {
+                                "default": "15 3 * * *",
+                                "description": "Cron expression of the timer.",
+                                "type": "str"
+                            },
+                            "target": {
+                                "default": "/var/backups/db",
+                                "description": "Directory of the dumps.",
+                                "type": "path"
+                            }
+                        },
+                        "type": "dict"
+                    },
+                    "db_databases": {
+                        "default": [],
+                        "description": "Databases to create.",
+                        "elements": "dict",
+                        "options": {
+                            "encoding": {
+                                "default": "UTF8",
+                                "description": "Character encoding.",
+                                "type": "str"
+                            },
+                            "extensions": {
+                                "default": [],
+                                "description": "Extensions installed into the database.",
+                                "elements": "str",
+                                "type": "list"
+                            },
+                            "name": {
+                                "description": "Database name.",
+                                "required": true,
+                                "type": "str"
+                            },
+                            "owner": {
+                                "description": "Owning role.",
+                                "type": "str"
+                            }
+                        },
+                        "type": "list"
+                    },
+                    "db_hba": {
+                        "default": [
+                            {
+                                "database": "all",
+                                "method": "peer",
+                                "type": "local",
+                                "user": "all"
+                            },
+                            {
+                                "address": "192.0.2.0/24",
+                                "database": "all",
+                                "method": "scram-sha-256",
+                                "type": "host",
+                                "user": "all"
+                            }
+                        ],
+                        "description": "Client authentication rules, first match wins.",
+                        "elements": "dict",
+                        "options": {
+                            "address": {
+                                "description": "Client network in CIDR notation, for example V(198.51.100.0/24).",
+                                "type": "str"
+                            },
+                            "database": {
+                                "default": "all",
+                                "description": "Database the rule applies to.",
+                                "type": "str"
+                            },
+                            "method": {
+                                "choices": [
+                                    "trust",
+                                    "reject",
+                                    "peer",
+                                    "md5",
+                                    "scram-sha-256"
+                                ],
+                                "description": "Authentication method.",
+                                "required": true,
+                                "type": "str"
+                            },
+                            "type": {
+                                "choices": [
+                                    "local",
+                                    "host",
+                                    "hostssl",
+                                    "hostnossl"
+                                ],
+                                "description": "Connection type.",
+                                "required": true,
+                                "type": "str"
+                            },
+                            "user": {
+                                "default": "all",
+                                "description": "Role the rule applies to.",
+                                "type": "str"
+                            }
+                        },
+                        "type": "list"
+                    },
+                    "db_listen_addresses": {
+                        "default": [
+                            "localhost",
+                            "192.0.2.20"
+                        ],
+                        "description": "Addresses the server listens on.",
+                        "elements": "str",
+                        "type": "list"
+                    },
+                    "db_max_wal_size": {
+                        "default": 18446744073709551616,
+                        "description": "Upper bound in bytes; larger than a signed 64-bit integer.",
+                        "type": "int"
+                    },
+                    "db_port": {
+                        "default": 5433,
+                        "description": "TCP port.",
+                        "type": "int"
+                    },
+                    "db_settings": {
+                        "default": {
+                            "jit": false,
+                            "log_min_duration_statement": "250ms",
+                            "max_connections": 100,
+                            "ssl": true,
+                            "work_mem": "4MB"
+                        },
+                        "description": "Server settings; plain V(on) and V(off) are YAML 1.1 booleans.",
+                        "type": "dict"
+                    },
+                    "db_shared_buffers": {
+                        "default": "128MB",
+                        "description": "Shared memory for the buffer cache.",
+                        "type": "bytes"
+                    },
+                    "db_statement_timeout": {
+                        "default": 0,
+                        "description": "Milliseconds before a statement is cancelled; V(0) disables the limit.",
+                        "type": "int"
+                    },
+                    "db_superuser_password": {
+                        "description": "Password of the database superuser.",
+                        "no_log": true,
+                        "required": true,
+                        "type": "str"
+                    },
+                    "db_users": {
+                        "default": [],
+                        "description": "Database roles.",
+                        "elements": "dict",
+                        "options": {
+                            "databases": {
+                                "default": [],
+                                "description": "Databases the privileges apply to.",
+                                "elements": "str",
+                                "type": "list"
+                            },
+                            "name": {
+                                "description": "Role name.",
+                                "required": true,
+                                "type": "str"
+                            },
+                            "password": {
+                                "description": "Password of the role.",
+                                "no_log": true,
+                                "type": "str"
+                            },
+                            "privileges": {
+                                "choices": [
+                                    "SELECT",
+                                    "INSERT",
+                                    "UPDATE",
+                                    "DELETE",
+                                    "ALL"
+                                ],
+                                "default": [
+                                    "SELECT"
+                                ],
+                                "description": "Table privileges granted on O(db_users[].databases).",
+                                "elements": "str",
+                                "type": "list"
+                            },
+                            "state": {
+                                "choices": [
+                                    "present",
+                                    "absent"
+                                ],
+                                "default": "present",
+                                "description": "Whether the role exists.",
+                                "type": "str"
+                            },
+                            "valid_until": {
+                                "default": "2030-01-01",
+                                "description": "Expiry of the password; the unquoted value is a YAML date.",
+                                "type": "str"
+                            }
+                        },
+                        "type": "list"
+                    },
+                    "db_version": {
+                        "choices": [
+                            "15",
+                            "16",
+                            "17"
+                        ],
+                        "default": "17",
+                        "description": "Major version; quoted so that the choices stay strings.",
+                        "type": "str"
+                    }
+                },
+                "short_description": "Relational database server with users, databases and backups."
+            }
+        },
+        "path": "semantics/src/test/resources/argspecs/db"
+    }
+}

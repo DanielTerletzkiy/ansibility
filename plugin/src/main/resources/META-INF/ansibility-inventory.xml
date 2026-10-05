@@ -12,4 +12,18 @@
                     factoryClass="de.terletzkiy.ansibility.toolwindow.AnsibleToolWindowFactory"/>
         <!-- /w4-toolwindow -->
     </extensions>
+    <!-- ha7: plan amendment R7/R8 F8.7 (HA7a, ex-X39 and part 1 of ex-X43). Effective vars (with the play selector) and
+         Targeted by under every host node, through the CT0 toolWindowNodeContributor seam the tree calls for root,
+         environment, group and host nodes. HA7b (matched hosts per environment under Playbooks, group and var-file
+         reach in the details pane) is built into the tree's own nodes. -->
+    <extensions defaultExtensionNs="de.terletzkiy.ansibility">
+        <toolWindowNodeContributor id="ansibilityHostEffective"
+                                   implementation="de.terletzkiy.ansibility.toolwindow.host.HostNodeContributor"/>
+    </extensions>
+    <actions>
+        <!-- The popup menu of the Effective vars table (empty here); HA9 adds the timed Reveal of masked vault cells and
+             reads the row through EffectiveVarsView.SELECTED_DEFINITION. -->
+        <group id="Ansibility.ToolWindow.EffectiveVars.Popup"/>
+    </actions>
+    <!-- /ha7 -->
 </idea-plugin>

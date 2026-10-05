@@ -1,4 +1,4 @@
-package de.terletzkiy.ansibility.completion.jinja
+package de.terletzkiy.ansibility.resolve.register
 
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
@@ -16,10 +16,11 @@ import org.jetbrains.yaml.psi.YAMLFile
 
 /**
  * Where the own role's runtime names (`register`, `set_fact`) stop being visible: at [offset] of [file] in role
- * order; a `register` of the task spanning [task] (the caret's own task) is visible there too (`until`,
- * `changed_when`).
+ * order. The names of the task spanning [ownTask] (the caret's own task) are set only after it ran, so they are not
+ * visible inside it, except a `register` of the task spanning [task] (the caret's task when the caret is in its
+ * `until`, `changed_when` or `failed_when`).
  */
-internal class Cutoff(val file: VirtualFile, val offset: Int, val task: TextRange?)
+internal class Cutoff(val file: VirtualFile, val offset: Int, val task: TextRange?, val ownTask: TextRange? = null)
 
 /** A role task in [file] that includes another task file ([chain] is the task with its enclosing blocks). */
 internal class IncludeSite(val file: VirtualFile, val yaml: YAMLFile, val task: TaskNode, val chain: List<TaskItem>)
@@ -144,10 +145,14 @@ internal class RoleTaskOrder(private val project: Project, private val role: Rol
             return result
         }
 
-        /** Visibility of [name] at [cutoff] in the cutoff's own file: before it, or a register of the cutoff's task. */
+        /**
+         * Visibility of [name] at [cutoff] in the cutoff's own file: before it and outside the cutoff's own task, or a
+         * register of the cutoff's task in its result keys.
+         */
         fun isVisibleInFile(name: RuntimeName, cutoff: Cutoff): Boolean {
             val offset = name.location.offset
             if (name.isRegister && cutoff.task?.containsOffset(offset) == true) return true
+            if (cutoff.ownTask?.containsOffset(offset) == true) return false
             return offset < cutoff.offset
         }
     }

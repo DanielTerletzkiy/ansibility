@@ -9,6 +9,7 @@ import de.terletzkiy.ansibility.api.CardContext
 import de.terletzkiy.ansibility.api.CardPlacement
 import de.terletzkiy.ansibility.api.CardSection
 import de.terletzkiy.ansibility.api.CardSubject
+import de.terletzkiy.ansibility.context.host.card.SetInEffects
 import de.terletzkiy.ansibility.dochtml.MarkupHtml
 import de.terletzkiy.ansibility.semantics.schema.Choices
 import org.jetbrains.yaml.YAMLLanguage
@@ -34,10 +35,11 @@ internal class CardContributions(val top: List<HtmlChunk>, val section: List<Htm
 /**
  * Renders a [VarCard] as JSDoc-style quick documentation (plan F1.2): a definition line
  * `name : type  role · root · optional`, the description, then a sections table (Type, Required, Default (spec),
- * Runtime default, Choices, Aliases, Options, Declared by, Set in, This definition). Other areas' [CardSection]
- * chunks ([CardContributions]) go after the definition line, after the built-in rows and after the table. Also
- * renders the one-line Ctrl-hover hint, which never includes contributions. All texts come from
- * [AnsibilityVarsBundle] or from the files and are escaped; contributed chunks are HTML built by their owners.
+ * Runtime default, Choices, Aliases, Options, Declared by, Set in (ranked by effect for the card's hosts, [SetInEffects]),
+ * This definition). Other areas' [CardSection] chunks ([CardContributions]) go after the definition line, after the
+ * built-in rows and after the table. Also renders the one-line Ctrl-hover hint, which never includes contributions. All
+ * texts come from [AnsibilityVarsBundle] or from the files and are escaped; contributed chunks and the "Set in" effect
+ * marks are HTML or texts built by their owners.
  */
 internal object VarCardHtml {
     private const val MAX_VALUE_LINES = 12
@@ -47,12 +49,22 @@ internal object VarCardHtml {
     private val SEPARATOR = VarLabels.SEPARATOR
     private val ABBREVIATIONS = setOf("e.g.", "i.e.", "etc.", "vs.", "z.b.", "bzw.", "ca.", "d.h.", "u.a.", "incl.", "approx.")
 
-    fun render(project: Project, card: VarCard, contributions: CardContributions = CardContributions.NONE): String = buildString {
+    /**
+     * The card's HTML. [subject] and [context] are the card as its [CardSection]s see it, so the ranked "Set in" rows
+     * look from the same position as the host-aware sections ([SetInEffects.of]).
+     */
+    fun render(
+        project: Project,
+        card: VarCard,
+        subject: CardSubject.Variable,
+        context: CardContext,
+        contributions: CardContributions = CardContributions.NONE,
+    ): String = buildString {
         definition(card)
         contributions.top.forEach { append(it) }
         content(card)
         append(DocumentationMarkup.SECTIONS_START)
-        sections(project, card)
+        sections(project, card, subject, context)
         contributions.section.forEach { append(it) }
         append(DocumentationMarkup.SECTIONS_END)
         contributions.bottom.forEach { append(it) }
@@ -156,7 +168,7 @@ internal object VarCardHtml {
 
     // ------------------------------------------------------------------------------------------------ sections
 
-    private fun StringBuilder.sections(project: Project, card: VarCard) {
+    private fun StringBuilder.sections(project: Project, card: VarCard, subject: CardSubject.Variable, context: CardContext) {
         val option = card.option
         if (option != null) {
             row(message("card.section.type"), code(VarCard.typeText(option)))
@@ -172,7 +184,7 @@ internal object VarCardHtml {
         if (card.declaredBy.isNotEmpty()) row(message("card.section.declared.by"), declaredBy(card))
         if (card.note == null) {
             val header = card.setInOf?.let { message("card.section.set.in.nested", it) } ?: message("card.section.set.in")
-            row(header, setIn(card))
+            row(header, setIn(project, card, subject, context))
         }
         card.thisDefinition?.let { row(message("card.section.this.definition"), thisDefinition(it)) }
     }
@@ -262,18 +274,48 @@ internal object VarCardHtml {
         }
     }
 
-    private fun setIn(card: VarCard): String {
+    /**
+     * "Set in", ranked by effect for the card's hosts (plan amendment R7/R8, F8.2; [SetInEffects]): winners first,
+     * marked "wins on n of m hosts" (All mode) or ✓ / struck through / "not for prod-prod1" (host mode); with an
+     * environment selected, the other environments' definitions collapse into one line. Without a host scope (no
+     * inventory reaches the file) the groups stay as [VarCards] built them. The effects are seen from [context] as the
+     * Effective section sees it (a reference card reached through a link covers its whole file).
+     */
+    private fun setIn(project: Project, card: VarCard, subject: CardSubject.Variable, context: CardContext): String {
         if (card.setIn.isEmpty()) return esc(message("card.set.in.none", card.root.displayName))
+        val effects = SetInEffects.of(project, subject.definition, context, card.subject.name)
+        val groups = if (effects == null) {
+            card.setIn
+        } else {
+            card.setIn
+                .map { group -> SetInGroup(group.title, group.entries.sortedBy { effects.rank(it.location) }) }
+                .sortedBy { group -> group.entries.minOfOrNull { effects.rank(it.location) } ?: Int.MAX_VALUE }
+        }
+        val collapsed = if (effects == null) emptyList() else groups.filter { group -> group.entries.all { effects.isOtherEnvironment(it.location) } }
         return buildString {
-            for (group in card.setIn) {
+            for (group in groups) {
+                if (group in collapsed) continue
                 append("<p><b>").append(esc(group.title)).append("</b><br/>")
                 for (entry in group.entries) {
+                    val effect = effects?.effect(entry.location)
+                    if (effect?.struck == true) append("<s>")
                     append(link(VarLinks.definition(entry.location), entry.label))
                     append(SEPARATOR).append(esc(entry.layer))
                     when {
                         entry.secret != null -> append(SEPARATOR).append(esc(entry.secret))
                         entry.preview != null -> append(SEPARATOR).append(code(entry.preview))
                     }
+                    if (effect?.struck == true) append("</s>")
+                    effect?.text?.let { append(SEPARATOR).append(grayed(it)) }
+                    append("<br/>")
+                }
+                append("</p>")
+            }
+            if (effects != null && collapsed.isNotEmpty()) {
+                append("<p><b>").append(esc(effects.otherEnvironmentsTitle)).append("</b><br/>")
+                for (group in collapsed) {
+                    append(grayed(group.title)).append(": ")
+                    append(group.entries.joinToString(", ") { link(VarLinks.definition(it.location), it.label) })
                     append("<br/>")
                 }
                 append("</p>")

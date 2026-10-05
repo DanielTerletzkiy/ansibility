@@ -8,6 +8,7 @@ import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.TextRange
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.util.indexing.FileBasedIndex
 import de.terletzkiy.ansibility.api.AnsibleRoot
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
@@ -17,6 +18,7 @@ import de.terletzkiy.ansibility.api.SourceLocation
 import de.terletzkiy.ansibility.index.RootFamily
 import de.terletzkiy.ansibility.index.UseEntry
 import de.terletzkiy.ansibility.index.VarUseIndex
+import de.terletzkiy.ansibility.lang.jinja.refs.JinjaIndirection
 
 /** One reference to a variable in Jinja: a template file, a templated YAML scalar or a bare expression. */
 data class VarUsage(
@@ -32,6 +34,11 @@ data class VarUsage(
     val called: Boolean,
     /** Constant accessors after the root name. */
     val attrPath: List<String>,
+    /**
+     * Null for a direct reference; otherwise a member read by name ([UseEntry.indirect]): [JinjaIndirection.HOSTVARS]
+     * (some host's variable, not the current host's) or [JinjaIndirection.VARS] (`vars['x']`, `lookup('vars', 'x')`).
+     */
+    val indirect: JinjaIndirection? = null,
 ) {
     /** The root name's range in the file. */
     val range: TextRange get() = TextRange(location.offset, location.offset + name.length)
@@ -49,7 +56,7 @@ class VarUsageQuery(private val project: Project) {
     /** Every use of [name] in [root], in file and offset order. */
     fun usages(root: AnsibleRoot, name: String): List<VarUsage> = readLocked {
         val result = ArrayList<VarUsage>()
-        process(root, name) { usage -> result += usage; true }
+        process(root, name, null) { usage -> result += usage; true }
         result.sortWith(compareBy<VarUsage>({ it.location.file.path }, { it.location.offset }))
         result
     }
@@ -57,28 +64,60 @@ class VarUsageQuery(private val project: Project) {
     /** True when [name] is used anywhere in [root]; stops at the first use. */
     fun hasUsages(root: AnsibleRoot, name: String): Boolean = readLocked {
         var found = false
-        process(root, name) { found = true; false }
+        process(root, name, null) { found = true; false }
         found
     }
 
-    private fun process(root: AnsibleRoot, name: String, consumer: (VarUsage) -> Boolean) {
+    /**
+     * Streams every use of [name] in [root] to [consumer], file by file in index order (not sorted), until it returns
+     * false (Find Usages, F1.10). [scope] narrows the root's family further (a Find Usages dialog scope); null searches
+     * the whole family. Returns false when [consumer] stopped the walk. Checks for cancellation once per file.
+     */
+    fun process(root: AnsibleRoot, name: String, scope: GlobalSearchScope?, consumer: (VarUsage) -> Boolean): Boolean = readLocked {
         val workspace = AnsibleWorkspace.getInstance(project)
         val family = RootFamily.of(project, root, workspace)
+        val searchScope = scope?.let { family.scope.intersectWith(it) } ?: family.scope
         FileBasedIndex.getInstance().processValues(
             VarUseIndex.NAME, name, null,
             FileBasedIndex.ValueProcessor { file, entries ->
                 ProgressManager.checkCanceled()
-                val context = workspace.contextOf(file)
-                if (context == null || !family.admits(file, context) || context.kind in NOT_TEMPLATED) return@ValueProcessor true
+                if (!counts(file, family, workspace)) return@ValueProcessor true
                 entries.all { consumer(usage(name, file, it)) }
             },
-            family.scope,
+            searchScope,
         )
+    }
+
+    /**
+     * The uses of [name] in one [file] of [root], in offset order, from that file's own index data (no lookup across
+     * the root). Empty when [file] does not count for [root].
+     */
+    fun usagesIn(root: AnsibleRoot, file: VirtualFile, name: String): List<VarUsage> =
+        usesOf(root, file, name) { FileBasedIndex.getInstance().getFileData(VarUseIndex.NAME, file, project)[name].orEmpty() }
+
+    /**
+     * The uses of [name] among [entries], the `ansible.var.use` entries of [file] for that name as its indexer computes
+     * them (the caret highlighting reads an open file that way, never the index), in offset order; empty when [file]
+     * does not count for [root].
+     */
+    fun usagesIn(root: AnsibleRoot, file: VirtualFile, name: String, entries: List<UseEntry>): List<VarUsage> =
+        usesOf(root, file, name) { entries }
+
+    private fun usesOf(root: AnsibleRoot, file: VirtualFile, name: String, entries: () -> List<UseEntry>): List<VarUsage> = readLocked {
+        val workspace = AnsibleWorkspace.getInstance(project)
+        if (!counts(file, RootFamily.of(project, root, workspace), workspace)) return@readLocked emptyList()
+        entries().map { usage(name, file, it) }.sortedBy { it.location.offset }
+    }
+
+    /** True when uses in [file] belong to [family]'s results (a file of the family whose Jinja Ansible templates). */
+    private fun counts(file: VirtualFile, family: RootFamily, workspace: AnsibleWorkspace): Boolean {
+        val context = workspace.contextOf(file) ?: return false
+        return family.admits(file, context) && context.kind !in NOT_TEMPLATED
     }
 
     private fun usage(name: String, file: VirtualFile, entry: UseEntry) = VarUsage(
         name, SourceLocation(file, entry.offset), entry.container.container,
-        entry.guarded, entry.guardedByCondition, entry.called, entry.attrPath,
+        entry.guarded, entry.guardedByCondition, entry.called, entry.attrPath, entry.indirect,
     )
 
     private fun <T> readLocked(action: () -> T): T =

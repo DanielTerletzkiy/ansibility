@@ -1,0 +1,175 @@
+---
+# Synthetic role spec written for the ArgSpecParser parity test (Ansibility test corpus).
+# Shapes: list elements int/float/bool/list, apply_defaults, deprecation by date, sub-options named like spec keys
+# (type, default, description, for) and three entry points.
+argument_specs:
+  main:
+    short_description: Time-series collector that scrapes exporters.
+    description:
+      - Installs the C(tsdbd) collector and writes its scrape configuration.
+    options:
+      metrics_listen:
+        type: str
+        default: 127.0.0.1:9490
+        description: Address of the collector API.
+      metrics_scrape_interval:
+        type: str
+        default: 30s
+        description: Default scrape interval.
+      metrics_retention:
+        type: dict
+        apply_defaults: true
+        description: Retention limits; O(metrics_retention.time) and O(metrics_retention.size) get their defaults even when the mapping is omitted.
+        options:
+          time:
+            type: str
+            default: 15d
+            description: Age limit.
+          size:
+            type: bytes
+            default: 10G
+            description: Size limit of the data directory.
+      metrics_ports:
+        type: list
+        elements: int
+        default: [9100, 9256]
+        description: Local exporter ports scraped on every host.
+      metrics_quantiles:
+        type: list
+        elements: float
+        default: [0.5, 0.9, 0.99]
+        description: Quantiles of the summary metrics.
+      metrics_feature_flags:
+        type: list
+        elements: bool
+        default: [true, false, yes, off]
+        description: Positional feature toggles, read as YAML 1.1 booleans.
+      metrics_label_pairs:
+        type: list
+        elements: list
+        default:
+          - [env, test]
+          - [tier, demo]
+        description: External labels as name and value pairs.
+      metrics_targets:
+        type: list
+        elements: dict
+        default: []
+        description: Scrape jobs.
+        options:
+          job:
+            type: str
+            required: true
+            description: Job name.
+          static:
+            type: list
+            elements: str
+            default: []
+            description: Targets such as V(192.0.2.30:9100).
+          scheme:
+            type: str
+            choices: [http, https]
+            default: http
+            description: URL scheme.
+          interval:
+            type: str
+            description: Overrides O(metrics_scrape_interval).
+          labels:
+            type: dict
+            default: {}
+            description: Labels added to every series of the job.
+          params:
+            type: dict
+            description: URL parameters, parameter name to list of values.
+      metrics_remote_write:
+        type: str
+        description: URL that receives every sample, for example V(https://tsdb.example.test/api/write).
+        deprecated:
+          why: Remote writing moves to the exporter entry point.
+          alternative: O(ansibility.synthetic.metrics#role:exporter:metrics_exporter_forward)
+          removed_at_date: "2027-06-30"
+        removed_at_date: "2027-06-30"
+        removed_from_collection: ansibility.synthetic
+  exporter:
+    short_description: Host exporter that publishes system metrics.
+    description:
+      - Installs C(hostexp) and opens O(metrics_exporter_port).
+      - Collectors are enabled with O(metrics_exporter_collectors).
+    options:
+      metrics_exporter_port:
+        type: int
+        default: 9100
+        description: Port of the exporter.
+      metrics_exporter_collectors:
+        type: list
+        elements: str
+        choices: [cpu, diskstats, filesystem, loadavg, meminfo, netdev, systemd]
+        default: [cpu, filesystem, loadavg, meminfo]
+        description: Collectors to enable.
+      metrics_exporter_textfile_dir:
+        type: path
+        default: /var/lib/hostexp/textfile
+        description: Directory of C(*.prom) files exported as they are.
+      metrics_exporter_forward:
+        type: str
+        version_added: "1.4.0"
+        description: Collector URL the exporter pushes to.
+  alerts:
+    short_description: Alerting and recording rules.
+    options:
+      metrics_rule_groups:
+        type: list
+        elements: dict
+        required: true
+        description: Rule groups, one file each.
+        options:
+          name:
+            type: str
+            required: true
+            description: Group name.
+          interval:
+            type: str
+            description: Evaluation interval of the group.
+          rules:
+            type: list
+            elements: dict
+            required: true
+            description: Rules of the group.
+            options:
+              type:
+                type: str
+                choices: [alert, record]
+                default: alert
+                description: Alerting or recording rule.
+              name:
+                type: str
+                required: true
+                description: Alert name or recorded series.
+              expr:
+                type: str
+                required: true
+                description: Query expression, for example V(up == 0).
+              for:
+                type: str
+                default: 0s
+                description: Time the condition must hold.
+              default:
+                type: raw
+                description: Value assumed when the expression returns nothing.
+              labels:
+                type: dict
+                default: {}
+                description: Labels attached to the alert.
+              annotations:
+                type: dict
+                description: Texts shown with the alert.
+                options:
+                  summary:
+                    type: str
+                    description: One-line summary.
+                  description:
+                    type: str
+                    description: Longer explanation.
+                  runbook_url:
+                    type: str
+                    description: Link to the runbook, for example V(https://runbooks.example.test/up).

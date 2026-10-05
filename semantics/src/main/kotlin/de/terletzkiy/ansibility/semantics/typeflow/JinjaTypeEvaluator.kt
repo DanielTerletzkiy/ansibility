@@ -30,6 +30,14 @@ fun interface VariableResolver {
      * or null when the name cannot be followed (not defined in the root, a fact, a magic variable).
      */
     fun definitions(name: String): List<VariableDefinition>?
+
+    /**
+     * The logical type of the member `name.path…` of a variable whose value only exists at runtime (a registered
+     * result: `{{ r.rc }}` is an `int`), or null when it is unknown. [path] holds the constant accessors as written:
+     * attribute names and string keys as they are, integer keys as decimal numbers (`["results", "0", "stdout"]`).
+     * The evaluator asks only when the definitions give no known element. Never called with an empty [path].
+     */
+    fun memberType(name: String, path: List<String>): AValue? = null
 }
 
 /**
@@ -57,7 +65,8 @@ class TemplateTypes(val template: JinjaTemplate, val logical: AValue, val runtim
  *   → `list`; `items2dict` → `dict`; `default(x)`/`d(x)` → the join of the value and `x`;
  * - literals have their type (a tuple is [BaseType.OTHER], which 2.19+ hands over as a list); `~` gives `str`;
  *   comparisons, tests and `not` give `bool`; an inline `if` and `and`/`or` join their operands; constant attribute
- *   and item access reads known literal containers;
+ *   and item access reads known literal containers, and members of runtime-only values the resolver types
+ *   ([VariableResolver.memberType]: `{{ r.rc }}` of a registered result is an `int`);
  * - multi-node templates are `str`; templates with statements, calls and arithmetic are unknown.
  *
  * Runtime types follow [TemplatingRules.Mode] (see there). Results are memoised per variable name for the lifetime
@@ -469,15 +478,61 @@ class JinjaTypeEvaluator(
     /**
      * Constant attribute or item access (`x.port`, `x['port']`, `x[0]`, `x.0`) on a value whose literal is known in
      * every definition. Jinja's `x.attr` tries the Python attribute first, so dict and list method names stay unknown.
+     * When no definition gives the element and the target is a constant chain below a variable (`r.results[0]`), the
+     * resolver's [VariableResolver.memberType] types it (a registered result's documented return value), as both the
+     * logical type and the value before output concatenation.
      */
     private fun access(targetExpr: JinjaExpr, depth: Int, attribute: String?, key: PyValue?): Eval {
         val target = expression(targetExpr, depth)
         val origin = (target.origin as? TypeOrigin.Chain)?.let { chain ->
             TypeOrigin.Chain(chain.chain, chain.accessors + (attribute ?: key?.let { PyRepr.display(it) }.orEmpty()))
         } ?: TypeOrigin.Other
-        val logical = element(target.logical.known, attribute, key) ?: return Eval(AValue.UNKNOWN, AValue.UNKNOWN, origin, target.limited)
+        val logical = element(target.logical.known, attribute, key)
+            ?: return memberType(targetExpr, attribute, key)?.let { Eval(it, it, origin, target.limited) }
+                ?: Eval(AValue.UNKNOWN, AValue.UNKNOWN, origin, target.limited)
         val runtime = element(target.runtime.known, attribute, key) ?: return Eval(AValue.UNKNOWN, AValue.UNKNOWN, origin, target.limited)
         return Eval(AValue.known(logical), AValue.known(runtime), origin, target.limited)
+    }
+
+    /** The resolver's type of `name.path…` for the access of [attribute] or [key] on the constant chain [targetExpr]. */
+    private fun memberType(targetExpr: JinjaExpr, attribute: String?, key: PyValue?): AValue? {
+        // `r.items` is the dict method, whatever the result holds (as in [element]).
+        if (attribute != null && attribute in DICT_ATTRIBUTES) return null
+        val (name, accessors) = constantChain(targetExpr) ?: return null
+        if (name.startsWith(VAULT_PREFIX)) return null
+        val last = attribute ?: key?.let(::accessorText) ?: return null
+        return resolver.memberType(name, accessors + last)
+    }
+
+    /**
+     * The variable and the constant accessors of `name.a['b'][0]` (outermost last), or null when [expr] is anything
+     * else (a filter, a call, a computed key, a dict method name …).
+     */
+    private fun constantChain(expr: JinjaExpr): Pair<String, List<String>>? {
+        val accessors = ArrayList<String>()
+        var current = expr
+        while (true) {
+            current = when (current) {
+                is JinjaExpr.Name -> return current.name to accessors.asReversed()
+                is JinjaExpr.Attribute -> {
+                    if (current.attribute in DICT_ATTRIBUTES) return null
+                    accessors += current.attribute
+                    current.target
+                }
+                is JinjaExpr.Subscript -> {
+                    accessors += current.key?.let(::constant)?.let(::accessorText) ?: return null
+                    current.target
+                }
+                else -> return null
+            }
+        }
+    }
+
+    /** A constant key as a [VariableResolver.memberType] path segment: a string as it is, an int in decimal. */
+    private fun accessorText(key: PyValue): String? = when (key) {
+        is PyValue.Str -> key.value
+        is PyValue.Int -> key.value.toString()
+        else -> null
     }
 
     private fun element(container: PyValue?, attribute: String?, key: PyValue?): PyValue? {

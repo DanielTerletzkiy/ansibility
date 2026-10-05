@@ -34,9 +34,15 @@ internal data class LoopReads(val attributes: List<String>, val files: List<Virt
          * is the bare `{{ name }}` (optionally through element-preserving filters such as `| list` or `| default([])`),
          * and every use of its loop variable (`item`, or `loop_control.loop_var`) inside that task, from the
          * `ansible.var.use` index. Templates rendered by those tasks are not followed. Call in a read action in smart mode.
+         *
+         * Reads by name (`UseEntry.indirect`, FU2) never count, on either side: a `hostvars[h].item.port` or
+         * `map('extract', hostvars, 'servers')` member is another host's variable, not this loop's items, and a loop over
+         * `{{ vars['servers'] }}` or a `vars['item'].port` read is not the bare `{{ servers }}`/`item.port` shape this rule
+         * types (none of them occurs in the fixture or the corpus).
          */
         fun of(project: Project, root: AnsibleRoot, name: String): LoopReads {
-            val usages = VarUsageQuery.getInstance(project).usages(root, name).filter { it.attrPath.isEmpty() && !it.called }
+            val usages = VarUsageQuery.getInstance(project).usages(root, name)
+                .filter { it.attrPath.isEmpty() && !it.called && it.indirect == null }
             if (usages.isEmpty()) return NONE
             val source = Regex("""^\s*\{\{-?\s*${Regex.escape(name)}\s*(\|\s*(list|sort|unique|reverse|default\([^)]*\)|d\([^)]*\))\s*)*-?}}\s*$""")
             val attributes = LinkedHashSet<String>()
@@ -55,7 +61,7 @@ internal data class LoopReads(val attributes: List<String>, val files: List<Virt
                 for (task in loopingTasks) {
                     val loopVar = task.loopVar ?: continue
                     val read = uses[loopVar].orEmpty()
-                        .filter { task.range.containsOffset(it.offset) }
+                        .filter { !it.isIndirect && task.range.containsOffset(it.offset) }
                         .mapNotNull { it.attrPath.firstOrNull() }
                     if (read.isNotEmpty()) {
                         attributes += read

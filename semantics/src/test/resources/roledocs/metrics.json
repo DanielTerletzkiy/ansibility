@@ -1,0 +1,265 @@
+{
+    "metrics": {
+        "collection": null,
+        "entry_points": {
+            "alerts": {
+                "options": {
+                    "metrics_rule_groups": {
+                        "description": "Rule groups, one file each.",
+                        "elements": "dict",
+                        "options": {
+                            "interval": {
+                                "description": "Evaluation interval of the group.",
+                                "type": "str"
+                            },
+                            "name": {
+                                "description": "Group name.",
+                                "required": true,
+                                "type": "str"
+                            },
+                            "rules": {
+                                "description": "Rules of the group.",
+                                "elements": "dict",
+                                "options": {
+                                    "annotations": {
+                                        "description": "Texts shown with the alert.",
+                                        "options": {
+                                            "description": {
+                                                "description": "Longer explanation.",
+                                                "type": "str"
+                                            },
+                                            "runbook_url": {
+                                                "description": "Link to the runbook, for example V(https://runbooks.example.test/up).",
+                                                "type": "str"
+                                            },
+                                            "summary": {
+                                                "description": "One-line summary.",
+                                                "type": "str"
+                                            }
+                                        },
+                                        "type": "dict"
+                                    },
+                                    "default": {
+                                        "description": "Value assumed when the expression returns nothing.",
+                                        "type": "raw"
+                                    },
+                                    "expr": {
+                                        "description": "Query expression, for example V(up == 0).",
+                                        "required": true,
+                                        "type": "str"
+                                    },
+                                    "for": {
+                                        "default": "0s",
+                                        "description": "Time the condition must hold.",
+                                        "type": "str"
+                                    },
+                                    "labels": {
+                                        "default": {},
+                                        "description": "Labels attached to the alert.",
+                                        "type": "dict"
+                                    },
+                                    "name": {
+                                        "description": "Alert name or recorded series.",
+                                        "required": true,
+                                        "type": "str"
+                                    },
+                                    "type": {
+                                        "choices": [
+                                            "alert",
+                                            "record"
+                                        ],
+                                        "default": "alert",
+                                        "description": "Alerting or recording rule.",
+                                        "type": "str"
+                                    }
+                                },
+                                "required": true,
+                                "type": "list"
+                            }
+                        },
+                        "required": true,
+                        "type": "list"
+                    }
+                },
+                "short_description": "Alerting and recording rules."
+            },
+            "exporter": {
+                "description": [
+                    "Installs C(hostexp) and opens O(metrics_exporter_port).",
+                    "Collectors are enabled with O(metrics_exporter_collectors)."
+                ],
+                "options": {
+                    "metrics_exporter_collectors": {
+                        "choices": [
+                            "cpu",
+                            "diskstats",
+                            "filesystem",
+                            "loadavg",
+                            "meminfo",
+                            "netdev",
+                            "systemd"
+                        ],
+                        "default": [
+                            "cpu",
+                            "filesystem",
+                            "loadavg",
+                            "meminfo"
+                        ],
+                        "description": "Collectors to enable.",
+                        "elements": "str",
+                        "type": "list"
+                    },
+                    "metrics_exporter_forward": {
+                        "description": "Collector URL the exporter pushes to.",
+                        "type": "str",
+                        "version_added": "1.4.0"
+                    },
+                    "metrics_exporter_port": {
+                        "default": 9100,
+                        "description": "Port of the exporter.",
+                        "type": "int"
+                    },
+                    "metrics_exporter_textfile_dir": {
+                        "default": "/var/lib/hostexp/textfile",
+                        "description": "Directory of C(*.prom) files exported as they are.",
+                        "type": "path"
+                    }
+                },
+                "short_description": "Host exporter that publishes system metrics."
+            },
+            "main": {
+                "description": [
+                    "Installs the C(tsdbd) collector and writes its scrape configuration."
+                ],
+                "options": {
+                    "metrics_feature_flags": {
+                        "default": [
+                            true,
+                            false,
+                            true,
+                            false
+                        ],
+                        "description": "Positional feature toggles, read as YAML 1.1 booleans.",
+                        "elements": "bool",
+                        "type": "list"
+                    },
+                    "metrics_label_pairs": {
+                        "default": [
+                            [
+                                "env",
+                                "test"
+                            ],
+                            [
+                                "tier",
+                                "demo"
+                            ]
+                        ],
+                        "description": "External labels as name and value pairs.",
+                        "elements": "list",
+                        "type": "list"
+                    },
+                    "metrics_listen": {
+                        "default": "127.0.0.1:9490",
+                        "description": "Address of the collector API.",
+                        "type": "str"
+                    },
+                    "metrics_ports": {
+                        "default": [
+                            9100,
+                            9256
+                        ],
+                        "description": "Local exporter ports scraped on every host.",
+                        "elements": "int",
+                        "type": "list"
+                    },
+                    "metrics_quantiles": {
+                        "default": [
+                            0.5,
+                            0.9,
+                            0.99
+                        ],
+                        "description": "Quantiles of the summary metrics.",
+                        "elements": "float",
+                        "type": "list"
+                    },
+                    "metrics_remote_write": {
+                        "deprecated": {
+                            "alternative": "O(ansibility.synthetic.metrics#role:exporter:metrics_exporter_forward)",
+                            "removed_at_date": "2027-06-30",
+                            "why": "Remote writing moves to the exporter entry point."
+                        },
+                        "description": "URL that receives every sample, for example V(https://tsdb.example.test/api/write).",
+                        "removed_at_date": "2027-06-30",
+                        "removed_from_collection": "ansibility.synthetic",
+                        "type": "str"
+                    },
+                    "metrics_retention": {
+                        "apply_defaults": true,
+                        "description": "Retention limits; O(metrics_retention.time) and O(metrics_retention.size) get their defaults even when the mapping is omitted.",
+                        "options": {
+                            "size": {
+                                "default": "10G",
+                                "description": "Size limit of the data directory.",
+                                "type": "bytes"
+                            },
+                            "time": {
+                                "default": "15d",
+                                "description": "Age limit.",
+                                "type": "str"
+                            }
+                        },
+                        "type": "dict"
+                    },
+                    "metrics_scrape_interval": {
+                        "default": "30s",
+                        "description": "Default scrape interval.",
+                        "type": "str"
+                    },
+                    "metrics_targets": {
+                        "default": [],
+                        "description": "Scrape jobs.",
+                        "elements": "dict",
+                        "options": {
+                            "interval": {
+                                "description": "Overrides O(metrics_scrape_interval).",
+                                "type": "str"
+                            },
+                            "job": {
+                                "description": "Job name.",
+                                "required": true,
+                                "type": "str"
+                            },
+                            "labels": {
+                                "default": {},
+                                "description": "Labels added to every series of the job.",
+                                "type": "dict"
+                            },
+                            "params": {
+                                "description": "URL parameters, parameter name to list of values.",
+                                "type": "dict"
+                            },
+                            "scheme": {
+                                "choices": [
+                                    "http",
+                                    "https"
+                                ],
+                                "default": "http",
+                                "description": "URL scheme.",
+                                "type": "str"
+                            },
+                            "static": {
+                                "default": [],
+                                "description": "Targets such as V(192.0.2.30:9100).",
+                                "elements": "str",
+                                "type": "list"
+                            }
+                        },
+                        "type": "list"
+                    }
+                },
+                "short_description": "Time-series collector that scrapes exporters."
+            }
+        },
+        "path": "semantics/src/test/resources/argspecs/metrics"
+    }
+}

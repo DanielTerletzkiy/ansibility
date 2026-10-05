@@ -11,18 +11,39 @@ import de.terletzkiy.ansibility.facts.FactsCatalog
 import de.terletzkiy.ansibility.index.ValueSummary
 import de.terletzkiy.ansibility.lang.jinja.refs.JinjaLocal
 import de.terletzkiy.ansibility.lang.jinja.refs.JinjaLocalKind
+import de.terletzkiy.ansibility.model.task.TaskNode
 import de.terletzkiy.ansibility.resolve.loop.LoopItemTyper
+import de.terletzkiy.ansibility.resolve.register.RegisteredDocs
+import de.terletzkiy.ansibility.resolve.register.RegisteredResult
+import de.terletzkiy.ansibility.resolve.register.RegisteredResults
 import de.terletzkiy.ansibility.semantics.schema.OptionSpec
 import de.terletzkiy.ansibility.semantics.schema.OptionType
+import de.terletzkiy.ansibility.vars.registered.RegisteredSites
 
-/** A typed chain: its option tree and where the card of its members lives (null: no variable card). */
-internal class TypedChain(val option: OptionSpec, val doc: CandidateDoc.Variable?)
+/**
+ * A typed chain: its option tree, where the card of its members lives (null: no variable card) and, for a chain into a
+ * registered result, the result and the path below it (its members get the return values' docs).
+ */
+internal class TypedChain(val option: OptionSpec, val doc: CandidateDoc.Variable?, val registered: RegisteredChain? = null)
+
+/** `result.path…` of a registered result ([path] below the registered variable, list elements as `"0"`). */
+internal class RegisteredChain(val result: RegisteredResult, val path: List<String>) {
+    /** The same result one element below this list chain, then [rest]. */
+    fun element(rest: List<String>): RegisteredChain = RegisteredChain(result, path + LIST_ELEMENT + rest)
+
+    private companion object {
+        const val LIST_ELEMENT = "0"
+    }
+}
 
 /**
  * Member completion after `.` and `['` (plan F1.3 member completion, F1.7, X10), for the chain in front of the caret:
  * - Jinja locals: `loop.` members; `for` targets typed by their iterable (so `server.` in
  *   `{% for server in haproxy_servers %}` offers the element options); namespace attributes;
  * - the loop variable (and `ansible_loop`) through [LoopItemTyper], in templates the union over rendering tasks;
+ * - registered variables (plan amendment FU, F1.12): the documented keys of the task's result ([RegisteredResults]),
+ *   nested return values via `contains`, `results` items of loops, with type, origin tail and the return value's
+ *   card; a loop or `for` over `x.results` types its items the same way;
  * - `ansible_facts` and the injected `ansible_*` facts from [FactsCatalog], dict-valued special variables;
  * - `groups` (group names), `hostvars` (host names, then per host the inventory names and connection variables),
  *   from every inventory of the root and its molecule scenarios;
@@ -58,10 +79,32 @@ internal class JinjaMembers(private val scope: JinjaCompletionScope) {
             val option = LoopItemTyper.typeOfPath(entry.loop, root, path) ?: return null
             val source = entry.loop.sourceVariable
             val doc = if (root == entry.loop.loopVar && source != null) CandidateDoc.Variable(source, entry.loop.sourcePath + "0" + path) else null
-            return TypedChain(option, doc)
+            val registered = if (root == entry.loop.loopVar && source != null) registeredChain(source, entry.loop.sourcePath + "0" + path) else null
+            return TypedChain(option, doc, registered)
+        }
+        // A visible `register:` decides the name: registered results rank above task, block, play, role and inventory
+        // vars; of the names in this scope only include parameters (the `vars:` of an including task, or of the caret's
+        // task when it is an include itself) and `template_vars` rank above them.
+        val registered = scope.registered(root)?.takeIf { scope.taskVars.none { it.name == root && ranksAboveRegistered(it) } }
+        if (registered != null) {
+            val chain = RegisteredChain(registered, path).takeIf { registered.member(path) != null } ?: return null
+            return registered.option(path)?.let { TypedChain(it, null, chain) }
         }
         val option = LoopItemTyper.variableType(scope.project, scope.fileContext, scope.chain, root, path) ?: return null
         return TypedChain(option, CandidateDoc.Variable(root, path))
+    }
+
+    /** Whether the tier-T2 name [variable] ranks above a registered result of the same name (an include parameter). */
+    private fun ranksAboveRegistered(variable: ScopeTaskVar): Boolean = when (variable.source) {
+        ScopeTaskVar.Source.INCLUDE, ScopeTaskVar.Source.TEMPLATE -> true
+        ScopeTaskVar.Source.TASK -> (scope.chain.lastOrNull() as? TaskNode)?.let { it.taskInclude != null || it.roleInclude != null } == true
+        ScopeTaskVar.Source.BLOCK -> false
+    }
+
+    /** `name.path…` in the result registered as [name] at the caret, when the result documents that path. */
+    private fun registeredChain(name: String, path: List<String>): RegisteredChain? {
+        val result = scope.registered(name) ?: return null
+        return RegisteredChain(result, path).takeIf { result.member(path) != null }
     }
 
     // ------------------------------------------------------------------------------------------------ locals
@@ -70,13 +113,20 @@ internal class JinjaMembers(private val scope: JinjaCompletionScope) {
         if (local.kind != JinjaLocalKind.FOR_TARGET) return null
         val expression = iterableOf(local) ?: return null
         var base: CandidateDoc.Variable? = null
+        var baseRegistered: RegisteredChain? = null
         val iteration = LoopItemTyper.iterate(expression, { name, accessors ->
-            typeOf(name, accessors, depth + 1)?.also { base = it.doc }?.option
+            typeOf(name, accessors, depth + 1)?.also { base = it.doc; baseRegistered = it.registered }?.option
         })
         val element = iteration.element?.copy(name = local.name) ?: return null
         val option = LoopItemTyper.walk(element, path) ?: return null
         val doc = base?.let { CandidateDoc.Variable(it.name, it.path + "0" + path) }
-        return TypedChain(option, doc)
+        // `{% for r in x.results %}`: `r` is an element of the registered list unless a filter changed the element.
+        val registered = baseRegistered?.let { list ->
+            val listElement = list.element(emptyList()).let { it.result.option(it.path) }
+            val unchanged = listElement != null && listElement.type == element.type && listElement.options?.keys == element.options?.keys
+            list.element(path).takeIf { unchanged && it.result.member(it.path) != null }
+        }
+        return TypedChain(option, doc, registered)
     }
 
     /** The iterable expression of the `{% for %}` tag binding [local]; null for tuple targets. */
@@ -235,6 +285,7 @@ internal class JinjaMembers(private val scope: JinjaCompletionScope) {
 
     /** The `options` of a typed chain; nothing for lists (they need an index) and untyped values. */
     private fun optionMembers(typed: TypedChain, owner: String, keys: Boolean, accept: (String) -> Boolean): List<JinjaCandidate> {
+        typed.registered?.let { return registeredMembers(it, keys, accept) }
         val option = typed.option
         if (option.type == OptionType.List) return emptyList()
         val options = option.options ?: return emptyList()
@@ -250,6 +301,25 @@ internal class JinjaMembers(private val scope: JinjaCompletionScope) {
                 sub.name, Tier.MEMBER, (if (sub.required) 500 else 0) + (options.size - index).coerceAtMost(499),
                 typeText(sub), tail, AllIcons.Nodes.Property, doc,
                 bold = sub.required && sub.default == null, deprecated = sub.deprecated != null,
+            )
+        }
+    }
+
+    /**
+     * The documented keys below a registered chain (module returns first, the common keys last), typed, with where they
+     * come from as the tail (`command`, `common`, `until` …) and the return value's card; nothing for a list.
+     */
+    private fun registeredMembers(chain: RegisteredChain, keys: Boolean, accept: (String) -> Boolean): List<JinjaCandidate> {
+        val member = chain.result.member(chain.path) ?: return emptyList()
+        if (member.type == OptionType.List) return emptyList()
+        val members = member.members ?: return emptyList()
+        return members.values.withIndex().filter { (_, it) -> accept(it.name) && (keys || isIdentifier(it.name)) }.map { (index, sub) ->
+            ProgressManager.checkCanceled()
+            val path = chain.path + sub.name
+            JinjaCandidate(
+                sub.name, Tier.MEMBER, (members.size - index).coerceAtMost(999), typeText(sub.option),
+                part(RegisteredDocs.tail(sub)), AllIcons.Nodes.Property,
+                CandidateDoc.Registered(chain.result, path, RegisteredSites.display(chain.result.name, path)),
             )
         }
     }

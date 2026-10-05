@@ -27,10 +27,18 @@ import de.terletzkiy.ansibility.model.task.YamlFiles
 import de.terletzkiy.ansibility.resolve.loop.LiteralShapes
 import de.terletzkiy.ansibility.resolve.loop.LoopItemTyper
 import de.terletzkiy.ansibility.resolve.loop.TaskChains
+import de.terletzkiy.ansibility.resolve.register.Cutoff
+import de.terletzkiy.ansibility.resolve.register.IncludeSite
+import de.terletzkiy.ansibility.resolve.register.RegisterVisibility
+import de.terletzkiy.ansibility.resolve.register.RegisteredResult
+import de.terletzkiy.ansibility.resolve.register.RegisteredResults
+import de.terletzkiy.ansibility.resolve.register.RoleTaskOrder
+import de.terletzkiy.ansibility.resolve.register.RuntimeName
 import de.terletzkiy.ansibility.semantics.yaml.YValue
 import de.terletzkiy.ansibility.vars.JinjaTextSites
 import de.terletzkiy.ansibility.yaml.YamlPaths
 import org.jetbrains.yaml.psi.YAMLFile
+import java.util.Optional
 
 /** A loop in scope at the caret (tier T1): the task's own loop, or the loops of a template's rendering tasks. */
 internal class ScopeLoop(
@@ -105,6 +113,16 @@ internal class JinjaCompletionScope private constructor(
     /** The loop that defines [name], if any. */
     fun loopOf(name: String): ScopeLoop? = loops.firstOrNull { name in LoopItemTyper.namesOf(it.loop) }
 
+    private val registered = HashMap<String, Optional<RegisteredResult>>()
+
+    /**
+     * The typed result of [name] when a `register:` visible at the caret defines it ([RegisteredResults], plan amendment
+     * FU F1.12), memoised for this completion; null for every other name.
+     */
+    fun registered(name: String): RegisteredResult? = registered.getOrPut(name) {
+        Optional.ofNullable(RegisteredResults.getInstance(project).at(file, hostOffset, name))
+    }.orElse(null)
+
     /** The own role's `register`/`set_fact` names visible at the caret, in role order. */
     fun runtimeNames(role: ScopeRole): List<RuntimeName> {
         val order = RoleTaskOrder(project, role.info)
@@ -155,8 +173,7 @@ internal class JinjaCompletionScope private constructor(
             }.asReversed() + includes.flatMap { site -> site.chain.asReversed().flatMap { varsOf(it, ScopeTaskVar.Source.INCLUDE) } }).distinctBy { it.name }
             val handlers = context.kind == FileKind.ROLE_HANDLERS
             // The task's own `register` is set only for its `until`/`changed_when`/`failed_when` expressions.
-            val ownResult = task?.takeIf { node -> node.expressions.any { it.key in RESULT_KEYS && it.range.containsOffset(hostOffset) } }
-            val cutoff = Cutoff(virtualFile, hostOffset, ownResult?.range)
+            val cutoff = RegisterVisibility.cutoffAt(virtualFile, model, hostOffset)
             val roles = listOfNotNull(ownRole?.let { ScopeRole(it, if (handlers) null else listOf(cutoff)) })
             val play = model.playAt(hostOffset)?.let { node -> playAt(project, virtualFile, node.range.startOffset) }
             val local = if (ownRole != null && virtualFile in ownRole.taskFiles) {
@@ -188,9 +205,6 @@ internal class JinjaCompletionScope private constructor(
             val seen = HashSet<String>()
             return loops.filter { seen.add(it.loop.loopVar) }
         }
-
-        /** Task keys evaluated after the module ran, where the task's own `register` result exists. */
-        private val RESULT_KEYS = setOf("until", "changed_when", "failed_when")
 
         /** True when [offset] is inside the task's own loop expression, where the loop variable is not defined yet. */
         private fun inLoopValue(task: TaskNode, offset: Int): Boolean {

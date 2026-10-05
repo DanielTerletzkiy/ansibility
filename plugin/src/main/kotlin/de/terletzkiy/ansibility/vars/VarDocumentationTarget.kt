@@ -16,6 +16,7 @@ import de.terletzkiy.ansibility.api.CardContext
 import de.terletzkiy.ansibility.api.CardSection
 import de.terletzkiy.ansibility.api.CardSubject
 import de.terletzkiy.ansibility.api.SiteDocumentation
+import de.terletzkiy.ansibility.api.SourceLocation
 
 /**
  * The variable documentation card (plan F1.2, F4.3, F4.8; X06, X07, X84) as a platform [DocumentationTarget]: for a
@@ -52,7 +53,9 @@ class VarDocumentationTarget internal constructor(
 
     override fun computeDocumentation(): DocumentationResult? {
         val card = card() ?: return null
-        return DocumentationResult.documentation(VarCardHtml.render(project, card, CardContributions.collect(cardSubject(card), cardContext())))
+        val cardSubject = cardSubject(card)
+        val context = cardContext()
+        return DocumentationResult.documentation(VarCardHtml.render(project, card, cardSubject, context, CardContributions.collect(cardSubject, context)))
     }
 
     /**
@@ -63,9 +66,13 @@ class VarDocumentationTarget internal constructor(
         root = card.root,
         name = subject.name,
         path = subject.path,
-        definition = subject.location.takeIf { subject.origin == VarSubject.Origin.DEFINITION },
+        definition = definitionLocation,
         local = subject.origin == VarSubject.Origin.LOCAL || card.note is Note.Local || card.note is Note.Loop,
     )
+
+    /** Where the documented definition is written, for a definition card; null for a reference ([CardSubject.Variable.definition]). */
+    internal val definitionLocation: SourceLocation?
+        get() = subject.location.takeIf { subject.origin == VarSubject.Origin.DEFINITION }
 
     /** Where the card is shown from: the subject's host file and offset, or offset -1 when reached through a link. */
     internal fun cardContext(): CardContext = CardContext(project, subject.file, if (viaLink) -1 else subject.offset)

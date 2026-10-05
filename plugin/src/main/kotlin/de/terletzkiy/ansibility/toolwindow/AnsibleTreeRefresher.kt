@@ -154,8 +154,10 @@ class AnsibleTreeRefresher(
 
 /**
  * Which VFS events can change what the tool window shows: creating, deleting, moving, renaming or editing
- * `ansible.cfg`, a `hosts.y*ml`, a playbook (`playbook-*.y*ml`, YAML files in a `playbooks/` directory) or anything
- * below `environments/`, `group_vars/` or `host_vars/`, inside one of the roots the tree shows ([rootPaths]).
+ * `ansible.cfg`, a `hosts.y*ml`, a playbook (`playbook-*.y*ml`, YAML files in a `playbooks/` directory), anything
+ * below `environments/`, `group_vars/` or `host_vars/`, or a role's `defaults/`, `vars/` or `meta/` (HA7: a play's
+ * Effective vars include role defaults and role vars, and dependencies decide the roles), inside one of the roots the
+ * tree shows ([rootPaths]).
  *
  * Judged on the path below the root only (cheap, no VFS access), so a project that happens to live below a
  * directory called `build` is not ignored; events inside [AnsibleLayout.SKIPPED_DIRS] of a root never count. New
@@ -183,7 +185,14 @@ class RefreshFilter(rootPaths: Collection<String>) {
             AnsibleLayout.isPlaybookName(name) ||
             name in TREE_PARENTS ||
             parents.any { it in TREE_PARENTS } ||
-            (parents.lastOrNull() == AnsibleLayout.PLAYBOOKS && AnsibleLayout.isYamlName(name))
+            (parents.lastOrNull() == AnsibleLayout.PLAYBOOKS && AnsibleLayout.isYamlName(name)) ||
+            isRoleVariableSource(parents)
+    }
+
+    /** `roles/<role>/defaults/…`, `roles/<role>/vars/…` or `roles/<role>/meta/…` (the role directory itself excluded). */
+    private fun isRoleVariableSource(parents: List<String>): Boolean {
+        val roles = parents.lastIndexOf(AnsibleLayout.ROLES)
+        return roles >= 0 && parents.size > roles + 2 && parents[roles + 2] in ROLE_PARTS
     }
 
     /** The segments of [path] below the innermost root containing it, or null outside every root. */
@@ -198,5 +207,6 @@ class RefreshFilter(rootPaths: Collection<String>) {
 
     private companion object {
         val TREE_PARENTS = setOf(AnsibleLayout.ENVIRONMENTS, AnsibleLayout.GROUP_VARS, AnsibleLayout.HOST_VARS)
+        val ROLE_PARTS = setOf("defaults", "vars", "meta")
     }
 }
