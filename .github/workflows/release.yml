@@ -3,10 +3,12 @@ name: Release
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: Plugin version to release (empty = pluginVersion from gradle.properties)
-        required: false
-        type: string
+      bump:
+        description: Version bump (applied to pluginVersion in gradle.properties)
+        required: true
+        default: patch
+        type: choice
+        options: [patch, minor, major]
       channel:
         description: JetBrains Marketplace channel
         required: true
@@ -34,21 +36,31 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
-      - name: Resolve version
+      - name: Bump version
         id: version
         env:
-          INPUT_VERSION: ${{ inputs.version }}
+          BUMP: ${{ inputs.bump }}
         run: |
-          version="${INPUT_VERSION:-$(sed -n 's/^pluginVersion *= *//p' gradle.properties)}"
-          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
-            echo "::error::Invalid version '$version'"
+          current="$(sed -n 's/^pluginVersion *= *//p' gradle.properties)"
+          if ! [[ "$current" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "::error::pluginVersion '$current' in gradle.properties is not MAJOR.MINOR.PATCH"
             exit 1
           fi
+          major="${BASH_REMATCH[1]}" minor="${BASH_REMATCH[2]}" patch="${BASH_REMATCH[3]}"
+          case "$BUMP" in
+            major) version="$((major + 1)).0.0" ;;
+            minor) version="$major.$((minor + 1)).0" ;;
+            patch) version="$major.$minor.$((patch + 1))" ;;
+          esac
           if git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null; then
             echo "::error::Tag v$version already exists"
             exit 1
           fi
+          sed -i "s/^pluginVersion *=.*/pluginVersion = $version/" gradle.properties
+          echo "Releasing $current -> $version"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
       # verifyPlugin downloads several full IDEs.
@@ -67,7 +79,7 @@ jobs:
           cache-read-only: true
 
       - name: Test and verify
-        run: ./gradlew -PpluginVersion=${{ steps.version.outputs.version }} check verifyPlugin
+        run: ./gradlew check verifyPlugin
 
       - name: Check Marketplace credentials
         id: marketplace
@@ -98,17 +110,28 @@ jobs:
           CERTIFICATE_CHAIN: ${{ secrets.CERTIFICATE_CHAIN }}
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
           PRIVATE_KEY_PASSWORD: ${{ secrets.PRIVATE_KEY_PASSWORD }}
-        run: >-
-          ./gradlew
-          -PpluginVersion=${{ steps.version.outputs.version }}
-          -PpluginChannel=${{ inputs.channel }}
-          :plugin:publishPlugin
+        run: ./gradlew -PpluginChannel=${{ inputs.channel }} :plugin:publishPlugin
 
       - name: Build
         if: steps.marketplace.outputs.publish != 'true'
-        run: ./gradlew -PpluginVersion=${{ steps.version.outputs.version }} :plugin:buildPlugin
+        run: ./gradlew :plugin:buildPlugin
 
-      - name: Tag and create GitHub release
+      # The tag marks the tested commit plus the bump; if main moved meanwhile, only the bump is rebased onto it.
+      - name: Commit version bump and tag
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Release v$VERSION" -- gradle.properties
+          git tag "v$VERSION"
+          git push origin "v$VERSION"
+          if ! git push origin HEAD:main; then
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
+
+      - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
@@ -117,7 +140,7 @@ jobs:
           zip="plugin/build/distributions/Ansibility-$VERSION.zip"
           [[ "$PUBLISHED" == true ]] && zip="plugin/build/distributions/Ansibility-$VERSION-signed.zip"
           gh release create "v$VERSION" \
-            --target "$GITHUB_SHA" \
+            --verify-tag \
             --title "v$VERSION" \
             --generate-notes \
             ${{ inputs.channel != 'default' && '--prerelease' || '' }} \
