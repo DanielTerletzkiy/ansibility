@@ -1,6 +1,7 @@
 package de.terletzkiy.ansibility.runtime
 
 import com.intellij.openapi.util.io.FileUtil
+import com.intellij.util.io.NioFiles
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.terletzkiy.ansibility.api.AnsibleRoot
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
@@ -46,7 +47,7 @@ abstract class RuntimeTestCase : BasePlatformTestCase() {
             TargetVersionDetector.getInstance(project).overrideFor = { null }
             LocalDocRefresher.getInstance(project).resetForTests()
             AnsibleToolchain.getInstance().resetForTests()
-            tempDirs.forEach { FileUtil.delete(it) }
+            tempDirs.forEach { NioFiles.deleteRecursively(it) }
         } catch (e: Throwable) {
             addSuppressedException(e)
         } finally {

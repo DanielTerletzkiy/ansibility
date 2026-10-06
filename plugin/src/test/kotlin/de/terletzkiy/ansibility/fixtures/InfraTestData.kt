@@ -43,18 +43,6 @@ object InfraTestData {
     /** The plaintext of every fixture envelope: `dummy`, padded with `-` to keep the original's line lengths. */
     val FIXTURE_VAULT_PLAINTEXT: Regex = Regex("dummy-*")
 
-    /**
-     * Hex of `dummy`, the payload of the fixture's vault values before V2b. Kept only so concurrent work units still
-     * compile; the fixture no longer contains it, so a check for its absence proves nothing.
-     */
-    @Deprecated("The fixture holds valid synthetic envelopes since V2b", ReplaceWith("containsVaultPayload(text)"))
-    const val DUMMY_PATTERN: String = "64756d6d79"
-
-    /** The pre-V2b dummy payload of exactly [length] characters (see [DUMMY_PATTERN]). */
-    @Deprecated("The fixture holds valid synthetic envelopes since V2b", ReplaceWith("containsVaultPayload(text)"))
-    @Suppress("DEPRECATION")
-    fun dummyHex(length: Int): String = DUMMY_PATTERN.repeat(length / DUMMY_PATTERN.length + 1).take(length)
-
     /** Content of the synthetic `.git` file of submodule `repos/<name>` (points into `.git/modules`). */
     fun submoduleGitLink(name: String): String = "gitdir: ../../.git/modules/repos/$name\n"
 

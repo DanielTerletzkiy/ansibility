@@ -35,7 +35,7 @@ class AnsibleToolWindowFactoryTest : ToolWindowTestCase() {
         val ep = ToolWindowEP.EP_NAME.extensionList.single { it.id == AnsibleToolWindowFactory.ID }
         val bundleName = ep.pluginDescriptor.resourceBundleBaseName
         assertEquals("messages.AnsibilityBundle", bundleName)
-        val bundle = ResourceBundle.getBundle(bundleName!!, Locale.ROOT, ep.pluginDescriptor.classLoader)
+        val bundle = ResourceBundle.getBundle(bundleName!!, Locale.ROOT, ep.pluginDescriptor.pluginClassLoader ?: javaClass.classLoader)
         assertEquals("Ansibility", bundle.getString("toolwindow.stripe.${AnsibleToolWindowFactory.ID}"))
         assertEquals("Ansibility", AnsibilityBundle.message("toolwindow.stripe.Ansibility"))
     }

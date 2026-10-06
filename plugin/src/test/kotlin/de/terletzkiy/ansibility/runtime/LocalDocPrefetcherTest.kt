@@ -1,6 +1,6 @@
 package de.terletzkiy.ansibility.runtime
 
-import com.intellij.openapi.application.runReadAction
+import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.testFramework.PlatformTestUtil
 import de.terletzkiy.ansibility.api.AnsibleRoot
 import de.terletzkiy.ansibility.context.AnsibleWorkspaceImpl
@@ -45,7 +45,7 @@ class LocalDocPrefetcherTest : RuntimeTestCase() {
     private fun waitFor(what: String, condition: () -> Boolean) = PlatformTestUtil.waitWithEventsDispatching(what, condition, 20)
 
     fun testModuleNamesAreCollectedPerRoot() {
-        val names = runReadAction { prefetcher.moduleNamesByRoot() }.mapKeys { it.key.dir.name }
+        val names = runReadActionBlocking { prefetcher.moduleNamesByRoot() }.mapKeys { it.key.dir.name }
         assertEquals(setOf("ansible.builtin.copy", "apt"), names["site"])
         assertEquals("root-scoped: the other root's play only", setOf("ansible.builtin.ping"), names["other"])
     }

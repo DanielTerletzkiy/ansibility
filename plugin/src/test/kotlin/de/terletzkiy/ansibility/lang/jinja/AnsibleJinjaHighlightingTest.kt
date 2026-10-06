@@ -172,7 +172,7 @@ class AnsibleJinjaHighlightingTest : BasePlatformTestCase() {
             override fun getDocument(): Document = document
         })
         highlighter.setText(document.immutableCharSequence)
-        document.addDocumentListener(highlighter)
+        document.addDocumentListener(highlighter, testRootDisposable)
         body(document) { message ->
             val iterator = highlighter.createIterator(0)
             val incremental = ArrayList<Triple<IElementType, Int, Int>>()

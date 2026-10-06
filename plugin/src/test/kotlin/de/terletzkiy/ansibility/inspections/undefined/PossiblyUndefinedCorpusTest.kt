@@ -149,7 +149,7 @@ class PossiblyUndefinedCorpusTest : BasePlatformTestCase() {
                     indent = lineIndent
                 }
                 inVault && trimmed.isNotEmpty() && lineIndent == indent && trimmed.all { it.isLetterOrDigit() } -> {
-                    lines[i] = line.substring(0, lineIndent) + InfraTestData.dummyHex(trimmed.length)
+                    lines[i] = line.substring(0, lineIndent) + "64756d6d79".repeat(trimmed.length / 10 + 1).take(trimmed.length)
                 }
                 else -> inVault = false
             }

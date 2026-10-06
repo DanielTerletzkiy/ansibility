@@ -48,8 +48,12 @@ class AnsibleToolchainTest : RuntimeTestCase() {
         val homebrew = candidates.indexOf("/opt/homebrew/bin/ansible-doc")
         val usrLocal = candidates.indexOf("/usr/local/bin/ansible-doc")
         assertTrue("GUI launches lack /opt/homebrew/bin: $candidates", homebrew >= 0)
-        assertTrue(usrLocal > homebrew)
-        val firstPathEntry = System.getenv("PATH").orEmpty().split(File.pathSeparatorChar).firstOrNull { it.isNotBlank() }
+        val pathEntries = System.getenv("PATH").orEmpty().split(File.pathSeparatorChar).filter { it.isNotBlank() }
+        // A fallback that is already on PATH keeps its PATH position (Linux runners have /usr/local/bin there).
+        if (AnsibleToolchain.FALLBACK_DIRECTORIES.none { it in pathEntries }) {
+            assertTrue("the fallbacks keep their order: $candidates", usrLocal > homebrew)
+        }
+        val firstPathEntry = pathEntries.firstOrNull()
         if (firstPathEntry != null && firstPathEntry !in AnsibleToolchain.FALLBACK_DIRECTORIES) {
             assertTrue("PATH comes before the fallbacks", candidates.indexOf(Path.of(firstPathEntry, "ansible-doc").toString()) in 0 until homebrew)
         }

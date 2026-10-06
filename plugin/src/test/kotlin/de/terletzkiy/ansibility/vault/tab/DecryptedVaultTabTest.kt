@@ -1,7 +1,7 @@
 package de.terletzkiy.ansibility.vault.tab
 
 import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.application.runReadAction
+import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileEditorManager
@@ -66,7 +66,7 @@ class DecryptedVaultTabTest : VaultUiTestCase() {
         waitFor("tab action timed out") { job.isCompleted }
     }
 
-    private fun banner(file: VirtualFile) = runReadAction { WholeFileVaultBanner.vaultBanner(project, file) }
+    private fun banner(file: VirtualFile) = runReadActionBlocking { WholeFileVaultBanner.vaultBanner(project, file) }
 
     fun testBannerFromHeaderOnlyThenVerifiedAfterOpen() {
         val file = vaultFile("db_password: s3cr3t\n")
@@ -95,7 +95,7 @@ class DecryptedVaultTabTest : VaultUiTestCase() {
         write("$root/group_vars/all/main.yml", "a: 1\n")
         root(root)
         assertNull(banner(vf("$root/group_vars/all/main.yml")))
-        assertNull(runReadAction { VaultTemplateRefDocumentation.line(project, vf("$root/group_vars/all/main.yml"), copy = false) })
+        assertNull(runReadActionBlocking { VaultTemplateRefDocumentation.line(project, vf("$root/group_vars/all/main.yml"), copy = false) })
     }
 
     fun testOpenShowsPlaintextAndStaysOutOfHistoryAndIndex() {
@@ -105,7 +105,7 @@ class DecryptedVaultTabTest : VaultUiTestCase() {
         assertEquals("token: zebrasentinel42\n", FileDocumentManager.getInstance().getDocument(tab)!!.text)
         assertFalse(tab in EditorHistoryManager.getInstance(project).fileList)
         var found = false
-        runReadAction {
+        runReadActionBlocking {
             PsiSearchHelper.getInstance(project).processAllFilesWithWord("zebrasentinel42", GlobalSearchScope.allScope(project), { found = true; false }, true)
         }
         assertFalse("the plaintext must not be indexed", found)
@@ -168,8 +168,8 @@ class DecryptedVaultTabTest : VaultUiTestCase() {
         val file = vaultFile("a: 1\n")
         assertEquals(
             "\uD83D\uDD12 whole-file vault \u00B7 id default \u00B7 Ansible decrypts it when the task runs",
-            runReadAction { VaultTemplateRefDocumentation.line(project, file, copy = false) },
+            runReadActionBlocking { VaultTemplateRefDocumentation.line(project, file, copy = false) },
         )
-        assertTrue(runReadAction { VaultTemplateRefDocumentation.line(project, file, copy = true) }!!.endsWith("`decrypt: false` copies the envelope"))
+        assertTrue(runReadActionBlocking { VaultTemplateRefDocumentation.line(project, file, copy = true) }!!.endsWith("`decrypt: false` copies the envelope"))
     }
 }
