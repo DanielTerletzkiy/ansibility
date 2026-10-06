@@ -3,6 +3,7 @@ package de.terletzkiy.ansibility.vars
 import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.openapi.fileTypes.FileType
 import com.intellij.openapi.fileTypes.PlainTextFileType
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.lang.jinja.AnsibleJinjaFileType
 import de.terletzkiy.ansibility.lang.jinja.filetype.J2Mappings
 import org.jetbrains.yaml.YAMLFileType
@@ -12,6 +13,7 @@ import org.jetbrains.yaml.YAMLFileType
  * and of a `loop_control.loop_var` document and navigate to the nested option of the iterated variable's element, in
  * tasks (the task's own loop) and in templates (the loops of the rendering tasks); the bare variable goes to the loop.
  */
+@RequiresInfraFixture
 class VarLoopItemTest : VarsTestCase() {
     private val template = "golden/roles/grafana/templates/nginx/main.site.conf.j2"
     private val nginxTasks = "golden/roles/grafana/tasks/nginx.yml"

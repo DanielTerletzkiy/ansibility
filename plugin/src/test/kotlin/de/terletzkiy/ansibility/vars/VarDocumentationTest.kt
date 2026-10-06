@@ -11,6 +11,7 @@ import com.intellij.psi.PsiDocumentManager
 import de.terletzkiy.ansibility.api.AnsibleSite
 import de.terletzkiy.ansibility.api.SourceLocation
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.lang.jinja.AnsibleJinjaFileType
 import de.terletzkiy.ansibility.lang.jinja.filetype.J2Mappings
 import org.jetbrains.yaml.YAMLFileType
@@ -19,6 +20,7 @@ import org.jetbrains.yaml.YAMLFileType
  * The variable card (plan F1.2, F4.3, F4.8; X06, X07, X84) through the plugin's documentation entry point, on the
  * sanitised infra fixture (M2 acceptance 1–4, 7, 8) and on the synthetic `vars/site` root.
  */
+@RequiresInfraFixture
 class VarDocumentationTest : VarsTestCase() {
 
     // ------------------------------------------------------------------------------------------------ M2 acceptance

@@ -8,6 +8,7 @@ import com.intellij.psi.util.PsiTreeUtil
 import de.terletzkiy.ansibility.api.AnsibleDocService
 import de.terletzkiy.ansibility.api.AnsibleSite
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import org.jetbrains.yaml.psi.YAMLKeyValue
 import org.jetbrains.yaml.psi.YAMLScalar
 
@@ -16,6 +17,7 @@ import org.jetbrains.yaml.psi.YAMLScalar
  * playbooks): classification never fails, module keys are documented by the bundled 2.18.8 line, documented
  * option and keyword keys get a target, and every documentation page renders.
  */
+@RequiresInfraFixture
 class DocsFixtureCorpusTest : DocsTestCase() {
 
     fun testEveryKeyOfTheGoldenTree() {

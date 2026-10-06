@@ -1,6 +1,7 @@
 package de.terletzkiy.ansibility.context.host.card
 
 import com.intellij.testFramework.PlatformTestUtil
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.model.inventory.ModelCaches
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
 import de.terletzkiy.ansibility.settings.RootContext
@@ -12,6 +13,7 @@ import de.terletzkiy.ansibility.settings.RootContext
  * key over every host of every environment, a role default), in All mode and with a host selected. Warm cards reuse the
  * cached views: rebuilding them evaluates no new card view. Timing tests may flake under machine load; re-run alone.
  */
+@RequiresInfraFixture
 class HostCardPerformanceTest : HostCardTestCase() {
     private fun cards(): List<Pair<String, () -> String>> = listOf(
         "template" to { card(POSTFIX_TEMPLATE, 9, "postfix_relayhost") },

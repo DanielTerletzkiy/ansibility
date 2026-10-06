@@ -9,6 +9,7 @@ import de.terletzkiy.ansibility.context.AnsibleWorkspaceImpl
 import de.terletzkiy.ansibility.context.ContextPresentation
 import de.terletzkiy.ansibility.context.TargetVersionDetector
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.model.effective.HostViews
 import de.terletzkiy.ansibility.model.inventory.InventoryModels
 import java.nio.file.Files
@@ -23,6 +24,7 @@ import java.security.MessageDigest
  * The snapshot is `testData/layout/baseline/snapshot.txt`. It is written when missing, or when the system property
  * `ansibility.layout.updateBaseline` is set; otherwise any difference fails the test with the first differing lines.
  */
+@RequiresInfraFixture
 class LayoutBaselineTest : BasePlatformTestCase() {
     override fun getTestDataPath(): String = InfraTestData.testDataPath.toString()
 

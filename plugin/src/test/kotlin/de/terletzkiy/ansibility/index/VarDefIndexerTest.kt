@@ -4,11 +4,13 @@ import com.intellij.testFramework.LightVirtualFile
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.terletzkiy.ansibility.api.ValueShape
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.model.inventory.ValuePreview
 import de.terletzkiy.ansibility.semantics.yaml.YMap
 import de.terletzkiy.ansibility.yaml.PsiYValueAdapter
 import org.jetbrains.yaml.psi.YAMLFile
 
+@RequiresInfraFixture
 class VarDefIndexerTest : BasePlatformTestCase() {
     private fun defs(path: String, text: String): Map<String, List<DefEntry>> =
         VarDefIndexer.index(IndexInput.of(path, text.trimIndent() + "\n", project))

@@ -2,10 +2,12 @@ package de.terletzkiy.ansibility.context.switching
 
 import de.terletzkiy.ansibility.context.ContextPresentation
 import de.terletzkiy.ansibility.context.TargetVersionDetector
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
 import de.terletzkiy.ansibility.settings.RootContext
 
 /** The wording of F8.1: the built-in status text, selection labels, the file-scope segment and its "applies to" line. */
+@RequiresInfraFixture
 class ContextTextsTest : ContextSwitchingTestCase() {
     private fun target(path: String) = TargetVersionDetector.getInstance(project).targetVersion(root(path))
 

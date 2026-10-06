@@ -8,6 +8,7 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.util.indexing.FileBasedIndex
 import de.terletzkiy.ansibility.api.JinjaContainer
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.index.JinjaBearing
 import de.terletzkiy.ansibility.index.UseContainer
 import de.terletzkiy.ansibility.index.UseEntry
@@ -20,6 +21,7 @@ import org.jetbrains.yaml.psi.YAMLScalar
  * report counts (research `find-usages-inventory.md`, U14 and U10b) are in `ansible.var.use`, flagged and scoped like
  * every other use, and reach [VarUsageQuery] as [VarUsage.indirect].
  */
+@RequiresInfraFixture
 class VarUseIndirectFixtureTest : BasePlatformTestCase() {
     private lateinit var support: IndexFixtureSupport
 

@@ -2,6 +2,7 @@ package de.terletzkiy.ansibility.inspections.modules
 
 import com.intellij.lang.annotation.HighlightSeverity
 import de.terletzkiy.ansibility.context.TargetVersionDetector
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.semantics.CoreVersion
 import de.terletzkiy.ansibility.semantics.diagnostics.Preset
 import de.terletzkiy.ansibility.settings.AnsibilityProjectSettings
@@ -12,6 +13,7 @@ import de.terletzkiy.ansibility.settings.DocsMismatchSeverity
  * acceptance 5, 6 and 7): typing a bad value into a real task file and undoing it, the cases that must stay clean,
  * the exemptions, the D5 coercion toggle, the docs-mismatch cap and the quick fixes.
  */
+@RequiresInfraFixture
 class ModuleOptionInspectionTest : ModuleChecksTestCase() {
 
     // ------------------------------------------------------------------------------------------------ M4 acceptance 7

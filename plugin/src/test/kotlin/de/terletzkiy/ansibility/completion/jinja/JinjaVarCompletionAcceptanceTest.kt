@@ -3,6 +3,7 @@ package de.terletzkiy.ansibility.completion.jinja
 import com.intellij.openapi.fileTypes.FileType
 import com.intellij.openapi.fileTypes.PlainTextFileType
 import com.intellij.util.ui.NamedColorUtil
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.lang.jinja.AnsibleJinjaFileType
 import org.jetbrains.yaml.YAMLFileType
 
@@ -10,6 +11,7 @@ import org.jetbrains.yaml.YAMLFileType
  * M3 acceptance 1–4 for Jinja variable completion on the sanitised infra fixture (lines identical to the real repo),
  * plus the X10 fact, group and host keys.
  */
+@RequiresInfraFixture
 class JinjaVarCompletionAcceptanceTest : JinjaCompletionTestCase() {
 
     /** Acceptance 1: `"{{ haproxy_| }}"` in a haproxy task lists the spec options with type and tail; Ctrl+Q shows the card. */

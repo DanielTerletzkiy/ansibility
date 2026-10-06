@@ -6,6 +6,7 @@ import com.intellij.openapi.extensions.ExtensionPointName
 import com.intellij.platform.backend.documentation.PsiDocumentationTargetProvider
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import org.jetbrains.yaml.psi.YAMLKeyValue
 
 /**
@@ -13,6 +14,7 @@ import org.jetbrains.yaml.psi.YAMLKeyValue
  * hint of that element's PSI documentation target, so [VarPsiDocumentationTargetProvider] answers for our targets
  * and for variable keys. With several targets the platform shows no documentation hint (a platform limitation).
  */
+@RequiresInfraFixture
 class VarCtrlHoverTest : VarsTestCase() {
     private val provider = VarPsiDocumentationTargetProvider()
 

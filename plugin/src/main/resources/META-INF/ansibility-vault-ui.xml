@@ -103,4 +103,13 @@
                   topic="com.intellij.openapi.fileEditor.FileEditorManagerListener"/>
     </projectListeners>
     <!-- /v6a -->
+    <!-- F7.9: Settings › Ansibility › Vault: ids per root, IDE password store, 1Password, env → id -->
+    <extensions defaultExtensionNs="com.intellij">
+        <projectConfigurable parentId="de.terletzkiy.ansibility.settings"
+                             instance="de.terletzkiy.ansibility.vault.ui.settings.VaultConfigurable"
+                             id="de.terletzkiy.ansibility.settings.vault"
+                             bundle="messages.AnsibilityVaultUiBundle"
+                             key="settings.vault.name"
+                             nonDefaultProject="true"/>
+    </extensions>
 </idea-plugin>

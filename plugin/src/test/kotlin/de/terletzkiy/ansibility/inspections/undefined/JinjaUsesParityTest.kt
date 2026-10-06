@@ -11,6 +11,7 @@ import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.FileKind
 import de.terletzkiy.ansibility.context.AnsibleWorkspaceImpl
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.index.PathFacts
 import de.terletzkiy.ansibility.lang.jinja.AnsibleJinjaLanguage
 import de.terletzkiy.ansibility.lang.jinja.lexer.JinjaLexMode
@@ -23,6 +24,7 @@ import org.jetbrains.yaml.psi.YAMLFile
  * fallback ([TextJinjaUses] on `JinjaRefs`) report the same uses with the same guards, on every template and every
  * Jinja-bearing YAML scalar of the whole sanitised fixture, under the 2.18 and the 2.19+ rules.
  */
+@RequiresInfraFixture
 class JinjaUsesParityTest : BasePlatformTestCase() {
     override fun getTestDataPath(): String = InfraTestData.testDataPath.toString()
 

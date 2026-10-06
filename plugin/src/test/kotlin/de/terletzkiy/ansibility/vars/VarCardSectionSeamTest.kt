@@ -7,6 +7,7 @@ import de.terletzkiy.ansibility.api.CardContext
 import de.terletzkiy.ansibility.api.CardPlacement
 import de.terletzkiy.ansibility.api.CardSection
 import de.terletzkiy.ansibility.api.CardSubject
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
@@ -15,6 +16,7 @@ import java.util.concurrent.CopyOnWriteArrayList
  * inside the sections table after the built-in rows and BOTTOM chunks after the table. The Ctrl-hover hint never runs
  * the sections.
  */
+@RequiresInfraFixture
 class VarCardSectionSeamTest : VarsTestCase() {
     /** A section that records its calls and marks its placement in the HTML. */
     private class Recording(override val placement: CardPlacement) : CardSection {

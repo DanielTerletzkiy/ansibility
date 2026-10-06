@@ -35,6 +35,55 @@ class VaultDialogPrompter : VaultPrompter {
         dialog.show()
         return dialog.answer()
     }
+
+    override fun askMasterPassword(project: Project, request: MasterPasswordRequest): CharArray? {
+        ThreadingAssertions.assertEventDispatchThread()
+        val dialog = MasterPasswordDialog(project, request)
+        dialog.show()
+        return dialog.password()
+    }
+}
+
+/** A password manager's master password, for this session only (it is never stored). */
+internal class MasterPasswordDialog(project: Project, private val request: MasterPasswordRequest) : DialogWrapper(project, true) {
+    private val field = JBPasswordField()
+
+    init {
+        title = message("master.title", request.managerName)
+        init()
+    }
+
+    override fun createCenterPanel(): JComponent = panel {
+        row {
+            label(
+                if (request.managerName == "KeePassXC") message("master.prompt.database", request.target)
+                else message("master.prompt", request.managerName, request.target),
+            )
+        }
+        row { cell(field).align(AlignX.FILL) }
+        if (request.retry) row { label(message("master.retry")).applyToComponent { foreground = NamedColorUtil.getErrorForeground() } }
+        row { comment(message("master.comment")) }
+    }
+
+    override fun getPreferredFocusedComponent(): JComponent = field
+
+    override fun doValidate(): ValidationInfo? {
+        val typed = field.password
+        val empty = typed.isEmpty()
+        typed.fill('\u0000')
+        return if (empty) ValidationInfo(message("password.empty"), field) else null
+    }
+
+    /** The typed password (null when cancelled); the field is cleared either way. */
+    fun password(): CharArray? {
+        val typed = field.password
+        field.text = ""
+        if (!isOK) {
+            typed.fill('\u0000')
+            return null
+        }
+        return typed
+    }
 }
 
 /**

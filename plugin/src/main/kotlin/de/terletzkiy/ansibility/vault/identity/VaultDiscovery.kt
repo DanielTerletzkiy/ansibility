@@ -74,6 +74,15 @@ sealed interface SecretPlan {
         override val consentTargets: List<ConsentTarget> get() = emptyList()
     }
 
+    /**
+     * An entry of an external password manager, read with its CLI when the id is unlocked ([reference] is resolved: a
+     * KeePassXC database path is absolute). The manager's own approval (Touch ID, its master password) authorises the
+     * read, so no consent of Ansibility's is needed.
+     */
+    class External(val manager: PasswordManager, val reference: String) : SecretPlan {
+        override val consentTargets: List<ConsentTarget> get() = emptyList()
+    }
+
     /** Asked for interactively (after the root's PasswordSafe entry for the label, when one is remembered). */
     data object Prompt : SecretPlan {
         override val consentTargets: List<ConsentTarget> get() = emptyList()
@@ -96,6 +105,7 @@ class DiscoveredIdentity(
         is SecretPlan.Script -> "script:$label:${plan.path}"
         is SecretPlan.Environment -> "env:$label:${plan.target.locator}"
         is SecretPlan.PasswordSafeEntry -> if (plan.isDefaultEntry) interactiveSlot(label) else "safe:$label:${plan.serviceName}"
+        is SecretPlan.External -> "manager:${plan.manager.name}:$label:${plan.reference}"
         SecretPlan.Prompt -> interactiveSlot(label)
     }
 
@@ -146,5 +156,6 @@ internal val SecretPlan.sourceKind: VaultSourceKind
         is SecretPlan.Script -> if (kind == PasswordSourceKind.CLIENT_SCRIPT) VaultSourceKind.CLIENT_SCRIPT else VaultSourceKind.SCRIPT
         is SecretPlan.Environment -> VaultSourceKind.ENVIRONMENT
         is SecretPlan.PasswordSafeEntry -> VaultSourceKind.PASSWORD_SAFE
+        is SecretPlan.External -> manager.kind
         SecretPlan.Prompt -> VaultSourceKind.PROMPT
     }

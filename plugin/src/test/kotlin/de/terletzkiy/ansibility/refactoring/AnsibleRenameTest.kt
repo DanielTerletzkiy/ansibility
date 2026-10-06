@@ -5,9 +5,11 @@ import com.intellij.openapi.actionSystem.impl.SimpleDataContext
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.refactoring.rename.PsiElementRenameHandler
 import com.intellij.refactoring.rename.RenameHandlerRegistry
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.inspections.undefined.UndefinedTestCase
 
 /** Shift+F6 on Ansible names: a variable with its spec option, defaults, inventory and uses; a role with its references. */
+@RequiresInfraFixture
 class AnsibleRenameTest : UndefinedTestCase() {
     override fun addFixtureFiles() {
         add(

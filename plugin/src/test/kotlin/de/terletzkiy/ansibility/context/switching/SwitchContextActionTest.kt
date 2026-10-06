@@ -3,10 +3,12 @@ package de.terletzkiy.ansibility.context.switching
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.Separator
 import com.intellij.openapi.actionSystem.ex.ActionUtil
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
 import de.terletzkiy.ansibility.settings.RootContext
 
 /** "Ansibility: Switch Context…" (F8.1): registration, root-qualified entries, preferred roots, choosing env, host and play. */
+@RequiresInfraFixture
 class SwitchContextActionTest : ContextSwitchingTestCase() {
     private val action get() = ActionManager.getInstance().getAction(SWITCH_CONTEXT_ACTION_ID)
 

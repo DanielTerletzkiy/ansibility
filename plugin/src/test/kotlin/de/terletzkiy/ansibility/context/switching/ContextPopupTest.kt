@@ -4,6 +4,7 @@ import com.intellij.openapi.actionSystem.ActionGroup
 import com.intellij.openapi.actionSystem.Separator
 import com.intellij.testFramework.DumbModeTestUtils
 import de.terletzkiy.ansibility.api.WidgetSegment
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.settings.AnsibilityWorkspaceState
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
 import de.terletzkiy.ansibility.settings.RootContext
@@ -12,6 +13,7 @@ import de.terletzkiy.ansibility.settings.RootContext
  * The context popup of the status-bar widget and the tool-window button (F8.1): what it lists, choosing environment,
  * host and play through it, persistence of the result, and how a vanished host is kept and reported.
  */
+@RequiresInfraFixture
 class ContextPopupTest : ContextSwitchingTestCase() {
     private fun popup(path: String = "repos/falcon/ansible", segments: List<WidgetSegment>? = emptyList()) =
         ContextPopupGroup(root(path), null, segments)

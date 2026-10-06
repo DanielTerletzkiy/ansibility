@@ -1,10 +1,12 @@
 package de.terletzkiy.ansibility.context.switching
 
 import com.intellij.openapi.application.runReadActionBlocking
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
 import de.terletzkiy.ansibility.settings.RootContext
 
 /** The X75 "Show Ansible Context" lines of F8.1: Selection, Applies to, Effective scope, Playbook dir, Effective on. */
+@RequiresInfraFixture
 class ContextReportLinesTest : ContextSwitchingTestCase() {
     override fun addFixtureFiles() {
         add("repos/pelican/ansible/group_vars/all.yml", "---\npelican_playbook_level: true")

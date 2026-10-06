@@ -13,6 +13,7 @@ import com.intellij.testFramework.replaceService
 import de.terletzkiy.ansibility.api.LocalAnsibleInstall
 import de.terletzkiy.ansibility.api.LocalAnsibleRuntime
 import de.terletzkiy.ansibility.dispatch.WebDocTarget
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.semantics.CoreVersion
 import de.terletzkiy.ansibility.settings.ModuleNavigationTarget
 import java.io.File
@@ -21,6 +22,7 @@ import java.nio.file.Path
 import java.util.Collections
 
 /** F5.5 Ctrl+B to the web docs with X18 anchors, through the plugin's Go to Declaration handler (M2 acceptance 8, 9). */
+@RequiresInfraFixture
 class DocsNavigationTest : DocsTestCase() {
 
     override fun setUp() {

@@ -15,6 +15,7 @@ import com.intellij.util.ui.tree.TreeUtil
 import de.terletzkiy.ansibility.api.AnsibleContextService
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
 import de.terletzkiy.ansibility.settings.RootContext
 import de.terletzkiy.ansibility.toolwindow.host.EffectivePlayChoices
@@ -37,6 +38,7 @@ import javax.swing.tree.TreePath
  * the host is expanded, and Expand All leaves every host's Effective vars and Targeted by collapsed; choosing Auto
  * forgets a play that no longer runs; and the toolbar and tree popup keep the groups other areas join.
  */
+@RequiresInfraFixture
 class EffectiveVarsPanelTest : ToolWindowTestCase() {
     private lateinit var panel: AnsibleToolWindowPanel
 

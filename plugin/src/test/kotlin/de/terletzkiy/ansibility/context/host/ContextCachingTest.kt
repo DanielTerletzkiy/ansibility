@@ -6,6 +6,7 @@ import com.intellij.psi.PsiDocumentManager
 import de.terletzkiy.ansibility.api.HostKey
 import de.terletzkiy.ansibility.api.VarService
 import de.terletzkiy.ansibility.api.VarsLayer
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
 import de.terletzkiy.ansibility.settings.RootContext
 
@@ -13,6 +14,7 @@ import de.terletzkiy.ansibility.settings.RootContext
  * The host-context caches (file scopes, reach, play hits, addresses, definition statuses) follow typed edits of exactly
  * the files they were computed from (plan amendment R7/R8, A.9), with no structure change and no save.
  */
+@RequiresInfraFixture
 class ContextCachingTest : HostContextTestCase() {
     /** Appends [text] to [path] and commits it, as typing does (never saved). */
     private fun type(path: String, text: String) {

@@ -1,6 +1,7 @@
 package de.terletzkiy.ansibility.context.host.card
 
 import de.terletzkiy.ansibility.context.switching.ContextSwitcher
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.model.inventory.ModelCacheKind
 import de.terletzkiy.ansibility.model.inventory.ModelCaches
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
@@ -12,6 +13,7 @@ import de.terletzkiy.ansibility.settings.RootContext
  * model behind it is never recomputed for a selection change. Every selection is reset in `finally` (the light project
  * is shared).
  */
+@RequiresInfraFixture
 class SelectionAwareCardTest : HostCardTestCase() {
     private val prod = RootContext(EnvironmentChoice.Named("prod"))
     private val prod1 = RootContext(EnvironmentChoice.Named("prod"), "prod-prod1")

@@ -11,7 +11,9 @@ import com.intellij.testFramework.PlatformTestUtil
 import de.terletzkiy.ansibility.api.AnsibleSite
 import de.terletzkiy.ansibility.api.FileKind
 import de.terletzkiy.ansibility.api.JinjaContainer
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 
+@RequiresInfraFixture
 class AnsibleGotoDeclarationHandlerTest : DispatchTestCase() {
     private val handler = AnsibleGotoDeclarationHandler()
 

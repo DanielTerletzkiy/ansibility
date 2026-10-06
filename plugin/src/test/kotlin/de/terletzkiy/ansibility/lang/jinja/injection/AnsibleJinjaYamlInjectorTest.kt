@@ -3,6 +3,7 @@ package de.terletzkiy.ansibility.lang.jinja.injection
 import com.intellij.lang.annotation.HighlightSeverity
 import com.intellij.lang.injection.MultiHostInjector
 import com.intellij.openapi.project.DumbService
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.lang.jinja.AnsibleJinjaFileType
 import de.terletzkiy.ansibility.lang.jinja.filetype.J2Mappings
 import org.jetbrains.yaml.YAMLFileType
@@ -11,6 +12,7 @@ import org.jetbrains.yaml.YAMLFileType
  * [AnsibleJinjaYamlInjector] (plan A.5 "Jinja inside YAML", F2.2, M5 acceptance 5 and 7): which scalars get Jinja,
  * in which mode, with which text, and where the gate keeps it out.
  */
+@RequiresInfraFixture
 class AnsibleJinjaYamlInjectorTest : JinjaInjectionTestCase() {
 
     fun testIsRegisteredAndDumbAware() {

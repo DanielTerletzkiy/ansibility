@@ -8,6 +8,7 @@ import com.intellij.openapi.fileEditor.impl.text.TextEditorProvider
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.openapi.vfs.VfsUtilCore
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.semantics.diagnostics.Preset
 import de.terletzkiy.ansibility.types.TypeCheckTestCase
 
@@ -15,6 +16,7 @@ import de.terletzkiy.ansibility.types.TypeCheckTestCase
  * M4 acceptance for the role-variable type checks (plan M4 1, 2, 3, 5, 6, 10; F3.2, F4.4, F3.6, D4, D6; X79, X80, X85),
  * through the highlighting pass on copies of the real files (line numbers as in the infra repo).
  */
+@RequiresInfraFixture
 class TypeInspectionAcceptanceTest : TypeCheckTestCase() {
 
     private fun problems(path: String): List<String> = highlights(path).map { "${lineOf(it)}: ${it.inspectionToolId} ${it.severity.name}" }

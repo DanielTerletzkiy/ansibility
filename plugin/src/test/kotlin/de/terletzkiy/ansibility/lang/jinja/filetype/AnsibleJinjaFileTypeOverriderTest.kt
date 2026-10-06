@@ -3,6 +3,7 @@ package de.terletzkiy.ansibility.lang.jinja.filetype
 import com.intellij.openapi.application.WriteAction
 import com.intellij.openapi.fileTypes.PlainTextFileType
 import com.intellij.openapi.vfs.VfsUtil
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.lang.jinja.AnsibleJinjaFileType
 import de.terletzkiy.ansibility.lang.jinja.template.AnsibleJinjaFileViewProvider
 import de.terletzkiy.ansibility.lang.jinja.template.AnsibleJinjaTemplateTestCase
@@ -12,6 +13,7 @@ import org.jetbrains.yaml.YAMLFileType
  * File type ownership (plan D8, A.9, F2.1, M5 acceptance 1): `.j2` inside Ansible roots, Jinja-bearing files under
  * `roles/<role>/templates`, the user's `*.j2 → YAML` mapping, "Keep YAML for .j2" and the refresh on changes.
  */
+@RequiresInfraFixture
 class AnsibleJinjaFileTypeOverriderTest : AnsibleJinjaTemplateTestCase() {
     fun testJ2InsideProjectRootsOnly() {
         createFile("repos/a/ansible/ansible.cfg", "[defaults]\n")

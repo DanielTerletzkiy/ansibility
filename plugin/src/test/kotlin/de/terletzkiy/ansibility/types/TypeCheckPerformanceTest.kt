@@ -4,6 +4,7 @@ import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.psi.PsiDocumentManager
 import de.terletzkiy.ansibility.api.TypeCheckService
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import kotlin.system.measureNanoTime
 
 /**
@@ -13,6 +14,7 @@ import kotlin.system.measureNanoTime
  * Each round edits the file first, so nothing is served from the per-file cache. The heron copy of the file, whose
  * keycloak spec is in the fixture (so every client item is validated), is measured the same way.
  */
+@RequiresInfraFixture
 class TypeCheckPerformanceTest : TypeCheckTestCase() {
 
     fun testHighlightingTheKeycloakVarsFilesStaysWithinBudget() {

@@ -8,6 +8,7 @@ import com.intellij.util.CommonProcessors
 import com.intellij.util.indexing.FindSymbolParameters
 import de.terletzkiy.ansibility.api.ScopeChoice
 import de.terletzkiy.ansibility.api.WorkspaceScopeService
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.settings.RootKeys
 import de.terletzkiy.ansibility.toolwindow.model.EnvironmentNameNode
 import de.terletzkiy.ansibility.toolwindow.model.RoleFileNode
@@ -22,6 +23,7 @@ import de.terletzkiy.ansibility.workspace.search.AnsibleSymbolContributor
 import de.terletzkiy.ansibility.workspace.search.AnsibleSymbolItem
 
 /** Plan amendment R9 without drift: the Roles node and file browsing, the Roles and Environments tabs, F9.8 and F9.9. */
+@RequiresInfraFixture
 class WorkspaceViewsTest : ToolWindowTestCase() {
     override fun setUp() {
         super.setUp()

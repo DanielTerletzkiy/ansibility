@@ -6,6 +6,7 @@ import com.intellij.psi.PsiDocumentManager
 import com.intellij.testFramework.PlatformTestUtil
 import de.terletzkiy.ansibility.api.RootKind
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.toolwindow.model.GroupNode
 import de.terletzkiy.ansibility.toolwindow.model.HostNode
 import de.terletzkiy.ansibility.toolwindow.model.LayerSource
@@ -21,6 +22,7 @@ import de.terletzkiy.ansibility.toolwindow.model.WorktreeNode
  * the repos: five project roots with `ansible.cfg` (falcon, heron, pelican, platform, wren), the golden role library, the pelican
  * danger-zone nested root and the synthetic detached worktree.
  */
+@RequiresInfraFixture
 class AnsibleTreeModelTest : ToolWindowTestCase() {
     override fun setUp() {
         super.setUp()

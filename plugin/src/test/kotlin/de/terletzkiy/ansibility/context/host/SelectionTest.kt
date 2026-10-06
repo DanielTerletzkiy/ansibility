@@ -3,12 +3,14 @@ package de.terletzkiy.ansibility.context.host
 import de.terletzkiy.ansibility.api.HostScopeOrigin
 import de.terletzkiy.ansibility.api.PlayGraph
 import de.terletzkiy.ansibility.api.PlayRef
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.settings.AnsibilityWorkspaceState
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
 import de.terletzkiy.ansibility.settings.RootContext
 import de.terletzkiy.ansibility.settings.SettingsTestSupport
 
 /** The selection (root → env | All, host | All, play | Auto): rules, persistence, nested roots, stale parts, trackers. */
+@RequiresInfraFixture
 class SelectionTest : HostContextTestCase() {
     private fun play(path: String, name: String): PlayRef =
         PlayGraph.getInstance(project).playsOf(vf(path)).single { it.ref.name == name }.ref

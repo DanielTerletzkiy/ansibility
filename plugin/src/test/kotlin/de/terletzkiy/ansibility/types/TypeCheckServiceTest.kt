@@ -6,12 +6,14 @@ import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.psi.PsiDocumentManager
 import de.terletzkiy.ansibility.api.TypeCheckService
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 
 /**
  * [TypeCheckServiceImpl] on every kind of place that assigns variables (plan F3.2 "Where it runs", F4.1), the skip
  * rules (undeclared names, templates, vault), the own-role rule for role defaults, target-version semantics, secret
  * masking and caching.
  */
+@RequiresInfraFixture
 class TypeCheckServiceTest : TypeCheckTestCase() {
 
     override fun setUp() {

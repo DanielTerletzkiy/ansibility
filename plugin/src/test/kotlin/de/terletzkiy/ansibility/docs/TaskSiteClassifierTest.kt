@@ -3,8 +3,10 @@ package de.terletzkiy.ansibility.docs
 import com.intellij.openapi.util.TextRange
 import de.terletzkiy.ansibility.api.AnsibleSite
 import de.terletzkiy.ansibility.api.KeywordLevel
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 
 /** What [TaskSiteClassifier] reports at positions of fixture task files, synthetic tasks and playbooks. */
+@RequiresInfraFixture
 class TaskSiteClassifierTest : DocsTestCase() {
 
     override fun setUp() {

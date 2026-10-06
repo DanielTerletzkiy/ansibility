@@ -9,12 +9,14 @@ import de.terletzkiy.ansibility.api.SiteClassifier
 import de.terletzkiy.ansibility.api.SiteDocumentation
 import de.terletzkiy.ansibility.api.TemplatedValueSite
 import de.terletzkiy.ansibility.context.host.HostContextTestCase
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.render.hover.RenderedValueCardSection
 import de.terletzkiy.ansibility.settings.AnsibilityWorkspaceState
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
 import de.terletzkiy.ansibility.settings.RootContext
 
 /** Rendered values in hover (plan amendment R11, F11.1) on falcon's `keepalived` role (prod-prod1 and prod-prod2). */
+@RequiresInfraFixture
 class RenderedValueHoverTest : HostContextTestCase() {
     override fun addFixtureFiles() {
         add("$ROLE/defaults/main.yml", "---\nkeepalived_priority: 100\n")

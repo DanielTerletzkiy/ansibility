@@ -1,6 +1,9 @@
 package de.terletzkiy.ansibility.docs
 
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
+
 /** F5.4 keyword hover (M2 acceptance 10: `when:` at golden/roles/haproxy/tasks/main.yml:10) and keyword levels. */
+@RequiresInfraFixture
 class KeywordDocumentationTest : DocsTestCase() {
 
     override fun setUp() {

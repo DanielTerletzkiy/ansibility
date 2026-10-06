@@ -13,6 +13,7 @@ import java.nio.file.Files
  * `copyDirectoryToProject("infra", "")` must carry the dot-directories and the synthetic `.git` link files
  * that the detached-root rule reads, and every sanitised YAML file must still parse.
  */
+@RequiresInfraFixture
 class InfraFixtureCopyTest : BasePlatformTestCase() {
     override fun getTestDataPath(): String = InfraTestData.testDataPath.toString()
 

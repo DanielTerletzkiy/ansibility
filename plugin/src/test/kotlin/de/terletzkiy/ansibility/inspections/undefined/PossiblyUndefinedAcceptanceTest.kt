@@ -3,6 +3,7 @@ package de.terletzkiy.ansibility.inspections.undefined
 import com.intellij.openapi.vfs.VfsUtil
 import de.terletzkiy.ansibility.api.AnsibleContextService
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
 import de.terletzkiy.ansibility.settings.RootContext
 
@@ -11,6 +12,7 @@ import de.terletzkiy.ansibility.settings.RootContext
  * config-base.alloy.j2` of a temp copy of the fixture (the real repo is never touched), through the registered
  * inspection and `SeverityPolicy`.
  */
+@RequiresInfraFixture
 class PossiblyUndefinedAcceptanceTest : UndefinedTestCase() {
     private val prodLine = "alloy_tenant_api_key: \"{{ vault_alloy_tenant_api_key_prod }}\""
 

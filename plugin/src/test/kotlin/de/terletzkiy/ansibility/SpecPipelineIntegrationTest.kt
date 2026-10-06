@@ -3,6 +3,7 @@ package de.terletzkiy.ansibility
 import com.intellij.psi.PsiFileFactory
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode
 import de.terletzkiy.ansibility.semantics.diagnostics.Finding
 import de.terletzkiy.ansibility.semantics.schema.ArgSpecParser
@@ -20,6 +21,7 @@ import java.nio.file.Files
  * pipeline the type-check inspections will run, on the sanitised fixture, must reproduce the plan's real-shape
  * findings with ranges that point into the PSI text.
  */
+@RequiresInfraFixture
 class SpecPipelineIntegrationTest : BasePlatformTestCase() {
     private fun load(rel: String): Pair<String, YMap> {
         val text = String(Files.readAllBytes(InfraTestData.root.resolve(rel)), StandardCharsets.UTF_8)

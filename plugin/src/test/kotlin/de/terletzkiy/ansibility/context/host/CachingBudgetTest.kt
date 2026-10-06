@@ -7,6 +7,7 @@ import de.terletzkiy.ansibility.api.AnsibleRoot
 import de.terletzkiy.ansibility.api.PlayGraph
 import de.terletzkiy.ansibility.api.RootKind
 import de.terletzkiy.ansibility.api.VarsLayer
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.model.effective.EnvironmentViews
 import de.terletzkiy.ansibility.model.effective.ExecutionSources
 import de.terletzkiy.ansibility.model.effective.HostViews
@@ -23,6 +24,7 @@ import de.terletzkiy.ansibility.settings.RootContext
  * - editing `environments/prod/group_vars/all/vars.yml` invalidates only that root's prod views;
  * - switching env, host or play recomputes **0** model caches.
  */
+@RequiresInfraFixture
 class CachingBudgetTest : HostContextTestCase() {
     private val caches: ModelCaches get() = ModelCaches.getInstance(project)
 

@@ -15,6 +15,7 @@ import com.intellij.psi.templateLanguages.TemplateDataLanguageMappings
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.util.FileContentUtilCore
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.lang.jinja.AnsibleJinjaFileType
 import de.terletzkiy.ansibility.lang.jinja.AnsibleJinjaLanguage
 import de.terletzkiy.ansibility.lang.jinja.filetype.AnsibleTemplatePaths
@@ -30,6 +31,7 @@ import org.jetbrains.yaml.YAMLTokenTypes
  * Template files (plan A.5, F2.1, M5 acceptance 1–3): the view provider, the outer language per sample file, user
  * overrides, the layered highlighter, the hidden outer-language errors and the no-op formatter.
  */
+@RequiresInfraFixture
 class AnsibleJinjaTemplateFilesTest : AnsibleJinjaTemplateTestCase() {
     fun testOuterLanguagePerSampleFile() {
         copyInfra("golden/roles/haproxy", "golden/roles/docker", "golden/roles/loki")

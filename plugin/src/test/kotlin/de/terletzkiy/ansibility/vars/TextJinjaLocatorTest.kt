@@ -7,12 +7,14 @@ import com.intellij.openapi.vfs.VfsUtilCore
 import de.terletzkiy.ansibility.api.AnsibleSite
 import de.terletzkiy.ansibility.api.JinjaContainer
 import de.terletzkiy.ansibility.api.JinjaLocator
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.lang.jinja.AnsibleJinjaFileType
 import de.terletzkiy.ansibility.lang.jinja.filetype.J2Mappings
 import org.jetbrains.yaml.YAMLFileType
 import org.jetbrains.yaml.psi.YAMLFile
 
 /** [TextJinjaLocator] (plan A.4): references in YAML scalars, bare expressions and template files of any file type. */
+@RequiresInfraFixture
 class TextJinjaLocatorTest : VarsTestCase() {
     private val locator = TextJinjaLocator()
 

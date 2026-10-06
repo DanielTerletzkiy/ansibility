@@ -9,6 +9,7 @@ import com.intellij.testFramework.PlatformTestUtil
 import de.terletzkiy.ansibility.api.AnsibleSite
 import de.terletzkiy.ansibility.api.CompletionSource
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 
 /**
  * Completion latency on the whole sanitised infra fixture (M3 acceptance 10: p95 < 100 ms) at the acceptance sites,
@@ -24,6 +25,7 @@ import de.terletzkiy.ansibility.fixtures.InfraTestData
  * which pushed end-to-end runs past a second. The end-to-end bound still leaves room for the occasional run that hits
  * that check before the queued work has released its markers.
  */
+@RequiresInfraFixture
 class JinjaCompletionTimingTest : JinjaCompletionTestCase() {
     private class Site(val path: String, val line: Int, val old: String, val new: String, val expected: String)
 

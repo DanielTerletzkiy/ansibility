@@ -4,6 +4,7 @@ import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.model.role.ModelFixture
 import de.terletzkiy.ansibility.semantics.CoreVersion
 import de.terletzkiy.ansibility.semantics.yaml.Resolved
@@ -14,6 +15,7 @@ import org.jetbrains.yaml.psi.YAMLFile
 import org.jetbrains.yaml.psi.YAMLKeyValue
 
 /** [TaskFileModels] and [TaskModelBuilder] on fixture role files and on synthetic task lists and playbooks. */
+@RequiresInfraFixture
 class TaskFileModelTest : BasePlatformTestCase() {
     override fun getTestDataPath(): String = ModelFixture.testDataPath
 

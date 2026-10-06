@@ -1,6 +1,7 @@
 package de.terletzkiy.ansibility.context.host.card
 
 import com.intellij.testFramework.PlatformTestUtil
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
 import de.terletzkiy.ansibility.settings.RootContext
 
@@ -11,6 +12,7 @@ import de.terletzkiy.ansibility.settings.RootContext
  * median warm card (the whole card, built as the platform builds it) stays under 50 ms in All mode, with the environment
  * and with one host selected. Timing tests may flake under machine load; re-run alone.
  */
+@RequiresInfraFixture
 class HostCardScaleTest : HostCardTestCase() {
     override fun addFixtureFiles() {
         super.addFixtureFiles()

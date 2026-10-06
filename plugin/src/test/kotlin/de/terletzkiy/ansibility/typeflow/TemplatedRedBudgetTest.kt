@@ -12,6 +12,7 @@ import com.intellij.testFramework.PsiTestUtil
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.context.AnsibleLayout
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.inspections.templated.AnsibleTemplatedValueTypeInspection
 import org.jetbrains.yaml.psi.YAMLFile
 import java.nio.file.Files
@@ -23,6 +24,7 @@ import java.nio.file.Path
  * ansible-core 2.18.8 coerces or rejects as the message says). The opt-in run against the real repo
  * (`ANSIBLE_INFRA_REPO`) prints its list and expects the haproxy chain in each of the 9 roots that carry the role.
  */
+@RequiresInfraFixture
 class TemplatedRedBudgetTest : TemplatedTestCase() {
 
     fun testWholeFixtureMatchesThePinnedRedBudget() {

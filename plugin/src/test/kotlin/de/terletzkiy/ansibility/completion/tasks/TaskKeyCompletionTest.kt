@@ -2,8 +2,10 @@ package de.terletzkiy.ansibility.completion.tasks
 
 import com.intellij.codeInsight.lookup.LookupElementPresentation
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 
 /** Module names and keywords by structural level (plan F5.7; M3 acceptance 7, 8). */
+@RequiresInfraFixture
 class TaskKeyCompletionTest : TaskCompletionTestCase() {
 
     override fun setUp() {

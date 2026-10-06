@@ -11,12 +11,14 @@ import com.intellij.psi.PsiFile
 import com.intellij.testFramework.registerExtension
 import de.terletzkiy.ansibility.api.AnsibleSite
 import de.terletzkiy.ansibility.api.JinjaContainer
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import org.jetbrains.yaml.psi.YAMLScalar
 
 /**
  * Injected fragments (Jinja inside YAML scalars from M5, simulated here by plain text between `{{` and `}}`):
  * every dispatcher classifies the host file at the host offset, as the `api.Sites` range contract requires.
  */
+@RequiresInfraFixture
 class DispatchInjectionTest : DispatchTestCase() {
 
     /** Injects plain text into the part of a YAML scalar between the first `{{` and `}}`. */

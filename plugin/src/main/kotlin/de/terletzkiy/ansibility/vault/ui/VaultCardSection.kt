@@ -20,6 +20,7 @@ import de.terletzkiy.ansibility.api.VaultSourceKind
 import de.terletzkiy.ansibility.api.VaultSourceOrigin
 import de.terletzkiy.ansibility.api.VaultStatus
 import de.terletzkiy.ansibility.api.VaultStatusService
+import de.terletzkiy.ansibility.vault.identity.PasswordManager
 
 /**
  * F7.14: the card's **Vault** row (`cardSection` id `ansibilityVault`, SECTION, after `ansibilityHostDefinition`).
@@ -123,6 +124,8 @@ class VaultCardSection : CardSection {
             VaultSourceKind.PASSWORD_SAFE -> message("source.password.safe")
             VaultSourceKind.PROMPT -> message("source.prompt")
             VaultSourceKind.ENVIRONMENT -> location?.let { message("source.environment", it) }
+            VaultSourceKind.ONE_PASSWORD, VaultSourceKind.BITWARDEN, VaultSourceKind.KEEPASSXC, VaultSourceKind.PROTON_PASS ->
+                PasswordManager.of(source.kind)?.let { manager -> location?.let { message("source.manager", manager.displayName, it) } }
         }
     }
 

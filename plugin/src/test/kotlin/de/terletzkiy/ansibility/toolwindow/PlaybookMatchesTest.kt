@@ -4,6 +4,7 @@ import com.intellij.openapi.application.runReadActionBlocking
 import de.terletzkiy.ansibility.api.AnsibleContextService
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
 import de.terletzkiy.ansibility.settings.RootContext
 import de.terletzkiy.ansibility.toolwindow.model.AnsibleTreeNode
@@ -19,6 +20,7 @@ import de.terletzkiy.ansibility.toolwindow.model.PlaybookNode
  * HA7b (plan amendment R7/R8 F8.7, part of ex-X43): matched hosts per environment under the Playbooks node (the
  * selected environment in bold), the roles of a play, and the reach details of groups and var files.
  */
+@RequiresInfraFixture
 class PlaybookMatchesTest : ToolWindowTestCase() {
     override fun setUp() {
         super.setUp()

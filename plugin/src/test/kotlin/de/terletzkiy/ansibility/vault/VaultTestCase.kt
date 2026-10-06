@@ -151,6 +151,17 @@ class FakePrompter : VaultPrompter {
         val (password, remember) = passwords.pollFirst() ?: return null
         return VaultPasswordAnswer(password.toCharArray(), remember)
     }
+
+    val masterRequests = CopyOnWriteArrayList<de.terletzkiy.ansibility.vault.secrets.MasterPasswordRequest>()
+
+    /** The answers to master password prompts, in order; an exhausted list cancels. */
+    val masterPasswords = java.util.concurrent.ConcurrentLinkedDeque<String>()
+
+    override fun askMasterPassword(project: Project, request: de.terletzkiy.ansibility.vault.secrets.MasterPasswordRequest): CharArray? {
+        ThreadingAssertions.assertEventDispatchThread()
+        masterRequests.add(request)
+        return masterPasswords.pollFirst()?.toCharArray()
+    }
 }
 
 /** An in-memory [VaultCredentialStore] keyed like PasswordSafe. */
@@ -248,6 +259,7 @@ abstract class VaultTestCase : BasePlatformTestCase() {
             secrets.forgetDeclinedConsents()
             secrets.setClockForTests(VaultClock.SYSTEM)
             secrets.setCredentialsForTests(de.terletzkiy.ansibility.vault.secrets.PasswordSafeCredentialStore)
+            secrets.setPasswordManagersForTests(de.terletzkiy.ansibility.vault.identity.PasswordManagers)
             registry.setAccessForTests(LocalVaultSourceAccess)
             VaultProjectSettings.getInstance(project).loadState(VaultProjectSettings.StateBean())
             VaultUserState.getInstance().resetForTests()

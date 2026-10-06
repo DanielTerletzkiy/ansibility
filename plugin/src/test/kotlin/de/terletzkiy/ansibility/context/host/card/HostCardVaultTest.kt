@@ -2,6 +2,7 @@ package de.terletzkiy.ansibility.context.host.card
 
 import com.intellij.openapi.vfs.VfsUtilCore
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
 import de.terletzkiy.ansibility.settings.RootContext
 import de.terletzkiy.ansibility.vault.crypto.VaultCrypto
@@ -12,6 +13,7 @@ import de.terletzkiy.ansibility.vault.crypto.VaultCrypto
  * at the masked value, and building any of it (Effective section, Effect row, ranked "Set in", Explain card) never
  * decrypts (`VaultCrypto.decryptAttempts` unchanged) and never puts an envelope or plaintext into the HTML.
  */
+@RequiresInfraFixture
 class HostCardVaultTest : HostCardTestCase() {
     override fun addFixtureFiles() {
         super.addFixtureFiles()

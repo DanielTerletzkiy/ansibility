@@ -8,6 +8,7 @@ import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.VaultEnvelopeKind
 import de.terletzkiy.ansibility.context.AnsibleWorkspaceImpl
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.index.vault.VaultIndex
 import de.terletzkiy.ansibility.index.vault.VaultIndexQueries
 import de.terletzkiy.ansibility.index.vault.VaultIndexer
@@ -25,6 +26,7 @@ import java.io.DataOutputStream
  * `1.1` envelope (label `default`) that decrypts with the synthetic fixture password of `tools/vault/SYNTHETIC.md` to
  * the dummy, ANS-V101–V103 find nothing, and `ansible.vault` lists every fixture value under its root.
  */
+@RequiresInfraFixture
 class VaultFixtureEnvelopesTest : BasePlatformTestCase() {
     override fun getTestDataPath(): String = InfraTestData.testDataPath.toString()
 

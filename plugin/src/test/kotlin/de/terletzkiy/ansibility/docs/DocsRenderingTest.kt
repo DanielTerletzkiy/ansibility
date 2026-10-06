@@ -6,6 +6,7 @@ import de.terletzkiy.ansibility.api.AnsibleRoot
 import de.terletzkiy.ansibility.api.DocSource
 import de.terletzkiy.ansibility.api.DocSourceKind
 import de.terletzkiy.ansibility.api.ResolvedModuleDoc
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.semantics.CoreVersion
 import de.terletzkiy.ansibility.semantics.schema.Deprecation
 import de.terletzkiy.ansibility.semantics.schema.ModuleDoc
@@ -17,6 +18,7 @@ import de.terletzkiy.ansibility.semantics.schema.RouteResolution
  * Rendering details the bundled snapshots do not exercise (option deprecations, `no_log`, local sources that miss
  * the target, markup links to other plugin types), with a synthetic module served by a wrapped [AnsibleDocService].
  */
+@RequiresInfraFixture
 class DocsRenderingTest : DocsTestCase() {
     private lateinit var root: AnsibleRoot
 

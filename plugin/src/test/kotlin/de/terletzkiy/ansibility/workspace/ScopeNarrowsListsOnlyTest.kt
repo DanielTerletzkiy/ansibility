@@ -11,6 +11,7 @@ import com.intellij.psi.PsiManager
 import de.terletzkiy.ansibility.api.RoleRegistry
 import de.terletzkiy.ansibility.api.ScopeChoice
 import de.terletzkiy.ansibility.dispatch.AnsibleGotoDeclarationHandler
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.navigation.RefTargetElement
 import java.util.concurrent.TimeUnit
 
@@ -19,6 +20,7 @@ import java.util.concurrent.TimeUnit
  * excludes falcon, a reference in an falcon file resolves to the same falcon targets, role lookups are unchanged, and the
  * file's highlighting is identical. The scope narrows lists only.
  */
+@RequiresInfraFixture
 class ScopeNarrowsListsOnlyTest : WorkspaceScopeTestCase() {
     private val playbook = "repos/falcon/ansible/playbook-setup-system.yml"
 

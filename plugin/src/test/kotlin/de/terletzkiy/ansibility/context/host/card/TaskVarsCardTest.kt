@@ -1,6 +1,7 @@
 package de.terletzkiy.ansibility.context.host.card
 
 import com.intellij.testFramework.IndexingTestUtil
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
 import de.terletzkiy.ansibility.settings.RootContext
 
@@ -10,6 +11,7 @@ import de.terletzkiy.ansibility.settings.RootContext
  * wins for every host that runs the task ([TaskVars]). The Effective section, the ranked "Set in" rows and the Explain
  * card now agree on the task var, which still loses to role params (L18).
  */
+@RequiresInfraFixture
 class TaskVarsCardTest : HostCardTestCase() {
     override fun addFixtureFiles() {
         super.addFixtureFiles()

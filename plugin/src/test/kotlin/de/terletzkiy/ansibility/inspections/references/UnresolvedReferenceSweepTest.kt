@@ -12,6 +12,7 @@ import com.intellij.testFramework.PsiTestUtil
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.context.AnsibleLayout
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.navigation.RefsTestCase
 
 /**
@@ -21,6 +22,7 @@ import de.terletzkiy.ansibility.navigation.RefsTestCase
  * `java21-jre` and the app-wren-mono handlers were added for this), so it yields exactly the same finding; the opt-in
  * run against the real repo (`ANSIBLE_INFRA_REPO`) expects the keycloak reference alone too.
  */
+@RequiresInfraFixture
 class UnresolvedReferenceSweepTest : RefsTestCase() {
 
     fun testWholeFixtureHasOnlyTheKnownKeycloakReference() {

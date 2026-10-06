@@ -13,6 +13,7 @@ import de.terletzkiy.ansibility.api.AnsibleRoot
 import de.terletzkiy.ansibility.api.AnsibleSite
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.index.RootFamily
 import de.terletzkiy.ansibility.index.VarDefIndex
 import de.terletzkiy.ansibility.index.VarUseIndex
@@ -23,6 +24,7 @@ import java.util.concurrent.TimeUnit
  * of every normal root. No position may fail, no card may contain a vault payload or envelope, and no target may lie
  * outside the root's family or in the detached worktree.
  */
+@RequiresInfraFixture
 class VarFixtureSweepTest : VarsTestCase() {
     fun testEveryReferenceAndDefinitionOfTheFixture() {
         myFixture.copyDirectoryToProject(InfraTestData.INFRA, "")

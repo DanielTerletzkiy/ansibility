@@ -13,9 +13,11 @@ import de.terletzkiy.ansibility.api.PlayRef
 import de.terletzkiy.ansibility.api.PlayRoleEntry
 import de.terletzkiy.ansibility.api.PlaySection
 import de.terletzkiy.ansibility.api.RoleEntryKind
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.model.role.ModelFixture
 
 /** [PlayGraphService] on fixture playbooks (falcon, pelican danger zone, golden and falcon molecule) and synthetic ones. */
+@RequiresInfraFixture
 class PlayGraphTest : BasePlatformTestCase() {
     override fun getTestDataPath(): String = ModelFixture.testDataPath
 

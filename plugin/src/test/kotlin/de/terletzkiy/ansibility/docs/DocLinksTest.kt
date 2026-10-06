@@ -2,8 +2,10 @@ package de.terletzkiy.ansibility.docs
 
 import de.terletzkiy.ansibility.api.AnsibleDocService
 import de.terletzkiy.ansibility.dochtml.MarkupHtml
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 
 /** `O()`/`RV()` references that name a plugin open that plugin type's page (plan F5.1). */
+@RequiresInfraFixture
 class DocLinksTest : DocsTestCase() {
 
     override fun setUp() {

@@ -6,6 +6,7 @@ import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.util.indexing.FileBasedIndex
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.index.VarDefIndex
 import de.terletzkiy.ansibility.index.VarUseIndex
 
@@ -14,6 +15,7 @@ import de.terletzkiy.ansibility.index.VarUseIndex
  * fixture (vars files, inventories, tasks, playbooks, templates, molecule files) the entries the indexers compute from
  * the open PSI equal those of `ansible.var.use` and `ansible.var.def`, also after an unsaved edit.
  */
+@RequiresInfraFixture
 class OpenFileIndexDataTest : UsagesTestCase() {
 
     override fun setUp() {

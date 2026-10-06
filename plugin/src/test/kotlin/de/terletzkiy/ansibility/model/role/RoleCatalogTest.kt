@@ -6,12 +6,14 @@ import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.RoleRegistry
 import de.terletzkiy.ansibility.api.RootKind
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.model.drift.DriftFixture
 
 /**
  * [RoleCatalog] (plan amendment R9, F9.3): copies across roots, the reference, display order, attribution of each role
  * directory to the innermost root (nested roots and `roles_path` reach other roots' roles dirs), detached worktrees.
  */
+@RequiresInfraFixture
 class RoleCatalogTest : BasePlatformTestCase() {
     override fun getTestDataPath(): String = ModelFixture.testDataPath
 

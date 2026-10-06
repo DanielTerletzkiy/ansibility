@@ -10,6 +10,7 @@ import com.intellij.testFramework.PsiTestUtil
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.context.AnsibleLayout
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import java.nio.file.Files
 
 /**
@@ -20,6 +21,7 @@ import java.nio.file.Files
  * options; the opt-in run against the real repo (`ANSIBLE_INFRA_REPO`) prints its findings and expects the same
  * single error.
  */
+@RequiresInfraFixture
 class ModuleChecksRedBudgetTest : ModuleChecksTestCase() {
 
     fun testWholeFixtureMatchesTheBudget() {

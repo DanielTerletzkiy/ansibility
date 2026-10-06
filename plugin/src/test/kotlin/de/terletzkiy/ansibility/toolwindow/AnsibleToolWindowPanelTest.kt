@@ -17,6 +17,7 @@ import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.TestActionEvent
 import com.intellij.ui.tree.TreeVisitor
 import com.intellij.util.ui.tree.TreeUtil
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.toolwindow.model.AnsibleTreeNode
 import javax.swing.tree.TreePath
 
@@ -25,6 +26,7 @@ import javax.swing.tree.TreePath
  * selection drives the details pane, double-click/Enter/F4 navigation, the data context, and the refresh after a
  * `hosts.yml` edit, saved or not (plan F6.3, F6.4).
  */
+@RequiresInfraFixture
 class AnsibleToolWindowPanelTest : ToolWindowTestCase() {
     private lateinit var panel: AnsibleToolWindowPanel
 

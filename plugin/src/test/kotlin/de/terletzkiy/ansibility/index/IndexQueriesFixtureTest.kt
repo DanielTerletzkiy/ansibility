@@ -5,10 +5,12 @@ import com.intellij.util.indexing.FileBasedIndex
 import de.terletzkiy.ansibility.api.VarDefKind
 import de.terletzkiy.ansibility.api.VarService
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.resolve.IndexFixtureSupport
 import de.terletzkiy.ansibility.resolve.IndexFixtureSupport.Companion.WORKTREE_GOLDEN
 
 /** The six indexes through the real `FileBasedIndex`, with root-scoped queries on fixture sub-trees. */
+@RequiresInfraFixture
 class IndexQueriesFixtureTest : BasePlatformTestCase() {
     private lateinit var support: IndexFixtureSupport
 

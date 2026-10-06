@@ -2,12 +2,14 @@ package de.terletzkiy.ansibility.inspections.types
 
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.psi.PsiDocumentManager
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.types.TypeCheckTestCase
 
 /**
  * The quick fixes of the type inspections (🟣 CLAUDE X80) on a vars file of the falcon root: each fix's text, where it
  * is offered, and the YAML it writes.
  */
+@RequiresInfraFixture
 class TypeQuickFixTest : TypeCheckTestCase() {
 
     override fun setUp() {

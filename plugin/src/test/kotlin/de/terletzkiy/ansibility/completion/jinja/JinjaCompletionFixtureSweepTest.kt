@@ -11,6 +11,7 @@ import com.intellij.util.indexing.FileBasedIndex
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.JinjaContainer
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.index.VarUseIndex
 import de.terletzkiy.ansibility.lang.jinja.lexer.JinjaLexMode
 import de.terletzkiy.ansibility.vars.JinjaTextSites
@@ -22,6 +23,7 @@ import java.util.concurrent.TimeUnit
  * referenced name must be offered almost everywhere (it is defined somewhere the tiers see); nothing may fail; the p95
  * of one completion pass (position, scope, candidates) is reported and bounded.
  */
+@RequiresInfraFixture
 class JinjaCompletionFixtureSweepTest : JinjaCompletionTestCase() {
     fun testEveryFreeReferenceOfTheFixture() {
         myFixture.copyDirectoryToProject(InfraTestData.INFRA, "")

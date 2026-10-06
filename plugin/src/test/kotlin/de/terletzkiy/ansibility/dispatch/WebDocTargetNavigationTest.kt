@@ -14,6 +14,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.replaceService
 import de.terletzkiy.ansibility.api.AnsibleSite
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import java.io.File
 import java.nio.file.Path
 import java.util.Collections
@@ -23,6 +24,7 @@ import java.util.Collections
  * and thus in the browser, through the platform's own Go to Declaration action (single target: raw navigation
  * request). The browser is replaced by a recorder.
  */
+@RequiresInfraFixture
 class WebDocTargetNavigationTest : DispatchTestCase() {
 
     /** Records every URL the IDE would open instead of starting a browser. */

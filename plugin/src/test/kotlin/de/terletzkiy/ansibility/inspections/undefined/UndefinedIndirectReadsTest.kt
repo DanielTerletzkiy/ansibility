@@ -1,12 +1,14 @@
 package de.terletzkiy.ansibility.inspections.undefined
 
 import com.intellij.openapi.vfs.VfsUtil
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 
 /**
  * ANS-V003 and the FU2 additions to `ansible.var.use` (documented in [TextJinjaUses]): reads by name through `hostvars`
  * or `vars` and the outside names of braced implicit expressions are indexed for Find Usages but not judged, so the
  * findings of the fixture stay what they were. Each case has a control: the same name read directly is reported.
  */
+@RequiresInfraFixture
 class UndefinedIndirectReadsTest : UndefinedTestCase() {
     private val prodLine = "alloy_tenant_api_key: \"{{ vault_alloy_tenant_api_key_prod }}\""
 

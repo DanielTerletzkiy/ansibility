@@ -2,6 +2,7 @@ package de.terletzkiy.ansibility.model.drift
 
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.model.role.ModelFixture
 
 /**
@@ -10,6 +11,7 @@ import de.terletzkiy.ansibility.model.role.ModelFixture
  * differences for those roles (both sides went through the same sanitiser); the expected lists were measured on the
  * fixture itself with the plugin's role rule and skip list.
  */
+@RequiresInfraFixture
 class RoleDriftInfraFixtureTest : BasePlatformTestCase() {
     private lateinit var service: RoleDriftService
     private lateinit var drifts: Map<String, RoleDrift>

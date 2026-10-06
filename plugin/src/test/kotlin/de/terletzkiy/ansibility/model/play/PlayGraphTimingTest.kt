@@ -13,6 +13,7 @@ import de.terletzkiy.ansibility.api.CompletionSource
 import de.terletzkiy.ansibility.api.PlayGraph
 import de.terletzkiy.ansibility.api.RoleRegistry
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.model.role.ModelFixture
 import de.terletzkiy.ansibility.navigation.RefsCompletionSource
 import java.util.Locale
@@ -26,6 +27,7 @@ import java.util.Locale
  * above the measured values, so a slow build machine does not make them flaky. The opt-in
  * [PlayGraphCorpusTest.testFirstQueryAfterAnEditOnTheRealRepo] measures the same on the real repo.
  */
+@RequiresInfraFixture
 class PlayGraphTimingTest : BasePlatformTestCase() {
     override fun getTestDataPath(): String = ModelFixture.testDataPath
 

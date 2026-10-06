@@ -11,11 +11,13 @@ import de.terletzkiy.ansibility.api.CompletionSource
 import de.terletzkiy.ansibility.api.KeywordLevel
 import de.terletzkiy.ansibility.api.SiteClassifier
 import de.terletzkiy.ansibility.api.SiteDocumentation
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 
 /**
  * While indexing, quick doc and completion ask only `DumbAware` extensions (index-backed ones would fail), and
  * Go to Declaration asks all of them (the platform grants its handlers reliable index access).
  */
+@RequiresInfraFixture
 class DispatchDumbModeTest : DispatchTestCase() {
 
     private class DumbAwareClassifier(answer: (PsiFile, Int) -> AnsibleSite?) : SiteClassifier by RecordingClassifier(answer), DumbAware

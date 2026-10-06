@@ -11,6 +11,7 @@ import com.intellij.openapi.fileTypes.PlainTextFileType
 import com.intellij.openapi.fileTypes.PlainTextLanguage
 import com.intellij.testFramework.TestActionEvent
 import de.terletzkiy.ansibility.context.AnsibleWorkspaceImpl
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.lang.jinja.AnsibleJinjaFileType
 import de.terletzkiy.ansibility.lang.jinja.editor.consent.AnsibleJinjaTakeoverConsent
 import de.terletzkiy.ansibility.lang.jinja.editor.consent.AnsibleJinjaTakeoverConsentActivity
@@ -29,6 +30,7 @@ import org.jetbrains.yaml.YAMLFileType
  * opens as Ansible Jinja2 (Plain text); the one-time notification's "Keep YAML for .j2" reverts it, and "Remove my
  * `*.j2 → YAML` mapping" removes the mapping, only on click.
  */
+@RequiresInfraFixture
 class AnsibleJinjaTakeoverConsentTest : AnsibleJinjaTemplateTestCase() {
     private val properties: PropertiesComponent get() = PropertiesComponent.getInstance()
     private val haproxy = "golden/roles/haproxy/templates/haproxy.cfg.j2"

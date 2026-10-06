@@ -6,12 +6,14 @@ import com.intellij.openapi.util.Disposer
 import com.intellij.psi.search.GlobalSearchScopesCore
 import com.intellij.psi.search.scope.packageSet.NamedScopesHolder
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 
 /**
  * Platform behaviour the workspace scope relies on that `javap` cannot show (plan amendment R9, testing item 1):
  * holder contents, package-set evaluation with the right holder, file patterns relative to the content root, and
  * the holders' scope listeners.
  */
+@RequiresInfraFixture
 class ScopePlatformPinsTest : WorkspaceScopeTestCase() {
 
     fun testEditableScopesAreTheUserScopesAndGetScopesAddsThePredefinedOnes() {

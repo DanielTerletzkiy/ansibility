@@ -4,12 +4,14 @@ import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.openapi.vfs.VfsUtilCore
 import de.terletzkiy.ansibility.api.AnsibleSite
 import de.terletzkiy.ansibility.api.SiteClassifier
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.toolwindow.ToolWindowTestCase
 import de.terletzkiy.ansibility.vars.VarNavigation
 import de.terletzkiy.ansibility.vars.VarTargetElement
 import de.terletzkiy.ansibility.vars.gutter.OverrideGotoSuper
 
 /** Plan X42 (override gutters), X53 (Go to Related in a role) and X60 (console hyperlinks), on the infra fixture. */
+@RequiresInfraFixture
 class WorkflowExtrasTest : ToolWindowTestCase() {
     override fun setUp() {
         super.setUp()

@@ -5,6 +5,7 @@ import de.terletzkiy.ansibility.api.CardContext
 import de.terletzkiy.ansibility.api.CardSubject
 import de.terletzkiy.ansibility.api.SourceLocation
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.vars.VarDocumentationTarget
 import de.terletzkiy.ansibility.vars.VarSubject
 
@@ -13,6 +14,7 @@ import de.terletzkiy.ansibility.vars.VarSubject
  * `group_vars`, `host_vars`, role-default and spec cards, with the plan's examples (`postfix_relayhost`,
  * `keepalived_priority`, `environment_group`, `alloy_tenant_api_key`, shared addresses, the runtime-default chain).
  */
+@RequiresInfraFixture
 class EffectiveCardSectionTest : HostCardTestCase() {
     /** Two plays on prod-prod1 whose roles default `ha4_shared` differently, and a reference to it in prod-prod1's host_vars. */
     override fun addFixtureFiles() {

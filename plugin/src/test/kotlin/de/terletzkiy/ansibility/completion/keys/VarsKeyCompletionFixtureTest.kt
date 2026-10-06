@@ -6,6 +6,7 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.platform.backend.documentation.DocumentationData
 import com.intellij.util.ui.NamedColorUtil
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.vars.VarDocumentationTarget
 import java.util.concurrent.TimeUnit
 
@@ -15,6 +16,7 @@ import java.util.concurrent.TimeUnit
  * `loki_nginx_sites[0].floating` (`environments/ops/group_vars/all/vars.yml:526`), `hosts.yml` group vars, and
  * inventory-only names.
  */
+@RequiresInfraFixture
 class VarsKeyCompletionFixtureTest : KeyCompletionTestCase() {
     override fun setUp() {
         super.setUp()

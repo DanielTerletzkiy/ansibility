@@ -1,6 +1,7 @@
 package de.terletzkiy.ansibility.inspections.templated
 
 import com.intellij.lang.annotation.HighlightSeverity
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.semantics.CoreVersion
 import de.terletzkiy.ansibility.semantics.diagnostics.Preset
 import de.terletzkiy.ansibility.typeflow.TemplatedTestCase
@@ -10,6 +11,7 @@ import de.terletzkiy.ansibility.typeflow.TemplatedTestCase
  * `golden/roles/haproxy/defaults/main.yml:15`, the severity rules (presets, certain rejections), the quick fixes and
  * the registration.
  */
+@RequiresInfraFixture
 class TemplatedValueTypeInspectionTest : TemplatedTestCase() {
 
     private fun problems(path: String): List<String> = highlights(path).map { "${line(it)}: ${it.description}" }

@@ -4,11 +4,13 @@ import com.intellij.codeInsight.navigation.targetPresentation
 import com.intellij.openapi.application.runReadActionBlocking
 import de.terletzkiy.ansibility.api.AnsibleSite
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 
 /**
  * Ctrl+B on reference values through the plugin's Go to Declaration entry point (plan F1.8, X50): M3 acceptance 7 and
  * every other reference kind on the infra fixture, plus root scoping.
  */
+@RequiresInfraFixture
 class RefsNavigationTest : RefsTestCase() {
 
     private fun targets(path: String, line: Int, marker: String, delta: Int = 1): List<String> =

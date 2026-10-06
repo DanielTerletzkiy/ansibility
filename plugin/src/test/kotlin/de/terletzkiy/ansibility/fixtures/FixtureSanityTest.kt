@@ -7,6 +7,7 @@ import de.terletzkiy.ansibility.semantics.vault.VaultEnvelope
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
+import org.junit.Before
 import org.junit.Test
 import java.nio.charset.CharacterCodingException
 import java.nio.charset.CodingErrorAction
@@ -25,8 +26,12 @@ import java.nio.ByteBuffer
  * loopback, `0.0.0.0`, a netmask), no forbidden file exists, and the synthetic git links that the
  * detached-root rule depends on are present. Problems are reported as `path:line` without the value.
  */
+@RequiresInfraFixture
 class FixtureSanityTest {
     private val root: Path = InfraTestData.root
+
+    @Before
+    fun requireFixture() = InfraTestData.assumePresent()
 
     @Test
     fun fixtureContainsTheCuratedSubset() {

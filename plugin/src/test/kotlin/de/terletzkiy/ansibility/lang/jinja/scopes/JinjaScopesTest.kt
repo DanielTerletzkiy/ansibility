@@ -5,6 +5,7 @@ import com.intellij.psi.PsiFileFactory
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.lang.jinja.AnsibleJinjaLanguage
 import de.terletzkiy.ansibility.lang.jinja.locator.JinjaReferenceChains
 import de.terletzkiy.ansibility.lang.jinja.psi.AnsibleJinjaFile
@@ -23,6 +24,7 @@ import kotlin.io.path.isRegularFile
 import kotlin.io.path.readText
 
 /** [JinjaScopes] (plan A.5, WU C5): Jinja's scoping rules on the PSI, and agreement with the text-level analysis. */
+@RequiresInfraFixture
 class JinjaScopesTest : BasePlatformTestCase() {
 
     private fun parse(text: String): AnsibleJinjaFile =

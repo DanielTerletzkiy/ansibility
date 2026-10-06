@@ -5,6 +5,7 @@ import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.usages.UsageInfo2UsageAdapter
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import java.util.Locale
 
 /**
@@ -16,6 +17,7 @@ import java.util.Locale
  *
  * The build machine may be busy (parallel builds): a series over budget is measured again, the best one counts.
  */
+@RequiresInfraFixture
 class VarUsagesPerformanceTest : UsagesTestCase() {
 
     override fun setUp() {

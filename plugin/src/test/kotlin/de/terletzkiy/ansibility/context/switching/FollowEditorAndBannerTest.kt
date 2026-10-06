@@ -7,6 +7,7 @@ import com.intellij.ui.EditorNotificationPanel
 import com.intellij.ui.EditorNotificationProvider
 import com.intellij.ui.EditorNotifications
 import de.terletzkiy.ansibility.context.AnsibleStructureListener
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.settings.AnsibilityWorkspaceState
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
 import de.terletzkiy.ansibility.settings.RootContext
@@ -15,6 +16,7 @@ import de.terletzkiy.ansibility.settings.RootContext
  * D33 Follow editor (on: the file scope narrows and, when disjoint, overrides the selection; off: the selection applies
  * as-is and such a file is not loaded) and the two context banners: the override banner and the ex-X49 playbook dir.
  */
+@RequiresInfraFixture
 class FollowEditorAndBannerTest : ContextSwitchingTestCase() {
     override fun addFixtureFiles() {
         // pelican has no playbook-level group_vars in the fixture; one makes the danger-zone playbook dir visible.

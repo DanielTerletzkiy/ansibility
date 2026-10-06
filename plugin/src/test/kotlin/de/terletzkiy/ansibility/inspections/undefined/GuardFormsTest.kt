@@ -2,6 +2,7 @@ package de.terletzkiy.ansibility.inspections.undefined
 
 import com.intellij.openapi.vfs.VfsUtil
 import de.terletzkiy.ansibility.context.TargetVersionDetector
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.semantics.CoreVersion
 
 /**
@@ -9,6 +10,7 @@ import de.terletzkiy.ansibility.semantics.CoreVersion
  * [ProbeRole]: every template line states what it expects, and the YAML task cases are marked `# M-…` (reported) or
  * `# C-…` (clean).
  */
+@RequiresInfraFixture
 class GuardFormsTest : UndefinedTestCase() {
     override fun addFixtureFiles() {
         for ((path, text) in ProbeRole.FILES) add(path, text)

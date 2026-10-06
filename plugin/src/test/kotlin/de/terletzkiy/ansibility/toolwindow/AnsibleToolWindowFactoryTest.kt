@@ -7,12 +7,14 @@ import com.intellij.toolWindow.ToolWindowHeadlessManagerImpl
 import com.intellij.util.ui.StatusText
 import de.terletzkiy.ansibility.AnsibilityBundle
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import kotlinx.coroutines.runBlocking
 import java.util.Locale
 import java.util.ResourceBundle
 import java.util.concurrent.TimeUnit
 
 /** Registration of the "Ansibility" tool window, when it is offered, and the content it creates. */
+@RequiresInfraFixture
 class AnsibleToolWindowFactoryTest : ToolWindowTestCase() {
     private fun applicable(): Boolean =
         ApplicationManager.getApplication().executeOnPooledThread<Boolean> {

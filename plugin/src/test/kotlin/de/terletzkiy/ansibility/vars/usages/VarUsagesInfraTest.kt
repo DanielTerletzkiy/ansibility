@@ -10,6 +10,7 @@ import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.TestActionEvent
 import com.intellij.usages.UsageInfo2UsageAdapter
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.vault.crypto.VaultCrypto
 import org.jetbrains.yaml.psi.YAMLKeyValue
 
@@ -17,6 +18,7 @@ import org.jetbrains.yaml.psi.YAMLKeyValue
  * The acceptance list of plan amendment FU on the infra fixture (`repos/falcon` with golden's `alloy` role copied into
  * it as the real repository has it, plus a task file that reads the variable, and golden itself as a second root).
  */
+@RequiresInfraFixture
 class VarUsagesInfraTest : UsagesTestCase() {
 
     override fun setUp() {

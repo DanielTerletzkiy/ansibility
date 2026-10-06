@@ -1,6 +1,9 @@
 package de.terletzkiy.ansibility.completion.tasks
 
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
+
 /** Option keys and values of modules (plan F5.7; M3 acceptance 8). */
+@RequiresInfraFixture
 class TaskOptionCompletionTest : TaskCompletionTestCase() {
 
     override fun setUp() {

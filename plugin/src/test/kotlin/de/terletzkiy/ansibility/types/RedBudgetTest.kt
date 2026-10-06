@@ -8,6 +8,7 @@ import com.intellij.testFramework.IndexingTestUtil
 import com.intellij.testFramework.PsiTestUtil
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.semantics.diagnostics.Preset
 import de.terletzkiy.ansibility.settings.AnsibilityProjectSettings
 import de.terletzkiy.ansibility.settings.RootKeys
@@ -19,6 +20,7 @@ import java.nio.file.Files
  * Runtime-faithful only the rejections stay red. The opt-in run against the real repo (`ANSIBLE_INFRA_REPO`) prints
  * the counts per code and checks the reviewed corpus baseline `testData/types/red-budget-corpus.txt`.
  */
+@RequiresInfraFixture
 class RedBudgetTest : TypeCheckTestCase() {
 
     fun testFixtureErrorsMatchTheReviewedBaseline() {

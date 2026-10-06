@@ -10,10 +10,12 @@ import de.terletzkiy.ansibility.api.VarDefinition
 import de.terletzkiy.ansibility.api.VarService
 import de.terletzkiy.ansibility.api.VarsLayer
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.resolve.IndexFixtureSupport.Companion.WORKTREE_GOLDEN
 import de.terletzkiy.ansibility.semantics.schema.OptionType
 
 /** [VarServiceImpl] and [VarUsageQuery] on sub-trees of the infra fixture (acceptance examples of F1.4, F1.5, F4.3). */
+@RequiresInfraFixture
 class VarServiceFixtureTest : BasePlatformTestCase() {
     private lateinit var support: IndexFixtureSupport
 

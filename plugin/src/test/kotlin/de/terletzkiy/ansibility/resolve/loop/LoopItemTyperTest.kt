@@ -6,10 +6,12 @@ import com.intellij.psi.PsiManager
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.terletzkiy.ansibility.context.AnsibleWorkspaceImpl
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.semantics.schema.OptionType
 import org.jetbrains.yaml.psi.YAMLFile
 
 /** [LoopItemTyper] (plan F1.7, X09): the item type of task loops. */
+@RequiresInfraFixture
 class LoopItemTyperTest : BasePlatformTestCase() {
     override fun getTestDataPath(): String = InfraTestData.testDataPath.toString()
 

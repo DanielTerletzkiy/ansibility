@@ -2,10 +2,12 @@ package de.terletzkiy.ansibility.context.host
 
 import de.terletzkiy.ansibility.api.HostKey
 import de.terletzkiy.ansibility.api.HostScopeOrigin
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
 import de.terletzkiy.ansibility.settings.RootContext
 
 /** Per-file inference of the hosts a file applies to (plan amendment R7/R8, "Per-file inference" table). */
+@RequiresInfraFixture
 class HostScopeInferenceTest : HostContextTestCase() {
     override fun addFixtureFiles() {
         // pelican has no playbook-level group_vars in the fixture; one makes the danger-zone playbook dir visible.

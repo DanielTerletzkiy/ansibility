@@ -1,9 +1,11 @@
 package de.terletzkiy.ansibility.context.switching
 
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
 import de.terletzkiy.ansibility.settings.RootContext
 
 /** What a root's context can switch to (F8.1 popup lists) and the play-keeping rules of a switch. */
+@RequiresInfraFixture
 class ContextChoicesTest : ContextSwitchingTestCase() {
     private val choices: ContextChoices get() = ContextChoices(project)
 

@@ -1,5 +1,6 @@
 package de.terletzkiy.ansibility.typeflow
 
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.semantics.CoreVersion
 
 /**
@@ -7,6 +8,7 @@ import de.terletzkiy.ansibility.semantics.CoreVersion
  * ansible-core 2.18.8 and 2.21.4, multi-definition chains, cycles, vault values, nested options, runtime-only names,
  * root scoping and the chain depth setting.
  */
+@RequiresInfraFixture
 class TemplatedValueTypesTest : TemplatedTestCase() {
 
     private fun demoRole() {

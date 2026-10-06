@@ -6,6 +6,7 @@ import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.HostKey
 import de.terletzkiy.ansibility.context.host.ValueKind
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
 import de.terletzkiy.ansibility.settings.RootContext
 import de.terletzkiy.ansibility.toolwindow.EffectiveVarsView
@@ -22,6 +23,7 @@ import de.terletzkiy.ansibility.vault.crypto.VaultCrypto
  * vars (winning layer and file, shadowed definitions struck through, the play selector with Auto over every play on the
  * host), Targeted by, vault masking without decryption, navigation to the winner, and laziness.
  */
+@RequiresInfraFixture
 class HostEffectiveVarsTest : ToolWindowTestCase() {
     override fun setUp() {
         super.setUp()

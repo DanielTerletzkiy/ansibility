@@ -5,6 +5,7 @@ import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.testFramework.IndexingTestUtil
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.typeflow.TemplatedTestCase
 
 /**
@@ -14,6 +15,7 @@ import de.terletzkiy.ansibility.typeflow.TemplatedTestCase
  * No role of the falcon root declares its variables, so that run measures the definition scan; the heron copy of the file
  * and a synthetic stress file also measure the chain evaluation. The measurements are printed for the work-unit report.
  */
+@RequiresInfraFixture
 class TemplatedValueTypePerformanceTest : TemplatedTestCase() {
 
     fun testKeycloakVarsFileIsFastAfterAnEdit() {

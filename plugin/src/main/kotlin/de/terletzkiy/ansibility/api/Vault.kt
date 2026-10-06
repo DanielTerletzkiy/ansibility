@@ -111,6 +111,18 @@ enum class VaultSourceKind {
 
     /** The environment variable `ANSIBLE_LOCAL_VAULT_PASSWORD` of the IDE process. */
     ENVIRONMENT,
+
+    /** A 1Password secret reference (`op://vault/item/field`), read with the 1Password CLI (`op read`). */
+    ONE_PASSWORD,
+
+    /** A Bitwarden item (name or id), read with the Bitwarden CLI (`bw get password`, or the `bwbio` Touch ID wrapper). */
+    BITWARDEN,
+
+    /** A KeePassXC entry (`database.kdbx#group/entry`), read with `keepassxc-cli show`. */
+    KEEPASSXC,
+
+    /** A Proton Pass secret reference (`pass://vault/item/field`), read with the Proton Pass CLI (`pass-cli item view`). */
+    PROTON_PASS,
 }
 
 /** How a source was found, in the order of the discovery chain (F7.9). */

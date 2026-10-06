@@ -1,5 +1,6 @@
 package de.terletzkiy.ansibility.fixtures
 
+import org.junit.Assume.assumeTrue
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -101,4 +102,9 @@ object InfraTestData {
 
     /** Absolute path of the fixture root (`testData/infra`). */
     val root: Path get() = testDataPath.resolve(INFRA)
+
+    /** Skips the calling plain JUnit 4 test when the git-ignored fixture is missing (see [RequiresInfraFixture]). */
+    fun assumePresent() {
+        assumeTrue("the infra fixture is missing ($root)", Files.isDirectory(root))
+    }
 }

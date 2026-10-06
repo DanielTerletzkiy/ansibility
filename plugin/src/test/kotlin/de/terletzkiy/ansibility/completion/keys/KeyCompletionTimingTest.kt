@@ -9,6 +9,7 @@ import com.intellij.psi.PsiDocumentManager
 import com.intellij.testFramework.ExtensionTestUtil
 import de.terletzkiy.ansibility.api.AnsibleSite
 import de.terletzkiy.ansibility.api.CompletionSource
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import java.util.Collections
 
 /**
@@ -17,6 +18,7 @@ import java.util.Collections
  * Reports p50/p95/max of this package's sources alone and of the whole `completeBasic` (all contributors, the popup);
  * asserts the sources' p95 with head room for slow CI machines.
  */
+@RequiresInfraFixture
 class KeyCompletionTimingTest : KeyCompletionTestCase() {
     /** Wraps a source and records how long each call takes. */
     private class Timed(private val delegate: CompletionSource) : CompletionSource {

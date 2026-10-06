@@ -10,8 +10,10 @@ import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.FileKind
 import de.terletzkiy.ansibility.context.AnsibleWorkspaceImpl
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 
 /** SchemaStore exclusion decisions on paths of the sanitised infra fixture. */
+@RequiresInfraFixture
 class AnsibleSchemaStoreExclusionTest : BasePlatformTestCase() {
     private val exclusion = AnsibleSchemaStoreExclusion()
 

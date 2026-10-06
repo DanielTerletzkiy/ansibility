@@ -7,6 +7,7 @@ import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.ScopeChoice
 import de.terletzkiy.ansibility.api.WorkspaceScopeService
 import de.terletzkiy.ansibility.context.AnsibleStructureListener
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.settings.AnsibilityProjectSettings
 import de.terletzkiy.ansibility.settings.AnsibilityWorkspaceState
 import de.terletzkiy.ansibility.settings.SettingsTestSupport
@@ -16,6 +17,7 @@ import de.terletzkiy.ansibility.settings.SettingsTestSupport
  * choice (full, partial, none; nested roots; the detached worktree), the golden reference, problems, the deleted
  * scope fallback, chosen roots, the tracker and the topic, caching, persistence and the search scope.
  */
+@RequiresInfraFixture
 class WorkspaceScopeServiceTest : WorkspaceScopeTestCase() {
     private val allRoots = listOf("falcon", "heron", "pelican", "pelican › danger_zone/database", "platform", "wren", "golden")
 

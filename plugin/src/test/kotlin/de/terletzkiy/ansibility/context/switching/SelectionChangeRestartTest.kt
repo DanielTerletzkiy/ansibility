@@ -8,6 +8,7 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiManager
 import com.intellij.testFramework.PlatformTestUtil
 import de.terletzkiy.ansibility.context.host.HostModeRestarts
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.model.inventory.ModelCaches
 
 /**
@@ -16,6 +17,7 @@ import de.terletzkiy.ansibility.model.inventory.ModelCaches
  * date (the control restart at the end proves the probe sees a restart), [HostModeRestarts] did nothing (no host-mode
  * presentation is registered) and no model cache was recomputed.
  */
+@RequiresInfraFixture
 class SelectionChangeRestartTest : ContextSwitchingTestCase() {
     private val daemon: DaemonCodeAnalyzerImpl get() = DaemonCodeAnalyzer.getInstance(project) as DaemonCodeAnalyzerImpl
 

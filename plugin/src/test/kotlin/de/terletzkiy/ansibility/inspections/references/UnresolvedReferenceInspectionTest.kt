@@ -4,6 +4,7 @@ import com.intellij.codeInsight.daemon.impl.HighlightInfo
 import com.intellij.lang.annotation.HighlightSeverity
 import com.intellij.openapi.util.text.StringUtil
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.navigation.RefsTestCase
 import de.terletzkiy.ansibility.settings.AnsibilityProjectSettings
 import de.terletzkiy.ansibility.settings.RootKeys
@@ -12,6 +13,7 @@ import de.terletzkiy.ansibility.settings.RootKeys
  * ANS-R001 through the highlighting pass (plan A.6, D7; M3 acceptance 6): the broken `tasks_from` of the keycloak
  * playbook, the exemptions (remote_src, templated values, host paths, open search paths) and the quick fix.
  */
+@RequiresInfraFixture
 class UnresolvedReferenceInspectionTest : RefsTestCase() {
 
     override fun setUp() {

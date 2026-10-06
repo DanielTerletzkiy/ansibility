@@ -2,11 +2,13 @@ package de.terletzkiy.ansibility.navigation
 
 import com.intellij.openapi.util.TextRange
 import de.terletzkiy.ansibility.api.AnsibleSite
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.index.RenderEntry
 import de.terletzkiy.ansibility.index.SrcKind
 import de.terletzkiy.ansibility.inspections.references.NearestName
 
 /** The pure helpers of the navigation area, and ansible-core's search orders on a small tree. */
+@RequiresInfraFixture
 class RefsHelpersTest : RefsTestCase() {
 
     fun testNearestName() {

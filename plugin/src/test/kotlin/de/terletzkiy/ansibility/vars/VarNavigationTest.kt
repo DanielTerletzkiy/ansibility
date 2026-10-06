@@ -12,6 +12,7 @@ import de.terletzkiy.ansibility.api.AnsibleSite
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.SiteNavigation
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
 import de.terletzkiy.ansibility.settings.RootContext
 import org.jetbrains.yaml.psi.YAMLKeyValue
@@ -20,6 +21,7 @@ import org.jetbrains.yaml.psi.YAMLKeyValue
  * Ctrl+B on variables through the plugin's Go to Declaration entry point (plan F1.4, F1.5, F1.6, F4.5, F4.8; X87):
  * M2 acceptance 5, 6, 7 (navigation), 8 (navigation) and 9 on the infra fixture, ordering rules on `vars/site`.
  */
+@RequiresInfraFixture
 class VarNavigationTest : VarsTestCase() {
 
     private fun targets(path: String, line: Int, marker: String, delta: Int = 2): List<String> =

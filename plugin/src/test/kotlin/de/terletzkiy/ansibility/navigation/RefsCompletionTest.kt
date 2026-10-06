@@ -7,6 +7,7 @@ import com.intellij.codeInsight.lookup.LookupElementPresentation
 import com.intellij.testFramework.ExtensionTestUtil
 import de.terletzkiy.ansibility.api.AnsibleSite
 import de.terletzkiy.ansibility.api.CompletionSource
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import java.util.Locale
 
 /**
@@ -14,6 +15,7 @@ import java.util.Locale
  * topics, task files, `*_from` files, template and copy sources, roles and template-name values; plus the latency
  * budget (plan Testing strategy 7: completion p95 < 100 ms).
  */
+@RequiresInfraFixture
 class RefsCompletionTest : RefsTestCase() {
 
     /** Creates [path] from [text] (with a `<caret>` marker), completes there and returns the lookup strings. */

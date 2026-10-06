@@ -1,10 +1,13 @@
 package de.terletzkiy.ansibility.types
 
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
+
 /**
  * The X79 loop reads of the type checks ([LoopReads]) and the FU2 indirect entries of `ansible.var.use`: reads by
  * name never count as reads of a loop's items, so the findings keep the attributes of the direct reads only (the same
  * expectation as `TypeCheckServiceTest.testLoopReadsNameTheReadingFiles`).
  */
+@RequiresInfraFixture
 class LoopReadsIndirectTest : TypeCheckTestCase() {
     override fun setUp() {
         super.setUp()

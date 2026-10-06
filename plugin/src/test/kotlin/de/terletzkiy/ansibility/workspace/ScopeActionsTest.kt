@@ -18,6 +18,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.testFramework.replaceService
 import de.terletzkiy.ansibility.api.ScopeChoice
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.toolwindow.AnsibleToolWindowPanel
 import de.terletzkiy.ansibility.workspace.actions.AnsibleScopeComboAction
 import de.terletzkiy.ansibility.workspace.actions.EditScopesAction
@@ -31,6 +32,7 @@ import de.terletzkiy.ansibility.workspace.actions.SwitchScopeAction
  * (choices, coverage, the deleted scope, the uncovered-roots footer), what each item stores or opens, and when
  * "Open in Project View" is available. Dialogs and the Project view go through a recording [ScopeUi].
  */
+@RequiresInfraFixture
 class ScopeActionsTest : WorkspaceScopeTestCase() {
     private lateinit var ui: RecordingScopeUi
 

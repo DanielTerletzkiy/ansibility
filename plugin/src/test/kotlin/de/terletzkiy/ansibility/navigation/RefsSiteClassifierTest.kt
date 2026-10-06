@@ -3,8 +3,10 @@ package de.terletzkiy.ansibility.navigation
 import com.intellij.openapi.project.DumbService
 import com.intellij.testFramework.DumbModeTestUtils
 import de.terletzkiy.ansibility.api.AnsibleSite
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 
 /** What [RefsSiteClassifier] reports, and that the dispatcher order leaves keys and Jinja to the other areas. */
+@RequiresInfraFixture
 class RefsSiteClassifierTest : RefsTestCase() {
 
     private fun siteAt(path: String, line: Int, marker: String, delta: Int = 1): AnsibleSite? = ours(path, offsetAt(path, line, marker, delta))

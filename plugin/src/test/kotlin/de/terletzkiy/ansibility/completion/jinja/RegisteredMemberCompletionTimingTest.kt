@@ -6,6 +6,7 @@ import com.intellij.testFramework.ExtensionTestUtil
 import com.intellij.testFramework.PlatformTestUtil
 import de.terletzkiy.ansibility.api.AnsibleSite
 import de.terletzkiy.ansibility.api.CompletionSource
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 
 /**
  * Warm latency of registered member completion (plan amendment FU, F1.12: "< 50 ms on the falcon fixture"), measured
@@ -13,6 +14,7 @@ import de.terletzkiy.ansibility.api.CompletionSource
  * `nginx` role: `dh_param.` (a `stat` result) and `dh_param.stat.` in its `when:`, each completion after an edit of
  * that line, as typing does. The values are printed (`REGISTERED: timing …`).
  */
+@RequiresInfraFixture
 class RegisteredMemberCompletionTimingTest : JinjaCompletionTestCase() {
     /** Delegates to the real source and records how long each call takes. */
     private class TimedSource(private val delegate: CompletionSource, private val times: MutableList<Double>) : CompletionSource {

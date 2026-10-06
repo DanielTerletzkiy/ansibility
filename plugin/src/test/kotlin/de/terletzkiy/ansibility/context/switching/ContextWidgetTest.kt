@@ -14,6 +14,7 @@ import de.terletzkiy.ansibility.api.ContextWidgetSegmentListener
 import de.terletzkiy.ansibility.api.WidgetSegment
 import de.terletzkiy.ansibility.context.AnsibleContextWidget
 import de.terletzkiy.ansibility.context.TargetVersionDetector
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.semantics.CoreVersion
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
 import de.terletzkiy.ansibility.settings.RootContext
@@ -27,6 +28,7 @@ import kotlinx.coroutines.cancel
  * order after it, a [ContextWidgetSegmentListener.TOPIC] event, an inventory edit or a new target version refreshes
  * the widget, and a narrow status bar moves the segments into the tooltip.
  */
+@RequiresInfraFixture
 class ContextWidgetTest : ContextSwitchingTestCase() {
     /** A segment whose text tests change, as V8's lock state would. */
     private class TestSegment(var text: String, private val tooltip: String? = null) : ContextWidgetSegment {

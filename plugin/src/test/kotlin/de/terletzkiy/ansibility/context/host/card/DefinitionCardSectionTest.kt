@@ -1,5 +1,6 @@
 package de.terletzkiy.ansibility.context.host.card
 
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
 import de.terletzkiy.ansibility.settings.RootContext
 
@@ -8,6 +9,7 @@ import de.terletzkiy.ansibility.settings.RootContext
  * definition that wins on some hosts and loses on another, a group that reaches its hosts through a child group, a
  * file no inventory loads, and the definitions static evaluation cannot place (runtime facts, declarations).
  */
+@RequiresInfraFixture
 class DefinitionCardSectionTest : HostCardTestCase() {
     override fun addFixtureFiles() {
         super.addFixtureFiles()

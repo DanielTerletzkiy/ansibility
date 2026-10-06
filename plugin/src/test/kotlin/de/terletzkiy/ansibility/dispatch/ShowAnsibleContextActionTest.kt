@@ -26,9 +26,11 @@ import de.terletzkiy.ansibility.api.VarDefKind
 import de.terletzkiy.ansibility.api.VarDefinition
 import de.terletzkiy.ansibility.api.VarService
 import de.terletzkiy.ansibility.api.VarSymbol
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.semantics.schema.ArgumentSpec
 import de.terletzkiy.ansibility.semantics.schema.OptionSpec
 
+@RequiresInfraFixture
 class ShowAnsibleContextActionTest : DispatchTestCase() {
     private val tasksMain = "$GOLDEN_HAPROXY/tasks/main.yml"
     private val marker = "haproxy_apply_kernel_params | default"

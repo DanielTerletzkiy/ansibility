@@ -1,12 +1,14 @@
 package de.terletzkiy.ansibility.dispatch
 
 import com.intellij.openapi.application.runReadActionBlocking
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 
 /**
  * X75 "render contexts (from M3)": the context report of a template lists the tasks that render it, each with how it
  * names the template, the task's `path:line`, its role, the templates it is included through and its loop, from
  * `api.TemplateContextService` (the real services on the infra fixture).
  */
+@RequiresInfraFixture
 class AnsibleContextRenderLinesTest : DispatchTestCase() {
     private val grafana = "golden/roles/grafana"
     private val siteTemplate = "$grafana/templates/nginx/main.site.conf.j2"

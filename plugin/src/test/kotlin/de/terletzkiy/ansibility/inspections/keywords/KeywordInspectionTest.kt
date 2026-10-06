@@ -4,6 +4,7 @@ import com.intellij.lang.annotation.HighlightSeverity
 import com.intellij.openapi.application.WriteAction
 import com.intellij.openapi.vfs.VfsUtil
 import de.terletzkiy.ansibility.context.TargetVersionDetector
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.inspections.modules.ModuleChecksTestCase
 import de.terletzkiy.ansibility.semantics.CoreVersion
 
@@ -12,6 +13,7 @@ import de.terletzkiy.ansibility.semantics.CoreVersion
  * value or a typo into a real task file and undoing it, scalar list keywords staying clean, play, block, include and
  * `loop_control` keys, the target-version keyword sets and the rename fix.
  */
+@RequiresInfraFixture
 class KeywordInspectionTest : ModuleChecksTestCase() {
 
     // ------------------------------------------------------------------------------------------------ M4 acceptance 5

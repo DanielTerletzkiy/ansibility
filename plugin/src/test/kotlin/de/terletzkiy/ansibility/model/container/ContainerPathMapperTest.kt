@@ -3,6 +3,7 @@ package de.terletzkiy.ansibility.model.container
 import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.model.role.ModelFixture
 import de.terletzkiy.ansibility.yaml.PsiYValueAdapter
 import org.jetbrains.yaml.psi.YAMLFile
@@ -11,6 +12,7 @@ import org.jetbrains.yaml.psi.YAMLFile
  * [ContainerPathMapper] with the compose files of the infra repo (recreated here: the fixture keeps none) and
  * the molecule convention of `golden/docker/ansible-molecule/bin/entrypoint.sh` (`cd /ansible/roles/<role>`).
  */
+@RequiresInfraFixture
 class ContainerPathMapperTest : BasePlatformTestCase() {
     override fun getTestDataPath(): String = ModelFixture.testDataPath
 

@@ -3,9 +3,11 @@ package de.terletzkiy.ansibility.inspections.spec
 import com.intellij.lang.annotation.HighlightSeverity
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.vfs.VfsUtil
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.inspections.undefined.UndefinedTestCase
 
 /** ANS-S002: role inputs that `meta/argument_specs.yml` does not declare, and the fixes that declare them. */
+@RequiresInfraFixture
 class RoleInputNotInSpecTest : UndefinedTestCase() {
     override fun addFixtureFiles() {
         add(

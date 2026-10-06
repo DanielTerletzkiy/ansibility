@@ -12,6 +12,7 @@ import de.terletzkiy.ansibility.api.AnsibleSite
 import de.terletzkiy.ansibility.api.JinjaContainer
 import de.terletzkiy.ansibility.api.JinjaLocator
 import de.terletzkiy.ansibility.completion.jinja.JinjaLookupItem
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.lang.jinja.AnsibleJinjaFileType
 import de.terletzkiy.ansibility.lang.jinja.filetype.J2Mappings
 import de.terletzkiy.ansibility.lang.jinja.psi.AnsibleJinjaFile
@@ -26,6 +27,7 @@ import org.jetbrains.yaml.YAMLFileType
  * every position where Jinja PSI exists (template files and injected YAML fragments), and the M5 acceptance checks 4–6
  * on the sanitised infra fixture (line numbers identical to the real repo).
  */
+@RequiresInfraFixture
 class PsiJinjaLocatorTest : VarsTestCase() {
     private val psiLocator = PsiJinjaLocator()
     private val textLocator = TextJinjaLocator()

@@ -3,10 +3,12 @@ package de.terletzkiy.ansibility.resolve.loop
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.openapi.vfs.VfsUtilCore
 import de.terletzkiy.ansibility.api.RenderKind
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.lang.jinja.injection.JinjaInjectionTestCase
 import de.terletzkiy.ansibility.semantics.schema.OptionType
 
 /** 🟣 X77 [MoleculePlatforms]: molecule Dockerfile templates type `item` as a molecule platform. */
+@RequiresInfraFixture
 class MoleculePlatformsTest : JinjaInjectionTestCase() {
 
     private fun line(path: String, offset: Int): Int = StringUtil.offsetToLineNumber(VfsUtilCore.loadText(vf(path)), offset) + 1

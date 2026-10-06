@@ -5,9 +5,11 @@ import de.terletzkiy.ansibility.api.InventoryService
 import de.terletzkiy.ansibility.api.RootKind
 import de.terletzkiy.ansibility.api.VarFile
 import de.terletzkiy.ansibility.api.VarsLayer
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.model.effective.EffectiveVarsServiceImpl
 
 /** [InventoryServiceImpl] on sub-trees of the sanitised infra fixture (line numbers are the real repo's). */
+@RequiresInfraFixture
 class InventoryServiceImplTest : InventoryTestCase() {
     override fun setUp() {
         super.setUp()

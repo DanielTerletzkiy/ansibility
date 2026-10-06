@@ -9,6 +9,7 @@ import de.terletzkiy.ansibility.api.HostKey
 import de.terletzkiy.ansibility.api.SourceLocation
 import de.terletzkiy.ansibility.api.VarService
 import de.terletzkiy.ansibility.api.VarsLayer
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.model.inventory.ModelCaches
 
 /**
@@ -17,6 +18,7 @@ import de.terletzkiy.ansibility.model.inventory.ModelCaches
  * set holds the structurally shadowed definitions, the summary is current exactly while its inputs are, the background
  * rebuild is debounced, and the daemon restarts only for open files whose definitions changed status.
  */
+@RequiresInfraFixture
 class RootEffectiveSummaryTest : HostContextTestCase() {
     private val summaries: RootEffectiveSummaries get() = RootEffectiveSummaries.getInstance(project)
 

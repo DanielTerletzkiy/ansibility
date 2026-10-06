@@ -32,6 +32,10 @@ import de.terletzkiy.ansibility.vault.identity.ConsentTarget
 import de.terletzkiy.ansibility.vault.identity.ConsentTargets
 import de.terletzkiy.ansibility.vault.identity.DiscoveredIdentity
 import de.terletzkiy.ansibility.vault.identity.EnvLocalFile
+import de.terletzkiy.ansibility.vault.identity.MasterPasswordPrompt
+import de.terletzkiy.ansibility.vault.identity.PasswordManagerReader
+import de.terletzkiy.ansibility.vault.identity.PasswordManagers
+import de.terletzkiy.ansibility.api.VaultSourceOrigin
 import de.terletzkiy.ansibility.vault.identity.SecretPlan
 import de.terletzkiy.ansibility.vault.identity.VaultDiscovery
 import de.terletzkiy.ansibility.vault.identity.VaultIdentityRegistry
@@ -43,6 +47,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -128,6 +133,9 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
 
     @Volatile
     private var credentials: VaultCredentialStore = PasswordSafeCredentialStore
+
+    @Volatile
+    private var managers: PasswordManagerReader = PasswordManagers
 
     @Volatile
     private var lastActivity: Long = clock.millis()
@@ -367,9 +375,19 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
                     Load.NotTrusted
                 }
                 is SecretPlan.PasswordSafeEntry -> readPasswordSafe(plan.serviceName, identity.label)?.let { Load.Loaded(it) } ?: Load.Unavailable
+                is SecretPlan.External -> fromManager(plan, masterPasswordPrompt())
                 SecretPlan.Prompt -> Load.Declined
             }
         }
+
+        /** Asks for a password manager's master password on the EDT, only in an interactive unlock that was not declined. */
+        private fun masterPasswordPrompt(): MasterPasswordPrompt =
+            if (!interactive) MasterPasswordPrompt.NONE
+            else MasterPasswordPrompt { manager, target, retry ->
+                if (discovery.rootKey in declined) return@MasterPasswordPrompt null
+                val request = MasterPasswordRequest(manager.displayName, target, retry)
+                runBlocking { onEdt { VaultPrompter.getInstance().askMasterPassword(project, request) } }
+            }
 
         /** `.env.local`: its key only, then the password file it names (asking again when that is not the file shown). */
         private suspend fun loadEnvLocal(identity: DiscoveredIdentity, plan: SecretPlan.EnvLocal): Load {
@@ -490,6 +508,29 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
         return secret
     }
 
+    /** The password manager's read of the reference; the CLI output never leaves this method except as [SecretBytes]. */
+    private fun fromManager(plan: SecretPlan.External, prompt: MasterPasswordPrompt): Load {
+        val display = plan.manager.displayName
+        val bytes = managers.read(plan.manager, plan.reference, prompt) ?: run {
+            VaultLog.failure(VaultLog.Operation.LOAD_SOURCE, VaultFailure.SOURCE_UNAVAILABLE, display)
+            return Load.Unavailable
+        }
+        try {
+            return when (val load = SecretBytes.fromFile(bytes) { null }) {
+                is SecretLoad.Loaded -> {
+                    VaultLog.event(VaultLog.Operation.LOAD_SOURCE, VaultLog.Event.SOURCE_LOADED, display)
+                    Load.Loaded(load.secret)
+                }
+                is SecretLoad.Failed -> {
+                    VaultLog.failure(VaultLog.Operation.LOAD_SOURCE, load.reason, display)
+                    Load.Unavailable
+                }
+            }
+        } finally {
+            bytes.fill(0)
+        }
+    }
+
     private fun readPasswordSafe(serviceName: String, label: String): SecretBytes? {
         val chars = try {
             credentials.read(serviceName, label)
@@ -595,6 +636,56 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
         old == null
     }
 
+    // ------------------------------------------------------------------ stored passwords (settings page)
+
+    /**
+     * Stores [password] as the IDE password store entry of id [label] of [root] (null removes it) and locks the root,
+     * so the next vault action reads the new value. The entry is the one the id's explicit setting names, else the one
+     * a remembered prompt uses, so discovery lists it even without an explicit id. Blocking (the Keychain); call off
+     * the EDT. The caller zeroes [password].
+     */
+    fun storePassword(root: AnsibleRoot, label: String, password: CharArray?) {
+        val discovery = registry().discovery(root)
+        VaultCorpusGuard.check(discovery.rootPath?.toString() ?: discovery.root.dir.path)
+        val canonical = discovery.canonicalRootPath
+        val serviceName = storedEntry(discovery, label)
+        val state = VaultUserState.getInstance()
+        try {
+            credentials.write(serviceName, label, password?.takeIf { it.isNotEmpty() }, memoryOnly = false)
+            if (serviceName == VaultPasswordSafeKeys.serviceName(canonical, label)) {
+                if (password != null && password.isNotEmpty()) state.remember(canonical, label, persistent = true) else state.forget(canonical, label)
+            }
+            VaultLog.event(
+                VaultLog.Operation.PASSWORD_SAFE,
+                if (password == null) VaultLog.Event.PASSWORD_FORGOTTEN else VaultLog.Event.PASSWORD_REMEMBERED,
+                discovery.rootKey,
+                label,
+            )
+        } catch (e: Exception) {
+            VaultLog.failure(VaultLog.Operation.PASSWORD_SAFE, e, discovery.rootKey, label)
+            throw e
+        }
+        lock(root)
+    }
+
+    /** Whether the IDE password store has an entry for id [label] of [root]. Blocking; call off the EDT. */
+    fun hasStoredPassword(root: AnsibleRoot, label: String): Boolean {
+        val discovery = registry().discovery(root)
+        val chars = try {
+            credentials.read(storedEntry(discovery, label), label)
+        } catch (e: Exception) {
+            VaultLog.failure(VaultLog.Operation.PASSWORD_SAFE, e, discovery.rootKey, label)
+            null
+        } ?: return false
+        chars.fill('\u0000')
+        return true
+    }
+
+    private fun storedEntry(discovery: VaultDiscovery, label: String): String =
+        discovery.identities.firstNotNullOfOrNull { identity ->
+            (identity.plan as? SecretPlan.PasswordSafeEntry)?.serviceName?.takeIf { identity.label == label && identity.source.origin == VaultSourceOrigin.SETTINGS }
+        } ?: VaultPasswordSafeKeys.serviceName(discovery.canonicalRootPath, label)
+
     // ------------------------------------------------------------------ lock
 
     /** Locks every id of [root] (of its parent for a nested root) and clears the caches. */
@@ -611,6 +702,7 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
     fun lockAll(reason: VaultLockReason = VaultLockReason.MANUAL) {
         val removed = synchronized(lock) { secrets.values.toList().also { secrets.clear() } }
         removed.forEach { slots -> slots.values.forEach { it.secret.zero() } }
+        managers.forgetUnlocks()
         cryptoIfCreated()?.clearAll()
         stopTicker()
         VaultLog.event(
@@ -682,6 +774,12 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
     fun setClockForTests(clock: VaultClock) {
         this.clock = clock
         lastActivity = clock.millis()
+    }
+
+    /** Replaces the password manager CLIs. */
+    @TestOnly
+    fun setPasswordManagersForTests(reader: PasswordManagerReader) {
+        managers = reader
     }
 
     /** Replaces the credential store (PasswordSafe). */

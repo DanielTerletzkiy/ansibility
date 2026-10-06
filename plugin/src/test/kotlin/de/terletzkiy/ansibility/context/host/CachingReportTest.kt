@@ -5,6 +5,7 @@ import de.terletzkiy.ansibility.api.AnsibleRoot
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.RootKind
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.model.effective.ExecutionSources
 import de.terletzkiy.ansibility.model.effective.HostViews
 import de.terletzkiy.ansibility.model.inventory.InventoryModels
@@ -22,6 +23,7 @@ import java.util.Locale
  * The numbers are printed; the assertions are an order of magnitude above the amendment's per-view budgets, so a loaded
  * build machine does not make them flaky.
  */
+@RequiresInfraFixture
 class CachingReportTest : InventoryTestCase() {
     private val impl: AnsibleContextServiceImpl get() = AnsibleContextServiceImpl.getInstance(project)!!
 

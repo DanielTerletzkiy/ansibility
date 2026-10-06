@@ -6,9 +6,11 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.RoleRegistry
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.model.role.RoleLayout
 
 /** [RoleDirectories]: the one "is this a role" rule, and that the classifier, root detection and the registry agree on it. */
+@RequiresInfraFixture
 class RoleDirectoriesTest : BasePlatformTestCase() {
     override fun getTestDataPath(): String = InfraTestData.testDataPath.toString()
 

@@ -4,6 +4,7 @@ import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiManager
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 
 /**
  * Plan "Testing strategy" 7 (full highlighting of the ~900-line
@@ -13,6 +14,7 @@ import com.intellij.psi.PsiManager
  * follows an edit, so the cached analysis is recomputed. The inspections must stay within a tenth of the budget; the
  * full highlighting time (all of the plugin's passes, on a shared test machine) is printed for the report.
  */
+@RequiresInfraFixture
 class ModuleChecksPerformanceTest : ModuleChecksTestCase() {
 
     fun testKeycloakVarsFileHighlightsWithinBudget() {

@@ -7,7 +7,9 @@ import com.intellij.platform.backend.documentation.DocumentationTarget
 import com.intellij.platform.backend.documentation.DocumentationTargetProvider
 import de.terletzkiy.ansibility.api.AnsibleSite
 import de.terletzkiy.ansibility.api.KeywordLevel
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 
+@RequiresInfraFixture
 class AnsibleDocumentationTargetProviderTest : DispatchTestCase() {
     private val provider = AnsibleDocumentationTargetProvider()
 

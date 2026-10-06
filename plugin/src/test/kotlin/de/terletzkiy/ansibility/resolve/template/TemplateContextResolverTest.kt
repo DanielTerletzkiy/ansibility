@@ -8,9 +8,11 @@ import de.terletzkiy.ansibility.api.RenderKind
 import de.terletzkiy.ansibility.api.TemplateContextService
 import de.terletzkiy.ansibility.context.AnsibleWorkspaceImpl
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.semantics.schema.OptionType
 
 /** [TemplateContextResolver] (plan A.7 query-time rules, F2.3): which tasks render a template. */
+@RequiresInfraFixture
 class TemplateContextResolverTest : BasePlatformTestCase() {
     override fun getTestDataPath(): String = InfraTestData.testDataPath.toString()
 

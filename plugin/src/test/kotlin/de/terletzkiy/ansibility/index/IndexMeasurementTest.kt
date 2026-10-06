@@ -6,6 +6,7 @@ import com.intellij.util.io.DataExternalizer
 import com.intellij.util.io.IOUtil
 import de.terletzkiy.ansibility.context.AnsibleLayout
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
 import java.lang.management.ManagementFactory
@@ -24,6 +25,7 @@ import kotlin.io.path.name
  *
  * The fixture run always executes; the real repo run is opt-in via `ANSIBLE_INFRA_REPO` (read-only).
  */
+@RequiresInfraFixture
 class IndexMeasurementTest : BasePlatformTestCase() {
     fun testIndexingCostOfTheFixture() {
         measure(project, InfraTestData.root) // warm-up: class loading and JIT

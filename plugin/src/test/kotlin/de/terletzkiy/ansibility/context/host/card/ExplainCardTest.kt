@@ -6,6 +6,7 @@ import com.intellij.platform.backend.documentation.DocumentationTarget
 import de.terletzkiy.ansibility.api.CardPlacement
 import de.terletzkiy.ansibility.api.CardSection
 import de.terletzkiy.ansibility.api.HostKey
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
 import de.terletzkiy.ansibility.settings.RootContext
 import de.terletzkiy.ansibility.settings.RootKeys
@@ -15,6 +16,7 @@ import de.terletzkiy.ansibility.vars.VarDocumentationTarget
  * F8.2 part 2 (HA4b, ex-X14): the Explain precedence card for one (env, host, play) context, reached from the Effective
  * section's link, and its link handler; plus the registrations of the card parts (ids and documented order).
  */
+@RequiresInfraFixture
 class ExplainCardTest : HostCardTestCase() {
     override fun addFixtureFiles() {
         super.addFixtureFiles()

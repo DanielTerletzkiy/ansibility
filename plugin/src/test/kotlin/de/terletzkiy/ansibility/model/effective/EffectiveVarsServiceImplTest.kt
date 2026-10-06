@@ -1,9 +1,11 @@
 package de.terletzkiy.ansibility.model.effective
 
 import de.terletzkiy.ansibility.api.VarsLayer
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.model.inventory.InventoryTestCase
 
 /** [EffectiveVarsServiceImpl] on sub-trees of the sanitised infra fixture (line numbers are the real repo's). */
+@RequiresInfraFixture
 class EffectiveVarsServiceImplTest : InventoryTestCase() {
     override fun setUp() {
         super.setUp()

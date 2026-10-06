@@ -5,12 +5,14 @@ import com.intellij.lang.documentation.AbstractDocumentationProvider
 import com.intellij.lang.documentation.ide.IdeDocumentationTargetProvider
 import com.intellij.platform.backend.documentation.DocumentationTarget
 import com.intellij.psi.PsiElement
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import org.jetbrains.yaml.YAMLLanguage
 
 /**
  * The card as the platform's Quick Documentation finds it: M2 acceptance 10 (a competing legacy
  * `lang.documentationProvider` for YAML is never used on variable sites) and 11 (warm hover timing).
  */
+@RequiresInfraFixture
 class VarHoverPlatformTest : VarsTestCase() {
 
     /** A legacy provider like msdehghan's or SchemaStore's: it would document every YAML element. */

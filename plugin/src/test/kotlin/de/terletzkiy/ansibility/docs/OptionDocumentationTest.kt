@@ -1,6 +1,9 @@
 package de.terletzkiy.ansibility.docs
 
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
+
 /** F5.3 option hover (M2 acceptance 8: `dest:` at configure.yml:5; `mounts` sub-options of docker_container). */
+@RequiresInfraFixture
 class OptionDocumentationTest : DocsTestCase() {
 
     override fun setUp() {

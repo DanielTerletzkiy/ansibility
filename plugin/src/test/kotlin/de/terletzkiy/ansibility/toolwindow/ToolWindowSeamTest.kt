@@ -4,6 +4,7 @@ import com.intellij.testFramework.ExtensionTestUtil
 import com.intellij.testFramework.LoggedErrorProcessor
 import de.terletzkiy.ansibility.api.ToolWindowNodeContributor
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.toolwindow.host.HostNodeContributor
 import de.terletzkiy.ansibility.toolwindow.model.AnsibleTreeNode
 import de.terletzkiy.ansibility.toolwindow.model.EnvironmentNode
@@ -19,6 +20,7 @@ import de.terletzkiy.ansibility.toolwindow.model.TreeContext
  * the contributed children after their built-in ones, a contributor returning a node of another parent is rejected,
  * and a contributed node with a key that is already taken is dropped.
  */
+@RequiresInfraFixture
 class ToolWindowSeamTest : ToolWindowTestCase() {
     override fun setUp() {
         super.setUp()

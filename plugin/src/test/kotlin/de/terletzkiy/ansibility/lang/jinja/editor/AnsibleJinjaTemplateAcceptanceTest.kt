@@ -12,6 +12,7 @@ import com.intellij.psi.PsiErrorElement
 import com.intellij.psi.PsiManager
 import com.intellij.psi.util.PsiTreeUtil
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.lang.jinja.AnsibleJinjaFileType
 import de.terletzkiy.ansibility.lang.jinja.AnsibleJinjaLanguage
 import de.terletzkiy.ansibility.lang.jinja.filetype.AnsibleTemplatePaths
@@ -36,6 +37,7 @@ import org.jetbrains.yaml.inspections.YAMLUnusedAnchorInspection
  * warnings in any template (the YAML ones included), `docker-compose.yaml.j2:22` in particular; the raw block of
  * `config.alloy.j2` is inert; `Dockerfile.j2` uses Dockerfile as its outer language.
  */
+@RequiresInfraFixture
 class AnsibleJinjaTemplateAcceptanceTest : AnsibleJinjaTemplateTestCase() {
     override fun setUp() {
         super.setUp()

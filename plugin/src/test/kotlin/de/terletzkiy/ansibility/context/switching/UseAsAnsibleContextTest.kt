@@ -9,6 +9,7 @@ import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.ui.tree.TreeVisitor
 import com.intellij.util.ui.tree.TreeUtil
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
 import de.terletzkiy.ansibility.settings.RootContext
 import de.terletzkiy.ansibility.toolwindow.AnsibleNodeDescriptor
@@ -24,6 +25,7 @@ import javax.swing.tree.TreePath
  * "Ansibility: Use as Ansible Context" (F8.1) from the tool window's environment, group and host nodes and from inventory files,
  * and the tool-window context button that joins the toolbar.
  */
+@RequiresInfraFixture
 class UseAsAnsibleContextTest : ContextSwitchingTestCase() {
     private val useAs get() = ActionManager.getInstance().getAction(ToolWindowContextAction.USE_AS_CONTEXT_ACTION_ID)
 

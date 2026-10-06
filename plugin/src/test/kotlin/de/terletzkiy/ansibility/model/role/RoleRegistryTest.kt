@@ -6,9 +6,11 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.terletzkiy.ansibility.api.RoleRegistry
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.semantics.schema.OptionType
 
 /** [RoleRegistryImpl] on fixture roles (golden, falcon) and the synthetic `model-roles/site` root. */
+@RequiresInfraFixture
 class RoleRegistryTest : BasePlatformTestCase() {
     override fun getTestDataPath(): String = ModelFixture.testDataPath
 

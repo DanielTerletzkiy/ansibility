@@ -9,10 +9,12 @@ import com.intellij.platform.backend.documentation.DocumentationTarget
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import de.terletzkiy.ansibility.api.AnsibleDocService
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.semantics.CoreVersion
 import org.jetbrains.yaml.YAMLLanguage
 
 /** F5.2 module hover through the dispatch entry point, on fixture tasks (M2 acceptance 8 and 9) and synthetic ones. */
+@RequiresInfraFixture
 class ModuleDocumentationTest : DocsTestCase() {
 
     override fun setUp() {

@@ -7,6 +7,7 @@ import com.intellij.psi.PsiDocumentManager
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.terletzkiy.ansibility.context.AnsibleWorkspaceImpl
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import java.util.Locale
 
 /**
@@ -14,6 +15,7 @@ import java.util.Locale
  * `repos/falcon/ansible/environments/prod/group_vars/keycloak/vars.yml`): every inspection of the "Ansibility" group enabled,
  * plus the plugin's annotators and injections, re-highlighted after an edit of the file each round. Prints p50 and p95.
  */
+@RequiresInfraFixture
 class HighlightingTimingTest : BasePlatformTestCase() {
     override fun getTestDataPath(): String = InfraTestData.testDataPath.toString()
 

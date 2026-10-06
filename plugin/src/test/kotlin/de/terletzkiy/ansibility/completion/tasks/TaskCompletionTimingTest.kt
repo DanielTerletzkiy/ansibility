@@ -7,6 +7,7 @@ import com.intellij.openapi.project.DumbAware
 import com.intellij.testFramework.ExtensionTestUtil
 import de.terletzkiy.ansibility.api.AnsibleSite
 import de.terletzkiy.ansibility.api.CompletionSource
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import java.util.Collections
 
 /**
@@ -19,6 +20,7 @@ import java.util.Collections
  * on every change, and completion leaves some behind, so repeated invocations in one editor slow down by a test-only
  * O(n) check (after ~15 invocations each takes 100+ ms even when no contributor adds anything).
  */
+@RequiresInfraFixture
 class TaskCompletionTimingTest : TaskCompletionTestCase() {
 
     /** Records how long the real source takes per call. */

@@ -12,6 +12,7 @@ import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.FileKind
 import de.terletzkiy.ansibility.context.AnsibleWorkspaceImpl
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.index.PathFacts
 
 /**
@@ -19,6 +20,7 @@ import de.terletzkiy.ansibility.index.PathFacts
  * inside an Ansible root, and on the template with the most variable uses among those that run on hosts (its analysis
  * also evaluates the witnesses over the reach of its role).
  */
+@RequiresInfraFixture
 class UndefinedPerformanceTest : BasePlatformTestCase() {
     override fun getTestDataPath(): String = InfraTestData.testDataPath.toString()
 

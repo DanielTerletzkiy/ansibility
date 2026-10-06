@@ -7,8 +7,10 @@ import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 
 /** The ANS-V003 quick fixes (plan amendment R7/R8, F8.12 (e)): each edit and its preview. */
+@RequiresInfraFixture
 class UndefinedFixesTest : UndefinedTestCase() {
     override fun addFixtureFiles() {
         for ((path, text) in ProbeRole.FILES) add(path, text)

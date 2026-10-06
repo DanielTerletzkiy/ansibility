@@ -1,6 +1,7 @@
 package de.terletzkiy.ansibility.completion.keys
 
 import com.intellij.icons.AllIcons
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 
 /**
  * Value completion (plan X19, value part): choices of spec'd options, top-level and nested, booleans, list elements,
@@ -8,6 +9,7 @@ import com.intellij.icons.AllIcons
  * (`system_apt_debian_version` choices bookworm/trixie at `repos/falcon/ansible/roles/haproxy/meta/argument_specs.yml:11`,
  * loki's `floating.template` choices, `haproxy_apply_kernel_params: bool`) and on the small `mini` root.
  */
+@RequiresInfraFixture
 class VarsValueCompletionTest : KeyCompletionTestCase() {
 
     fun testChoicesOfATopLevelOption() {

@@ -3,6 +3,7 @@ package de.terletzkiy.ansibility.context.host
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.util.Disposer
 import com.intellij.testFramework.PlatformTestUtil
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
 import de.terletzkiy.ansibility.settings.RootContext
 
@@ -10,6 +11,7 @@ import de.terletzkiy.ansibility.settings.RootContext
  * [HostModeRestarts] (plan amendment R7/R8, A.9 change 6): a selection change restarts the daemon only while host-mode
  * presentation is registered, and only for the open files of the root whose selection changed.
  */
+@RequiresInfraFixture
 class HostModeRestartsTest : HostContextTestCase() {
     private val restarts: HostModeRestarts get() = HostModeRestarts.getInstance(project)
 

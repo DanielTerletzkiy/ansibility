@@ -17,8 +17,10 @@ import de.terletzkiy.ansibility.api.AnsibleSite
 import de.terletzkiy.ansibility.api.CompletionSource
 import de.terletzkiy.ansibility.api.JinjaContainer
 import de.terletzkiy.ansibility.coexist.CoexistenceSettings
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import org.jetbrains.yaml.YAMLLanguage
 
+@RequiresInfraFixture
 class AnsibleCompletionContributorTest : DispatchTestCase() {
 
     /**

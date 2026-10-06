@@ -1,6 +1,7 @@
 package de.terletzkiy.ansibility.context.host
 
 import de.terletzkiy.ansibility.api.HostKey
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.semantics.yaml.ScalarStyle
 import de.terletzkiy.ansibility.semantics.yaml.YEntry
 import de.terletzkiy.ansibility.semantics.yaml.YMap
@@ -10,6 +11,7 @@ import de.terletzkiy.ansibility.settings.EnvironmentChoice
 import de.terletzkiy.ansibility.settings.RootContext
 
 /** `inventoryFacts` (groups, `group_names`, addresses, shared addresses) and role reach on the infra fixture. */
+@RequiresInfraFixture
 class InventoryFactsAndReachTest : HostContextTestCase() {
     fun testGroupsAndGroupNamesPerEnvironment() {
         val facts = context.inventoryFacts(context.selectionScope(root(FALCON), RootContext(EnvironmentChoice.Named("prod"))))

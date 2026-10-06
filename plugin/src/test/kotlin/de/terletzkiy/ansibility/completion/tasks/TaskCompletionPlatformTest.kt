@@ -24,9 +24,11 @@ import de.terletzkiy.ansibility.api.SiteClassifier
 import de.terletzkiy.ansibility.docs.KeywordDocumentationTarget
 import de.terletzkiy.ansibility.docs.ModuleDocumentationTarget
 import de.terletzkiy.ansibility.docs.OptionDocumentationTarget
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import org.jetbrains.yaml.YAMLLanguage
 
 /** Registration, the dispatcher's de-duplication, Ctrl+Q in the popup and the file kinds (M3 acceptance 1, 10). */
+@RequiresInfraFixture
 class TaskCompletionPlatformTest : TaskCompletionTestCase() {
 
     /** Another plugin's YAML contributor that offers `path` too, plus an item of its own. */

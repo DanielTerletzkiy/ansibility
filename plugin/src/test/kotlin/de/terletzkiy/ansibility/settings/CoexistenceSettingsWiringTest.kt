@@ -12,12 +12,14 @@ import de.terletzkiy.ansibility.dispatch.AnsibleCompletionContributorTest.Compan
 import de.terletzkiy.ansibility.dispatch.AnsibleCompletionContributorTest.Companion.OURS_ONLY
 import de.terletzkiy.ansibility.dispatch.DispatchTestCase
 import de.terletzkiy.ansibility.dispatch.RecordingCompletionSource
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import org.jetbrains.yaml.YAMLLanguage
 
 /**
  * The persistent coexistence settings drive the real features (task b): X85 completion hiding through the completion
  * contributor, and the SchemaStore exclusion through the catalog exclusion and a reset of the JSON schema mappings.
  */
+@RequiresInfraFixture
 class CoexistenceSettingsWiringTest : DispatchTestCase() {
     private val tasksFile = "$GOLDEN_HAPROXY/tasks/completion.yml"
 

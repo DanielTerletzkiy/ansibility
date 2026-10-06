@@ -8,11 +8,13 @@ import de.terletzkiy.ansibility.api.CardContext
 import de.terletzkiy.ansibility.api.CardPlacement
 import de.terletzkiy.ansibility.api.CardSection
 import de.terletzkiy.ansibility.api.CardSubject
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 
 /**
  * The card rows of ANS-V003 (F8.2, F8.12 (f)): "Not set for" and "No runtime default", called directly and through
  * [CardSection.collect] (the card owner's seam).
  */
+@RequiresInfraFixture
 class UndefinedCardSectionTest : UndefinedTestCase() {
     private val prodLine = "alloy_tenant_api_key: \"{{ vault_alloy_tenant_api_key_prod }}\""
 

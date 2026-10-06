@@ -4,6 +4,7 @@ import de.terletzkiy.ansibility.api.HostScopeOrigin
 import de.terletzkiy.ansibility.api.VarDefKind
 import de.terletzkiy.ansibility.api.VarService
 import de.terletzkiy.ansibility.api.VarsLayer
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
 import de.terletzkiy.ansibility.settings.RootContext
 
@@ -12,6 +13,7 @@ import de.terletzkiy.ansibility.settings.RootContext
  * "This definition" statuses. The fixture has no `build` environment and no `keepalived` role; the role is added here
  * with the real repo's `defaults/main.yml:2` (`keepalived_priority: 100`).
  */
+@RequiresInfraFixture
 class EffectiveValuesTest : HostContextTestCase() {
     override fun addFixtureFiles() {
         add(KEEPALIVED_DEFAULTS, "---\nkeepalived_priority: 100\nkeepalived_is_master: false")

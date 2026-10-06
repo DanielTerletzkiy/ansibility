@@ -113,6 +113,11 @@ class VaultPasswordAnswer(password: CharArray, val remember: RememberChoice) : A
     override fun toString(): String = "VaultPasswordAnswer(***, $remember)"
 }
 
+/** A password manager's own unlock secret: Bitwarden's master password, or the password of KeePassXC database [target]. */
+class MasterPasswordRequest(val managerName: String, val target: String, val retry: Boolean) {
+    override fun toString(): String = "MasterPasswordRequest($managerName, $target, retry=$retry)"
+}
+
 /**
  * The dialogs of the unlock flow: the D25 consent dialog and the D26 password prompt. Called on the EDT. The
  * application service is [VaultDialogPrompter]; tests replace it.
@@ -123,6 +128,9 @@ interface VaultPrompter {
 
     /** Asks for a password; null when cancelled. */
     fun askPassword(project: Project, request: VaultPasswordRequest): VaultPasswordAnswer?
+
+    /** Asks for a password manager's master password, kept in memory until the vault locks; null when cancelled. */
+    fun askMasterPassword(project: Project, request: MasterPasswordRequest): CharArray? = null
 
     companion object {
         fun getInstance(): VaultPrompter = service()

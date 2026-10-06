@@ -24,6 +24,7 @@ class VarsConfigTest {
 
     @Test
     fun theInfraRepoConfigsUseTheDefaults() {
+        InfraTestData.assumePresent()
         for (repo in listOf("falcon", "platform", "pelican")) {
             val text = String(Files.readAllBytes(InfraTestData.root.resolve("repos/$repo/ansible/ansible.cfg")))
             assertEquals(repo, VarsConfig.DEFAULT, config(text))

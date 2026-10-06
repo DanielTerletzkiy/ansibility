@@ -8,6 +8,7 @@ import com.intellij.psi.PsiDocumentManager
 import de.terletzkiy.ansibility.api.AnsibleContextService
 import de.terletzkiy.ansibility.api.EvalTarget
 import de.terletzkiy.ansibility.context.host.HostContextTestCase
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
 import de.terletzkiy.ansibility.settings.RootContext
 
@@ -15,6 +16,7 @@ import de.terletzkiy.ansibility.settings.RootContext
  * [DefinitionWitnesses] on the falcon root of the fixture (with golden's `alloy` role copied into it, as the real repo has
  * it): which reachable (env, host, play) define a name, lack it (witnesses), or may get it at runtime.
  */
+@RequiresInfraFixture
 class DefinitionWitnessesTest : HostContextTestCase() {
     override fun addFixtureFiles() {
         copyTree("infra/golden/roles/alloy", "$FALCON/roles/alloy")

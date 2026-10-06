@@ -112,6 +112,18 @@ class VaultDiscoverer(private val access: VaultSourceAccess) {
                     val name = identity.location?.takeIf { it.isNotBlank() } ?: continue
                     chain.add(identity.label, SecretPlan.Environment(ConsentTarget.environment(name)), origin, name)
                 }
+                VaultSourceKind.ONE_PASSWORD, VaultSourceKind.BITWARDEN, VaultSourceKind.KEEPASSXC, VaultSourceKind.PROTON_PASS -> {
+                    val manager = PasswordManager.of(identity.kind) ?: continue
+                    val declared = identity.location?.trim()?.takeIf { PasswordManagers.isReference(manager, it) } ?: continue
+                    val reference = if (manager == PasswordManager.KEEPASSXC) {
+                        val (database, entry) = PasswordManagers.keePass(declared) ?: continue
+                        val path = VaultPaths.resolve(database, input.rootPath, input.environment["HOME"]) ?: continue
+                        "$path#$entry"
+                    } else {
+                        declared
+                    }
+                    chain.add(identity.label, SecretPlan.External(manager, reference), origin, declared)
+                }
             }
         }
     }
@@ -207,6 +219,7 @@ class VaultDiscoverer(private val access: VaultSourceAccess) {
             is SecretPlan.EnvLocal -> "env-local:${plan.envLocal.locator}"
             is SecretPlan.Environment -> plan.target.locator
             is SecretPlan.PasswordSafeEntry -> if (plan.isDefaultEntry) INTERACTIVE else "safe:${plan.serviceName}"
+            is SecretPlan.External -> "manager:${plan.manager.name}:${plan.reference}"
             SecretPlan.Prompt -> INTERACTIVE
         }
     }

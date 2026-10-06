@@ -4,11 +4,13 @@ import com.intellij.openapi.util.TextRange
 import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.model.role.ModelFixture
 import de.terletzkiy.ansibility.semantics.yaml.YScalar
 import de.terletzkiy.ansibility.semantics.yaml.YSeq
 
 /** [MoleculeScenarioModel] on the golden haproxy, coolify, chronod and redis scenarios of the fixture. */
+@RequiresInfraFixture
 class MoleculeScenarioModelTest : BasePlatformTestCase() {
     override fun getTestDataPath(): String = ModelFixture.testDataPath
 

@@ -6,6 +6,7 @@ import com.intellij.openapi.fileEditor.TextEditorWithPreview
 import com.intellij.openapi.util.Disposer
 import de.terletzkiy.ansibility.context.host.HostContextTestCase
 import de.terletzkiy.ansibility.fixtures.InfraTestData
+import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.render.editor.PreviewSecretsFilter
 import de.terletzkiy.ansibility.render.editor.RenderedPreviewEditor
 import de.terletzkiy.ansibility.render.editor.RenderedTemplateEditorProvider
@@ -22,6 +23,7 @@ import org.jetbrains.yaml.YAMLFileType
  * applies to prod-prod1 and prod-prod2: per-host values, task vars, magic variables, facts and vault values as
  * placeholders, and the loop items whose `src` renders the file.
  */
+@RequiresInfraFixture
 class TemplatePreviewServiceTest : HostContextTestCase() {
     override fun addFixtureFiles() {
         add("$ROLE/defaults/main.yml", "---\nkeepalived_priority: 100\nkeepalived_is_master: false")
