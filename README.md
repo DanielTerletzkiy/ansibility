@@ -101,7 +101,7 @@ Ansibility is verified and tested against the following JetBrains IDEs:
 ### Build Steps
 ```bash
 # Clone the repository
-git clone https://github.com/daniel-terletzkiy/ansibility.git
+git clone https://github.com/danielterletzkiy/ansibility.git
 cd ansibility
 
 # Compile and package the plugin
