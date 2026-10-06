@@ -222,7 +222,7 @@ class VaultEncryptIntention : VaultIntentionBase() {
         val project = scalar.project
         val config = VaultStatusService.getInstance(project).config(context.root)
         val labels = config.identities.map { it.label }.distinct()
-        val first = when (val choice = VaultValueActions.getInstance(project).encryptChoice(context.root, context.environment, file, config, labels)) {
+        val first = when (val choice = VaultValueActions.getInstance(project).encryptChoice(context.root, context.environments, file, config, labels)) {
             is EncryptIdentity.Choice.Chosen -> message("intention.encrypt.preview", key, "${choice.label} (${VaultEnvelope.versionFor(choice.label)})")
             is EncryptIdentity.Choice.Ambiguous -> message("intention.encrypt.preview.choose", key, choice.candidates.joinToString(", "))
             is EncryptIdentity.Choice.NotFound, EncryptIdentity.Choice.NoIdentity -> AnsibilityVaultBundle.failure(VaultFailure.NO_IDENTITY)

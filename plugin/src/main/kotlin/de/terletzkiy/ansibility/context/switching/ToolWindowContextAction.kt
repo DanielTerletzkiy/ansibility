@@ -15,6 +15,8 @@ import com.intellij.openapi.vfs.VirtualFile
 import de.terletzkiy.ansibility.api.AnsibleContextService
 import de.terletzkiy.ansibility.api.AnsibleRoot
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
+import de.terletzkiy.ansibility.api.InventoryService
+import de.terletzkiy.ansibility.context.InventoryShape
 import de.terletzkiy.ansibility.toolwindow.model.AnsibleTreeNode
 import de.terletzkiy.ansibility.toolwindow.model.RootNode
 import java.awt.Component
@@ -40,7 +42,7 @@ class ToolWindowContextAction : ComboBoxAction(), DumbAware {
         }
         e.presentation.isEnabledAndVisible = root != null
         if (project == null || root == null) return
-        e.presentation.setText(ContextTexts.buttonText(root, AnsibleContextService.getInstance(project).selection(root)), false)
+        e.presentation.setText(ContextTexts.buttonText(root, AnsibleContextService.getInstance(project).selection(root), InventoryShape.of(project, root)), false)
         e.presentation.description = ContextTexts.message("toolwindow.context.description", root.displayName)
     }
 
@@ -77,7 +79,7 @@ class ToolWindowContextAction : ComboBoxAction(), DumbAware {
         fun rootOf(project: Project, node: AnsibleTreeNode?, file: VirtualFile?): AnsibleRoot? = readLocked {
             generateSequence(node) { it.parent }.filterIsInstance<RootNode>().firstOrNull()?.root?.root
                 ?: file?.let { AnsibleWorkspace.getInstance(project).rootFor(it) }?.takeIf { !it.detached }
-                ?: AnsibleWorkspace.getInstance(project).roots().firstOrNull { !it.detached && it.environmentsDir != null }
+                ?: AnsibleWorkspace.getInstance(project).roots().firstOrNull { !it.detached && InventoryService.getInstance(project).hasInventory(it) }
         }
 
         private fun AnsibleRoot.contains(project: Project, file: VirtualFile): Boolean =

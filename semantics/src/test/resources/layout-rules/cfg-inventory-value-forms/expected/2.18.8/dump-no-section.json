@@ -1,0 +1,16 @@
+{
+  "ansible_core": "2.18.8",
+  "tool": "ansible-config",
+  "args": [
+    "dump",
+    "--only-changed",
+    "--format",
+    "json"
+  ],
+  "cfg": "project/cfg/no-section.cfg",
+  "cwd": "cwd",
+  "env": {},
+  "rc": 5,
+  "stdout": "",
+  "stderr": "ERROR: Error reading config file ({project}/cfg/no-section.cfg): File contains no section headers.\nfile: '<string>', line: 1\n'inventory = hosts.ini\\n'\n"
+}

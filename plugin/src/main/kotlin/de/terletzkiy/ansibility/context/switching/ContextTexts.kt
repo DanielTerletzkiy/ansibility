@@ -8,6 +8,7 @@ import de.terletzkiy.ansibility.api.HostScopeOrigin
 import de.terletzkiy.ansibility.api.PlayRef
 import de.terletzkiy.ansibility.api.RootKind
 import de.terletzkiy.ansibility.context.AnsibilityCoreBundle
+import de.terletzkiy.ansibility.context.InventoryShape
 import de.terletzkiy.ansibility.context.TargetVersion
 import de.terletzkiy.ansibility.context.host.AnsibilityHostBundle
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
@@ -37,23 +38,38 @@ object ContextTexts {
      * selection with a part that no longer exists ([stale]) is shown as stored, marked with `⚠`.
      */
     @Nls
-    fun statusText(root: AnsibleRoot, target: TargetVersion, selection: RootContext, stale: Boolean): String =
-        statusParts(root, target, selection, stale).joinToString("") { it.text }
+    fun statusText(
+        root: AnsibleRoot,
+        target: TargetVersion,
+        selection: RootContext,
+        stale: Boolean,
+        inventory: InventoryShape = InventoryShape.of(root),
+    ): String = statusParts(root, target, selection, stale, inventory).joinToString("") { it.text }
 
     /** [statusText] as its click targets: the root, the environment, the host and the core version, with separators. */
-    fun statusParts(root: AnsibleRoot, target: TargetVersion, selection: RootContext, stale: Boolean): List<WidgetTexts.Part> {
+    fun statusParts(
+        root: AnsibleRoot,
+        target: TargetVersion,
+        selection: RootContext,
+        stale: Boolean,
+        inventory: InventoryShape = InventoryShape.of(root),
+    ): List<WidgetTexts.Part> {
         val name = if (root.kind == RootKind.ROLE_LIBRARY) {
             AnsibilityCoreBundle.message("status.root.library", root.displayName)
         } else {
             root.displayName
         }
         val parts = mutableListOf(WidgetTexts.Part(AnsibilityCoreBundle.message("status.text", name), WidgetTexts.PartKind.ROOT))
-        if (root.environmentsDir != null || selection.environment is EnvironmentChoice.Named) {
-            val environment = (selection.environment as? EnvironmentChoice.Named)?.name ?: AnsibilityCoreBundle.message("status.envs.all")
+        if (inventory.hasInventory || selection.environment is EnvironmentChoice.Named) {
+            val named = (selection.environment as? EnvironmentChoice.Named)?.name
             val host = selection.host?.takeIf { selection.environment is EnvironmentChoice.Named }
             parts += WidgetTexts.Part.separator(SEPARATOR)
-            parts += WidgetTexts.Part(environment, WidgetTexts.PartKind.ENVIRONMENT)
-            if (host != null) {
+            if (inventory.single) {
+                parts += WidgetTexts.Part(host ?: AnsibilityCoreBundle.message("status.hosts.all"), WidgetTexts.PartKind.HOST)
+            } else {
+                parts += WidgetTexts.Part(named ?: AnsibilityCoreBundle.message("status.envs.all"), WidgetTexts.PartKind.ENVIRONMENT)
+            }
+            if (host != null && !inventory.single) {
                 parts += WidgetTexts.Part.separator(CHAIN)
                 parts += WidgetTexts.Part(host, WidgetTexts.PartKind.HOST)
             }
@@ -77,8 +93,9 @@ object ContextTexts {
 
     /** `falcon · prod › prod-prod1`: the tool-window context button; just the root's name for a root without inventory. */
     @Nls
-    fun buttonText(root: AnsibleRoot, selection: RootContext): String {
-        if (root.environmentsDir == null && selection.environment !is EnvironmentChoice.Named) return root.displayName
+    fun buttonText(root: AnsibleRoot, selection: RootContext, inventory: InventoryShape = InventoryShape.of(root)): String {
+        if (!inventory.hasInventory && selection.environment !is EnvironmentChoice.Named) return root.displayName
+        if (inventory.single) return "${root.displayName}$SEPARATOR${selection.host ?: AnsibilityCoreBundle.message("status.hosts.all")}"
         return "${root.displayName}$SEPARATOR${environmentAndHost(selection, message("selection.all.environments.short"))}"
     }
 

@@ -184,6 +184,12 @@ interface InventoryService {
      */
     fun moleculeInventories(root: AnsibleRoot): List<MoleculeInventory>
 
+    /**
+     * Whether [root] has inventories, from any layout: `environments/`, the cfg `inventory` or a detected flat
+     * layout (plan amendment R10). True whenever [AnsibleRoot.environmentsDir] is set.
+     */
+    fun hasInventory(root: AnsibleRoot): Boolean = root.environmentsDir != null
+
     companion object {
         fun getInstance(project: Project): InventoryService = project.service()
     }

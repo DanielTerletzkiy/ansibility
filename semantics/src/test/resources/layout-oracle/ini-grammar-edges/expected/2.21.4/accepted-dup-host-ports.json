@@ -1,0 +1,49 @@
+{
+  "ansible_core": "2.21.4",
+  "tool": "ansible-inventory",
+  "args": [
+    "-i",
+    "{project}/accepted/dup-host-ports.ini",
+    "--list",
+    "--export"
+  ],
+  "cfg": null,
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": {
+    "_meta": {
+      "hostvars": {
+        "h1": {
+          "ansible_port": 2201,
+          "v": "c"
+        }
+      },
+      "profile": "inventory_legacy"
+    },
+    "a": {
+      "hosts": [
+        "h1"
+      ]
+    },
+    "all": {
+      "children": [
+        "ungrouped",
+        "a",
+        "b",
+        "c"
+      ]
+    },
+    "b": {
+      "hosts": [
+        "h1"
+      ]
+    },
+    "c": {
+      "hosts": [
+        "h1"
+      ]
+    }
+  },
+  "stderr": ""
+}

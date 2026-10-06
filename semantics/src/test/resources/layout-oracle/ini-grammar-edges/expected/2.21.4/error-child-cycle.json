@@ -1,0 +1,26 @@
+{
+  "ansible_core": "2.21.4",
+  "tool": "ansible-inventory",
+  "args": [
+    "-i",
+    "{project}/errors/child-cycle.ini",
+    "--list",
+    "--export"
+  ],
+  "cfg": null,
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": {
+    "_meta": {
+      "hostvars": {},
+      "profile": "inventory_legacy"
+    },
+    "all": {
+      "children": [
+        "ungrouped"
+      ]
+    }
+  },
+  "stderr": "[WARNING]: Failed to parse inventory with 'ini' plugin: Failed to parse inventory: Adding group 'a' as child to 'b' creates a recursive dependency loop.\n\nFailed to parse inventory with 'ini' plugin.\n\n<<< caused by >>>\n\nFailed to parse inventory: Adding group 'a' as child to 'b' creates a recursive dependency loop.\nOrigin: {project}/errors/child-cycle.ini\n\n[WARNING]: Unable to parse {project}/errors/child-cycle.ini as an inventory source\n[WARNING]: No inventory was parsed, only implicit localhost is available\n"
+}

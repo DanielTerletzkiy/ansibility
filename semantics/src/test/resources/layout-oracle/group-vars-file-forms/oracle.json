@@ -1,0 +1,29 @@
+{
+  "description": "Which group_vars entries host_group_vars reads and in which order. For a group it probes <name> (file or directory), <name>.yml, <name>.yaml, <name>.json in that order and stops at the FIRST that exists: a group_vars/web/ directory hides web.yml/web.yaml/web.json, and an extensionless group_vars/app file hides app.yml. A directory is walked in sorted order, recursing into subdirectories without an extension at their sorted position; hidden entries, names ending in '~', files with another extension (.txt, .bak) and directories with an extension (0.d/) are skipped; extensionless files are read. Every file defines pair_<a>__<b> for each other file, so the winner of a pair is the file loaded later; seen_<file> marks a loaded file.",
+  "runs": [
+    {
+      "name": "host-web1",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/hosts.ini",
+        "--host",
+        "web1"
+      ]
+    },
+    {
+      "name": "list-export",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/hosts.ini",
+        "--list",
+        "--export"
+      ]
+    }
+  ],
+  "notes": [
+    "Load order for web (later wins): web/a.yml, web/b, web/g.json, web/h.yaml, web/sub/c.yml.",
+    "Not in this case: group file names are matched by the filesystem, so group_vars/DB.yml is read for group 'db' on a case-insensitive filesystem (macOS default, 2.21.4 probe) and not on Linux (2.18.8 docker)."
+  ]
+}

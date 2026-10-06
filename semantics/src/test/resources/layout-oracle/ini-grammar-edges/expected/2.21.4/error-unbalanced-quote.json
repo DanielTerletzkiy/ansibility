@@ -1,0 +1,26 @@
+{
+  "ansible_core": "2.21.4",
+  "tool": "ansible-inventory",
+  "args": [
+    "-i",
+    "{project}/errors/unbalanced-quote.ini",
+    "--list",
+    "--export"
+  ],
+  "cfg": null,
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": {
+    "_meta": {
+      "hostvars": {},
+      "profile": "inventory_legacy"
+    },
+    "all": {
+      "children": [
+        "ungrouped"
+      ]
+    }
+  },
+  "stderr": "[WARNING]: Failed to parse inventory with 'ini' plugin: Failed to parse inventory: Error parsing host definition 'h1 x=\"open': No closing quotation\n\nFailed to parse inventory with 'ini' plugin.\n\n<<< caused by >>>\n\nFailed to parse inventory.\nOrigin: {project}/errors/unbalanced-quote.ini\n\n<<< caused by >>>\n\nError parsing host definition 'h1 x=\"open': No closing quotation\n\n[WARNING]: Unable to parse {project}/errors/unbalanced-quote.ini as an inventory source\n[WARNING]: No inventory was parsed, only implicit localhost is available\n"
+}

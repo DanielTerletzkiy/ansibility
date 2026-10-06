@@ -1,0 +1,25 @@
+{
+  "description": "[defaults] vars_plugins_enabled = (empty) disables host_group_vars: no group_vars/host_vars file loads at any level, only the inventory's own vars remain.",
+  "runs": [
+    {
+      "name": "host-web1",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "--host",
+        "web1",
+        "--playbook-dir",
+        "{project}"
+      ]
+    },
+    {
+      "name": "list-export",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "--list",
+        "--export",
+        "--playbook-dir",
+        "{project}"
+      ]
+    }
+  ]
+}

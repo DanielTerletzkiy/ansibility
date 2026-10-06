@@ -1,0 +1,101 @@
+{
+  "ansible_core": "2.18.8",
+  "tool": "ansible-inventory",
+  "args": [
+    "-i",
+    "{project}/hosts.ini",
+    "--list",
+    "--export"
+  ],
+  "cfg": null,
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": {
+    "_meta": {
+      "hostvars": {}
+    },
+    "all": {
+      "children": [
+        "ungrouped",
+        "web",
+        "app"
+      ]
+    },
+    "app": {
+      "hosts": [
+        "web1"
+      ],
+      "vars": {
+        "pair_json__noext": "noext",
+        "pair_noext__txt": "noext",
+        "pair_noext__yaml": "noext",
+        "pair_noext__yml": "noext",
+        "seen_noext": true
+      }
+    },
+    "web": {
+      "hosts": [
+        "web1"
+      ],
+      "vars": {
+        "pair_d_a__d_b_noext": "d_b_noext",
+        "pair_d_a__d_bak": "d_a",
+        "pair_d_a__d_dotdir": "d_a",
+        "pair_d_a__d_hidden": "d_a",
+        "pair_d_a__d_json": "d_json",
+        "pair_d_a__d_sub_c": "d_sub_c",
+        "pair_d_a__d_tilde": "d_a",
+        "pair_d_a__d_txt": "d_a",
+        "pair_d_a__d_yaml": "d_yaml",
+        "pair_d_a__f_json": "d_a",
+        "pair_d_a__f_yaml": "d_a",
+        "pair_d_a__f_yml": "d_a",
+        "pair_d_b_noext__d_bak": "d_b_noext",
+        "pair_d_b_noext__d_dotdir": "d_b_noext",
+        "pair_d_b_noext__d_hidden": "d_b_noext",
+        "pair_d_b_noext__d_json": "d_json",
+        "pair_d_b_noext__d_sub_c": "d_sub_c",
+        "pair_d_b_noext__d_tilde": "d_b_noext",
+        "pair_d_b_noext__d_txt": "d_b_noext",
+        "pair_d_b_noext__d_yaml": "d_yaml",
+        "pair_d_b_noext__f_json": "d_b_noext",
+        "pair_d_b_noext__f_yaml": "d_b_noext",
+        "pair_d_b_noext__f_yml": "d_b_noext",
+        "pair_d_bak__d_json": "d_json",
+        "pair_d_bak__d_sub_c": "d_sub_c",
+        "pair_d_bak__d_yaml": "d_yaml",
+        "pair_d_dotdir__d_json": "d_json",
+        "pair_d_dotdir__d_sub_c": "d_sub_c",
+        "pair_d_dotdir__d_yaml": "d_yaml",
+        "pair_d_hidden__d_json": "d_json",
+        "pair_d_hidden__d_sub_c": "d_sub_c",
+        "pair_d_hidden__d_yaml": "d_yaml",
+        "pair_d_json__d_sub_c": "d_sub_c",
+        "pair_d_json__d_tilde": "d_json",
+        "pair_d_json__d_txt": "d_json",
+        "pair_d_json__d_yaml": "d_yaml",
+        "pair_d_json__f_json": "d_json",
+        "pair_d_json__f_yaml": "d_json",
+        "pair_d_json__f_yml": "d_json",
+        "pair_d_sub_c__d_tilde": "d_sub_c",
+        "pair_d_sub_c__d_txt": "d_sub_c",
+        "pair_d_sub_c__d_yaml": "d_sub_c",
+        "pair_d_sub_c__f_json": "d_sub_c",
+        "pair_d_sub_c__f_yaml": "d_sub_c",
+        "pair_d_sub_c__f_yml": "d_sub_c",
+        "pair_d_tilde__d_yaml": "d_yaml",
+        "pair_d_txt__d_yaml": "d_yaml",
+        "pair_d_yaml__f_json": "d_yaml",
+        "pair_d_yaml__f_yaml": "d_yaml",
+        "pair_d_yaml__f_yml": "d_yaml",
+        "seen_d_a": true,
+        "seen_d_b_noext": true,
+        "seen_d_json": true,
+        "seen_d_sub_c": true,
+        "seen_d_yaml": true
+      }
+    }
+  },
+  "stderr": ""
+}

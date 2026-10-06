@@ -1,0 +1,10 @@
+<html>
+<body>
+Reports <code>group_vars</code> and <code>host_vars</code> files that ansible-core never loads.
+<ul>
+    <li><b>ANS-L005</b>: the file is hidden by first-match, for example <code>group_vars/web.yml</code> next to a
+        <code>group_vars/web/</code> directory, or <code>web.yaml</code> next to <code>web.yml</code>.</li>
+    <li><b>ANS-L006</b>: the directory is next to no inventory source and no playbook, so nothing loads it.</li>
+</ul>
+</body>
+</html>

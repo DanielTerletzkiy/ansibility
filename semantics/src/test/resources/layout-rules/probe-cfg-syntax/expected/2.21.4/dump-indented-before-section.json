@@ -1,0 +1,15 @@
+{
+  "ansible_core": "2.21.4",
+  "tool": "ansible-config",
+  "args": [
+    "dump",
+    "--format",
+    "json"
+  ],
+  "cfg": "project/cfg/indented-before-section.cfg",
+  "cwd": "cwd",
+  "env": {},
+  "rc": 5,
+  "stdout": "",
+  "stderr": "ERROR: Error reading config file ({project}/cfg/indented-before-section.cfg): File contains no section headers.\nfile: '<string>', line: 1\n'  inventory = hosts.ini\\n'"
+}

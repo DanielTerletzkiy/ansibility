@@ -1,0 +1,1280 @@
+{
+  "ansible_core": "2.18.8",
+  "tool": "ansible-config",
+  "args": [
+    "dump",
+    "--format",
+    "json"
+  ],
+  "cfg": null,
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": [
+    {
+      "name": "ACTION_WARNINGS",
+      "origin": "default",
+      "value": true
+    },
+    {
+      "name": "AGNOSTIC_BECOME_PROMPT",
+      "origin": "default",
+      "value": true
+    },
+    {
+      "name": "ANSIBLE_CONNECTION_PATH",
+      "origin": "default",
+      "value": null
+    },
+    {
+      "name": "ANSIBLE_COW_ACCEPTLIST",
+      "origin": "default",
+      "value": [
+        "bud-frogs",
+        "bunny",
+        "cheese",
+        "daemon",
+        "default",
+        "dragon",
+        "elephant-in-snake",
+        "elephant",
+        "eyes",
+        "hellokitty",
+        "kitty",
+        "luke-koala",
+        "meow",
+        "milk",
+        "moofasa",
+        "moose",
+        "ren",
+        "sheep",
+        "small",
+        "stegosaurus",
+        "stimpy",
+        "supermilker",
+        "three-eyes",
+        "turkey",
+        "turtle",
+        "tux",
+        "udder",
+        "vader-koala",
+        "vader",
+        "www"
+      ]
+    },
+    {
+      "name": "ANSIBLE_COW_PATH",
+      "origin": "default",
+      "value": null
+    },
+    {
+      "name": "ANSIBLE_COW_SELECTION",
+      "origin": "default",
+      "value": "default"
+    },
+    {
+      "name": "ANSIBLE_FORCE_COLOR",
+      "origin": "env: ANSIBLE_FORCE_COLOR",
+      "value": false
+    },
+    {
+      "name": "ANSIBLE_HOME",
+      "origin": "default",
+      "value": "{home}/.ansible"
+    },
+    {
+      "name": "ANSIBLE_NOCOLOR",
+      "origin": "env: ANSIBLE_NOCOLOR",
+      "value": true
+    },
+    {
+      "name": "ANSIBLE_NOCOWS",
+      "origin": "default",
+      "value": false
+    },
+    {
+      "name": "ANSIBLE_PIPELINING",
+      "origin": "default",
+      "value": false
+    },
+    {
+      "name": "ANY_ERRORS_FATAL",
+      "origin": "default",
+      "value": false
+    },
+    {
+      "name": "BECOME_ALLOW_SAME_USER",
+      "origin": "default",
+      "value": false
+    },
+    {
+      "name": "BECOME_PASSWORD_FILE",
+      "origin": "default",
+      "value": null
+    },
+    {
+      "name": "BECOME_PLUGIN_PATH",
+      "origin": "default",
+      "value": [
+        "{home}/.ansible/plugins/become",
+        "/usr/share/ansible/plugins/become"
+      ]
+    },
+    {
+      "name": "CACHE_PLUGIN",
+      "origin": "default",
+      "value": "memory"
+    },
+    {
+      "name": "CACHE_PLUGIN_CONNECTION",
+      "origin": "default",
+      "value": null
+    },
+    {
+      "name": "CACHE_PLUGIN_PREFIX",
+      "origin": "default",
+      "value": "ansible_facts"
+    },
+    {
+      "name": "CACHE_PLUGIN_TIMEOUT",
+      "origin": "default",
+      "value": 86400
+    },
+    {
+      "name": "CALLBACKS_ENABLED",
+      "origin": "default",
+      "value": []
+    },
+    {
+      "name": "COLLECTIONS_ON_ANSIBLE_VERSION_MISMATCH",
+      "origin": "default",
+      "value": "warning"
+    },
+    {
+      "name": "COLLECTIONS_PATHS",
+      "origin": "default",
+      "value": [
+        "{home}/.ansible/collections",
+        "/usr/share/ansible/collections"
+      ]
+    },
+    {
+      "name": "COLLECTIONS_SCAN_SYS_PATH",
+      "origin": "default",
+      "value": true
+    },
+    {
+      "name": "COLOR_CHANGED",
+      "origin": "default",
+      "value": "yellow"
+    },
+    {
+      "name": "COLOR_CONSOLE_PROMPT",
+      "origin": "default",
+      "value": "white"
+    },
+    {
+      "name": "COLOR_DEBUG",
+      "origin": "default",
+      "value": "dark gray"
+    },
+    {
+      "name": "COLOR_DEPRECATE",
+      "origin": "default",
+      "value": "purple"
+    },
+    {
+      "name": "COLOR_DIFF_ADD",
+      "origin": "default",
+      "value": "green"
+    },
+    {
+      "name": "COLOR_DIFF_LINES",
+      "origin": "default",
+      "value": "cyan"
+    },
+    {
+      "name": "COLOR_DIFF_REMOVE",
+      "origin": "default",
+      "value": "red"
+    },
+    {
+      "name": "COLOR_DOC_CONSTANT",
+      "origin": "default",
+      "value": "dark gray"
+    },
+    {
+      "name": "COLOR_DOC_DEPRECATED",
+      "origin": "default",
+      "value": "magenta"
+    },
+    {
+      "name": "COLOR_DOC_LINK",
+      "origin": "default",
+      "value": "cyan"
+    },
+    {
+      "name": "COLOR_DOC_MODULE",
+      "origin": "default",
+      "value": "yellow"
+    },
+    {
+      "name": "COLOR_DOC_PLUGIN",
+      "origin": "default",
+      "value": "yellow"
+    },
+    {
+      "name": "COLOR_DOC_REFERENCE",
+      "origin": "default",
+      "value": "magenta"
+    },
+    {
+      "name": "COLOR_ERROR",
+      "origin": "default",
+      "value": "red"
+    },
+    {
+      "name": "COLOR_HIGHLIGHT",
+      "origin": "default",
+      "value": "white"
+    },
+    {
+      "name": "COLOR_INCLUDED",
+      "origin": "default",
+      "value": "cyan"
+    },
+    {
+      "name": "COLOR_OK",
+      "origin": "default",
+      "value": "green"
+    },
+    {
+      "name": "COLOR_SKIP",
+      "origin": "default",
+      "value": "cyan"
+    },
+    {
+      "name": "COLOR_UNREACHABLE",
+      "origin": "default",
+      "value": "bright red"
+    },
+    {
+      "name": "COLOR_VERBOSE",
+      "origin": "default",
+      "value": "blue"
+    },
+    {
+      "name": "COLOR_WARN",
+      "origin": "default",
+      "value": "bright purple"
+    },
+    {
+      "name": "CONFIG_FILE",
+      "origin": "",
+      "value": "{work}/empty.cfg"
+    },
+    {
+      "name": "CONNECTION_FACTS_MODULES",
+      "origin": "default",
+      "value": {
+        "arista.eos.eos": "arista.eos.eos_facts",
+        "asa": "ansible.legacy.asa_facts",
+        "cisco.asa.asa": "cisco.asa.asa_facts",
+        "cisco.ios.ios": "cisco.ios.ios_facts",
+        "cisco.iosxr.iosxr": "cisco.iosxr.iosxr_facts",
+        "cisco.nxos.nxos": "cisco.nxos.nxos_facts",
+        "community.network.ironware": "community.network.ironware_facts",
+        "eos": "ansible.legacy.eos_facts",
+        "exos": "ansible.legacy.exos_facts",
+        "extreme.exos.exos": "extreme.exos.exos_facts",
+        "extreme.slxos.slxos": "extreme.slxos.slxos_facts",
+        "extreme.voss.voss": "extreme.voss.voss_facts",
+        "frr": "ansible.legacy.frr_facts",
+        "frr.frr.frr": "frr.frr.frr_facts",
+        "ios": "ansible.legacy.ios_facts",
+        "iosxr": "ansible.legacy.iosxr_facts",
+        "ironware": "ansible.legacy.ironware_facts",
+        "junipernetworks.junos.junos": "junipernetworks.junos.junos_facts",
+        "junos": "ansible.legacy.junos_facts",
+        "nxos": "ansible.legacy.nxos_facts",
+        "slxos": "ansible.legacy.slxos_facts",
+        "voss": "ansible.legacy.voss_facts",
+        "vyos": "ansible.legacy.vyos_facts",
+        "vyos.vyos.vyos": "vyos.vyos.vyos_facts"
+      }
+    },
+    {
+      "name": "CONNECTION_PASSWORD_FILE",
+      "origin": "default",
+      "value": null
+    },
+    {
+      "name": "COVERAGE_REMOTE_OUTPUT",
+      "origin": "default",
+      "value": null
+    },
+    {
+      "name": "COVERAGE_REMOTE_PATHS",
+      "origin": "default",
+      "value": "*"
+    },
+    {
+      "name": "DEFAULT_ACTION_PLUGIN_PATH",
+      "origin": "default",
+      "value": [
+        "{home}/.ansible/plugins/action",
+        "/usr/share/ansible/plugins/action"
+      ]
+    },
+    {
+      "name": "DEFAULT_ALLOW_UNSAFE_LOOKUPS",
+      "origin": "default",
+      "value": false
+    },
+    {
+      "name": "DEFAULT_ASK_PASS",
+      "origin": "default",
+      "value": false
+    },
+    {
+      "name": "DEFAULT_ASK_VAULT_PASS",
+      "origin": "default",
+      "value": false
+    },
+    {
+      "name": "DEFAULT_BECOME",
+      "origin": "default",
+      "value": false
+    },
+    {
+      "name": "DEFAULT_BECOME_ASK_PASS",
+      "origin": "default",
+      "value": false
+    },
+    {
+      "name": "DEFAULT_BECOME_EXE",
+      "origin": "default",
+      "value": null
+    },
+    {
+      "name": "DEFAULT_BECOME_FLAGS",
+      "origin": "default",
+      "value": ""
+    },
+    {
+      "name": "DEFAULT_BECOME_METHOD",
+      "origin": "default",
+      "value": "sudo"
+    },
+    {
+      "name": "DEFAULT_BECOME_USER",
+      "origin": "default",
+      "value": "root"
+    },
+    {
+      "name": "DEFAULT_CACHE_PLUGIN_PATH",
+      "origin": "default",
+      "value": [
+        "{home}/.ansible/plugins/cache",
+        "/usr/share/ansible/plugins/cache"
+      ]
+    },
+    {
+      "name": "DEFAULT_CALLBACK_PLUGIN_PATH",
+      "origin": "default",
+      "value": [
+        "{home}/.ansible/plugins/callback",
+        "/usr/share/ansible/plugins/callback"
+      ]
+    },
+    {
+      "name": "DEFAULT_CLICONF_PLUGIN_PATH",
+      "origin": "default",
+      "value": [
+        "{home}/.ansible/plugins/cliconf",
+        "/usr/share/ansible/plugins/cliconf"
+      ]
+    },
+    {
+      "name": "DEFAULT_CONNECTION_PLUGIN_PATH",
+      "origin": "default",
+      "value": [
+        "{home}/.ansible/plugins/connection",
+        "/usr/share/ansible/plugins/connection"
+      ]
+    },
+    {
+      "name": "DEFAULT_DEBUG",
+      "origin": "default",
+      "value": false
+    },
+    {
+      "name": "DEFAULT_EXECUTABLE",
+      "origin": "default",
+      "value": "/bin/sh"
+    },
+    {
+      "name": "DEFAULT_FILTER_PLUGIN_PATH",
+      "origin": "default",
+      "value": [
+        "{home}/.ansible/plugins/filter",
+        "/usr/share/ansible/plugins/filter"
+      ]
+    },
+    {
+      "name": "DEFAULT_FORCE_HANDLERS",
+      "origin": "default",
+      "value": false
+    },
+    {
+      "name": "DEFAULT_FORKS",
+      "origin": "default",
+      "value": 5
+    },
+    {
+      "name": "DEFAULT_GATHERING",
+      "origin": "default",
+      "value": "implicit"
+    },
+    {
+      "name": "DEFAULT_HASH_BEHAVIOUR",
+      "origin": "default",
+      "value": "replace"
+    },
+    {
+      "name": "DEFAULT_HOST_LIST",
+      "origin": "default",
+      "value": [
+        "/etc/ansible/hosts"
+      ]
+    },
+    {
+      "name": "DEFAULT_HTTPAPI_PLUGIN_PATH",
+      "origin": "default",
+      "value": [
+        "{home}/.ansible/plugins/httpapi",
+        "/usr/share/ansible/plugins/httpapi"
+      ]
+    },
+    {
+      "name": "DEFAULT_INTERNAL_POLL_INTERVAL",
+      "origin": "default",
+      "value": 0.001
+    },
+    {
+      "name": "DEFAULT_INVENTORY_PLUGIN_PATH",
+      "origin": "default",
+      "value": [
+        "{home}/.ansible/plugins/inventory",
+        "/usr/share/ansible/plugins/inventory"
+      ]
+    },
+    {
+      "name": "DEFAULT_JINJA2_EXTENSIONS",
+      "origin": "default",
+      "value": []
+    },
+    {
+      "name": "DEFAULT_JINJA2_NATIVE",
+      "origin": "default",
+      "value": false
+    },
+    {
+      "name": "DEFAULT_KEEP_REMOTE_FILES",
+      "origin": "default",
+      "value": false
+    },
+    {
+      "name": "DEFAULT_LIBVIRT_LXC_NOSECLABEL",
+      "origin": "default",
+      "value": false
+    },
+    {
+      "name": "DEFAULT_LOAD_CALLBACK_PLUGINS",
+      "origin": "default",
+      "value": false
+    },
+    {
+      "name": "DEFAULT_LOCAL_TMP",
+      "origin": "default",
+      "value": "{home}/.ansible/tmp/ansible-local-192buichcn0"
+    },
+    {
+      "name": "DEFAULT_LOG_FILTER",
+      "origin": "default",
+      "value": []
+    },
+    {
+      "name": "DEFAULT_LOG_PATH",
+      "origin": "default",
+      "value": null
+    },
+    {
+      "name": "DEFAULT_LOOKUP_PLUGIN_PATH",
+      "origin": "default",
+      "value": [
+        "{home}/.ansible/plugins/lookup",
+        "/usr/share/ansible/plugins/lookup"
+      ]
+    },
+    {
+      "name": "DEFAULT_MANAGED_STR",
+      "origin": "default",
+      "value": "Ansible managed"
+    },
+    {
+      "name": "DEFAULT_MODULE_ARGS",
+      "origin": "default",
+      "value": null
+    },
+    {
+      "name": "DEFAULT_MODULE_COMPRESSION",
+      "origin": "default",
+      "value": "ZIP_DEFLATED"
+    },
+    {
+      "name": "DEFAULT_MODULE_NAME",
+      "origin": "default",
+      "value": "command"
+    },
+    {
+      "name": "DEFAULT_MODULE_PATH",
+      "origin": "default",
+      "value": [
+        "{home}/.ansible/plugins/modules",
+        "/usr/share/ansible/plugins/modules"
+      ]
+    },
+    {
+      "name": "DEFAULT_MODULE_UTILS_PATH",
+      "origin": "default",
+      "value": [
+        "{home}/.ansible/plugins/module_utils",
+        "/usr/share/ansible/plugins/module_utils"
+      ]
+    },
+    {
+      "name": "DEFAULT_NETCONF_PLUGIN_PATH",
+      "origin": "default",
+      "value": [
+        "{home}/.ansible/plugins/netconf",
+        "/usr/share/ansible/plugins/netconf"
+      ]
+    },
+    {
+      "name": "DEFAULT_NO_LOG",
+      "origin": "default",
+      "value": false
+    },
+    {
+      "name": "DEFAULT_NO_TARGET_SYSLOG",
+      "origin": "default",
+      "value": false
+    },
+    {
+      "name": "DEFAULT_NULL_REPRESENTATION",
+      "origin": "default",
+      "value": null
+    },
+    {
+      "name": "DEFAULT_POLL_INTERVAL",
+      "origin": "default",
+      "value": 15
+    },
+    {
+      "name": "DEFAULT_PRIVATE_KEY_FILE",
+      "origin": "default",
+      "value": null
+    },
+    {
+      "name": "DEFAULT_PRIVATE_ROLE_VARS",
+      "origin": "default",
+      "value": false
+    },
+    {
+      "name": "DEFAULT_REMOTE_PORT",
+      "origin": "default",
+      "value": null
+    },
+    {
+      "name": "DEFAULT_REMOTE_USER",
+      "origin": "default",
+      "value": null
+    },
+    {
+      "name": "DEFAULT_ROLES_PATH",
+      "origin": "default",
+      "value": [
+        "{home}/.ansible/roles",
+        "/usr/share/ansible/roles",
+        "/etc/ansible/roles"
+      ]
+    },
+    {
+      "name": "DEFAULT_SELINUX_SPECIAL_FS",
+      "origin": "default",
+      "value": [
+        "fuse",
+        "nfs",
+        "vboxsf",
+        "ramfs",
+        "9p",
+        "vfat"
+      ]
+    },
+    {
+      "name": "DEFAULT_STDOUT_CALLBACK",
+      "origin": "default",
+      "value": "default"
+    },
+    {
+      "name": "DEFAULT_STRATEGY",
+      "origin": "default",
+      "value": "linear"
+    },
+    {
+      "name": "DEFAULT_STRATEGY_PLUGIN_PATH",
+      "origin": "default",
+      "value": [
+        "{home}/.ansible/plugins/strategy",
+        "/usr/share/ansible/plugins/strategy"
+      ]
+    },
+    {
+      "name": "DEFAULT_SU",
+      "origin": "default",
+      "value": false
+    },
+    {
+      "name": "DEFAULT_SYSLOG_FACILITY",
+      "origin": "default",
+      "value": "LOG_USER"
+    },
+    {
+      "name": "DEFAULT_TERMINAL_PLUGIN_PATH",
+      "origin": "default",
+      "value": [
+        "{home}/.ansible/plugins/terminal",
+        "/usr/share/ansible/plugins/terminal"
+      ]
+    },
+    {
+      "name": "DEFAULT_TEST_PLUGIN_PATH",
+      "origin": "default",
+      "value": [
+        "{home}/.ansible/plugins/test",
+        "/usr/share/ansible/plugins/test"
+      ]
+    },
+    {
+      "name": "DEFAULT_TIMEOUT",
+      "origin": "default",
+      "value": 10
+    },
+    {
+      "name": "DEFAULT_TRANSPORT",
+      "origin": "default",
+      "value": "ssh"
+    },
+    {
+      "name": "DEFAULT_UNDEFINED_VAR_BEHAVIOR",
+      "origin": "default",
+      "value": true
+    },
+    {
+      "name": "DEFAULT_VARS_PLUGIN_PATH",
+      "origin": "default",
+      "value": [
+        "{home}/.ansible/plugins/vars",
+        "/usr/share/ansible/plugins/vars"
+      ]
+    },
+    {
+      "name": "DEFAULT_VAULT_ENCRYPT_IDENTITY",
+      "origin": "default",
+      "value": null
+    },
+    {
+      "name": "DEFAULT_VAULT_IDENTITY",
+      "origin": "default",
+      "value": "default"
+    },
+    {
+      "name": "DEFAULT_VAULT_IDENTITY_LIST",
+      "origin": "default",
+      "value": []
+    },
+    {
+      "name": "DEFAULT_VAULT_ID_MATCH",
+      "origin": "default",
+      "value": false
+    },
+    {
+      "name": "DEFAULT_VAULT_PASSWORD_FILE",
+      "origin": "default",
+      "value": null
+    },
+    {
+      "name": "DEFAULT_VERBOSITY",
+      "origin": "default",
+      "value": 0
+    },
+    {
+      "name": "DEPRECATION_WARNINGS",
+      "origin": "default",
+      "value": true
+    },
+    {
+      "name": "DEVEL_WARNING",
+      "origin": "default",
+      "value": true
+    },
+    {
+      "name": "DIFF_ALWAYS",
+      "origin": "default",
+      "value": false
+    },
+    {
+      "name": "DIFF_CONTEXT",
+      "origin": "default",
+      "value": 3
+    },
+    {
+      "name": "DISPLAY_ARGS_TO_STDOUT",
+      "origin": "default",
+      "value": false
+    },
+    {
+      "name": "DISPLAY_SKIPPED_HOSTS",
+      "origin": "default",
+      "value": true
+    },
+    {
+      "name": "DOCSITE_ROOT_URL",
+      "origin": "default",
+      "value": "https://docs.ansible.com/ansible-core/"
+    },
+    {
+      "name": "DOC_FRAGMENT_PLUGIN_PATH",
+      "origin": "default",
+      "value": [
+        "{home}/.ansible/plugins/doc_fragments",
+        "/usr/share/ansible/plugins/doc_fragments"
+      ]
+    },
+    {
+      "name": "DUPLICATE_YAML_DICT_KEY",
+      "origin": "default",
+      "value": "warn"
+    },
+    {
+      "name": "EDITOR",
+      "origin": "default",
+      "value": "vi"
+    },
+    {
+      "name": "ENABLE_TASK_DEBUGGER",
+      "origin": "default",
+      "value": false
+    },
+    {
+      "name": "ERROR_ON_MISSING_HANDLER",
+      "origin": "default",
+      "value": true
+    },
+    {
+      "name": "FACTS_MODULES",
+      "origin": "default",
+      "value": [
+        "smart"
+      ]
+    },
+    {
+      "name": "GALAXY_CACHE_DIR",
+      "origin": "default",
+      "value": "{home}/.ansible/galaxy_cache"
+    },
+    {
+      "name": "GALAXY_COLLECTIONS_PATH_WARNING",
+      "origin": "default",
+      "value": true
+    },
+    {
+      "name": "GALAXY_COLLECTION_IMPORT_POLL_FACTOR",
+      "origin": "default",
+      "value": 1.5
+    },
+    {
+      "name": "GALAXY_COLLECTION_IMPORT_POLL_INTERVAL",
+      "origin": "default",
+      "value": 2.0
+    },
+    {
+      "name": "GALAXY_COLLECTION_SKELETON",
+      "origin": "default",
+      "value": null
+    },
+    {
+      "name": "GALAXY_COLLECTION_SKELETON_IGNORE",
+      "origin": "default",
+      "value": [
+        "^.git$",
+        "^.*/.git_keep$"
+      ]
+    },
+    {
+      "name": "GALAXY_DISABLE_GPG_VERIFY",
+      "origin": "default",
+      "value": false
+    },
+    {
+      "name": "GALAXY_DISPLAY_PROGRESS",
+      "origin": "default",
+      "value": null
+    },
+    {
+      "name": "GALAXY_GPG_KEYRING",
+      "origin": "default",
+      "value": null
+    },
+    {
+      "name": "GALAXY_IGNORE_CERTS",
+      "origin": "default",
+      "value": null
+    },
+    {
+      "name": "GALAXY_IGNORE_INVALID_SIGNATURE_STATUS_CODES",
+      "origin": "default",
+      "value": null
+    },
+    {
+      "name": "GALAXY_REQUIRED_VALID_SIGNATURE_COUNT",
+      "origin": "default",
+      "value": "1"
+    },
+    {
+      "name": "GALAXY_ROLE_SKELETON",
+      "origin": "default",
+      "value": null
+    },
+    {
+      "name": "GALAXY_ROLE_SKELETON_IGNORE",
+      "origin": "default",
+      "value": [
+        "^.git$",
+        "^.*/.git_keep$"
+      ]
+    },
+    {
+      "name": "GALAXY_SERVER",
+      "origin": "default",
+      "value": "https://galaxy.ansible.com"
+    },
+    {
+      "name": "GALAXY_SERVER_LIST",
+      "origin": "default",
+      "value": null
+    },
+    {
+      "name": "GALAXY_SERVER_TIMEOUT",
+      "origin": "default",
+      "value": 60
+    },
+    {
+      "name": "GALAXY_TOKEN_PATH",
+      "origin": "default",
+      "value": "{home}/.ansible/galaxy_token"
+    },
+    {
+      "name": "HOST_KEY_CHECKING",
+      "origin": "default",
+      "value": true
+    },
+    {
+      "name": "HOST_PATTERN_MISMATCH",
+      "origin": "default",
+      "value": "warning"
+    },
+    {
+      "name": "INJECT_FACTS_AS_VARS",
+      "origin": "default",
+      "value": true
+    },
+    {
+      "name": "INTERPRETER_PYTHON",
+      "origin": "default",
+      "value": "auto"
+    },
+    {
+      "name": "INTERPRETER_PYTHON_FALLBACK",
+      "origin": "default",
+      "value": [
+        "python3.13",
+        "python3.12",
+        "python3.11",
+        "python3.10",
+        "python3.9",
+        "python3.8",
+        "/usr/bin/python3",
+        "python3"
+      ]
+    },
+    {
+      "name": "INVALID_TASK_ATTRIBUTE_FAILED",
+      "origin": "default",
+      "value": true
+    },
+    {
+      "name": "INVENTORY_ANY_UNPARSED_IS_FAILED",
+      "origin": "default",
+      "value": false
+    },
+    {
+      "name": "INVENTORY_CACHE_ENABLED",
+      "origin": "default",
+      "value": false
+    },
+    {
+      "name": "INVENTORY_CACHE_PLUGIN",
+      "origin": "default",
+      "value": null
+    },
+    {
+      "name": "INVENTORY_CACHE_PLUGIN_CONNECTION",
+      "origin": "default",
+      "value": null
+    },
+    {
+      "name": "INVENTORY_CACHE_PLUGIN_PREFIX",
+      "origin": "default",
+      "value": "ansible_inventory_"
+    },
+    {
+      "name": "INVENTORY_CACHE_TIMEOUT",
+      "origin": "default",
+      "value": 3600
+    },
+    {
+      "name": "INVENTORY_ENABLED",
+      "origin": "default",
+      "value": [
+        "host_list",
+        "script",
+        "auto",
+        "yaml",
+        "ini",
+        "toml"
+      ]
+    },
+    {
+      "name": "INVENTORY_EXPORT",
+      "origin": "default",
+      "value": false
+    },
+    {
+      "name": "INVENTORY_IGNORE_EXTS",
+      "origin": "default",
+      "value": [
+        ".pyc",
+        ".pyo",
+        ".swp",
+        ".bak",
+        "~",
+        ".rpm",
+        ".md",
+        ".txt",
+        ".rst",
+        ".orig",
+        ".ini",
+        ".cfg",
+        ".retry"
+      ]
+    },
+    {
+      "name": "INVENTORY_IGNORE_PATTERNS",
+      "origin": "default",
+      "value": []
+    },
+    {
+      "name": "INVENTORY_UNPARSED_IS_FAILED",
+      "origin": "default",
+      "value": false
+    },
+    {
+      "name": "INVENTORY_UNPARSED_WARNING",
+      "origin": "default",
+      "value": true
+    },
+    {
+      "name": "LOCALHOST_WARNING",
+      "origin": "default",
+      "value": true
+    },
+    {
+      "name": "LOG_VERBOSITY",
+      "origin": "default",
+      "value": null
+    },
+    {
+      "name": "MAX_FILE_SIZE_FOR_DIFF",
+      "origin": "default",
+      "value": 104448
+    },
+    {
+      "name": "MODULE_IGNORE_EXTS",
+      "origin": "default",
+      "value": [
+        ".pyc",
+        ".pyo",
+        ".swp",
+        ".bak",
+        "~",
+        ".rpm",
+        ".md",
+        ".txt",
+        ".rst",
+        ".yaml",
+        ".yml",
+        ".ini"
+      ]
+    },
+    {
+      "name": "MODULE_STRICT_UTF8_RESPONSE",
+      "origin": "default",
+      "value": true
+    },
+    {
+      "name": "NETCONF_SSH_CONFIG",
+      "origin": "default",
+      "value": null
+    },
+    {
+      "name": "NETWORK_GROUP_MODULES",
+      "origin": "default",
+      "value": [
+        "eos",
+        "nxos",
+        "ios",
+        "iosxr",
+        "junos",
+        "enos",
+        "ce",
+        "vyos",
+        "sros",
+        "dellos9",
+        "dellos10",
+        "dellos6",
+        "asa",
+        "aruba",
+        "aireos",
+        "bigip",
+        "ironware",
+        "onyx",
+        "netconf",
+        "exos",
+        "voss",
+        "slxos"
+      ]
+    },
+    {
+      "name": "OLD_PLUGIN_CACHE_CLEARING",
+      "origin": "default",
+      "value": false
+    },
+    {
+      "name": "PAGER",
+      "origin": "default",
+      "value": "less"
+    },
+    {
+      "name": "PARAMIKO_HOST_KEY_AUTO_ADD",
+      "origin": "default",
+      "value": false
+    },
+    {
+      "name": "PARAMIKO_LOOK_FOR_KEYS",
+      "origin": "default",
+      "value": true
+    },
+    {
+      "name": "PERSISTENT_COMMAND_TIMEOUT",
+      "origin": "default",
+      "value": 30
+    },
+    {
+      "name": "PERSISTENT_CONNECT_RETRY_TIMEOUT",
+      "origin": "default",
+      "value": 15
+    },
+    {
+      "name": "PERSISTENT_CONNECT_TIMEOUT",
+      "origin": "default",
+      "value": 30
+    },
+    {
+      "name": "PERSISTENT_CONTROL_PATH_DIR",
+      "origin": "default",
+      "value": "{home}/.ansible/pc"
+    },
+    {
+      "name": "PLAYBOOK_DIR",
+      "origin": "default",
+      "value": null
+    },
+    {
+      "name": "PLAYBOOK_VARS_ROOT",
+      "origin": "default",
+      "value": "top"
+    },
+    {
+      "name": "PLUGIN_FILTERS_CFG",
+      "origin": "default",
+      "value": null
+    },
+    {
+      "name": "PYTHON_MODULE_RLIMIT_NOFILE",
+      "origin": "default",
+      "value": 0
+    },
+    {
+      "name": "RETRY_FILES_ENABLED",
+      "origin": "default",
+      "value": false
+    },
+    {
+      "name": "RETRY_FILES_SAVE_PATH",
+      "origin": "default",
+      "value": null
+    },
+    {
+      "name": "RUN_VARS_PLUGINS",
+      "origin": "default",
+      "value": "demand"
+    },
+    {
+      "name": "SHOW_CUSTOM_STATS",
+      "origin": "default",
+      "value": false
+    },
+    {
+      "name": "STRING_CONVERSION_ACTION",
+      "origin": "default",
+      "value": "warn"
+    },
+    {
+      "name": "STRING_TYPE_FILTERS",
+      "origin": "default",
+      "value": [
+        "string",
+        "to_json",
+        "to_nice_json",
+        "to_yaml",
+        "to_nice_yaml",
+        "ppretty",
+        "json"
+      ]
+    },
+    {
+      "name": "SYSTEM_WARNINGS",
+      "origin": "default",
+      "value": true
+    },
+    {
+      "name": "TAGS_RUN",
+      "origin": "default",
+      "value": []
+    },
+    {
+      "name": "TAGS_SKIP",
+      "origin": "default",
+      "value": []
+    },
+    {
+      "name": "TARGET_LOG_INFO",
+      "origin": "default",
+      "value": null
+    },
+    {
+      "name": "TASK_DEBUGGER_IGNORE_ERRORS",
+      "origin": "default",
+      "value": true
+    },
+    {
+      "name": "TASK_TIMEOUT",
+      "origin": "default",
+      "value": 0
+    },
+    {
+      "name": "TRANSFORM_INVALID_GROUP_CHARS",
+      "origin": "default",
+      "value": "never"
+    },
+    {
+      "name": "USE_PERSISTENT_CONNECTIONS",
+      "origin": "default",
+      "value": false
+    },
+    {
+      "name": "VALIDATE_ACTION_GROUP_METADATA",
+      "origin": "default",
+      "value": true
+    },
+    {
+      "name": "VARIABLE_PLUGINS_ENABLED",
+      "origin": "default",
+      "value": [
+        "host_group_vars"
+      ]
+    },
+    {
+      "name": "VARIABLE_PRECEDENCE",
+      "origin": "default",
+      "value": [
+        "all_inventory",
+        "groups_inventory",
+        "all_plugins_inventory",
+        "all_plugins_play",
+        "groups_plugins_inventory",
+        "groups_plugins_play"
+      ]
+    },
+    {
+      "name": "VAULT_ENCRYPT_SALT",
+      "origin": "default",
+      "value": null
+    },
+    {
+      "name": "VERBOSE_TO_STDERR",
+      "origin": "default",
+      "value": false
+    },
+    {
+      "name": "WIN_ASYNC_STARTUP_TIMEOUT",
+      "origin": "default",
+      "value": 5
+    },
+    {
+      "name": "WORKER_SHUTDOWN_POLL_COUNT",
+      "origin": "default",
+      "value": 0
+    },
+    {
+      "name": "WORKER_SHUTDOWN_POLL_DELAY",
+      "origin": "default",
+      "value": 0.1
+    },
+    {
+      "name": "YAML_FILENAME_EXTENSIONS",
+      "origin": "default",
+      "value": [
+        ".yml",
+        ".yaml",
+        ".json"
+      ]
+    },
+    {
+      "GALAXY_SERVERS": {}
+    }
+  ],
+  "stderr": ""
+}

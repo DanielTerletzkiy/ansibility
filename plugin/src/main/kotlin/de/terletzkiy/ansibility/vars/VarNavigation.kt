@@ -10,11 +10,13 @@ import de.terletzkiy.ansibility.api.AnsibleSite
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.FileContext
 import de.terletzkiy.ansibility.api.FileKind
+import de.terletzkiy.ansibility.api.RootKind
 import de.terletzkiy.ansibility.api.SiteNavigation
 import de.terletzkiy.ansibility.api.SourceLocation
 import de.terletzkiy.ansibility.api.VarDefKind
 import de.terletzkiy.ansibility.api.VarDefinition
 import de.terletzkiy.ansibility.api.VarService
+import de.terletzkiy.ansibility.resolve.VarUsageQuery
 import de.terletzkiy.ansibility.semantics.yaml.YMap
 import de.terletzkiy.ansibility.semantics.yaml.YValue
 import de.terletzkiy.ansibility.yaml.PsiYValueAdapter
@@ -164,6 +166,25 @@ class VarNavigation : SiteNavigation {
             /** Definitions a task or a block makes for its own run (D-FU2: Ctrl+B shows their usages when no role declares the name). */
             private val TASK_SCOPED_KINDS = setOf(VarDefKind.SET_FACT, VarDefKind.TASK_VARS, VarDefKind.BLOCK_VARS, VarDefKind.INCLUDE_PARAMS)
 
+            /**
+             * True when a direct read of [name] has constant accessors starting with [path] (`host_ips['ops-pxe1']`
+             * for the key `ops-pxe1` under `host_ips`), in [root] or a nested playbook root inside it.
+             */
+            fun hasMemberUses(project: Project, root: AnsibleRoot, name: String, path: List<String>): Boolean {
+                val roots = listOf(root) + AnsibleWorkspace.getInstance(project).roots()
+                    .filter { it.kind == RootKind.NESTED_PLAYBOOK && it.parentDir == root.dir }
+                val query = VarUsageQuery.getInstance(project)
+                var found = false
+                for (member in roots) {
+                    query.process(member, name, null) { use ->
+                        found = use.indirect == null && !use.called && use.attrPath.size >= path.size && use.attrPath.subList(0, path.size) == path
+                        !found
+                    }
+                    if (found) return true
+                }
+                return false
+            }
+
             fun forReference(file: PsiFile, site: AnsibleSite.VarRef): List<PsiElement> {
                 val project = file.project
                 val virtualFile = file.originalFile.viewProvider.virtualFile
@@ -212,6 +233,8 @@ class VarNavigation : SiteNavigation {
                     if (collector.addNested(nested)) return collector.result()
                     // A nested option no other role declares is the declaration itself (D-FU1); its parent is just above.
                     if (site.kind in SPEC_KINDS) return emptyList()
+                    // A member with reads is a declaration like a role's own key: Ctrl+B shows its usages instead.
+                    if (Collector.hasMemberUses(project, root, keySite.name, nested)) return emptyList()
                 }
                 ranking.declaringRoles.forEach(collector::addRole)
                 if (collector.targets.isEmpty()) collector.addRemaining(virtualFile)

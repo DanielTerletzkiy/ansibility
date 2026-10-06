@@ -1,0 +1,13 @@
+{
+  "ansible_core": "2.19.0",
+  "tool": "ansible-inventory",
+  "args": [
+    "--graph"
+  ],
+  "cfg": "project/custom-ignore.cfg",
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": "@all:\n  |--@ungrouped:\n  |--@demo:\n  |  |--dup\n  |  |--ini-ext\n  |  |--yml-ext\n  |  |--json-ext\n  |  |--zeta-upper\n  |  |--noext\n  |  |--nested\n  |  |--nested-yml\n  |  |--txt\n  |  |--retry\n",
+  "stderr": ""
+}

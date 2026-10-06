@@ -1,0 +1,47 @@
+{
+  "ansible_core": "2.21.4",
+  "tool": "ansible-inventory",
+  "args": [
+    "-i",
+    "{project}/accepted/late-declarations.ini",
+    "--list",
+    "--export"
+  ],
+  "cfg": null,
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": {
+    "_meta": {
+      "hostvars": {},
+      "profile": "inventory_legacy"
+    },
+    "all": {
+      "children": [
+        "ungrouped",
+        "parent",
+        "pre",
+        "empty"
+      ]
+    },
+    "late": {
+      "hosts": [
+        "late1"
+      ]
+    },
+    "parent": {
+      "children": [
+        "late"
+      ]
+    },
+    "pre": {
+      "hosts": [
+        "pre1"
+      ],
+      "vars": {
+        "declared_later": "yes"
+      }
+    }
+  },
+  "stderr": ""
+}

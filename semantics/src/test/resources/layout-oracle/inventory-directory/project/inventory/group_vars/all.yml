@@ -1,0 +1,1 @@
+from_dir_group_vars: inventory/group_vars/all.yml

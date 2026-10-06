@@ -21,6 +21,7 @@ import com.intellij.openapi.vfs.VirtualFile
 import de.terletzkiy.ansibility.api.AnsibleContextService
 import de.terletzkiy.ansibility.api.AnsibleRoot
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
+import de.terletzkiy.ansibility.api.InventoryService
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
 import de.terletzkiy.ansibility.settings.RootContext
 import org.jetbrains.annotations.Nls
@@ -39,7 +40,7 @@ class SwitchContextAction : DumbAwareAction() {
     override fun update(e: AnActionEvent) {
         val project = e.project
         e.presentation.isEnabledAndVisible = project != null &&
-            AnsibleWorkspace.getInstance(project).roots().any { !it.detached && it.environmentsDir != null }
+            AnsibleWorkspace.getInstance(project).roots().any { !it.detached && InventoryService.getInstance(project).hasInventory(it) }
     }
 
     override fun actionPerformed(e: AnActionEvent) {

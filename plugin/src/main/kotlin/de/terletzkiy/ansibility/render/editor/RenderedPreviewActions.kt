@@ -17,6 +17,7 @@ import com.intellij.openapi.vfs.VirtualFile
 import de.terletzkiy.ansibility.api.AnsibleContextService
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.context.switching.ContextPopupGroup
+import de.terletzkiy.ansibility.context.InventoryShape
 import de.terletzkiy.ansibility.context.switching.ContextTexts
 import de.terletzkiy.ansibility.render.AnsibilityRenderBundle
 import de.terletzkiy.ansibility.render.service.TemplatePreviewService
@@ -31,7 +32,7 @@ internal class RenderContextAction(private val file: VirtualFile) : ComboBoxActi
         val project = e.project ?: return
         val root = AnsibleWorkspace.getInstance(project).rootFor(file)
         e.presentation.isEnabledAndVisible = root != null
-        if (root != null) e.presentation.setText(ContextTexts.buttonText(root, AnsibleContextService.getInstance(project).selection(root)), false)
+        if (root != null) e.presentation.setText(ContextTexts.buttonText(root, AnsibleContextService.getInstance(project).selection(root), InventoryShape.of(project, root)), false)
     }
 
     override fun createPopupActionGroup(button: JComponent, dataContext: DataContext): DefaultActionGroup {

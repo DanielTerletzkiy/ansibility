@@ -1,0 +1,64 @@
+{
+  "ansible_core": "2.18.19",
+  "tool": "ansible-inventory",
+  "args": [
+    "--list"
+  ],
+  "cfg": "project/ansible.cfg",
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": {
+    "_meta": {
+      "hostvars": {
+        "dup": {
+          "demo_from_dir_group_vars": "inventory/group_vars/demo.yml",
+          "from_dir_group_vars": "inventory/group_vars/all.yml",
+          "v": "from-50-dup.yml"
+        },
+        "json-ext": {
+          "demo_from_dir_group_vars": "inventory/group_vars/demo.yml",
+          "from_dir_group_vars": "inventory/group_vars/all.yml",
+          "src": "30-data.json"
+        },
+        "nested-yml": {
+          "demo_from_dir_group_vars": "inventory/group_vars/demo.yml",
+          "from_dir_group_vars": "inventory/group_vars/all.yml"
+        },
+        "noext": {
+          "demo_from_dir_group_vars": "inventory/group_vars/demo.yml",
+          "from_dir_group_vars": "inventory/group_vars/all.yml",
+          "from_dir_host_vars": "inventory/host_vars/noext.yml",
+          "src": "hosts"
+        },
+        "yml-ext": {
+          "demo_from_dir_group_vars": "inventory/group_vars/demo.yml",
+          "from_dir_group_vars": "inventory/group_vars/all.yml",
+          "src": "20-more.yml"
+        },
+        "zeta-upper": {
+          "demo_from_dir_group_vars": "inventory/group_vars/demo.yml",
+          "from_dir_group_vars": "inventory/group_vars/all.yml",
+          "src": "Zeta"
+        }
+      }
+    },
+    "all": {
+      "children": [
+        "ungrouped",
+        "demo"
+      ]
+    },
+    "demo": {
+      "hosts": [
+        "yml-ext",
+        "json-ext",
+        "dup",
+        "zeta-upper",
+        "noext",
+        "nested-yml"
+      ]
+    }
+  },
+  "stderr": ""
+}

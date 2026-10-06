@@ -2,6 +2,8 @@ package de.terletzkiy.ansibility.dispatch
 
 import de.terletzkiy.ansibility.api.AnsibleSite
 import de.terletzkiy.ansibility.api.FileKind
+import de.terletzkiy.ansibility.api.HostPatternSite
+import de.terletzkiy.ansibility.api.InventoryNameSite
 import de.terletzkiy.ansibility.api.JinjaContainer
 import de.terletzkiy.ansibility.api.KeywordLevel
 import de.terletzkiy.ansibility.api.RenderKind
@@ -35,6 +37,9 @@ object SitePresentation {
         is AnsibleSite.PlaybookFileRef -> AnsibilityDispatchBundle.message("site.playbook.file", site.path)
         is AnsibleSite.JinjaFilter -> AnsibilityDispatchBundle.message("site.jinja.filter", site.name)
         is AnsibleSite.JinjaTest -> AnsibilityDispatchBundle.message("site.jinja.test", site.name)
+        is HostPatternSite -> AnsibilityDispatchBundle.message("site.host.pattern", site.pattern)
+        is InventoryNameSite ->
+            AnsibilityDispatchBundle.message(if (site.isGroup) "site.inventory.group" else "site.inventory.host", site.name)
     }
 
     /**

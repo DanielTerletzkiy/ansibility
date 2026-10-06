@@ -1,0 +1,27 @@
+{
+  "ansible_core": "2.18.8",
+  "tool": "ansible-inventory",
+  "args": [
+    "-i",
+    "{project}/hosts.ini",
+    "--host",
+    "web1"
+  ],
+  "cfg": null,
+  "cwd": "cwd",
+  "env": {
+    "ANSIBLE_PRECEDENCE": "all_inventory,groups_inventory,all_plugins_inventory,groups_plugins_inventory,groups_plugins_play,all_plugins_play"
+  },
+  "rc": 0,
+  "stdout": {
+    "d": {
+      "from_web": 1,
+      "shared": "web"
+    },
+    "l": [
+      "web"
+    ],
+    "s": "web"
+  },
+  "stderr": ""
+}

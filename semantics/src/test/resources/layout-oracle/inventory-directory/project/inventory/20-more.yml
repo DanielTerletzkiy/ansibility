@@ -1,0 +1,4 @@
+demo:
+  hosts:
+    yml-ext:
+      src: 20-more.yml

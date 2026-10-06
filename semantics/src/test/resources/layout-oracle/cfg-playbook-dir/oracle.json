@@ -1,0 +1,42 @@
+{
+  "description": "[defaults] playbook_dir in ansible.cfg (type path): a relative value resolves against the cfg file's directory and acts as --playbook-dir for ansible-inventory, including --export. --playbook-dir and ANSIBLE_PLAYBOOK_DIR resolve against the cwd. ansible-config dump --only-changed does not list PLAYBOOK_DIR; the full dump does.",
+  "runs": [
+    {
+      "name": "host",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "--host",
+        "web1"
+      ]
+    },
+    {
+      "name": "list-export",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "host-cli-overrides",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "--host",
+        "web1",
+        "--playbook-dir",
+        "{project}/other"
+      ]
+    },
+    {
+      "name": "host-env-overrides",
+      "cfg": "project/ansible.cfg",
+      "env": {
+        "ANSIBLE_PLAYBOOK_DIR": "{project}/other"
+      },
+      "args": [
+        "--host",
+        "web1"
+      ]
+    }
+  ]
+}

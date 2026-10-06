@@ -1,0 +1,29 @@
+{
+  "ansible_core": "2.18.19",
+  "tool": "ansible-inventory",
+  "args": [
+    "--list",
+    "--export"
+  ],
+  "cfg": "project/ansible.cfg",
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": {
+    "_meta": {
+      "hostvars": {}
+    },
+    "all": {
+      "children": [
+        "ungrouped",
+        "demo"
+      ]
+    },
+    "demo": {
+      "hosts": [
+        "from-extra-yml"
+      ]
+    }
+  },
+  "stderr": "[WARNING]:  * Failed to parse {project}/site.yml with auto plugin: no\nroot 'plugin' key found, '{project}/site.yml' is not a valid YAML\ninventory plugin config file\n[WARNING]:  * Failed to parse {project}/site.yml with yaml plugin: YAML\ninventory has invalid structure, it should be a dictionary, got: <class\n'ansible.parsing.yaml.objects.AnsibleSequence'>\n[WARNING]:  * Failed to parse {project}/site.yml with ini plugin:\n{project}/site.yml:1: Expected key=value host variable assignment, got:\nhosts:\n[WARNING]: Unable to parse {project}/site.yml as an inventory source\n"
+}

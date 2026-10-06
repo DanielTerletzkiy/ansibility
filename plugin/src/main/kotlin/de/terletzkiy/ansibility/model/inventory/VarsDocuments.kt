@@ -56,7 +56,7 @@ object VarsDocuments {
     }
 
     /**
-     * Changes whenever the PSI of a file that can hold vars changes: YAML, JSON and plain text. Edits of other
+     * Changes whenever the PSI of a file that can hold vars changes: YAML, JSON, INI (inventories) and plain text. Edits of other
      * languages (Python, Jinja templates …) leave it alone. A coarse tracker for consumers outside the model; the
      * model caches themselves depend only on the files they read ([ModelCache]).
      */
@@ -71,7 +71,7 @@ object VarsDocuments {
 
     private fun isVarsLanguage(language: Language): Boolean =
         language.isKindOf(YAMLLanguage.INSTANCE) || language == PlainTextLanguage.INSTANCE ||
-            language.id == "JSON" || language.id == "JSON5"
+            language.id == "JSON" || language.id == "JSON5" || language.id == "Ini"
 
     private fun parseYaml(project: Project, name: String, text: String): YValue? {
         val light = PsiFileFactory.getInstance(project).createFileFromText(name, YAMLLanguage.INSTANCE, text) as? YAMLFile

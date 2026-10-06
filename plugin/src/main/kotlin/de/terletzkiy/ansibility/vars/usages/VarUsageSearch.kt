@@ -16,6 +16,7 @@ import com.intellij.util.Processor
 import de.terletzkiy.ansibility.api.AnsibleSite
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.FileContext
+import de.terletzkiy.ansibility.api.FileKind
 import de.terletzkiy.ansibility.api.SiteClassifier
 import de.terletzkiy.ansibility.api.JinjaContainer
 import de.terletzkiy.ansibility.api.SourceLocation
@@ -31,6 +32,7 @@ import de.terletzkiy.ansibility.model.task.LoopControlInfo
 import de.terletzkiy.ansibility.model.task.TaskFileModels
 import de.terletzkiy.ansibility.model.task.TaskNode
 import de.terletzkiy.ansibility.model.task.YamlFiles
+import de.terletzkiy.ansibility.resolve.InlineInventoryDefinitions
 import de.terletzkiy.ansibility.resolve.loop.LoopItemTyper
 import de.terletzkiy.ansibility.resolve.loop.TaskChains
 import de.terletzkiy.ansibility.vars.JinjaTextSites
@@ -68,6 +70,9 @@ import java.util.concurrent.Callable
 internal object VarUsageSearch {
     private const val BATCH = 64
 
+    /** argument_specs files: a nested key there is a nested option, not a member of a value. */
+    private val SPEC_KINDS = setOf(FileKind.ROLE_ARGSPEC, FileKind.ROLE_META)
+
     /** Names only a loop binds: searched in their loop, never across the root (`item` is a fifth of all uses). */
     val LOOP_ONLY_NAMES: Set<String> = setOf(LoopControlInfo.DEFAULT_LOOP_VAR, LoopItemTyper.ANSIBLE_LOOP)
 
@@ -89,6 +94,7 @@ internal object VarUsageSearch {
         val position = SiteDispatch.hostPosition(file, offset)
         val host = position.file
         val context = SiteDispatch.contextOf(host) ?: return null
+        if (context.kind == FileKind.INVENTORY_INI) return iniSymbol(host, context, position.offset)
         val caret = Caret(host, host.originalFile.viewProvider.virtualFile, context, position.offset)
         val site = variablesClassifier()?.classify(host, position.offset)
         if (site == null || site is AnsibleSite.VarRef && site.name in INDIRECTION_ROOTS) indirectSymbol(caret)?.let { return it }
@@ -98,6 +104,16 @@ internal object VarUsageSearch {
             null -> nameValueSymbol(caret) ?: bindingSymbol(caret) ?: bracedSymbol(caret)
             else -> null
         }
+    }
+
+    /** The inline variable whose key is at [offset] of an INI inventory (plan amendment R10, D65). */
+    private fun iniSymbol(file: PsiFile, context: FileContext, offset: Int): VarSymbolElement? {
+        val virtualFile = file.originalFile.viewProvider.virtualFile
+        val definition = InlineInventoryDefinitions.inFile(file.project, context.root, virtualFile).firstOrNull {
+            offset >= it.location.offset && offset <= it.location.offset + it.name.length
+        } ?: return null
+        val anchor = file.findElementAt(definition.location.offset) ?: file
+        return VarSymbolElement(anchor, context.root, definition.name, VarScope.Root(virtualFile))
     }
 
     /**
@@ -110,8 +126,10 @@ internal object VarUsageSearch {
         val virtualFile = file.originalFile.viewProvider.virtualFile
         val context = AnsibleWorkspace.getInstance(keyValue.project).contextOf(virtualFile) ?: return null
         val keySite = VarKeySites.of(keyValue, context, virtualFile) ?: return null
-        if (keySite.site.keyPath.size != 1 || keySite.variable != keyValue) return null
-        return VarSymbolElement(file, context.root, keySite.name, VarScope.Root(virtualFile))
+        val path = keySite.site.keyPath
+        if (path.size == 1 && keySite.variable == keyValue) return VarSymbolElement(file, context.root, keySite.name, VarScope.Root(virtualFile))
+        if (path.size < 2 || keySite.site.kind in SPEC_KINDS || keyValue.keyText != path.last()) return null
+        return VarSymbolElement(file, context.root, keySite.name, VarScope.Member(virtualFile, path.drop(1)))
     }
 
     /**
@@ -260,9 +278,10 @@ internal object VarUsageSearch {
     }
 
     private fun keySymbol(caret: Caret, site: AnsibleSite.VarKey): VarSymbolElement? {
-        if (site.keyPath.size != 1) return null
         val keySite = VarKeySites.at(caret.host, site.range.startOffset, caret.context) ?: return null
-        return caret.symbol(keySite.name, VarScope.Root(caret.file))
+        if (site.keyPath.size == 1) return caret.symbol(keySite.name, VarScope.Root(caret.file))
+        if (site.kind in SPEC_KINDS) return null
+        return caret.symbol(keySite.name, VarScope.Member(caret.file, site.keyPath.drop(1)))
     }
 
     /** A `register:` value (a root variable) or a `loop_control.loop_var`/`index_var` value (the task's loop variable). */

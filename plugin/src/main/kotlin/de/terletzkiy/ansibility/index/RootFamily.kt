@@ -8,6 +8,7 @@ import com.intellij.psi.search.GlobalSearchScopesCore
 import de.terletzkiy.ansibility.api.AnsibleRoot
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.FileContext
+import de.terletzkiy.ansibility.api.ProjectLayoutService
 import de.terletzkiy.ansibility.api.RootKind
 
 /**
@@ -38,7 +39,13 @@ class RootFamily internal constructor(
             val excluded = roots.filter { it.dir != root.dir && VfsUtilCore.isAncestor(root.dir, it.dir, true) }.map { it.dir } +
                 listOfNotNull(root.dir.findFileByRelativePath(WORKTREES)?.takeIf { it.isDirectory })
             val family = buildList {
-                if (root.kind == RootKind.NESTED_PLAYBOOK) root.environmentsDir?.let(::add)
+                if (root.kind == RootKind.NESTED_PLAYBOOK) {
+                    root.environmentsDir?.let(::add)
+                    for (def in ProjectLayoutService.getInstance(project).layout(root).inventories) {
+                        addAll(def.varsDirs)
+                        def.sources.mapNotNullTo(this) { it.file }
+                    }
+                }
                 addAll(root.rolesDirs)
             }.filter { dir ->
                 dir.isValid && !VfsUtilCore.isAncestor(root.dir, dir, false) &&

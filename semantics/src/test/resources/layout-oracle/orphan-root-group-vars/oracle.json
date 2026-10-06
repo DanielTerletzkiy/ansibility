@@ -1,0 +1,33 @@
+{
+  "description": "inventory/ and playbooks/ subdirectories: group_vars/ in the project root is next to neither the inventory source nor the playbook, so ansible-playbook never loads it (verified with ansible-playbook in probe 10). ansible-inventory shows it only when --playbook-dir points at the root.",
+  "runs": [
+    {
+      "name": "host-pbdir-playbooks",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "--host",
+        "web1",
+        "--playbook-dir",
+        "{project}/playbooks"
+      ]
+    },
+    {
+      "name": "host-pbdir-root",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "--host",
+        "web1",
+        "--playbook-dir",
+        "{project}"
+      ]
+    },
+    {
+      "name": "host-no-pbdir",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "--host",
+        "web1"
+      ]
+    }
+  ]
+}

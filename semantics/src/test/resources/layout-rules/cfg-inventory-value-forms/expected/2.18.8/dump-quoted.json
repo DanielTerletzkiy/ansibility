@@ -1,0 +1,42 @@
+{
+  "ansible_core": "2.18.8",
+  "tool": "ansible-config",
+  "args": [
+    "dump",
+    "--only-changed",
+    "--format",
+    "json"
+  ],
+  "cfg": "project/cfg/quoted.cfg",
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": [
+    {
+      "name": "ANSIBLE_FORCE_COLOR",
+      "origin": "env: ANSIBLE_FORCE_COLOR",
+      "value": false
+    },
+    {
+      "name": "ANSIBLE_NOCOLOR",
+      "origin": "env: ANSIBLE_NOCOLOR",
+      "value": true
+    },
+    {
+      "name": "CONFIG_FILE",
+      "origin": "",
+      "value": "{project}/cfg/quoted.cfg"
+    },
+    {
+      "name": "DEFAULT_HOST_LIST",
+      "origin": "{project}/cfg/quoted.cfg",
+      "value": [
+        "{project}/cfg/\"hosts.ini\""
+      ]
+    },
+    {
+      "GALAXY_SERVERS": {}
+    }
+  ],
+  "stderr": ""
+}

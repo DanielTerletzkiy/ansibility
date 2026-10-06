@@ -1,0 +1,26 @@
+<!-- Area fragment: project layout (plan amendment R10). Included from plugin.xml. -->
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- r10-12: Settings › Languages & Frameworks › Ansibility › Layout (F10.6). -->
+        <projectConfigurable parentId="de.terletzkiy.ansibility.settings"
+                             instance="de.terletzkiy.ansibility.settings.layout.LayoutConfigurable"
+                             id="de.terletzkiy.ansibility.settings.layout"
+                             bundle="messages.AnsibilityLayoutBundle"
+                             key="settings.layout.name"
+                             nonDefaultProject="true"/>
+        <!-- r10-12: layout diagnostics ANS-L001..L008 (X108) -->
+        <editorNotificationProvider implementation="de.terletzkiy.ansibility.context.layout.LayoutProblemBannerProvider"/>
+        <localInspection shortName="AnsibleLayoutVars" language="yaml"
+                         bundle="messages.AnsibilityLayoutBundle" key="inspection.layout.vars.name"
+                         groupPath="Ansibility" groupName="Layout"
+                         enabledByDefault="true" level="WARNING"
+                         implementationClass="de.terletzkiy.ansibility.context.layout.LayoutVarsInspection"/>
+    </extensions>
+
+    <actions resource-bundle="messages.AnsibilityLayoutBundle">
+        <!-- r10-13: Show Detected Layout (F10.7) -->
+        <action id="Ansibility.ShowLayout" class="de.terletzkiy.ansibility.context.layout.ShowLayoutAction">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+    </actions>
+</idea-plugin>

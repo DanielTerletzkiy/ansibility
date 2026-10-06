@@ -4,6 +4,7 @@ import com.intellij.openapi.application.runReadActionBlocking
 import de.terletzkiy.ansibility.api.AnsibleSite
 import de.terletzkiy.ansibility.api.FileKind
 import de.terletzkiy.ansibility.api.SiteClassifier
+import de.terletzkiy.ansibility.context.host.symbols.HostSymbolClassifier
 
 /** [VarsSiteClassifier]: variable references and structurally decided variable keys; null for everything else. */
 class VarsSiteClassifierTest : VarsTestCase() {
@@ -23,7 +24,10 @@ class VarsSiteClassifierTest : VarsTestCase() {
         site(path, line, marker, delta) as? AnsibleSite.VarKey ?: error("no VarKey at $path:$line '$marker': ${site(path, line, marker, delta)}")
 
     fun testIsRegisteredFirst() {
-        assertTrue(SiteClassifier.EP_NAME.extensionList.first() is VarsSiteClassifier)
+        // The host-symbol classifier (F8.8) precedes it; it answers only on host and group names.
+        val classifiers = SiteClassifier.EP_NAME.extensionList
+        assertTrue(classifiers[0] is HostSymbolClassifier)
+        assertTrue(classifiers[1] is VarsSiteClassifier)
     }
 
     fun testReferencesComeFromTheLocator() {

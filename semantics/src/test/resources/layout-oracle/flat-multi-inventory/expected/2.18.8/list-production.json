@@ -1,0 +1,47 @@
+{
+  "ansible_core": "2.18.8",
+  "tool": "ansible-inventory",
+  "args": [
+    "-i",
+    "{project}/production.ini",
+    "--list",
+    "--playbook-dir",
+    "{project}"
+  ],
+  "cfg": null,
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": {
+    "_meta": {
+      "hostvars": {
+        "prod-db1": {
+          "v_all": "group_vars/all.yml"
+        },
+        "prod-web1": {
+          "v_all": "group_vars/all.yml",
+          "v_host": "host_vars/prod-web1.yml",
+          "v_web": "group_vars/web.yml"
+        }
+      }
+    },
+    "all": {
+      "children": [
+        "ungrouped",
+        "web",
+        "db"
+      ]
+    },
+    "db": {
+      "hosts": [
+        "prod-db1"
+      ]
+    },
+    "web": {
+      "hosts": [
+        "prod-web1"
+      ]
+    }
+  },
+  "stderr": ""
+}

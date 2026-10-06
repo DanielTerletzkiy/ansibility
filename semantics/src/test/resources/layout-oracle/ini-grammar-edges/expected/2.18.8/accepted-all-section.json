@@ -1,0 +1,40 @@
+{
+  "ansible_core": "2.18.8",
+  "tool": "ansible-inventory",
+  "args": [
+    "-i",
+    "{project}/accepted/all-section.ini",
+    "--list",
+    "--export"
+  ],
+  "cfg": null,
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": {
+    "_meta": {
+      "hostvars": {}
+    },
+    "all": {
+      "children": [
+        "ungrouped",
+        "web"
+      ]
+    },
+    "ungrouped": {
+      "hosts": [
+        "explicit-ungrouped",
+        "listed-under-all"
+      ],
+      "vars": {
+        "u": 1
+      }
+    },
+    "web": {
+      "hosts": [
+        "h1"
+      ]
+    }
+  },
+  "stderr": ""
+}

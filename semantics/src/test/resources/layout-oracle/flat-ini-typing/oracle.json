@@ -1,0 +1,32 @@
+{
+  "description": "INI value typing. Host-line values are shlex-split (quotes removed) and then ast.literal_eval'd; :vars values are split at the first '=', stripped, and ast.literal_eval'd with their quotes intact. Neither path is 'always a string'.",
+  "runs": [
+    {
+      "name": "list-export",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "host-typed",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "--host",
+        "typed"
+      ]
+    },
+    {
+      "name": "host-h1",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "--host",
+        "h1"
+      ]
+    }
+  ],
+  "notes": [
+    "Set, Ellipsis and complex literals are left out: 2.18.8 crashes on a set ('Object of type set is not JSON serializable'), 2.21.4 turns a set into a list and '...'/'1j' into strings (see the research note)."
+  ]
+}

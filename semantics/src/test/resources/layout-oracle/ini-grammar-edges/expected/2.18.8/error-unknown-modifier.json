@@ -1,0 +1,25 @@
+{
+  "ansible_core": "2.18.8",
+  "tool": "ansible-inventory",
+  "args": [
+    "-i",
+    "{project}/errors/unknown-modifier.ini",
+    "--list",
+    "--export"
+  ],
+  "cfg": null,
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": {
+    "_meta": {
+      "hostvars": {}
+    },
+    "all": {
+      "children": [
+        "ungrouped"
+      ]
+    }
+  },
+  "stderr": "[WARNING]:  * Failed to parse {project}/errors/unknown-modifier.ini with\nini plugin: {project}/errors/unknown-modifier.ini:1: Section [web:foo]\nhas unknown type: foo\n[WARNING]: Unable to parse {project}/errors/unknown-modifier.ini as an\ninventory source\n[WARNING]: No inventory was parsed, only implicit localhost is available\n"
+}

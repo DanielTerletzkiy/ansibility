@@ -1,0 +1,25 @@
+{
+  "ansible_core": "2.18.8",
+  "tool": "ansible-inventory",
+  "args": [
+    "-i",
+    "{project}/errors/vars-without-eq.ini",
+    "--list",
+    "--export"
+  ],
+  "cfg": null,
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": {
+    "_meta": {
+      "hostvars": {}
+    },
+    "all": {
+      "children": [
+        "ungrouped"
+      ]
+    }
+  },
+  "stderr": "[WARNING]:  * Failed to parse {project}/errors/vars-without-eq.ini with\nini plugin: {project}/errors/vars-without-eq.ini:4: Expected key=value,\ngot: justaword\n[WARNING]: Unable to parse {project}/errors/vars-without-eq.ini as an\ninventory source\n[WARNING]: No inventory was parsed, only implicit localhost is available\n"
+}

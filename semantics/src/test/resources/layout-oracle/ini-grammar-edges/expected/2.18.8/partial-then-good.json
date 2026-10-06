@@ -1,0 +1,43 @@
+{
+  "ansible_core": "2.18.8",
+  "tool": "ansible-inventory",
+  "args": [
+    "-i",
+    "{project}/partial/partial.ini",
+    "-i",
+    "{project}/partial/good.ini",
+    "--list",
+    "--export"
+  ],
+  "cfg": null,
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": {
+    "_meta": {
+      "hostvars": {
+        "early1": {
+          "kept": "yes"
+        }
+      }
+    },
+    "all": {
+      "children": [
+        "ungrouped",
+        "early",
+        "demo"
+      ]
+    },
+    "demo": {
+      "hosts": [
+        "good1"
+      ]
+    },
+    "early": {
+      "hosts": [
+        "early1"
+      ]
+    }
+  },
+  "stderr": "[WARNING]:  * Failed to parse {project}/partial/partial.ini with ini\nplugin: {project}/partial/partial.ini:3: Invalid section entry: '[bad\nsection]'. Please make sure that there are no spaces in the section entry, and\nthat there are no other invalid characters\n[WARNING]: Unable to parse {project}/partial/partial.ini as an inventory\nsource\n"
+}

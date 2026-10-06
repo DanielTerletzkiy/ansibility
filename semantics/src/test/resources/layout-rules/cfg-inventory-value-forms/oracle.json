@@ -1,0 +1,315 @@
+{
+  "description": "How ansible-config resolves [defaults] inventory (DEFAULT_HOST_LIST, type pathlist) for many spellings. Each run is 'ansible-config dump --only-changed --format json' with one cfg from project/cfg/ (the cwd is a neutral empty dir); compare the DEFAULT_HOST_LIST entry (value and origin) or the error rc. Entries split on ',' and are stripped; '~', $VAR and {{CWD}} expand; relative entries resolve against the cfg file's directory; an empty entry becomes the cfg directory itself; ':' is no separator; quotes are kept; ';' starts an inline comment, '#' does not; ANSIBLE_INVENTORY replaces the cfg value and resolves against the cwd.",
+  "runs": [
+    {
+      "name": "dump-list",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/list.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--only-changed",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-colon-separator",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/colon-separator.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--only-changed",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-tilde",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/tilde.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--only-changed",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-envvar",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/envvar.cfg",
+      "env": {
+        "INVDIR": "{project}/sub"
+      },
+      "args": [
+        "dump",
+        "--only-changed",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-magic-cwd",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/magic-cwd.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--only-changed",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-dotdot",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/dotdot.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--only-changed",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-quoted",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/quoted.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--only-changed",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-semicolon-comment",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/semicolon-comment.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--only-changed",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-hash-comment",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/hash-comment.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--only-changed",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-empty",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/empty.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--only-changed",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-trailing-comma",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/trailing-comma.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--only-changed",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-host-list",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/host-list.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--only-changed",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-continuation",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/continuation.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--only-changed",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-uppercase-key",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/uppercase-key.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--only-changed",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-colon-delimiter",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/colon-delimiter.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--only-changed",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-percent",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/percent.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--only-changed",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-legacy-hostfile",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/legacy-hostfile.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--only-changed",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-dir",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/dir.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--only-changed",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-duplicate-key",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/duplicate-key.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--only-changed",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-no-section",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/no-section.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--only-changed",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-uppercase-section",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/uppercase-section.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--only-changed",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-env-overrides-cfg",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/list.cfg",
+      "env": {
+        "ANSIBLE_INVENTORY": "a.ini, b.yml"
+      },
+      "args": [
+        "dump",
+        "--only-changed",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-env-empty",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/list.cfg",
+      "env": {
+        "ANSIBLE_INVENTORY": ""
+      },
+      "args": [
+        "dump",
+        "--only-changed",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-env-host-list",
+      "tool": "ansible-config",
+      "cfg": null,
+      "env": {
+        "ANSIBLE_INVENTORY": "web1.example.test,web2.example.test"
+      },
+      "args": [
+        "dump",
+        "--only-changed",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-no-cfg-default",
+      "tool": "ansible-config",
+      "cfg": null,
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    }
+  ],
+  "notes": [
+    "dump-no-cfg-default is the full dump with an empty cfg: DEFAULT_HOST_LIST = ['/etc/ansible/hosts'].",
+    "duplicate-key, no-section: rc 5 (configparser errors abort every ansible command). uppercase-section: [DEFAULTS] is a different section, so the key is not read. legacy-hostfile: the old 'hostfile' key is not read."
+  ]
+}

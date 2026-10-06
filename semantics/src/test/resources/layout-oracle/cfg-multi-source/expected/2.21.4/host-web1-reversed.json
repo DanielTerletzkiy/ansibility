@@ -1,0 +1,23 @@
+{
+  "ansible_core": "2.21.4",
+  "tool": "ansible-inventory",
+  "args": [
+    "--host",
+    "web1"
+  ],
+  "cfg": "project/reversed.cfg",
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": {
+    "adj": "a/group_vars/all.yml",
+    "adj_a": 1,
+    "adj_b": 1,
+    "g": "from-a-web-vars",
+    "gv_web_b": "b/group_vars/web.yml",
+    "only_a": 1,
+    "only_b": 1,
+    "x": "from-a"
+  },
+  "stderr": ""
+}

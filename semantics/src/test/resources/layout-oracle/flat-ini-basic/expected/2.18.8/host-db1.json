@@ -1,0 +1,23 @@
+{
+  "ansible_core": "2.18.8",
+  "tool": "ansible-inventory",
+  "args": [
+    "--host",
+    "db1",
+    "--playbook-dir",
+    "{project}"
+  ],
+  "cfg": "project/ansible.cfg",
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": {
+    "ansible_port": 2222,
+    "datacenter": "dc1-from-group_vars",
+    "http_port": 8000,
+    "ntp_server": "ntp1.example.test",
+    "role_hint": "replica",
+    "tier": "base"
+  },
+  "stderr": ""
+}

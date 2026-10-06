@@ -1,0 +1,25 @@
+{
+  "ansible_core": "2.18.8",
+  "tool": "ansible-inventory",
+  "args": [
+    "-i",
+    "{project}/errors/vars-undefined.ini",
+    "--list",
+    "--export"
+  ],
+  "cfg": null,
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": {
+    "_meta": {
+      "hostvars": {}
+    },
+    "all": {
+      "children": [
+        "ungrouped"
+      ]
+    }
+  },
+  "stderr": "[WARNING]:  * Failed to parse {project}/errors/vars-undefined.ini with\nini plugin: {project}/errors/vars-undefined.ini:1: Section\n[nosuchgroup:vars] not valid for undefined group: nosuchgroup\n[WARNING]: Unable to parse {project}/errors/vars-undefined.ini as an\ninventory source\n[WARNING]: No inventory was parsed, only implicit localhost is available\n"
+}

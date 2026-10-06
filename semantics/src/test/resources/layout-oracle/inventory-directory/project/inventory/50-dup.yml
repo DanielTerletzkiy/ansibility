@@ -1,0 +1,4 @@
+demo:
+  hosts:
+    dup:
+      v: from-50-dup.yml

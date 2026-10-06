@@ -1,0 +1,108 @@
+{
+  "ansible_core": "2.21.4",
+  "tool": "ansible-inventory",
+  "args": [
+    "--list",
+    "--export"
+  ],
+  "cfg": "project/ansible.cfg",
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": {
+    "_meta": {
+      "hostvars": {
+        "typed": {
+          "i_None": null,
+          "i_True": true,
+          "i_backslash": "ab",
+          "i_bool_list": "[True,false]",
+          "i_bytes": "babc",
+          "i_colon": "a:b",
+          "i_dict": "{a:1}",
+          "i_dict_dq": {
+            "a": 1
+          },
+          "i_dq": 5,
+          "i_empty": "",
+          "i_eq": "a=b",
+          "i_exp": 1000.0,
+          "i_float": 1.5,
+          "i_hash_quoted": "a#b",
+          "i_hex": 16,
+          "i_int": 5,
+          "i_jinja": "{{ x }}",
+          "i_lead0": "010",
+          "i_list": [
+            1,
+            2
+          ],
+          "i_list_str": [
+            "a",
+            "b"
+          ],
+          "i_neg": -3,
+          "i_nested": "5",
+          "i_none": "none",
+          "i_padded": " padded ",
+          "i_semicolon": "a;b",
+          "i_space": "hello world",
+          "i_sq": 5,
+          "i_true": "true",
+          "i_tuple": [
+            1,
+            2
+          ],
+          "i_us": 1000,
+          "i_yes": "yes"
+        }
+      },
+      "profile": "inventory_legacy"
+    },
+    "all": {
+      "children": [
+        "ungrouped",
+        "holder"
+      ]
+    },
+    "holder": {
+      "hosts": [
+        "h1"
+      ],
+      "vars": {
+        "v_FALSE": "FALSE",
+        "v_None": null,
+        "v_True": true,
+        "v_colon": "a:b",
+        "v_dict": {
+          "a": 1
+        },
+        "v_dq": "5",
+        "v_dq_space": "hello world",
+        "v_empty": "",
+        "v_eq": "a=b",
+        "v_float": 1.5,
+        "v_hash_int": 5,
+        "v_hash_str": "abc # not a comment",
+        "v_int": 5,
+        "v_jinja": "{{ x }}",
+        "v_lead0": "010",
+        "v_list": [
+          1,
+          2
+        ],
+        "v_semicolon": "abc ; not a comment",
+        "v_space": "hello world",
+        "v_spaced_eq": "spaced",
+        "v_sq": "5",
+        "v_yes": "yes"
+      }
+    },
+    "ungrouped": {
+      "hosts": [
+        "typed"
+      ]
+    }
+  },
+  "stderr": ""
+}

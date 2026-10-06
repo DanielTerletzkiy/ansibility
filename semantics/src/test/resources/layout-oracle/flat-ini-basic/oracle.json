@@ -1,0 +1,61 @@
+{
+  "description": "Flat layout: ansible.cfg, one INI inventory, group_vars/ and host_vars/ all in the project root, which is also the playbook dir. Covers ungrouped hosts, ranges, ports, :children, :vars, a directory-form group_vars entry, and the precedence quirks of a flat root (group_vars/all beats [web:vars]; inline host vars beat group_vars; host_vars beat inline host vars).",
+  "runs": [
+    {
+      "name": "list-export",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "list",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "--list"
+      ]
+    },
+    {
+      "name": "list-pbdir",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "--list",
+        "--playbook-dir",
+        "{project}"
+      ]
+    },
+    {
+      "name": "host-web-a",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "--host",
+        "web-a",
+        "--playbook-dir",
+        "{project}"
+      ]
+    },
+    {
+      "name": "host-db1",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "--host",
+        "db1",
+        "--playbook-dir",
+        "{project}"
+      ]
+    },
+    {
+      "name": "graph",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "--graph"
+      ]
+    }
+  ],
+  "notes": [
+    "list and list-pbdir are identical: the inventory dir is the playbook dir, so the same group_vars load at both the inventory and the playbook level.",
+    "tier: group_vars/all.yml (all_plugins_inventory) is applied after [web:vars] (groups_inventory), so web hosts get 'base', not 'frontend'.",
+    "db1 keeps ansible_port 2222 from its first appearance (web) although it is listed again under [db]."
+  ]
+}

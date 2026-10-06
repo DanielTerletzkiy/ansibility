@@ -1,0 +1,66 @@
+{
+  "ansible_core": "2.21.4",
+  "tool": "ansible-inventory",
+  "args": [
+    "--list",
+    "--export"
+  ],
+  "cfg": "project/ansible.cfg",
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": {
+    "_meta": {
+      "hostvars": {
+        "dup": {
+          "v": "from-50-dup.yml"
+        },
+        "ini-ext": {
+          "src": "10-static.ini"
+        },
+        "json-ext": {
+          "src": "30-data.json"
+        },
+        "nested": {
+          "src": "nested/40-nested.ini"
+        },
+        "noext": {
+          "from_dir_host_vars": "inventory/host_vars/noext.yml",
+          "src": "hosts"
+        },
+        "yml-ext": {
+          "src": "20-more.yml"
+        },
+        "zeta-upper": {
+          "src": "Zeta"
+        }
+      },
+      "profile": "inventory_legacy"
+    },
+    "all": {
+      "children": [
+        "ungrouped",
+        "demo"
+      ],
+      "vars": {
+        "from_dir_group_vars": "inventory/group_vars/all.yml"
+      }
+    },
+    "demo": {
+      "hosts": [
+        "dup",
+        "ini-ext",
+        "yml-ext",
+        "json-ext",
+        "zeta-upper",
+        "noext",
+        "nested",
+        "nested-yml"
+      ],
+      "vars": {
+        "demo_from_dir_group_vars": "inventory/group_vars/demo.yml"
+      }
+    }
+  },
+  "stderr": ""
+}

@@ -24,7 +24,9 @@ import de.terletzkiy.ansibility.index.DefEntry
 import de.terletzkiy.ansibility.index.DefSite
 import de.terletzkiy.ansibility.index.LiteralType
 import de.terletzkiy.ansibility.index.VarDefIndex
+import de.terletzkiy.ansibility.model.inventory.VarsDocuments
 import de.terletzkiy.ansibility.model.role.RoleLayout
+import de.terletzkiy.ansibility.resolve.InlineInventoryDefinitions
 import org.jetbrains.yaml.YAMLLanguage
 import java.util.concurrent.ConcurrentHashMap
 
@@ -96,6 +98,7 @@ internal class JinjaNameCatalogs(private val project: Project) {
                         AnsibleWorkspace.getInstance(project).structureTracker,
                         indexStamp,
                         PsiModificationTracker.getInstance(project).forLanguage(YAMLLanguage.INSTANCE),
+                        VarsDocuments.tracker(project),
                         ProjectRootManager.getInstance(project),
                     )
                 },
@@ -150,6 +153,14 @@ internal class JinjaNameCatalogs(private val project: Project) {
             for ((name, entry) in entriesOf(file)) {
                 if (entry.site != DefSite.INVENTORY_KEY && entry.site != DefSite.INVENTORY_INLINE) continue
                 inventory.getOrPut(name) { ArrayList(2) } += catalogEntry(name, CatalogSite.INVENTORY, null, environment, file, entry)
+            }
+        }
+        for (name in InlineInventoryDefinitions.names(project, root)) {
+            for (definition in InlineInventoryDefinitions.of(project, root, name)) {
+                inventory.getOrPut(name) { ArrayList(2) } += CatalogEntry(
+                    name, CatalogSite.INVENTORY, null, definition.environment, definition.location, definition.preview,
+                    LiteralType.NONE, definition.valueShape, null,
+                )
             }
         }
         inventory.values.forEach { list -> list.sortWith(compareBy({ it.location.file.path }, { it.location.offset })) }

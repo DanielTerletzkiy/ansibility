@@ -40,7 +40,7 @@ data class AnsibleRoot(
 /** The kind of an Ansible file, computed at query time from its path and the root structure (never in indexers). */
 enum class FileKind {
     ROLE_TASKS, ROLE_HANDLERS, ROLE_DEFAULTS, ROLE_VARS, ROLE_ARGSPEC, ROLE_META, ROLE_TEMPLATE, ROLE_FILE,
-    PLAYBOOK, INVENTORY, GROUP_VARS, HOST_VARS,
+    PLAYBOOK, INVENTORY, INVENTORY_INI, GROUP_VARS, HOST_VARS,
     MOLECULE_CONFIG, MOLECULE_PLAYBOOK, MOLECULE_TASKS, MOLECULE_VARS,
     ANSIBLE_CFG, LINT_CONFIG, REQUIREMENTS,
     OTHER,
@@ -88,6 +88,13 @@ data class FileContext(
     val layer: VarsLayer? = null,
     /** For molecule files: the scenario directory. */
     val moleculeScenarioDir: VirtualFile? = null,
+    /**
+     * Every environment the file belongs to: [environment] when there is one, more when one vars directory serves
+     * several inventories (`inventory/prod.ini` and `inventory/stage.ini` share `inventory/group_vars`).
+     */
+    val environments: List<String> = listOfNotNull(environment),
+    /** For a vars directory that is both inventory-level and the playbook directory: the playbook layer too (D57). */
+    val playbookLayer: VarsLayer? = null,
 )
 
 /** Project service owning root detection and file classification (implemented in `context`). */

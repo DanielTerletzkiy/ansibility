@@ -1,0 +1,15 @@
+{
+  "ansible_core": "2.21.4",
+  "tool": "ansible-config",
+  "args": [
+    "dump",
+    "--format",
+    "json"
+  ],
+  "cfg": "project/cfg/yaml-ext.yml",
+  "cwd": "cwd",
+  "env": {},
+  "rc": 5,
+  "stdout": "",
+  "stderr": "ERROR: Unsupported configuration file type: yaml"
+}

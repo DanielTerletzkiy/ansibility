@@ -7,6 +7,7 @@ import de.terletzkiy.ansibility.api.FileKind
 import de.terletzkiy.ansibility.api.Inventory
 import de.terletzkiy.ansibility.api.InventoryService
 import de.terletzkiy.ansibility.api.MoleculeInventory
+import de.terletzkiy.ansibility.api.ProjectLayoutService
 import de.terletzkiy.ansibility.api.VarFile
 
 /**
@@ -28,6 +29,9 @@ class InventoryServiceImpl(private val project: Project) : InventoryService {
     private val models: InventoryModels get() = InventoryModels.getInstance(project)
 
     override fun inventories(root: AnsibleRoot): List<Inventory> = models.environments(root).map { it.inventory }
+
+    override fun hasInventory(root: AnsibleRoot): Boolean =
+        root.environmentsDir != null || ProjectLayoutService.getInstance(project).layout(root).hasInventory
 
     override fun playbookVarFiles(root: AnsibleRoot): List<VarFile> = models.playbookVarFiles(root, root.dir)
 

@@ -1,0 +1,15 @@
+{
+  "ansible_core": "2.18.8",
+  "tool": "ansible-config",
+  "args": [
+    "dump",
+    "--format",
+    "json"
+  ],
+  "cfg": "project/cfg/emptykey.cfg",
+  "cwd": "cwd",
+  "env": {},
+  "rc": 5,
+  "stdout": "",
+  "stderr": "ERROR: Error reading config file ({project}/cfg/emptykey.cfg): Source contains parsing errors: '<string>'\n\t[line  2]: '= hosts.ini\\n'"
+}

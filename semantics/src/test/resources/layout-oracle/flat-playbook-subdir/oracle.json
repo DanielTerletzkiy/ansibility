@@ -1,0 +1,38 @@
+{
+  "description": "Flat root inventory (hosts.ini, group_vars/, host_vars/ at the root) with playbooks in playbooks/ that have their own group_vars/. The root group_vars are inventory-adjacent (L4/L6) for every playbook; playbooks/group_vars are playbook-level (L5/L7) only for playbooks in playbooks/.",
+  "runs": [
+    {
+      "name": "host-pbdir-playbooks",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "--host",
+        "web1",
+        "--playbook-dir",
+        "{project}/playbooks"
+      ]
+    },
+    {
+      "name": "host-pbdir-root",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "--host",
+        "web1",
+        "--playbook-dir",
+        "{project}"
+      ]
+    },
+    {
+      "name": "list-export-pbdir-playbooks",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "--list",
+        "--export",
+        "--playbook-dir",
+        "{project}/playbooks"
+      ]
+    }
+  ],
+  "notes": [
+    "ansible-playbook playbooks/site.yml gives host-pbdir-playbooks (research probe 07, layout A)."
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "ansible_core": "2.18.8",
+  "tool": "ansible-config",
+  "args": [
+    "dump",
+    "--format",
+    "json"
+  ],
+  "cfg": "project/cfg/bom.cfg",
+  "cwd": "cwd",
+  "env": {},
+  "rc": 5,
+  "stdout": "",
+  "stderr": "ERROR: Error reading config file ({project}/cfg/bom.cfg): File contains no section headers.\nfile: '<string>', line: 1\n'\\ufeff[defaults]\\n'"
+}

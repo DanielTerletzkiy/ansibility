@@ -1,0 +1,15 @@
+{
+  "ansible_core": "2.19.0",
+  "tool": "ansible-inventory",
+  "args": [
+    "-i",
+    "web1.example.test,web2.example.test",
+    "--graph"
+  ],
+  "cfg": null,
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": "@all:\n  |--@ungrouped:\n  |  |--web1.example.test\n  |  |--web2.example.test\n",
+  "stderr": ""
+}

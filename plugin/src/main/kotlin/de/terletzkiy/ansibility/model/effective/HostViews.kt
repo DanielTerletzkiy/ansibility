@@ -112,7 +112,7 @@ class EnvironmentViews internal constructor(
  */
 @Service(Service.Level.PROJECT)
 class HostViews(private val project: Project) {
-    private data class Key(val environmentDir: VirtualFile, val cfgFile: VirtualFile?, val playbookDir: VirtualFile?)
+    private data class Key(val environment: String, val environmentDir: VirtualFile, val cfgFile: VirtualFile?, val playbookDir: VirtualFile?)
 
     private val cache = ModelCache<Key, EnvironmentViews>(project, CACHE_NAME, maxSize = MAX_ENTRIES)
 
@@ -143,20 +143,20 @@ class HostViews(private val project: Project) {
     }
 
     private fun views(root: AnsibleRoot, model: EnvironmentModel, playbookDir: VirtualFile?): EnvironmentViews {
-        val key = Key(model.dir, VarsConfig.cfgFile(root), playbookDir?.takeIf { isInFamily(root, it) && it.isValid && it.isDirectory })
+        val key = Key(model.name, model.dir, VarsConfig.cfgFile(root), playbookDir?.takeIf { isInFamily(root, it) && it.isValid && it.isDirectory })
         return cache.get(key) { compute(root, key) }
     }
 
     private fun compute(root: AnsibleRoot, key: Key): EnvironmentViews {
         // Read through the cache again so the entry depends on the environment's model entry (its hosts.yml).
-        val model = models.environment(root, key.environmentDir.name) ?: return EnvironmentViews(key.environmentDir.name, emptyMap(), emptyList())
+        val model = models.environment(root, key.environment) ?: return EnvironmentViews(key.environment, emptyMap(), emptyList())
         val config = VarsConfig.load(key.cfgFile)
         val origins = HashMap<String, SourceOrigin>()
         fun origin(file: VirtualFile): String = file.url.also { origins[it] = SourceOrigin(file) }
 
         val sources = ArrayList<VarSource>()
-        sources += InventoryVarSources.inline(model.graph) { origin(model.hostsFile) }
-        sources += adjacent(model.graph, model.dir, playbookAdjacent = false, config, ::origin)
+        sources += InventoryVarSources.inline(model.graph) { index -> origin(model.sourceFiles.getOrNull(index) ?: model.hostsFile) }
+        for (dir in model.varsDirs) sources += adjacent(model.graph, dir, playbookAdjacent = false, config, ::origin)
         if (key.playbookDir != null) sources += adjacent(model.graph, key.playbookDir, playbookAdjacent = true, config, ::origin)
         val engine = PrecedenceEngine(config.hashBehaviour, config.precedence)
         val views = LinkedHashMap<String, HostView>()

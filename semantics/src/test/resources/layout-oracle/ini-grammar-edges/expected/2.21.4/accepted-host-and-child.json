@@ -1,0 +1,44 @@
+{
+  "ansible_core": "2.21.4",
+  "tool": "ansible-inventory",
+  "args": [
+    "-i",
+    "{project}/accepted/host-and-child.ini",
+    "--list",
+    "--export"
+  ],
+  "cfg": null,
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": {
+    "_meta": {
+      "hostvars": {
+        "h1": {
+          "x": 1
+        }
+      },
+      "profile": "inventory_legacy"
+    },
+    "all": {
+      "children": [
+        "ungrouped",
+        "web"
+      ]
+    },
+    "db": {
+      "hosts": [
+        "h1"
+      ]
+    },
+    "web": {
+      "children": [
+        "db"
+      ],
+      "hosts": [
+        "h1"
+      ]
+    }
+  },
+  "stderr": ""
+}

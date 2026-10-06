@@ -1,5 +1,6 @@
 package de.terletzkiy.ansibility.refactoring
 
+import com.intellij.ide.TitledHandler
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.application.ApplicationManager
@@ -35,10 +36,10 @@ import de.terletzkiy.ansibility.navigation.RoleLocator
 import de.terletzkiy.ansibility.navigation.RoleSite
 import de.terletzkiy.ansibility.vars.usages.VarScope
 import de.terletzkiy.ansibility.vars.usages.VarSymbolElement
+import java.util.concurrent.Callable
 import org.jetbrains.yaml.YAMLUtil
 import org.jetbrains.yaml.psi.YAMLFile
 import org.jetbrains.yaml.psi.YAMLScalar
-import java.util.concurrent.Callable
 
 /**
  * Rename of a role: its directory, every reference that resolves to it the way ansible-core looks roles up (a play's
@@ -146,7 +147,10 @@ internal object RoleRenamer {
 }
 
 /** Shift+F6 on a role reference, or on a role's directory in the project view. */
-class RoleRenameHandler : RenameHandler {
+class RoleRenameHandler : RenameHandler, TitledHandler {
+    /** The entry in the platform's chooser when "Rename directory" is offered too. */
+    override fun getActionTitle(): String = AnsibilityRefactoringBundle.message("rename.role.action")
+
     override fun isAvailableOnDataContext(dataContext: DataContext): Boolean = roleDir(dataContext) != null
 
     override fun invoke(project: Project, editor: Editor, file: PsiFile, dataContext: DataContext) {

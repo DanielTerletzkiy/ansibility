@@ -1,0 +1,324 @@
+{
+  "description": "INI grammar edge cases. errors/*: files the ini plugin rejects (stdout is the empty inventory, stderr warns; rc stays 0 unless unparsed_is_failed). accepted/*: unusual but valid files. partial/*: a file that fails half-way still leaks the groups and hosts it added before the error once any other source parses.",
+  "runs": [
+    {
+      "name": "error-child-cycle",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/errors/child-cycle.ini",
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "error-child-undefined",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/errors/child-undefined.ini",
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "error-vars-undefined",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/errors/vars-undefined.ini",
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "error-section-space",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/errors/section-space.ini",
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "error-section-semicolon-comment",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/errors/section-semicolon-comment.ini",
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "error-host-semicolon-comment",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/errors/host-semicolon-comment.ini",
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "error-host-token-without-eq",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/errors/host-token-without-eq.ini",
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "error-child-semicolon-comment",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/errors/child-semicolon-comment.ini",
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "error-child-with-vars",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/errors/child-with-vars.ini",
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "error-vars-without-eq",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/errors/vars-without-eq.ini",
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "error-unbalanced-quote",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/errors/unbalanced-quote.ini",
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "error-host-trailing-colon",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/errors/host-trailing-colon.ini",
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "error-yaml-in-ini",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/errors/yaml-in-ini.ini",
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "error-yaml-doc-start-in-ini",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/errors/yaml-doc-start-in-ini.ini",
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "error-unknown-modifier",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/errors/unknown-modifier.ini",
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "accepted-section-hash-comments",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/accepted/section-hash-comments.ini",
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "accepted-section-hosts-tag",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/accepted/section-hosts-tag.ini",
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "accepted-indented",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/accepted/indented.ini",
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "accepted-group-named-like-host",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/accepted/group-named-like-host.ini",
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "accepted-all-section",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/accepted/all-section.ini",
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "accepted-late-declarations",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/accepted/late-declarations.ini",
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "accepted-ranges",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/accepted/ranges.ini",
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "accepted-dup-host-ports",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/accepted/dup-host-ports.ini",
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "accepted-group-names",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/accepted/group-names.ini",
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "accepted-empty",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/accepted/empty.ini",
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "accepted-comments-only",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/accepted/comments-only.ini",
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "accepted-hash-mid-token",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/accepted/hash-mid-token.ini",
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "accepted-duplicate-keys",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/accepted/duplicate-keys.ini",
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "accepted-host-and-child",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/accepted/host-and-child.ini",
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "partial-alone",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/partial/partial.ini",
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "partial-then-good",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/partial/partial.ini",
+        "-i",
+        "{project}/partial/good.ini",
+        "--list",
+        "--export"
+      ]
+    }
+  ],
+  "notes": [
+    "Error texts differ between versions; compare rc and stdout, and treat stderr as informative.",
+    "backwards[3:1] expands to no host (no error); web[1:02] is not zero-padded (the start decides).",
+    "hash-mid-token: host lines are split with shlex(comments=True), so an unquoted '#' starts a comment even inside a token: 'h1 x=a#b y=1' gives x='a' and drops y; a quoted '#' is kept.",
+    "duplicate-keys: the last assignment wins (inline and :vars); variable names are case-sensitive.",
+    "partial-then-good: the reconcile step after a successful source also adopts the groups of the failed file."
+  ]
+}

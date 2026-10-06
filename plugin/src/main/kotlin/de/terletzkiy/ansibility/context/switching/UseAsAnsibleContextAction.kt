@@ -92,6 +92,6 @@ class UseAsAnsibleContextAction : DumbAwareAction() {
             }
         }
 
-        private val INVENTORY_KINDS = setOf(FileKind.INVENTORY, FileKind.GROUP_VARS, FileKind.HOST_VARS)
+        private val INVENTORY_KINDS = setOf(FileKind.INVENTORY, FileKind.INVENTORY_INI, FileKind.GROUP_VARS, FileKind.HOST_VARS)
     }
 }

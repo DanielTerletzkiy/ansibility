@@ -158,7 +158,7 @@ class VaultValueActions(private val project: Project, private val scope: Corouti
         val choices = choices(config)
         if (choices.isEmpty()) return VaultUiFeedback.failure(project, editor, VaultFailure.NO_IDENTITY)
         val warnings = encryptWarnings(ref)
-        val label = when (val choice = encryptChoice(ref.root, ref.environment, ref.file, config, choices.map { it.label })) {
+        val label = when (val choice = encryptChoice(ref.root, ref.environments, ref.file, config, choices.map { it.label })) {
             is EncryptIdentity.Choice.Chosen ->
                 if (warnings.isEmpty()) choice.label
                 else VaultActionPrompts.getInstance().confirmEncrypt(project, VaultEncryptRequest(ref.keyName, warnings, choices.filter { it.label == choice.label }, choice.label))
@@ -349,10 +349,10 @@ class VaultValueActions(private val project: Project, private val scope: Corouti
         config.identities.distinctBy { it.label }.map { VaultIdentityChoice(it.label, it.lockState) }
 
     /** Ansible's encrypt-id rule with the env → id mapping and the neighbouring values' labels (F7.9). */
-    internal fun encryptChoice(root: AnsibleRoot, environment: String?, file: VirtualFile, config: VaultRootConfig, labels: List<String>): EncryptIdentity.Choice {
-        val mapped = environment?.let {
+    internal fun encryptChoice(root: AnsibleRoot, environments: List<String>, file: VirtualFile, config: VaultRootConfig, labels: List<String>): EncryptIdentity.Choice {
+        val mapped = environments.takeIf { it.isNotEmpty() }?.let {
             val rootKey = VaultIdentityRegistry.getInstance(project).discovery(root).rootKey
-            VaultProjectSettings.getInstance(project).rootSettings(rootKey).identityForEnvironment(it)
+            VaultProjectSettings.getInstance(project).rootSettings(rootKey).identityForEnvironments(it)
         }
         val neighbours = runReadActionBlocking {
             val psi = PsiManager.getInstance(project).findFile(file) ?: return@runReadActionBlocking emptyList()
@@ -375,6 +375,12 @@ class VaultValueActions(private val project: Project, private val scope: Corouti
             }?.let { warnings += message("encrypt.warning.type", it) }
         }
         if (VaultValueText.isTemplated(ref.value)) warnings += message("encrypt.warning.jinja")
+        if (ref.environments.size > 1) {
+            val rootKey = VaultIdentityRegistry.getInstance(project).discovery(ref.root).rootKey
+            if (VaultProjectSettings.getInstance(project).rootSettings(rootKey).mappingsDiffer(ref.environments)) {
+                warnings += message("encrypt.warning.environments", ref.environments.joinToString(", "))
+            }
+        }
         return warnings
     }
 

@@ -1,0 +1,13 @@
+{
+  "ansible_core": "2.21.4",
+  "tool": "ansible-inventory",
+  "args": [
+    "--graph"
+  ],
+  "cfg": null,
+  "cwd": "project",
+  "env": {},
+  "rc": 0,
+  "stdout": "@all:\n  |--@ungrouped:\n",
+  "stderr": "[WARNING]: No inventory was parsed, only implicit localhost is available\n"
+}

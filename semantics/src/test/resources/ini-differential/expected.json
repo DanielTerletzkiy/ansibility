@@ -1,0 +1,1685 @@
+{
+ "ansible_core": "2.21.4",
+ "cases": {
+  "quotes": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {
+      "h1": {
+       "x": "a b",
+       "y": "c d",
+       "z": "e f"
+      }
+     },
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "web"
+     ]
+    },
+    "web": {
+     "hosts": [
+      "h1"
+     ]
+    }
+   }
+  },
+  "comment-host": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {
+      "h1": {
+       "x": 1
+      }
+     },
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h2"
+     ]
+    },
+    "ungrouped": {
+     "hosts": [
+      "h1"
+     ]
+    }
+   }
+  },
+  "range-vars": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {
+      "h1": {
+       "x": [
+        1,
+        2
+       ]
+      },
+      "h2": {
+       "x": [
+        1,
+        2
+       ]
+      },
+      "h3": {
+       "x": [
+        1,
+        2
+       ]
+      }
+     },
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h1",
+      "h2",
+      "h3"
+     ]
+    }
+   }
+  },
+  "nested-dict": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {
+      "h1": {
+       "x": {
+        "a": [
+         1,
+         [
+          2,
+          3
+         ]
+        ]
+       }
+      }
+     },
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h1"
+     ]
+    }
+   }
+  },
+  "vars-dup-dict-key": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {},
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h"
+     ],
+     "vars": {
+      "x": {
+       "a": 2
+      }
+     }
+    }
+   }
+  },
+  "vars-empty-key": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {},
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h"
+     ],
+     "vars": {
+      "": 5
+     }
+    }
+   }
+  },
+  "priority": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {},
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g",
+      "h"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h1"
+     ],
+     "vars": {
+      "ansible_group_priority": 5
+     }
+    },
+    "h": {
+     "hosts": [
+      "h1"
+     ]
+    }
+   }
+  },
+  "children-then-vars": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {},
+     "profile": "inventory_legacy"
+    },
+    "a": {
+     "children": [
+      "b"
+     ],
+     "vars": {
+      "k": 1
+     }
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "a"
+     ]
+    },
+    "b": {
+     "hosts": [
+      "h1"
+     ]
+    }
+   }
+  },
+  "tabs": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {},
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "web",
+      "db"
+     ]
+    },
+    "db": {
+     "hosts": [
+      "db1"
+     ]
+    },
+    "web": {
+     "hosts": [
+      "web1"
+     ]
+    }
+   }
+  },
+  "header-twice": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {},
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "web"
+     ]
+    },
+    "web": {
+     "hosts": [
+      "h1"
+     ]
+    }
+   }
+  },
+  "port-first-line-wins": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {
+      "h1": {
+       "ansible_port": 22,
+       "x": 1
+      }
+     },
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h1"
+     ]
+    }
+   }
+  },
+  "ipv4-range": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {},
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "192.0.2.1",
+      "192.0.2.2",
+      "192.0.2.3"
+     ]
+    }
+   }
+  },
+  "alpha-step": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {},
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "weba",
+      "webc",
+      "webe"
+     ]
+    }
+   }
+  },
+  "width-mismatch": {
+   "rc": 0,
+   "failed": true,
+   "stdout": {
+    "_meta": {
+     "hostvars": {},
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped"
+     ]
+    }
+   }
+  },
+  "escaped-quote": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {
+      "h1": {
+       "x": "\"y"
+      }
+     },
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h1"
+     ]
+    }
+   }
+  },
+  "dq-escape": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {
+      "h1": {
+       "x": "a\"b"
+      }
+     },
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h1"
+     ]
+    }
+   }
+  },
+  "sq-unbalanced": {
+   "rc": 0,
+   "failed": true,
+   "stdout": {
+    "_meta": {
+     "hostvars": {},
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped"
+     ]
+    }
+   }
+  },
+  "vars-unterminated": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {},
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h"
+     ],
+     "vars": {
+      "x": "\"unterminated"
+     }
+    }
+   }
+  },
+  "vars-multiline": {
+   "rc": 0,
+   "failed": true,
+   "stdout": {
+    "_meta": {
+     "hostvars": {},
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped"
+     ]
+    }
+   }
+  },
+  "empty-section": {
+   "rc": 0,
+   "failed": true,
+   "stdout": {
+    "_meta": {
+     "hostvars": {},
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped"
+     ]
+    }
+   }
+  },
+  "colon-only": {
+   "rc": 0,
+   "failed": true,
+   "stdout": {
+    "_meta": {
+     "hostvars": {},
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped"
+     ]
+    }
+   }
+  },
+  "double-tag": {
+   "rc": 0,
+   "failed": true,
+   "stdout": {
+    "_meta": {
+     "hostvars": {},
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped"
+     ]
+    }
+   }
+  },
+  "trailing-junk": {
+   "rc": 0,
+   "failed": true,
+   "stdout": {
+    "_meta": {
+     "hostvars": {},
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped"
+     ]
+    }
+   }
+  },
+  "upper-tag": {
+   "rc": 0,
+   "failed": true,
+   "stdout": {
+    "_meta": {
+     "hostvars": {},
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped"
+     ]
+    }
+   }
+  },
+  "case-groups": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "G": {
+     "hosts": [
+      "h1"
+     ]
+    },
+    "_meta": {
+     "hostvars": {
+      "h1": {
+       "a": 1,
+       "b": 2
+      }
+     },
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g",
+      "G"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h1"
+     ]
+    }
+   }
+  },
+  "numbers": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {
+      "h1": {
+       "t": 3,
+       "u": 0,
+       "v": 5.0,
+       "w": 0.5,
+       "x": 15,
+       "y": 3,
+       "z": 0.001
+      }
+     },
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h1"
+     ]
+    }
+   }
+  },
+  "names": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {
+      "h1": {
+       "w": "Ellipsis",
+       "x": true,
+       "y": false,
+       "z": null
+      }
+     },
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h1"
+     ]
+    }
+   }
+  },
+  "unicode-escape": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {
+      "h1": {
+       "x": "\\u00e9",
+       "y": "\u00e9"
+      }
+     },
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h1"
+     ]
+    }
+   }
+  },
+  "unicode-host": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {
+      "h\u00f6st": {
+       "x": 1
+      }
+     },
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h\u00f6st"
+     ]
+    }
+   }
+  },
+  "host-and-group-var": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {
+      "h1": {
+       "x": 1
+      }
+     },
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h1"
+     ],
+     "vars": {
+      "x": 2
+     }
+    }
+   }
+  },
+  "ungrouped-cleanup": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {},
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h1"
+     ]
+    }
+   }
+  },
+  "all-vars": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {},
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ],
+     "vars": {
+      "x": 1
+     }
+    },
+    "g": {
+     "hosts": [
+      "h1"
+     ]
+    }
+   }
+  },
+  "ungrouped-child": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {},
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "children": [
+      "ungrouped"
+     ]
+    }
+   }
+  },
+  "self-child": {
+   "rc": 0,
+   "failed": true,
+   "stdout": {
+    "_meta": {
+     "hostvars": {},
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped"
+     ]
+    }
+   }
+  },
+  "cycle3": {
+   "rc": 0,
+   "failed": true,
+   "stdout": {
+    "_meta": {
+     "hostvars": {},
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped"
+     ]
+    }
+   }
+  },
+  "empty-var-name": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {
+      "h1": {
+       "": 2,
+       "x": 1
+      }
+     },
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h1"
+     ]
+    }
+   }
+  },
+  "quoted-token": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {
+      "h1": {
+       "x": 1
+      }
+     },
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h1"
+     ]
+    }
+   }
+  },
+  "space-host": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {
+      "h 1": {
+       "x": 1
+      }
+     },
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h 1"
+     ]
+    }
+   }
+  },
+  "bad-port": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {},
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h1:abc"
+     ]
+    }
+   }
+  },
+  "port-zero": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {},
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h1"
+     ]
+    }
+   }
+  },
+  "ipv6-bracket": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {
+      "::1": {
+       "ansible_port": 22
+      }
+     },
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "::1"
+     ]
+    }
+   }
+  },
+  "ipv6-bare": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {},
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "::1"
+     ]
+    }
+   }
+  },
+  "crlf": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {
+      "h1": {
+       "x": 1
+      }
+     },
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g",
+      "h"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h1"
+     ]
+    },
+    "h": {
+     "hosts": [
+      "h2"
+     ]
+    }
+   }
+  },
+  "jinja-quoted": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {
+      "h1": {
+       "ansible_host": "{{ lookup('env','X') }}"
+      }
+     },
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h1"
+     ]
+    }
+   }
+  },
+  "child-host-name": {
+   "rc": 0,
+   "failed": true,
+   "stdout": {
+    "_meta": {
+     "hostvars": {},
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped"
+     ]
+    }
+   }
+  },
+  "vars-before-children-ref": {
+   "rc": 0,
+   "failed": true,
+   "stdout": {
+    "_meta": {
+     "hostvars": {},
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped"
+     ]
+    }
+   }
+  },
+  "late-children-chain": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {},
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "x"
+     ]
+    },
+    "x": {
+     "children": [
+      "y"
+     ]
+    },
+    "y": {
+     "children": [
+      "z"
+     ]
+    },
+    "z": {
+     "hosts": [
+      "h1"
+     ]
+    }
+   }
+  },
+  "comment-semicolon-vars": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {},
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h"
+     ],
+     "vars": {
+      "k": "v"
+     }
+    }
+   }
+  },
+  "big-int": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {
+      "h1": {
+       "x": 123456789012345678901234567890
+      }
+     },
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h1"
+     ]
+    }
+   }
+  },
+  "float-exp": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {
+      "h1": {
+       "x": 1e+16,
+       "y": 1e-07,
+       "z": 123456789.123
+      }
+     },
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h1"
+     ]
+    }
+   }
+  },
+  "bool-key-dict": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {
+      "h1": {
+       "x": {
+        "true": 2
+       }
+      }
+     },
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h1"
+     ]
+    }
+   }
+  },
+  "set-dup": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {
+      "h1": {
+       "x": [
+        1,
+        2,
+        3
+       ]
+      }
+     },
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h1"
+     ]
+    }
+   }
+  },
+  "tuple-trailing": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {
+      "h1": {
+       "x": [
+        1
+       ],
+       "y": [],
+       "z": []
+      }
+     },
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h1"
+     ]
+    }
+   }
+  },
+  "str-concat": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {
+      "h1": {
+       "x": "ab"
+      }
+     },
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h1"
+     ]
+    }
+   }
+  },
+  "raw-str": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {},
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h"
+     ],
+     "vars": {
+      "x": "a\\nb",
+      "y": "a\nb"
+     }
+    }
+   }
+  },
+  "hash-in-vars-quoted": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {},
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h"
+     ],
+     "vars": {
+      "x": "a # b"
+     }
+    }
+   }
+  },
+  "leading-equals-host": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {},
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "=h1"
+     ]
+    }
+   }
+  },
+  "dash-only": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {},
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "-"
+     ]
+    }
+   }
+  },
+  "yaml-like-host": {
+   "rc": 0,
+   "failed": true,
+   "stdout": {
+    "_meta": {
+     "hostvars": {},
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped"
+     ]
+    }
+   }
+  },
+  "set-a": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {
+      "h1": {
+       "x": [
+        8,
+        33,
+        10,
+        2
+       ]
+      }
+     },
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h1"
+     ]
+    }
+   }
+  },
+  "set-b": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {
+      "h1": {
+       "x": [
+        100,
+        5,
+        -1,
+        -2
+       ]
+      }
+     },
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h1"
+     ]
+    }
+   }
+  },
+  "set-c": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {
+      "h1": {
+       "x": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+       ]
+      }
+     },
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h1"
+     ]
+    }
+   }
+  },
+  "set-d": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {
+      "h1": {
+       "x": [
+        0,
+        1,
+        32,
+        8,
+        40,
+        16,
+        24
+       ]
+      }
+     },
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h1"
+     ]
+    }
+   }
+  },
+  "set-e": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {
+      "h1": {
+       "x": [
+        2305843009213693951,
+        2305843009213693952,
+        4611686018427387904,
+        1
+       ]
+      }
+     },
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h1"
+     ]
+    }
+   }
+  },
+  "set-f": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {
+      "h1": {
+       "x": [
+        0,
+        1.0,
+        2
+       ]
+      }
+     },
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h1"
+     ]
+    }
+   }
+  },
+  "set-g": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {
+      "h1": {
+       "x": [
+        39,
+        7,
+        71,
+        103,
+        15,
+        47,
+        79,
+        111,
+        55,
+        87,
+        23,
+        63,
+        95,
+        31
+       ]
+      }
+     },
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h1"
+     ]
+    }
+   }
+  },
+  "set-h": {
+   "rc": 0,
+   "failed": false,
+   "stdout": {
+    "_meta": {
+     "hostvars": {
+      "h1": {
+       "x": [
+        16000,
+        5000,
+        21000,
+        10000,
+        26000,
+        15000,
+        4000,
+        20000,
+        27000,
+        9000,
+        25000,
+        14000,
+        30000,
+        19000,
+        3000,
+        8000,
+        24000,
+        13000,
+        29000,
+        2000,
+        18000,
+        7000,
+        23000,
+        12000,
+        28000,
+        1000,
+        17000,
+        6000,
+        22000,
+        11000
+       ]
+      }
+     },
+     "profile": "inventory_legacy"
+    },
+    "all": {
+     "children": [
+      "ungrouped",
+      "g"
+     ]
+    },
+    "g": {
+     "hosts": [
+      "h1"
+     ]
+    }
+   }
+  }
+ }
+}

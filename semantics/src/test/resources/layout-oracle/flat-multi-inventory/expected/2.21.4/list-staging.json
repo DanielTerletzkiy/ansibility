@@ -1,0 +1,38 @@
+{
+  "ansible_core": "2.21.4",
+  "tool": "ansible-inventory",
+  "args": [
+    "-i",
+    "{project}/staging.ini",
+    "--list",
+    "--playbook-dir",
+    "{project}"
+  ],
+  "cfg": null,
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": {
+    "_meta": {
+      "hostvars": {
+        "stage-web1": {
+          "v_all": "group_vars/all.yml",
+          "v_web": "group_vars/web.yml"
+        }
+      },
+      "profile": "inventory_legacy"
+    },
+    "all": {
+      "children": [
+        "ungrouped",
+        "web"
+      ]
+    },
+    "web": {
+      "hosts": [
+        "stage-web1"
+      ]
+    }
+  },
+  "stderr": ""
+}

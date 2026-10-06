@@ -1,0 +1,23 @@
+{
+  "ansible_core": "2.18.8",
+  "tool": "ansible-inventory",
+  "args": [
+    "--host",
+    "web1",
+    "--playbook-dir",
+    "{project}/playbooks"
+  ],
+  "cfg": "project/ansible.cfg",
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": {
+    "inline": "host_vars/web1.yml (L9)",
+    "v_all": "group_vars/all.yml (L4)",
+    "v_l4_vs_l5": "playbooks/group_vars/all.yml (L5)",
+    "v_l5_vs_l6": "group_vars/web.yml (L6)",
+    "v_l6_vs_l7": "playbooks/group_vars/web.yml (L7)",
+    "v_web": "group_vars/web.yml (L6)"
+  },
+  "stderr": ""
+}

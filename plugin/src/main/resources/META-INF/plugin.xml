@@ -55,4 +55,5 @@
     <xi:include href="/META-INF/ansibility-render.xml" xpointer="xpointer(/idea-plugin/*)"/>
     <xi:include href="/META-INF/ansibility-spec-checks.xml" xpointer="xpointer(/idea-plugin/*)"/>
     <xi:include href="/META-INF/ansibility-refactoring.xml" xpointer="xpointer(/idea-plugin/*)"/>
+    <xi:include href="/META-INF/ansibility-layout.xml" xpointer="xpointer(/idea-plugin/*)"/>
 </idea-plugin>

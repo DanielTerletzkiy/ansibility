@@ -149,8 +149,9 @@ class VaultOperationsImpl(private val project: Project, private val scope: Corou
 
     /** Ansible's encrypt-id rule with the IDE's env → id mapping for [target] (F7.9). */
     private suspend fun chooseIdentity(discovery: VaultDiscovery, labels: List<String>, target: VirtualFile?): EncryptIdentity.Choice {
-        val environment = target?.let { file -> readAction { AnsibleWorkspace.getInstance(project).contextOf(file)?.environment } }
-        val mapped = environment?.let { VaultProjectSettings.getInstance(project).rootSettings(discovery.rootKey).identityForEnvironment(it) }
+        val environments = target?.let { file -> readAction { AnsibleWorkspace.getInstance(project).contextOf(file)?.environments } }
+        val mapped = environments?.takeIf { it.isNotEmpty() }
+            ?.let { VaultProjectSettings.getInstance(project).rootSettings(discovery.rootKey).identityForEnvironments(it) }
         return EncryptIdentity.choose(discovery.config.encryptIdentity, mapped, labels)
     }
 

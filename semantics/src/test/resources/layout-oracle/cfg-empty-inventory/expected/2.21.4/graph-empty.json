@@ -1,0 +1,13 @@
+{
+  "ansible_core": "2.21.4",
+  "tool": "ansible-inventory",
+  "args": [
+    "--graph"
+  ],
+  "cfg": "project/ansible.cfg",
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": "@all:\n  |--@ungrouped:\n  |--@demo:\n  |  |--from-extra-yml\n  |  |--from-hosts-ini\n",
+  "stderr": "[WARNING]: Failed to parse inventory with 'auto' plugin: no root 'plugin' key found, '{project}/site.yml' is not a valid YAML inventory plugin config file\n\nFailed to parse inventory with 'auto' plugin.\n\n<<< caused by >>>\n\nno root 'plugin' key found, '{project}/site.yml' is not a valid YAML inventory plugin config file\nOrigin: <inventory plugin 'auto' with source '{project}/site.yml'>\n\n[WARNING]: Failed to parse inventory with 'yaml' plugin: YAML inventory has invalid structure, it should be a dictionary, got: <class 'ansible.module_utils._internal._datatag._AnsibleTaggedList'>\n\nFailed to parse inventory with 'yaml' plugin.\n\n<<< caused by >>>\n\nYAML inventory has invalid structure, it should be a dictionary, got: <class 'ansible.module_utils._internal._datatag._AnsibleTaggedList'>\nOrigin: <inventory plugin 'yaml' with source '{project}/site.yml'>\n\n[WARNING]: Failed to parse inventory with 'ini' plugin: Failed to parse inventory: Expected key=value host variable assignment, got: hosts:\n\nFailed to parse inventory with 'ini' plugin.\n\n<<< caused by >>>\n\nFailed to parse inventory: Expected key=value host variable assignment, got: hosts:\nOrigin: {project}/site.yml\n\n[WARNING]: Unable to parse {project}/site.yml as an inventory source\n"
+}

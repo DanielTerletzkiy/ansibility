@@ -26,6 +26,7 @@ import de.terletzkiy.ansibility.api.VarService
 import de.terletzkiy.ansibility.api.VarSymbol
 import de.terletzkiy.ansibility.index.RootFamily
 import de.terletzkiy.ansibility.index.VarDefIndex
+import de.terletzkiy.ansibility.model.inventory.VarsDocuments
 import org.jetbrains.yaml.YAMLFileType
 import org.jetbrains.yaml.YAMLLanguage
 import java.util.concurrent.ConcurrentHashMap
@@ -40,6 +41,8 @@ import java.util.concurrent.ConcurrentHashMap
  *   `AnsibleWorkspace.contextOf(file)`; entries whose file kind contradicts their site are dropped.
  * - **Spec bindings.** Every `SPEC_OPTION` entry becomes a [SpecBinding] with the option parsed by `ArgSpecParser`
  *   (cached per spec file).
+ * - **Inline inventory vars** of INI and other unindexed inventory sources come from the parsed inventory models
+ *   ([InlineInventoryDefinitions]), deduplicated by location against the index entries.
  * - **Caching.** Symbols and name sets are cached per (root, name) until the `ansible.var.def` index stamp, the YAML
  *   PSI, the workspace structure or the project roots change.
  *
@@ -94,6 +97,8 @@ class VarServiceImpl(private val project: Project) : VarService {
             },
             family.scope,
         )
+        val indexed = definitions.mapTo(HashSet()) { it.location }
+        InlineInventoryDefinitions.of(project, root, name).filterTo(definitions) { it.location !in indexed }
         definitions.sortWith(compareBy<VarDefinition>({ it.location.file.path }, { it.location.offset }))
         bindings.sortWith(compareBy<SpecBinding>({ it.location.file.path }, { it.location.offset }))
         return VarSymbol(root.dir, name, definitions, bindings)
@@ -127,6 +132,7 @@ class VarServiceImpl(private val project: Project) : VarService {
                 family.scope,
             )
         }
+        names += InlineInventoryDefinitions.names(project, root)
         return names
     }
 
@@ -139,7 +145,7 @@ class VarServiceImpl(private val project: Project) : VarService {
                 {
                     CachedValueProvider.Result.create(
                         RootCache(),
-                        indexStamp, psiTracker, AnsibleWorkspace.getInstance(project).structureTracker,
+                        indexStamp, psiTracker, VarsDocuments.tracker(project), AnsibleWorkspace.getInstance(project).structureTracker,
                         ProjectRootManager.getInstance(project),
                     )
                 },

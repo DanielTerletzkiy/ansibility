@@ -1,0 +1,18 @@
+{
+  "ansible_core": "2.18.8",
+  "tool": "ansible-inventory",
+  "args": [
+    "--host",
+    "web1"
+  ],
+  "cfg": "project/ansible.cfg",
+  "cwd": "cwd",
+  "env": {
+    "ANSIBLE_PLAYBOOK_DIR": "{project}/other"
+  },
+  "rc": 0,
+  "stdout": {
+    "from_pb": "other/group_vars/all.yml"
+  },
+  "stderr": ""
+}

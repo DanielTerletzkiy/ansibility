@@ -1,0 +1,64 @@
+{
+  "description": "A directory as the inventory source. Files are read in sorted (byte) order, recursing into subdirectories; hidden entries, group_vars/, host_vars/, vars_plugins/ and the ignored extensions are skipped. Only the source directory's own group_vars/host_vars load (not those of nested directories). VERSION-DEPENDENT: 2.18.8 ignores '.ini' files in directory walks (its default inventory_ignore_extensions contains '.ini'), 2.21.4 does not.",
+  "runs": [
+    {
+      "name": "graph",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "--graph"
+      ]
+    },
+    {
+      "name": "list-export",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "list",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "--list"
+      ]
+    },
+    {
+      "name": "graph-custom-ignore",
+      "cfg": "project/custom-ignore.cfg",
+      "args": [
+        "--graph"
+      ]
+    },
+    {
+      "name": "list-export-custom-ignore",
+      "cfg": "project/custom-ignore.cfg",
+      "args": [
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "graph-nested-dir-as-source",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/inventory/nested",
+        "--graph"
+      ]
+    },
+    {
+      "name": "graph-explicit-md-file",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/inventory/README.md",
+        "--graph"
+      ]
+    }
+  ],
+  "notes": [
+    "With an explicit inventory_ignore_extensions both versions agree (the setting replaces the whole default list, so .txt, .retry and .ini are read again).",
+    "An ignored extension only affects directory walks: '-i inventory/README.md' parses the file."
+  ]
+}

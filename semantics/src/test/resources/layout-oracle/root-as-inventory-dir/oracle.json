@@ -1,0 +1,23 @@
+{
+  "description": "'inventory = .' in a project root: the whole project tree is the inventory directory. Every non-ignored file is tried as an inventory, recursively (roles/, vars/ ...): a YAML mapping becomes groups (its top-level keys), playbooks and task lists fail with warnings, README.md and ansible.cfg are skipped by extension.",
+  "runs": [
+    {
+      "name": "graph",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "--graph"
+      ]
+    },
+    {
+      "name": "list-export",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "--list",
+        "--export"
+      ]
+    }
+  ],
+  "notes": [
+    "Groups r_users, galaxy_info and common_users appear (empty) from role defaults, role meta and vars/."
+  ]
+}

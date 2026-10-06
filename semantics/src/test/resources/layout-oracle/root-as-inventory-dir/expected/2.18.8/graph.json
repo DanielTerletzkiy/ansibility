@@ -1,0 +1,13 @@
+{
+  "ansible_core": "2.18.8",
+  "tool": "ansible-inventory",
+  "args": [
+    "--graph"
+  ],
+  "cfg": "project/ansible.cfg",
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": "@all:\n  |--@ungrouped:\n  |--@web:\n  |  |--web1\n  |--@r_users:\n  |--@galaxy_info:\n  |--@common_users:\n",
+  "stderr": "[WARNING]: Skipping 'collections' as this is not a valid group definition\n[WARNING]: Skipping 'r_port' as this is not a valid group definition\n[WARNING]: Skipping unexpected key (alice) in group (r_users), only \"vars\",\n\"children\" and \"hosts\" are valid\n[WARNING]: Skipping key (author) in group (galaxy_info) as it is not a mapping,\nit is a <class 'ansible.parsing.yaml.objects.AnsibleUnicode'>\n[WARNING]: Skipping 'dependencies' as this is not a valid group definition\n[WARNING]:  * Failed to parse {project}/roles/r/tasks/main.yml with auto\nplugin: no root 'plugin' key found, '{project}/roles/r/tasks/main.yml' is\nnot a valid YAML inventory plugin config file\n[WARNING]:  * Failed to parse {project}/roles/r/tasks/main.yml with yaml\nplugin: YAML inventory has invalid structure, it should be a dictionary, got:\n<class 'ansible.parsing.yaml.objects.AnsibleSequence'>\n[WARNING]:  * Failed to parse {project}/roles/r/tasks/main.yml with ini\nplugin: {project}/roles/r/tasks/main.yml:1: Expected key=value host\nvariable assignment, got: ansible.builtin.debug:\n[WARNING]: Unable to parse {project}/roles/r/tasks/main.yml as an\ninventory source\n[WARNING]: Unable to parse {project}/roles/r/tasks as an inventory source\n[WARNING]:  * Failed to parse {project}/site.yml with auto plugin: no\nroot 'plugin' key found, '{project}/site.yml' is not a valid YAML\ninventory plugin config file\n[WARNING]:  * Failed to parse {project}/site.yml with yaml plugin: YAML\ninventory has invalid structure, it should be a dictionary, got: <class\n'ansible.parsing.yaml.objects.AnsibleSequence'>\n[WARNING]:  * Failed to parse {project}/site.yml with ini plugin:\n{project}/site.yml:1: Expected key=value host variable assignment, got:\nhosts:\n[WARNING]: Unable to parse {project}/site.yml as an inventory source\n[WARNING]: Skipping unexpected key (bob) in group (common_users), only \"vars\",\n\"children\" and \"hosts\" are valid\n"
+}

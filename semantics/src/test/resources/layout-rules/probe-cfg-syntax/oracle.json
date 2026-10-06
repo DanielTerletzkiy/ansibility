@@ -1,0 +1,379 @@
+{
+  "description": "configparser edge cases beyond the research's three rc-5 kinds",
+  "runs": [
+    {
+      "name": "dump-novalue",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/novalue.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-emptykey",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/emptykey.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-emptyheader",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/emptyheader.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-default-twice",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/default-twice.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-dupkey-case",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/dupkey-case.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-dupkey-sections",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/dupkey-sections.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-dupsection",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/dupsection.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-dupsection-default-key",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/dupsection-default-key.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-default-only",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/default-only.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-default-and-defaults-key",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/default-and-defaults-key.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-header-trailing",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/header-trailing.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-header-hash",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/header-hash.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-header-semicolon",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/header-semicolon.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-header-spaces",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/header-spaces.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-indented-options",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/indented-options.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-continuation-after-header",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/continuation-after-header.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-comment-in-continuation",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/comment-in-continuation.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-blank-in-continuation",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/blank-in-continuation.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-comments-before-section",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/comments-before-section.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-indented-before-section",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/indented-before-section.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-bom",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/bom.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-crlf",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/crlf.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-parse-error-then-dup",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/parse-error-then-dup.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-semicolon-nospace",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/semicolon-nospace.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-semicolon-tab",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/semicolon-tab.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-delims-in-value",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/delims-in-value.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-space-in-key",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/space-in-key.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-key-trailing-space",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/key-trailing-space.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-colon-in-key",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/colon-in-key.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-conf-ext-conf",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/conf-ext.conf",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-yaml-ext-yml",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/yaml-ext.yml",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-ini-ext-ini",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/ini-ext.ini",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-noext",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/noext",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-upper-ext-CFG",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/upper-ext.CFG",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "ansible_core": "2.18.19",
+  "tool": "ansible-inventory",
+  "args": [
+    "-i",
+    "{project}/inventory/nested",
+    "--graph"
+  ],
+  "cfg": null,
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": "@all:\n  |--@ungrouped:\n  |--@demo:\n  |  |--nested-yml\n",
+  "stderr": ""
+}

@@ -1,0 +1,26 @@
+{
+  "ansible_core": "2.21.4",
+  "tool": "ansible-inventory",
+  "args": [
+    "-i",
+    "{project}/errors/host-trailing-colon.ini",
+    "--list",
+    "--export"
+  ],
+  "cfg": null,
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": {
+    "_meta": {
+      "hostvars": {},
+      "profile": "inventory_legacy"
+    },
+    "all": {
+      "children": [
+        "ungrouped"
+      ]
+    }
+  },
+  "stderr": "[WARNING]: Failed to parse inventory with 'ini' plugin: Failed to parse inventory: Invalid host pattern 'h1:' supplied, ending in ':' is not allowed, this character is reserved to provide a port.\n\nFailed to parse inventory with 'ini' plugin.\n\n<<< caused by >>>\n\nFailed to parse inventory: Invalid host pattern 'h1:' supplied, ending in ':' is not allowed, this character is reserved to provide a port.\nOrigin: {project}/errors/host-trailing-colon.ini\n\n[WARNING]: Unable to parse {project}/errors/host-trailing-colon.ini as an inventory source\n[WARNING]: No inventory was parsed, only implicit localhost is available\n"
+}

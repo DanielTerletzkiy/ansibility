@@ -24,6 +24,9 @@
         <!-- WU0.3 context: roots, file kinds, structure tracker (plan A.5, A.8, A.9) -->
         <projectService serviceInterface="de.terletzkiy.ansibility.api.AnsibleWorkspace"
                         serviceImplementation="de.terletzkiy.ansibility.context.AnsibleWorkspaceImpl"/>
+        <!-- R10: inventories of every layout (environments/, ansible.cfg, flat) -->
+        <projectService serviceInterface="de.terletzkiy.ansibility.api.ProjectLayoutService"
+                        serviceImplementation="de.terletzkiy.ansibility.context.layout.ProjectLayoutServiceImpl"/>
 
         <!-- X02 status-bar context widget -->
         <statusBarWidgetFactory id="Ansibility.Context"

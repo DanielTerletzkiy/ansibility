@@ -36,6 +36,13 @@ internal sealed interface VarScope {
      */
     data class Loop(val tasks: List<SourceLocation>, val file: VirtualFile? = null) : VarScope
 
+    /**
+     * A member of a mapping variable of the root: the key [path] below the variable in its definitions
+     * (`host_ips: {ops-pxe1: …}`) and the reads whose constant accessors start with it (`host_ips['ops-pxe1']`,
+     * `host_ips['ops-pxe1'].x`). [home] is presentation only, as for [Root].
+     */
+    class Member(val home: VirtualFile?, val path: List<String>) : VarScope
+
     /** A Jinja local (`{% set %}`, a `for` target, a macro parameter): its binding at [binding] in [file], and nothing outside that file. */
     data class Local(val file: VirtualFile, val binding: Int) : VarScope
 }
@@ -79,6 +86,7 @@ class VarSymbolElement internal constructor(
 
     override fun getPresentableText(): String = when (scope) {
         is VarScope.Root -> AnsibilityUsagesBundle.message("symbol.variable", varName, root.displayName)
+        is VarScope.Member -> AnsibilityUsagesBundle.message("symbol.member", memberText(varName, scope.path), root.displayName)
         is VarScope.Loop -> AnsibilityUsagesBundle.message("symbol.loop", varName, root.displayName)
         is VarScope.Local -> AnsibilityUsagesBundle.message("symbol.local", varName, scope.file.name)
     }
@@ -110,6 +118,7 @@ class VarSymbolElement internal constructor(
     private val identity: Any
         get() = when (scope) {
             is VarScope.Root -> ROOT_IDENTITY
+            is VarScope.Member -> scope.path
             is VarScope.Loop, is VarScope.Local -> scope
         }
 
@@ -120,7 +129,10 @@ class VarSymbolElement internal constructor(
 
     override fun toString(): String = "VarSymbolElement($varName @ ${root.dir.name}, ${scope.javaClass.simpleName})"
 
-    private companion object {
-        val ROOT_IDENTITY = Any()
+    internal companion object {
+        private val ROOT_IDENTITY = Any()
+
+        /** `host_ips['ops-pxe1']`: the variable with its member path as subscripts. */
+        fun memberText(name: String, path: List<String>): String = name + path.joinToString("") { "['$it']" }
     }
 }

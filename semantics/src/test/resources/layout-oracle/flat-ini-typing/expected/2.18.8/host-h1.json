@@ -1,0 +1,41 @@
+{
+  "ansible_core": "2.18.8",
+  "tool": "ansible-inventory",
+  "args": [
+    "--host",
+    "h1"
+  ],
+  "cfg": "project/ansible.cfg",
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": {
+    "v_FALSE": "FALSE",
+    "v_None": null,
+    "v_True": true,
+    "v_colon": "a:b",
+    "v_dict": {
+      "a": 1
+    },
+    "v_dq": "5",
+    "v_dq_space": "hello world",
+    "v_empty": "",
+    "v_eq": "a=b",
+    "v_float": 1.5,
+    "v_hash_int": 5,
+    "v_hash_str": "abc # not a comment",
+    "v_int": 5,
+    "v_jinja": "{{ x }}",
+    "v_lead0": "010",
+    "v_list": [
+      1,
+      2
+    ],
+    "v_semicolon": "abc ; not a comment",
+    "v_space": "hello world",
+    "v_spaced_eq": "spaced",
+    "v_sq": "5",
+    "v_yes": "yes"
+  },
+  "stderr": ""
+}

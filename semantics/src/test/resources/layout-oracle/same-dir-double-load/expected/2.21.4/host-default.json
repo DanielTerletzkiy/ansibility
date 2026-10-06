@@ -1,0 +1,27 @@
+{
+  "ansible_core": "2.21.4",
+  "tool": "ansible-inventory",
+  "args": [
+    "-i",
+    "{project}/hosts.ini",
+    "--host",
+    "web1",
+    "--playbook-dir",
+    "{project}"
+  ],
+  "cfg": null,
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": {
+    "d": {
+      "from_web": 1,
+      "shared": "web"
+    },
+    "l": [
+      "web"
+    ],
+    "s": "web"
+  },
+  "stderr": ""
+}

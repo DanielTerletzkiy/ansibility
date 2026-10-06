@@ -1,0 +1,15 @@
+{
+  "ansible_core": "2.21.4",
+  "tool": "ansible-config",
+  "args": [
+    "dump",
+    "--format",
+    "json"
+  ],
+  "cfg": "project/cfg/parse-error-then-dup.cfg",
+  "cwd": "cwd",
+  "env": {},
+  "rc": 5,
+  "stdout": "",
+  "stderr": "ERROR: Error reading config file ({project}/cfg/parse-error-then-dup.cfg): While reading from '<string>' [line  4]: option 'inventory' in section 'defaults' already exists"
+}

@@ -1,0 +1,33 @@
+{
+  "ansible_core": "2.21.4",
+  "tool": "ansible-inventory",
+  "args": [
+    "--list",
+    "--export"
+  ],
+  "cfg": "project/ansible.cfg",
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": {
+    "_meta": {
+      "hostvars": {},
+      "profile": "inventory_legacy"
+    },
+    "all": {
+      "children": [
+        "ungrouped",
+        "web",
+        "r_users",
+        "galaxy_info",
+        "common_users"
+      ]
+    },
+    "web": {
+      "hosts": [
+        "web1"
+      ]
+    }
+  },
+  "stderr": "[WARNING]: Skipping 'collections' as this is not a valid group definition\n[WARNING]: Skipping 'r_port' as this is not a valid group definition\n[WARNING]: Skipping unexpected key (alice) in group (r_users), only \"vars\", \"children\" and \"hosts\" are valid\n[WARNING]: Skipping key (author) in group (galaxy_info) as it is not a mapping, it is a <class 'ansible.module_utils._internal._datatag._AnsibleTaggedStr'>\n[WARNING]: Skipping 'dependencies' as this is not a valid group definition\n[WARNING]: Failed to parse inventory with 'auto' plugin: no root 'plugin' key found, '{project}/roles/r/tasks/main.yml' is not a valid YAML inventory plugin config file\n\nFailed to parse inventory with 'auto' plugin.\n\n<<< caused by >>>\n\nno root 'plugin' key found, '{project}/roles/r/tasks/main.yml' is not a valid YAML inventory plugin config file\nOrigin: <inventory plugin 'auto' with source '{project}/roles/r/tasks/main.yml'>\n\n[WARNING]: Failed to parse inventory with 'yaml' plugin: YAML inventory has invalid structure, it should be a dictionary, got: <class 'ansible.module_utils._internal._datatag._AnsibleTaggedList'>\n\nFailed to parse inventory with 'yaml' plugin.\n\n<<< caused by >>>\n\nYAML inventory has invalid structure, it should be a dictionary, got: <class 'ansible.module_utils._internal._datatag._AnsibleTaggedList'>\nOrigin: <inventory plugin 'yaml' with source '{project}/roles/r/tasks/main.yml'>\n\n[WARNING]: Failed to parse inventory with 'ini' plugin: Failed to parse inventory: Expected key=value host variable assignment, got: ansible.builtin.debug:\n\nFailed to parse inventory with 'ini' plugin.\n\n<<< caused by >>>\n\nFailed to parse inventory: Expected key=value host variable assignment, got: ansible.builtin.debug:\nOrigin: {project}/roles/r/tasks/main.yml\n\n[WARNING]: Unable to parse {project}/roles/r/tasks/main.yml as an inventory source\n[WARNING]: Unable to parse {project}/roles/r/tasks as an inventory source\n[WARNING]: Failed to parse inventory with 'auto' plugin: no root 'plugin' key found, '{project}/site.yml' is not a valid YAML inventory plugin config file\n\nFailed to parse inventory with 'auto' plugin.\n\n<<< caused by >>>\n\nno root 'plugin' key found, '{project}/site.yml' is not a valid YAML inventory plugin config file\nOrigin: <inventory plugin 'auto' with source '{project}/site.yml'>\n\n[WARNING]: Failed to parse inventory with 'yaml' plugin: YAML inventory has invalid structure, it should be a dictionary, got: <class 'ansible.module_utils._internal._datatag._AnsibleTaggedList'>\n\nFailed to parse inventory with 'yaml' plugin.\n\n<<< caused by >>>\n\nYAML inventory has invalid structure, it should be a dictionary, got: <class 'ansible.module_utils._internal._datatag._AnsibleTaggedList'>\nOrigin: <inventory plugin 'yaml' with source '{project}/site.yml'>\n\n[WARNING]: Failed to parse inventory with 'ini' plugin: Failed to parse inventory: Expected key=value host variable assignment, got: hosts:\n\nFailed to parse inventory with 'ini' plugin.\n\n<<< caused by >>>\n\nFailed to parse inventory: Expected key=value host variable assignment, got: hosts:\nOrigin: {project}/site.yml\n\n[WARNING]: Unable to parse {project}/site.yml as an inventory source\n[WARNING]: Skipping unexpected key (bob) in group (common_users), only \"vars\", \"children\" and \"hosts\" are valid\n"
+}

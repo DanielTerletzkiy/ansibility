@@ -1,0 +1,15 @@
+{
+  "ansible_core": "2.19.0",
+  "tool": "ansible-inventory",
+  "args": [
+    "-i",
+    "{project}/inventory/README.md",
+    "--graph"
+  ],
+  "cfg": null,
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": "@all:\n  |--@ungrouped:\n  |--@demo:\n  |  |--md\n",
+  "stderr": ""
+}

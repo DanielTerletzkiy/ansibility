@@ -1,0 +1,13 @@
+{
+  "ansible_core": "2.18.8",
+  "tool": "ansible-inventory",
+  "args": [
+    "--graph"
+  ],
+  "cfg": "project/ansible.cfg",
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": "@all:\n  |--@ungrouped:\n  |  |--loose1\n  |--@dc1:\n  |  |--@web:\n  |  |  |--web01.example.test\n  |  |  |--web02.example.test\n  |  |  |--web03.example.test\n  |  |  |--web-a\n  |  |  |--web-b\n  |  |  |--db1\n  |  |--@db:\n  |  |  |--db1\n  |  |  |--db2\n  |--@monitoring:\n  |  |--db2\n",
+  "stderr": ""
+}

@@ -1,0 +1,71 @@
+{
+  "ansible_core": "2.18.8",
+  "tool": "ansible-config",
+  "args": [
+    "dump",
+    "--format",
+    "json"
+  ],
+  "cfg": "project/cfg/roles-expand.cfg",
+  "cwd": "cwd",
+  "env": {
+    "RDIR": "{project}/rd"
+  },
+  "rc": 0,
+  "settings": {
+    "COLLECTIONS_PATHS": {
+      "value": [
+        "{home}/.ansible/collections",
+        "/usr/share/ansible/collections"
+      ],
+      "origin": "default"
+    },
+    "DEFAULT_FORKS": {
+      "value": 5,
+      "origin": "default"
+    },
+    "DEFAULT_HOST_LIST": {
+      "value": [
+        "/etc/ansible/hosts"
+      ],
+      "origin": "default"
+    },
+    "DEFAULT_ROLES_PATH": {
+      "value": [
+        "{home}/r",
+        "{project}/rd/x",
+        "{cwd}/y",
+        "{project}/rd/z",
+        "{project}/cfg/$NOPE/w"
+      ],
+      "origin": "{project}/cfg/roles-expand.cfg"
+    },
+    "DEFAULT_TIMEOUT": {
+      "value": 10,
+      "origin": "default"
+    },
+    "INVENTORY_IGNORE_EXTS": {
+      "value": [
+        ".pyc",
+        ".pyo",
+        ".swp",
+        ".bak",
+        "~",
+        ".rpm",
+        ".md",
+        ".txt",
+        ".rst",
+        ".orig",
+        ".ini",
+        ".cfg",
+        ".retry"
+      ],
+      "origin": "default"
+    },
+    "PLAYBOOK_DIR": {
+      "value": null,
+      "origin": "default"
+    }
+  },
+  "stderr": ""
+}

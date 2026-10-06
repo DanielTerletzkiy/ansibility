@@ -1,0 +1,2 @@
+l7_vs_l9: inventory/host_vars/web1.yml (L9)
+l9_vs_l10: inventory/host_vars/web1.yml (L9)

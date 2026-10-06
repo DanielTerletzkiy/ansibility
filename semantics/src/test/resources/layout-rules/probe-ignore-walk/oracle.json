@@ -1,0 +1,32 @@
+{
+  "description": "directory walk with empty/default/custom ignore extensions",
+  "runs": [
+    {
+      "name": "list-empty",
+      "tool": "ansible-inventory",
+      "cfg": "project/cfg/empty.cfg",
+      "env": {},
+      "args": [
+        "--list"
+      ]
+    },
+    {
+      "name": "list-default",
+      "tool": "ansible-inventory",
+      "cfg": "project/cfg/default.cfg",
+      "env": {},
+      "args": [
+        "--list"
+      ]
+    },
+    {
+      "name": "list-custom",
+      "tool": "ansible-inventory",
+      "cfg": "project/cfg/custom.cfg",
+      "env": {},
+      "args": [
+        "--list"
+      ]
+    }
+  ]
+}

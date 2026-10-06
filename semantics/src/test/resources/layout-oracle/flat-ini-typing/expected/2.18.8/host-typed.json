@@ -1,0 +1,57 @@
+{
+  "ansible_core": "2.18.8",
+  "tool": "ansible-inventory",
+  "args": [
+    "--host",
+    "typed"
+  ],
+  "cfg": "project/ansible.cfg",
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": {
+    "i_None": null,
+    "i_True": true,
+    "i_backslash": "ab",
+    "i_bool_list": "[True,false]",
+    "i_bytes": "babc",
+    "i_colon": "a:b",
+    "i_dict": "{a:1}",
+    "i_dict_dq": {
+      "a": 1
+    },
+    "i_dq": 5,
+    "i_empty": "",
+    "i_eq": "a=b",
+    "i_exp": 1000.0,
+    "i_float": 1.5,
+    "i_hash_quoted": "a#b",
+    "i_hex": 16,
+    "i_int": 5,
+    "i_jinja": "{{ x }}",
+    "i_lead0": "010",
+    "i_list": [
+      1,
+      2
+    ],
+    "i_list_str": [
+      "a",
+      "b"
+    ],
+    "i_neg": -3,
+    "i_nested": "5",
+    "i_none": "none",
+    "i_padded": " padded ",
+    "i_semicolon": "a;b",
+    "i_space": "hello world",
+    "i_sq": 5,
+    "i_true": "true",
+    "i_tuple": [
+      1,
+      2
+    ],
+    "i_us": 1000,
+    "i_yes": "yes"
+  },
+  "stderr": ""
+}

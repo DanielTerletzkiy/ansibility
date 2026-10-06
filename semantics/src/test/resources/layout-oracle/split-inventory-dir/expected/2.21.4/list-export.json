@@ -1,0 +1,42 @@
+{
+  "ansible_core": "2.21.4",
+  "tool": "ansible-inventory",
+  "args": [
+    "--list",
+    "--export"
+  ],
+  "cfg": "project/ansible.cfg",
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": {
+    "_meta": {
+      "hostvars": {
+        "web1": {
+          "l7_vs_l9": "inventory/host_vars/web1.yml (L9)",
+          "l9_vs_l10": "inventory/host_vars/web1.yml (L9)"
+        }
+      },
+      "profile": "inventory_legacy"
+    },
+    "all": {
+      "children": [
+        "ungrouped",
+        "web"
+      ],
+      "vars": {
+        "l4_vs_l5": "inventory/group_vars/all.yml (L4)",
+        "only_inventory_all": "L4"
+      }
+    },
+    "web": {
+      "hosts": [
+        "web1"
+      ],
+      "vars": {
+        "l5_vs_l6": "inventory/group_vars/web.yml (L6)"
+      }
+    }
+  },
+  "stderr": ""
+}

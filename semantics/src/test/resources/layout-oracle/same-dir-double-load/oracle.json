@@ -1,0 +1,76 @@
+{
+  "description": "Flat root: the inventory source's directory is also the playbook dir, so host_group_vars loads the same group_vars/ files twice, once at the inventory stage (L4/L6) and once at the play stage (L5/L7). With the default precedence the double load is invisible; a custom precedence that applies all_plugins_play after groups_plugins_inventory exposes it (group_vars/all.yml then beats group_vars/web.yml).",
+  "runs": [
+    {
+      "name": "host-default",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/hosts.ini",
+        "--host",
+        "web1",
+        "--playbook-dir",
+        "{project}"
+      ]
+    },
+    {
+      "name": "host-merge",
+      "cfg": null,
+      "env": {
+        "ANSIBLE_HASH_BEHAVIOUR": "merge"
+      },
+      "args": [
+        "-i",
+        "{project}/hosts.ini",
+        "--host",
+        "web1",
+        "--playbook-dir",
+        "{project}"
+      ]
+    },
+    {
+      "name": "host-custom-precedence",
+      "cfg": null,
+      "env": {
+        "ANSIBLE_PRECEDENCE": "all_inventory,groups_inventory,all_plugins_inventory,groups_plugins_inventory,groups_plugins_play,all_plugins_play"
+      },
+      "args": [
+        "-i",
+        "{project}/hosts.ini",
+        "--host",
+        "web1",
+        "--playbook-dir",
+        "{project}"
+      ]
+    },
+    {
+      "name": "host-custom-precedence-no-pbdir",
+      "cfg": null,
+      "env": {
+        "ANSIBLE_PRECEDENCE": "all_inventory,groups_inventory,all_plugins_inventory,groups_plugins_inventory,groups_plugins_play,all_plugins_play"
+      },
+      "args": [
+        "-i",
+        "{project}/hosts.ini",
+        "--host",
+        "web1"
+      ]
+    },
+    {
+      "name": "list-export-pbdir",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/hosts.ini",
+        "--list",
+        "--export",
+        "--playbook-dir",
+        "{project}"
+      ]
+    }
+  ],
+  "notes": [
+    "host-custom-precedence: s = 'all' (the play-stage load of group_vars/all.yml is applied last); host-custom-precedence-no-pbdir: s = 'web' (no play stage from a neutral cwd). ansible-playbook site.yml agrees (research probe 12).",
+    "list-export-pbdir shows each group's vars once: --export merges the stages per group and cannot show the double load."
+  ]
+}

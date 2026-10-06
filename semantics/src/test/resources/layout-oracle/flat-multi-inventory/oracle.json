@@ -1,0 +1,51 @@
+{
+  "description": "Flat multi-inventory layout: production.ini and staging.ini in the root share group_vars/ and host_vars/ (each source's directory is the root). No ansible.cfg: the inventory is chosen with -i.",
+  "runs": [
+    {
+      "name": "list-production",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/production.ini",
+        "--list",
+        "--playbook-dir",
+        "{project}"
+      ]
+    },
+    {
+      "name": "list-staging",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/staging.ini",
+        "--list",
+        "--playbook-dir",
+        "{project}"
+      ]
+    },
+    {
+      "name": "list-both",
+      "cfg": null,
+      "args": [
+        "-i",
+        "{project}/production.ini",
+        "-i",
+        "{project}/staging.ini",
+        "--list",
+        "--playbook-dir",
+        "{project}"
+      ]
+    },
+    {
+      "name": "graph-no-inventory",
+      "cfg": null,
+      "cwd": "project",
+      "args": [
+        "--graph"
+      ]
+    }
+  ],
+  "notes": [
+    "graph-no-inventory: without ansible.cfg and -i the default /etc/ansible/hosts is used (absent here), so only the implicit localhost exists."
+  ]
+}

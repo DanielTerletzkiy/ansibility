@@ -1,0 +1,49 @@
+{
+  "ansible_core": "2.21.4",
+  "tool": "ansible-inventory",
+  "args": [
+    "-i",
+    "{project}/accepted/ranges.ini",
+    "--list",
+    "--export"
+  ],
+  "cfg": null,
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": {
+    "_meta": {
+      "hostvars": {
+        "2001:db8::1": {
+          "ansible_port": 2201
+        }
+      },
+      "profile": "inventory_legacy"
+    },
+    "all": {
+      "children": [
+        "ungrouped",
+        "web"
+      ]
+    },
+    "web": {
+      "hosts": [
+        "web01.example.test",
+        "web02.example.test",
+        "web03.example.test",
+        "web-a",
+        "web-b",
+        "web-c",
+        "web8",
+        "web10",
+        "web001",
+        "web002",
+        "web1",
+        "web2",
+        "2001:db8::1",
+        "2001:db8::2"
+      ]
+    }
+  },
+  "stderr": ""
+}

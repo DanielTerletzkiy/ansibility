@@ -119,9 +119,10 @@ class AnsibleContextWidget(private val project: Project, private val scope: Coro
         val segments: List<WidgetSegment> = emptyList(),
         /** The file the state was computed for. */
         val file: VirtualFile? = null,
+        val inventory: InventoryShape = InventoryShape.of(root),
     ) {
         /** The built-in parts: root, environment, host and core version, each a click target. */
-        val builtInParts: List<WidgetTexts.Part> get() = ContextTexts.statusParts(root, target, selection, problem != null)
+        val builtInParts: List<WidgetTexts.Part> get() = ContextTexts.statusParts(root, target, selection, problem != null, inventory)
 
         /** The built-in text `Ansibility: <root> · <env> › <host> · core <v>`, without the segments. */
         val text: String get() = builtInParts.joinToString("") { it.text }
@@ -383,12 +384,12 @@ class AnsibleContextWidget(private val project: Project, private val scope: Coro
             val target = TargetVersionDetector.getInstance(project).targetVersion(root)
             val worktree = AnsibleWorkspaceImpl.getInstance(project)?.worktreeOf(root)
             val selection = AnsibleContextService.getInstance(project).selection(root)
-            if (DumbService.isDumb(project)) return State(root, context, target, worktree, selection, file = file)
+            if (DumbService.isDumb(project)) return State(root, context, target, worktree, selection, file = file, inventory = InventoryShape.of(project, root))
             val choices = ContextChoices(project)
             val problem = AnsibleContextServiceImpl.getInstance(project)?.selectionProblem(root)
             val playLabel = selection.play?.let { choices.playLabel(root, it) }
             val segments = if (withSegments) ContextWidgetSegment.segments(project, file) else emptyList()
-            return State(root, context, target, worktree, selection, problem, playLabel, segments, file)
+            return State(root, context, target, worktree, selection, problem, playLabel, segments, file, InventoryShape.of(project, root))
         }
     }
 }

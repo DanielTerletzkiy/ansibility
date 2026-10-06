@@ -1,0 +1,1 @@
+from_dir_host_vars: inventory/host_vars/noext.yml

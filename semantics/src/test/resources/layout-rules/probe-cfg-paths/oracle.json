@@ -1,0 +1,385 @@
+{
+  "description": "pathspec (roles_path, collections_path[s]), path (playbook_dir), pathlist extras, list (ignore extensions)",
+  "runs": [
+    {
+      "name": "dump-roles-spaces",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/roles-spaces.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-roles-empty",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/roles-empty.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-roles-trailing-colon",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/roles-trailing-colon.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-roles-double-colon",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/roles-double-colon.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-roles-comma",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/roles-comma.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-roles-expand",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/roles-expand.cfg",
+      "env": {
+        "RDIR": "{project}/rd"
+      },
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-roles-quoted",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/roles-quoted.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-roles-abs",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/roles-abs.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-coll-singular",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/coll-singular.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-coll-plural",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/coll-plural.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-coll-both-plural-first",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/coll-both-plural-first.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-coll-both-singular-first",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/coll-both-singular-first.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-coll-empty",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/coll-empty.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-pbdir",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/pbdir.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-pbdir-empty",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/pbdir-empty.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-pbdir-tilde",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/pbdir-tilde.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-pbdir-quoted",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/pbdir-quoted.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-pbdir-cwd",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/pbdir-cwd.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-pbdir-dotdot",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/pbdir-dotdot.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-inv-dot",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/inv-dot.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-inv-dotslash",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/inv-dotslash.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-inv-braces",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/inv-braces.cfg",
+      "env": {
+        "INVDIR": "{project}/sub"
+      },
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-inv-unknown-var",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/inv-unknown-var.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-inv-abs",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/inv-abs.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-inv-continuation-no-comma",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/inv-continuation-no-comma.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-inv-only-commas",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/inv-only-commas.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-inv-tilde-mid",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/inv-tilde-mid.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-inv-cwd-twice",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/inv-cwd-twice.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-inv-var-tilde",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/inv-var-tilde.cfg",
+      "env": {
+        "TILDE": "~/t"
+      },
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-ign-empty",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/ign-empty.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-ign-both",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/ign-both.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-ign-quoted",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/ign-quoted.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-ign-inventory-only",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/ign-inventory-only.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "dump-ign-defaults-only",
+      "tool": "ansible-config",
+      "cfg": "project/cfg/ign-defaults-only.cfg",
+      "env": {},
+      "args": [
+        "dump",
+        "--format",
+        "json"
+      ]
+    }
+  ]
+}

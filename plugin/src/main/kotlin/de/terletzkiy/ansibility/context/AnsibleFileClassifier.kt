@@ -5,7 +5,10 @@ import com.intellij.openapi.vfs.VirtualFile
 import de.terletzkiy.ansibility.api.AnsibleRoot
 import de.terletzkiy.ansibility.api.FileContext
 import de.terletzkiy.ansibility.api.FileKind
+import de.terletzkiy.ansibility.api.InventoryDef
+import de.terletzkiy.ansibility.api.RootLayout
 import de.terletzkiy.ansibility.api.VarsLayer
+import de.terletzkiy.ansibility.semantics.inventory.InventoryDirectoryWalk
 
 /**
  * Query-time classification of one file inside a known [AnsibleRoot] (plan A.5).
@@ -20,10 +23,16 @@ import de.terletzkiy.ansibility.api.VarsLayer
  *
  * [moleculeSupport] is read on every classification: when it answers false, files below a `molecule/` directory
  * are [FileKind.OTHER] (still with their role), so no `MOLECULE_*` kind is ever reported.
+ *
+ * [layoutOf] answers first for inventory files and inventory-level vars directories (plan amendment R10): a file
+ * that is an inventory source of the root's layout is [FileKind.INVENTORY] or [FileKind.INVENTORY_INI], and a
+ * `group_vars`/`host_vars` next to one is inventory-level for every environment it serves. Paths the layout does
+ * not claim fall back to the `environments/<env>` rules.
  */
 class AnsibleFileClassifier(
     private val probe: (VirtualFile) -> Boolean = PlaybookProbe::looksLikePlaybook,
     private val moleculeSupport: () -> Boolean = { true },
+    private val layoutOf: (AnsibleRoot) -> RootLayout? = { null },
 ) {
 
     /** A classification and whether the file's content was read to obtain it. */
@@ -62,7 +71,11 @@ class AnsibleFileClassifier(
             host: String? = null,
             layer: VarsLayer? = null,
             scenario: VirtualFile? = null,
-        ) = FileContext(root, kind, roleDir?.name, roleDir, environment, group, host, layer, scenario)
+            environments: List<String> = listOfNotNull(environment),
+            playbookLayer: VarsLayer? = null,
+        ) = FileContext(root, kind, roleDir?.name, roleDir, environment, group, host, layer, scenario, environments, playbookLayer)
+
+        val layout: RootLayout? by lazy { layoutOf(root)?.takeIf { it.hasInventory } }
 
         fun roleFile(roleDir: VirtualFile): FileContext {
             val inRole = VfsUtilCore.getRelativePath(file, roleDir)!!.split('/')
@@ -153,6 +166,7 @@ class AnsibleFileClassifier(
             }
             val varsAt = segments.indexOfFirst { it == AnsibleLayout.GROUP_VARS || it == AnsibleLayout.HOST_VARS }
             if (varsAt in 0 until segments.lastIndex) return varsFile(segments, varsAt)
+            layoutInventory()?.let { return it }
             val environment = environmentOf(segments)
             if (AnsibleLayout.isHostsFileName(name) &&
                 (segments.size == 1 || (segments.size == 3 && segments[0] in AnsibleLayout.ENVIRONMENT_PARENTS))
@@ -181,26 +195,52 @@ class AnsibleFileClassifier(
                         AnsibleLayout.isVarsFileInDirectory(name)
                 }
             }
+            val base = ancestor(file, below.size + 1)
+            val served = base?.let { layout?.environmentsWithVarsDir(it) }.orEmpty().map { it.id }
             val environment = when {
+                served.isNotEmpty() -> served.first()
                 varsAt == 2 && segments[0] in AnsibleLayout.ENVIRONMENT_PARENTS -> segments[1]
-                varsAt > 0 && hasInventoryFile(ancestor(file, below.size + 1)) -> segments[varsAt - 1]
+                varsAt > 0 && hasInventoryFile(base) -> segments[varsAt - 1]
                 else -> null
             }
-            if (entity == null) return context(FileKind.OTHER, environment = environment)
+            val environments = served.ifEmpty { listOfNotNull(environment) }
+            if (entity == null) return context(FileKind.OTHER, environment = environment, environments = environments)
             val inventoryLayer = environment != null
+            val alsoPlaybook = served.isNotEmpty() && base == root.dir
             return if (isGroup) {
                 val all = entity == "all"
+                val playbook = if (all) VarsLayer.PLAYBOOK_GROUP_VARS_ALL else VarsLayer.PLAYBOOK_GROUP_VARS
                 val layer = when {
                     inventoryLayer && all -> VarsLayer.INVENTORY_GROUP_VARS_ALL
                     inventoryLayer -> VarsLayer.INVENTORY_GROUP_VARS
-                    all -> VarsLayer.PLAYBOOK_GROUP_VARS_ALL
-                    else -> VarsLayer.PLAYBOOK_GROUP_VARS
+                    else -> playbook
                 }
-                context(FileKind.GROUP_VARS, environment = environment, group = entity, layer = layer)
+                context(
+                    FileKind.GROUP_VARS, environment = environment, group = entity, layer = layer,
+                    environments = environments, playbookLayer = playbook.takeIf { alsoPlaybook },
+                )
             } else {
                 val layer = if (inventoryLayer) VarsLayer.INVENTORY_HOST_VARS else VarsLayer.PLAYBOOK_HOST_VARS
-                context(FileKind.HOST_VARS, environment = environment, host = entity, layer = layer)
+                context(
+                    FileKind.HOST_VARS, environment = environment, host = entity, layer = layer,
+                    environments = environments, playbookLayer = VarsLayer.PLAYBOOK_HOST_VARS.takeIf { alsoPlaybook },
+                )
             }
+        }
+
+        /** The file as an inventory source of the layout, or null when no environment reads it. */
+        fun layoutInventory(): FileContext? {
+            val defs = layout?.inventoriesOf(file).orEmpty().filter { def -> readsFile(def) }
+            if (defs.isEmpty()) return null
+            val ids = defs.map { it.id }
+            val kind = if (AnsibleLayout.isYamlName(name) || name.endsWith(".json")) FileKind.INVENTORY else FileKind.INVENTORY_INI
+            return context(kind, environment = ids.first(), environments = ids)
+        }
+
+        /** A file inside a directory source counts only when the directory walk reads it. */
+        private fun readsFile(def: InventoryDef): Boolean = def.sources.any { s ->
+            val f = s.file ?: return@any false
+            f == file || (s.isDirectory && generateSequence(file) { it.parent }.takeWhile { it != f }.all { DIRECTORY_WALK.skipReason(it.name) == null })
         }
     }
 
@@ -216,6 +256,8 @@ class AnsibleFileClassifier(
     }
 
     companion object {
+        private val DIRECTORY_WALK = InventoryDirectoryWalk.Options()
+
         /** `environments/<env>/…` → `<env>`. */
         fun environmentOf(segments: List<String>): String? =
             segments.takeIf { it.size >= 3 && it[0] in AnsibleLayout.ENVIRONMENT_PARENTS }?.get(1)

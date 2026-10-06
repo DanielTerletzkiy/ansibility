@@ -1,0 +1,87 @@
+{
+  "ansible_core": "2.21.4",
+  "tool": "ansible-inventory",
+  "args": [
+    "--list",
+    "--export"
+  ],
+  "cfg": "project/ansible.cfg",
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": {
+    "_meta": {
+      "hostvars": {
+        "db1": {
+          "ansible_port": 2222,
+          "role_hint": "replica"
+        },
+        "db2": {
+          "ansible_host": "192.0.2.21",
+          "ansible_port": 2200
+        },
+        "loose1": {
+          "ansible_host": "192.0.2.5"
+        },
+        "web-a": {
+          "http_port": 8080
+        },
+        "web-b": {
+          "http_port": 8080
+        }
+      },
+      "profile": "inventory_legacy"
+    },
+    "all": {
+      "children": [
+        "ungrouped",
+        "dc1",
+        "monitoring"
+      ],
+      "vars": {
+        "ntp_server": "ntp1.example.test",
+        "tier": "base"
+      }
+    },
+    "db": {
+      "hosts": [
+        "db1",
+        "db2"
+      ]
+    },
+    "dc1": {
+      "children": [
+        "web",
+        "db"
+      ],
+      "vars": {
+        "datacenter": "dc1-from-group_vars"
+      }
+    },
+    "monitoring": {
+      "hosts": [
+        "db2"
+      ]
+    },
+    "ungrouped": {
+      "hosts": [
+        "loose1"
+      ]
+    },
+    "web": {
+      "hosts": [
+        "web01.example.test",
+        "web02.example.test",
+        "web03.example.test",
+        "web-a",
+        "web-b",
+        "db1"
+      ],
+      "vars": {
+        "http_port": 8000,
+        "tier": "frontend"
+      }
+    }
+  },
+  "stderr": ""
+}

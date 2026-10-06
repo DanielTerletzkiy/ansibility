@@ -1,0 +1,48 @@
+{
+  "description": "ansible.cfg lists two sources (comma-separated, resolved against the cfg dir) in different directories, each with its own group_vars. Later sources win for host vars, group vars and adjacent group_vars; an INI port suffix only applies when the host is created.",
+  "runs": [
+    {
+      "name": "host-web1",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "--host",
+        "web1"
+      ]
+    },
+    {
+      "name": "host-web1-reversed",
+      "cfg": "project/reversed.cfg",
+      "args": [
+        "--host",
+        "web1"
+      ]
+    },
+    {
+      "name": "list-export",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "list-export-reversed",
+      "cfg": "project/reversed.cfg",
+      "args": [
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "config-dump",
+      "tool": "ansible-config",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "dump",
+        "--only-changed",
+        "--format",
+        "json"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+{"seen_txt": true, "pair_noext__txt": "txt", "pair_txt__yml": "txt", "pair_txt__yaml": "txt", "pair_json__txt": "txt"}

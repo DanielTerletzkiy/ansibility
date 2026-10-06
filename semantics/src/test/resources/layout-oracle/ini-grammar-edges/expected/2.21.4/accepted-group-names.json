@@ -1,0 +1,50 @@
+{
+  "ansible_core": "2.21.4",
+  "tool": "ansible-inventory",
+  "args": [
+    "-i",
+    "{project}/accepted/group-names.ini",
+    "--list",
+    "--export"
+  ],
+  "cfg": null,
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": {
+    "Case": {
+      "hosts": [
+        "case1"
+      ]
+    },
+    "_meta": {
+      "hostvars": {},
+      "profile": "inventory_legacy"
+    },
+    "all": {
+      "children": [
+        "ungrouped",
+        "Case",
+        "case",
+        "dash-group",
+        "group.dot"
+      ]
+    },
+    "case": {
+      "hosts": [
+        "case2"
+      ]
+    },
+    "dash-group": {
+      "hosts": [
+        "dash1"
+      ]
+    },
+    "group.dot": {
+      "hosts": [
+        "dot1"
+      ]
+    }
+  },
+  "stderr": "[WARNING]: Invalid characters were found in group names but not replaced, use -vvvv to see details\n"
+}

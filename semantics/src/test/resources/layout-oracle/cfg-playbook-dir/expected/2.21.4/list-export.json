@@ -1,0 +1,33 @@
+{
+  "ansible_core": "2.21.4",
+  "tool": "ansible-inventory",
+  "args": [
+    "--list",
+    "--export"
+  ],
+  "cfg": "project/ansible.cfg",
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": {
+    "_meta": {
+      "hostvars": {},
+      "profile": "inventory_legacy"
+    },
+    "all": {
+      "children": [
+        "ungrouped",
+        "web"
+      ],
+      "vars": {
+        "from_pb": "pb/group_vars/all.yml"
+      }
+    },
+    "web": {
+      "hosts": [
+        "web1"
+      ]
+    }
+  },
+  "stderr": ""
+}

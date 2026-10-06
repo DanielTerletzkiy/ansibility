@@ -6,13 +6,14 @@ import de.terletzkiy.ansibility.semantics.value.PyValue
 import java.math.BigInteger
 
 /**
- * `ast.literal_eval` as `check_type_dict` uses it: the fallback for strings starting with `{` that are not JSON.
+ * `ast.literal_eval`: the fallback of `check_type_dict` for strings starting with `{` that are not JSON ([evalDict]),
+ * and the typing step of ansible-core's INI inventory plugin, which evaluates every value ([literalEval]).
  *
  * Covers the literal grammar (str/bytes literals with prefixes and implicit concatenation, int/float/imaginary
- * numbers, `True`/`False`/`None`/`...`, tuples, lists, sets, dicts, `set()`, unary `+`/`-` and complex `a ± bj`)
- * plus comments and line joining. Every other expression is rejected, as Python rejects it (a `SyntaxError` or
- * "malformed node" `ValueError`). A dict containing a tuple, set, bytes, complex or Ellipsis parses, but has no
- * [PyValue]; [evalDict] then throws [IndeterminateValueException].
+ * numbers, `True`/`False`/`None`/`...`, tuples with and without parentheses, lists, sets, dicts, `set()`, unary
+ * `+`/`-` and complex `a ± bj`) plus comments and line joining. Every other expression is rejected, as Python
+ * rejects it (a `SyntaxError` or "malformed node" `ValueError`). A dict containing a tuple, set, bytes, complex or
+ * Ellipsis parses, but has no [PyValue]; [evalDict] then throws [IndeterminateValueException].
  */
 internal object PyLiteral {
     /**
@@ -20,33 +21,35 @@ internal object PyLiteral {
      * Python would reject and `NotADict` (a `TypeError`) when the literal is valid but not a dict.
      */
     fun evalDict(text: String): PyValue.Dict {
-        val tokens = Tokenizer(text.trimStart(' ', '\t')).tokens()
-        val parser = Parser(tokens)
-        val node = parser.expression()
-        parser.expectEnd()
-        val literal = convert(node)
-        checkHashable(literal)
+        val literal = literalEval(text)
         if (literal !is Lit.LDict) throw PyException.typeError("literal is a ${literal.typeName}, not a dict")
         return toPyValue(literal) as PyValue.Dict
+    }
+
+    /**
+     * `ast.literal_eval(text)` with Python's exceptions as [PyException]: `SyntaxError` for text that does not
+     * parse as an expression, `ValueError` ("malformed node or string") for an expression that is not a literal,
+     * and `TypeError` for an unhashable set element or dict key, raised in Python's evaluation order. Leading
+     * spaces and tabs are ignored, as `literal_eval` strips them.
+     */
+    fun literalEval(text: String): Lit {
+        val tokens = Tokenizer(text.trimStart(' ', '\t')).tokens()
+        val parser = Parser(tokens)
+        val node = parser.expressions()
+        parser.expectEnd()
+        return convert(node)
     }
 
     /**
      * `literal_eval(text)` of any literal; raises what Python raises, and [IndeterminateValueException] for a valid
      * literal [PyValue] cannot hold (a tuple, set, bytes …).
      */
-    fun eval(text: String): PyValue {
-        val tokens = Tokenizer(text.trimStart(' ', '\t')).tokens()
-        val parser = Parser(tokens)
-        val node = parser.expression()
-        parser.expectEnd()
-        val literal = convert(node)
-        checkHashable(literal)
-        return toPyValue(literal)
-    }
+    fun eval(text: String): PyValue = toPyValue(literalEval(text))
 
     // ------------------------------------------------------------------------------------------ values
 
-    private sealed interface Lit {
+    /** A value `literal_eval` can produce. Sets and dicts keep the order of the literal (duplicates included). */
+    sealed interface Lit {
         val typeName: String
 
         data object LNone : Lit { override val typeName = "NoneType" }
@@ -63,29 +66,22 @@ internal object PyLiteral {
         data class LDict(val pairs: List<Pair<Lit, Lit>>) : Lit { override val typeName = "dict" }
     }
 
-    private fun Lit.isHashable(): Boolean = when (this) {
+    /** Python's `hash()` succeeds: no list, set or dict, also not inside a tuple. */
+    fun Lit.isHashable(): Boolean = when (this) {
         is Lit.LList, is Lit.LSet, is Lit.LDict -> false
         is Lit.LTuple -> items.all { it.isHashable() }
         else -> true
     }
 
-    /** Building a set or dict hashes its elements/keys; an unhashable one is a `TypeError`. */
-    private fun checkHashable(lit: Lit) {
-        when (lit) {
-            is Lit.LTuple -> lit.items.forEach(::checkHashable)
-            is Lit.LList -> lit.items.forEach(::checkHashable)
-            is Lit.LSet -> lit.items.forEach {
-                checkHashable(it)
-                if (!it.isHashable()) throw PyException.typeError("unhashable type: '${it.typeName}'")
-            }
-            is Lit.LDict -> lit.pairs.forEach { (k, v) ->
-                checkHashable(k)
-                if (!k.isHashable()) throw PyException.typeError("unhashable type: '${k.typeName}'")
-                checkHashable(v)
-            }
-            else -> Unit
-        }
+    /** Building a set or dict hashes each element or key as it is added; an unhashable one is a `TypeError`. */
+    private fun hashed(lit: Lit): Lit {
+        if (!lit.isHashable()) throw PyException.typeError("unhashable type: '${unhashablePart(lit).typeName}'")
+        return lit
     }
+
+    /** The innermost value that makes [lit] unhashable (a tuple names the list, set or dict inside it). */
+    private fun unhashablePart(lit: Lit): Lit =
+        if (lit is Lit.LTuple) unhashablePart(lit.items.first { !it.isHashable() }) else lit
 
     private fun toPyValue(lit: Lit): PyValue = when (lit) {
         Lit.LNone -> PyValue.None
@@ -114,14 +110,21 @@ internal object PyLiteral {
 
     private fun malformed(): PyException = PyException.valueError("malformed node or string")
 
-    /** `literal_eval`'s `_convert`. */
+    /** `literal_eval`'s `_convert`, converting (and hashing) elements in Python's order. */
     private fun convert(node: Node): Lit = when (node) {
         is Node.Const -> node.value
         is Node.TupleNode -> Lit.LTuple(node.items.map(::convert))
         is Node.ListNode -> Lit.LList(node.items.map(::convert))
-        is Node.SetNode -> Lit.LSet(node.items.map(::convert))
+        is Node.SetNode -> Lit.LSet(node.items.map { hashed(convert(it)) })
         is Node.Call -> if (node.function == Node.Name("set") && node.argumentCount == 0) Lit.LSet(emptyList()) else throw malformed()
-        is Node.DictNode -> Lit.LDict(node.pairs.map { (k, v) -> convert(k) to convert(v) })
+        // dict(zip(map(_convert, keys), map(_convert, values))): key, value, then the key is hashed.
+        is Node.DictNode -> Lit.LDict(
+            node.pairs.map { (k, v) ->
+                val key = convert(k)
+                val value = convert(v)
+                hashed(key) to value
+            },
+        )
         is Node.Binary -> {
             val left = convertSignedNumber(node.left)
             val right = convertNumber(node.right)
@@ -169,6 +172,10 @@ internal object PyLiteral {
     private class Parser(private val tokens: List<Token>) {
         private var pos = 0
 
+        private companion object {
+            const val MAX_SIGNS = 5975
+        }
+
         private fun peek(): Token = tokens[pos]
 
         private fun next(): Token = tokens[pos++]
@@ -185,6 +192,21 @@ internal object PyLiteral {
             if (peek() != Token.End) throw syntaxError("invalid syntax")
         }
 
+        /** The `eval` start rule: one expression, or a tuple of them without parentheses (`1, 2` and `1,`). */
+        fun expressions(): Node {
+            val first = expression()
+            if (!isOp(",")) return first
+            val items = mutableListOf(first)
+            while (isOp(",")) {
+                pos++
+                if (atExpressionEnd()) break
+                items += expression()
+            }
+            return Node.TupleNode(items)
+        }
+
+        private fun atExpressionEnd(): Boolean = peek() == Token.End || peek() == Token.Newline
+
         /** A sum of signed terms (the only binary operators literal_eval can accept). */
         fun expression(): Node {
             var left = unary()
@@ -195,12 +217,18 @@ internal object PyLiteral {
             return left
         }
 
+        /**
+         * Signs nest to the right (`--5` is `-(-5)`); collected in a loop, so a long run of signs cannot overflow.
+         * CPython's parser runs out of stack on such a run ([MAX_SIGNS], measured on 3.13 and 3.14 for a top-level
+         * run) and raises `MemoryError`, which `literal_eval`'s callers do not expect.
+         */
         private fun unary(): Node {
-            if (isOp("+") || isOp("-")) {
-                val op = (next() as Token.Op).text[0]
-                return Node.Unary(op, unary())
-            }
-            return primary()
+            val signs = ArrayList<Char>()
+            while (isOp("+") || isOp("-")) signs += (next() as Token.Op).text[0]
+            if (signs.size >= MAX_SIGNS) throw PyException("MemoryError", "Parser stack overflowed - Python source too complex to parse")
+            var node = primary()
+            for (op in signs.asReversed()) node = Node.Unary(op, node)
+            return node
         }
 
         private fun primary(): Node {
@@ -351,7 +379,11 @@ internal object PyLiteral {
             for (op in listOf("...", "**", "(", ")", "[", "]", "{", "}", ",", ":", "+", "-")) {
                 if (s.startsWith(op, i)) {
                     when (op) {
-                        "(", "[", "{" -> depth++
+                        "(", "[", "{" -> {
+                            // CPython's tokenizer refuses MAXLEVEL (200) open brackets.
+                            if (depth >= MAX_NESTING) throw syntaxError("too many nested parentheses")
+                            depth++
+                        }
                         ")", "]", "}" -> depth = maxOf(0, depth - 1)
                     }
                     i += op.length
@@ -540,6 +572,7 @@ internal object PyLiteral {
 
         companion object {
             private val VALID_PREFIXES = setOf("", "r", "u", "b", "br", "rb", "f", "fr", "rf", "t", "tr", "rt")
+            private const val MAX_NESTING = 200
         }
     }
 }

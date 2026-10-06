@@ -1,0 +1,45 @@
+{
+  "ansible_core": "2.21.4",
+  "tool": "ansible-config",
+  "args": [
+    "dump",
+    "--only-changed",
+    "--format",
+    "json"
+  ],
+  "cfg": null,
+  "cwd": "cwd",
+  "env": {
+    "ANSIBLE_INVENTORY": "web1.example.test,web2.example.test"
+  },
+  "rc": 0,
+  "stdout": [
+    {
+      "name": "ANSIBLE_FORCE_COLOR",
+      "origin": "env: ANSIBLE_FORCE_COLOR",
+      "value": false
+    },
+    {
+      "name": "ANSIBLE_NOCOLOR",
+      "origin": "env: ANSIBLE_NOCOLOR",
+      "value": true
+    },
+    {
+      "name": "CONFIG_FILE",
+      "origin": "",
+      "value": "{work}/empty.cfg"
+    },
+    {
+      "name": "DEFAULT_HOST_LIST",
+      "origin": "env: ANSIBLE_INVENTORY",
+      "value": [
+        "{cwd}/web1.example.test",
+        "{cwd}/web2.example.test"
+      ]
+    },
+    {
+      "GALAXY_SERVERS": {}
+    }
+  ],
+  "stderr": ""
+}

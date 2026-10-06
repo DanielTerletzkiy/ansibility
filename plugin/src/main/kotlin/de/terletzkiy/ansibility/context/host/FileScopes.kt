@@ -16,6 +16,7 @@ import de.terletzkiy.ansibility.api.RoleReach
 import de.terletzkiy.ansibility.api.TemplateContextService
 import de.terletzkiy.ansibility.context.AnsibleLayout
 import de.terletzkiy.ansibility.model.inventory.EnvironmentModel
+import de.terletzkiy.ansibility.semantics.inventory.InventoryLocation
 import de.terletzkiy.ansibility.model.inventory.ModelInputs
 import de.terletzkiy.ansibility.model.task.TaskFileKind
 import de.terletzkiy.ansibility.model.task.TaskFileModels
@@ -57,6 +58,8 @@ internal class FileScopes(
         offset < 0 || context == null -> ""
         context.kind == FileKind.PLAYBOOK -> playAt(file, offset)?.playIndex?.let { "play:$it" }.orEmpty()
         context.kind == FileKind.INVENTORY -> inventoryEntryAt(file, offset).let { (group, host) -> "group:${group.orEmpty()}|host:${host.orEmpty()}" }
+        context.kind == FileKind.INVENTORY_INI && context.environment != null ->
+            iniEntryAt(context.root, context.environment, file, offset).let { (group, host) -> "group:${group.orEmpty()}|host:${host.orEmpty()}" }
         else -> ""
     }
 
@@ -69,6 +72,7 @@ internal class FileScopes(
             context.kind == FileKind.HOST_VARS && context.host != null -> hostVarsScope(root, file, context, context.host)
             context.kind == FileKind.GROUP_VARS && context.group != null -> groupVarsScope(root, file, context, context.group)
             context.kind == FileKind.INVENTORY && context.environment != null -> inventoryScope(root, file, context.environment, offset)
+            context.kind == FileKind.INVENTORY_INI && context.environment != null -> inventoryScope(root, file, context.environment, offset, ini = true)
             context.kind == FileKind.PLAYBOOK -> playbookScope(root, file, offset)
             context.kind == FileKind.ROLE_TEMPLATE && context.roleName != null && context.roleDir != null ->
                 templateScope(root, file, context.roleName, context.roleDir)
@@ -85,7 +89,7 @@ internal class FileScopes(
     private fun hostVarsScope(root: AnsibleRoot, file: VirtualFile, context: FileContext, host: String): FileScope {
         val environment = context.environment
         val playbookDir = if (environment == null) varsOwnerDir(file) else null
-        val environments = model.environments(root).filter { (environment == null || it.name == environment) && it.graph.host(host) != null }
+        val environments = model.environments(root).filter { (environment == null || it.name in context.environments) && it.graph.host(host) != null }
         if (environments.isEmpty()) {
             val reason = if (environment != null) {
                 AnsibilityHostBundle.message("scope.empty.host.not.in.environment", host, environment)
@@ -102,7 +106,7 @@ internal class FileScopes(
     private fun groupVarsScope(root: AnsibleRoot, file: VirtualFile, context: FileContext, group: String): FileScope {
         val environment = context.environment
         val playbookDir = if (environment == null) varsOwnerDir(file) else null
-        val environments = model.environments(root).filter { (environment == null || it.name == environment) && it.graph.group(group) != null }
+        val environments = model.environments(root).filter { (environment == null || it.name in context.environments) && it.graph.group(group) != null }
         val origin = HostScopeOrigin.GroupVars(environment, group)
         if (environments.isEmpty()) {
             val reason = if (environment != null) {
@@ -116,10 +120,14 @@ internal class FileScopes(
         return FileScope(origin, finish(root, targets), null, null)
     }
 
-    private fun inventoryScope(root: AnsibleRoot, file: VirtualFile, environment: String, offset: Int): FileScope {
+    private fun inventoryScope(root: AnsibleRoot, file: VirtualFile, environment: String, offset: Int, ini: Boolean = false): FileScope {
         val env = model.environment(root, environment)
             ?: return FileScope(HostScopeOrigin.InventoryEntry(environment, null, null), emptyList(), AnsibilityHostBundle.message("scope.empty.no.inventory", root.displayName), null)
-        val (group, host) = if (offset < 0) null to null else inventoryEntryAt(file, offset)
+        val (group, host) = when {
+            offset < 0 -> null to null
+            ini -> iniEntryAt(root, environment, file, offset)
+            else -> inventoryEntryAt(file, offset)
+        }
         val knownHost = host?.takeIf { env.graph.host(it) != null }
         val knownGroup = group?.takeIf { env.graph.group(it) != null }
         val hosts = when {
@@ -174,6 +182,26 @@ internal class FileScopes(
             }
         }
         return group to null
+    }
+
+    /**
+     * The group section and host line at [offset] of the INI inventory [file], from the parsed graph's ranges: the
+     * host when the caret is on its line, and the section the caret is in (`[web]`, `[web:vars]`, `[web:children]`).
+     */
+    private fun iniEntryAt(root: AnsibleRoot, environment: String, file: VirtualFile, offset: Int): Pair<String?, String?> {
+        val env = model.environment(root, environment) ?: return null to null
+        val text = PsiManager.getInstance(project).findFile(file)?.text ?: return null to null
+        val at = offset.coerceIn(0, text.length)
+        val lineStart = if (at == 0) 0 else text.lastIndexOf('\n', at - 1) + 1
+        val lineEnd = text.indexOf('\n', at).let { if (it < 0) text.length else it }
+        fun onLine(location: InventoryLocation): Boolean {
+            val start = location.range?.start ?: return false
+            return env.fileOf(location) == file && start >= lineStart && start <= lineEnd
+        }
+        val host = env.graph.hosts.values.firstOrNull { h -> h.definitions.any(::onLine) }?.name
+        val group = INI_SECTION.findAll(text.substring(0, lineEnd)).lastOrNull()?.groupValues?.get(1)?.trim()
+            ?.takeIf { env.graph.group(it) != null }
+        return group to host
     }
 
     // ------------------------------------------------------------------------------------------------ playbooks
@@ -301,6 +329,7 @@ internal class FileScopes(
         model.deduplicate(model.sorted(root, targets.distinct(), plays))
 
     private companion object {
+        val INI_SECTION = Regex("""^[ \t]*\[([^\]:]+)(?::\w+)?][ \t]*$""", RegexOption.MULTILINE)
         const val HOSTS = "hosts"
         const val CHILDREN = "children"
 

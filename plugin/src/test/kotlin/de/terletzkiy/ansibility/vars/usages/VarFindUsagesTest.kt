@@ -89,9 +89,9 @@ class VarFindUsagesTest : UsagesTestCase() {
         assertEquals("web_port", ((event.getData(UsageView.USAGE_TARGETS_KEY)?.first() as PsiElement2UsageTargetAdapter).element as VarSymbolElement).name)
     }
 
-    fun testNestedKeysLocalsOfOtherKindsAndModulesOfferNoVariableTarget() {
+    fun testNestedKeysAreMembersAndModulesOfferNoVariableTarget() {
         at(GROUP_VARS, 4, "inner")
-        assertNull("accessor-level usages are v1.x", targetAtCaret())
+        assertTrue("a nested key is a member of its variable", targetAtCaret()?.scope is VarScope.Member)
         at(TASKS, 3, "ansible.builtin.stat")
         assertNull("a module key", targetAtCaret())
     }

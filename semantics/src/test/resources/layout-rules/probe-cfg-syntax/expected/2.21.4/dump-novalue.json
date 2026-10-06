@@ -1,0 +1,15 @@
+{
+  "ansible_core": "2.21.4",
+  "tool": "ansible-config",
+  "args": [
+    "dump",
+    "--format",
+    "json"
+  ],
+  "cfg": "project/cfg/novalue.cfg",
+  "cwd": "cwd",
+  "env": {},
+  "rc": 5,
+  "stdout": "",
+  "stderr": "ERROR: Error reading config file ({project}/cfg/novalue.cfg): Source contains parsing errors: '<string>'\n\t[line  2]: 'inventory\\n'"
+}

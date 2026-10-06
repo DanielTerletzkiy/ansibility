@@ -1,0 +1,15 @@
+{
+  "ansible_core": "2.21.4",
+  "tool": "ansible-inventory",
+  "args": [
+    "--graph"
+  ],
+  "cfg": null,
+  "cwd": "cwd",
+  "env": {
+    "ANSIBLE_INVENTORY": "web1.example.test,web2.example.test"
+  },
+  "rc": 0,
+  "stdout": "@all:\n  |--@ungrouped:\n",
+  "stderr": "[WARNING]: Unable to parse {cwd}/web1.example.test as an inventory source\n[WARNING]: Unable to parse {cwd}/web2.example.test as an inventory source\n[WARNING]: No inventory was parsed, only implicit localhost is available\n"
+}

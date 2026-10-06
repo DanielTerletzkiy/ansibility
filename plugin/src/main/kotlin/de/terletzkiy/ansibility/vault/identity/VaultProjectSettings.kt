@@ -29,7 +29,7 @@ data class ExplicitIdentity(val label: String, val kind: VaultSourceKind, val lo
 data class VaultRootSettings(
     /** Explicit ids, tried before everything Ansible's configuration and the conventions discover. */
     val identities: List<ExplicitIdentity> = emptyList(),
-    /** The env → id mapping for encrypting files under `environments/<env>/`; the key `*` matches every environment. */
+    /** The env → id mapping for encrypting files of an environment, by environment id; the key `*` matches every one. */
     val environmentIdentities: Map<String, String> = emptyMap(),
     /** D31: decrypted values of unlocked ids may feed the analysis (derived facts only). Off by default. */
     val analyzeDecryptedValues: Boolean = false,
@@ -37,6 +37,29 @@ data class VaultRootSettings(
     /** The id the env → id mapping gives a file of [environment] (exact name first, then `*`), or null. */
     fun identityForEnvironment(environment: String?): String? =
         environment?.let { environmentIdentities[it] } ?: environmentIdentities[ANY_ENVIRONMENT]
+
+    /**
+     * The id for a file that belongs to all of [environments] (shared inventory vars belong to several): the one id
+     * they all map to, or null when they map to different ids or one of them maps to none (plan amendment R10, R10-11).
+     */
+    fun identityForEnvironments(environments: List<String>): String? {
+        if (environments.isEmpty()) return identityForEnvironment(null)
+        return environments.map(::identityForEnvironment).distinct().singleOrNull()
+    }
+
+    /** Whether [environments] map to more than one id (or some map and some do not), so no mapping applies. */
+    fun mappingsDiffer(environments: List<String>): Boolean =
+        environments.size > 1 && environments.map(::identityForEnvironment).distinct().size > 1
+
+    /** These settings with the mapping entry of [old] moved to [new]. */
+    fun renameEnvironment(old: String, new: String): VaultRootSettings {
+        val id = environmentIdentities[old] ?: return this
+        if (old == new) return this
+        val renamed = LinkedHashMap<String, String>()
+        for ((env, value) in environmentIdentities) if (env != old) renamed[env] = value
+        renamed[new] = id
+        return copy(environmentIdentities = renamed)
+    }
 
     companion object {
         const val ANY_ENVIRONMENT: String = "*"
@@ -84,6 +107,9 @@ class VaultProjectSettings : PersistentStateComponent<VaultProjectSettings.State
         }
         tracker.incModificationCount()
     }
+
+    /** Moves the env → id mapping of environment [old] of root [rootKey] to [new] (a renamed environment, F10.6). */
+    fun renameEnvironment(rootKey: String, old: String, new: String) = update(rootKey) { it.renameEnvironment(old, new) }
 
     override fun getState(): StateBean = StateBean().apply {
         encryptOnlyOnExplicitSave = this@VaultProjectSettings.encryptOnlyOnExplicitSave

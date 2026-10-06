@@ -1,0 +1,26 @@
+{
+  "ansible_core": "2.21.4",
+  "tool": "ansible-inventory",
+  "args": [
+    "-i",
+    "{project}/errors/vars-without-eq.ini",
+    "--list",
+    "--export"
+  ],
+  "cfg": null,
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": {
+    "_meta": {
+      "hostvars": {},
+      "profile": "inventory_legacy"
+    },
+    "all": {
+      "children": [
+        "ungrouped"
+      ]
+    }
+  },
+  "stderr": "[WARNING]: Failed to parse inventory with 'ini' plugin: Failed to parse inventory: Expected key=value, got: justaword\n\nFailed to parse inventory with 'ini' plugin.\n\n<<< caused by >>>\n\nFailed to parse inventory: Expected key=value, got: justaword\nOrigin: {project}/errors/vars-without-eq.ini\n\n[WARNING]: Unable to parse {project}/errors/vars-without-eq.ini as an inventory source\n[WARNING]: No inventory was parsed, only implicit localhost is available\n"
+}

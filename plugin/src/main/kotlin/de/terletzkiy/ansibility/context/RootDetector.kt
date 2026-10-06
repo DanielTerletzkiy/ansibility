@@ -52,6 +52,8 @@ class RootScan(
  * - **PROJECT**: a directory containing an `ansible.cfg` file;
  * - **ROLE_LIBRARY**: a directory outside every PROJECT root, without `ansible.cfg`, whose `roles/` holds real
  *   roles ([RoleDirectories.isRole]: `tasks/`, `meta/argument_specs.yml` or `defaults/main`), e.g. `golden/`;
+ * - **PROJECT** too: a directory without `ansible.cfg` outside every root, with an inventory marker or with roles or
+ *   vars dirs next to a top-level playbook, unless another root is found below it ([isCfgLessProject]);
  * - **NESTED_PLAYBOOK**: inside a PROJECT root, a directory other than the root with `playbook-*.yml` files
  *   and its own `roles/`, e.g. `repos/pelican/ansible/danger_zone/database`.
  *
@@ -71,6 +73,7 @@ class RootDetector(
     private val maxDepth: Int = DEFAULT_MAX_DEPTH,
     private val maxDirectories: Int = DEFAULT_MAX_DIRECTORIES,
     private val detachedRule: Boolean = true,
+    private val playbookProbe: (VirtualFile) -> Boolean = PlaybookProbe::looksLikePlaybook,
 ) {
     private class Candidate(
         val dir: VirtualFile,
@@ -92,17 +95,23 @@ class RootDetector(
                 return
             }
             val children = dir.children ?: return
-            val kind = kindOf(children, enclosingProject)
+            val today = kindOf(children, enclosingProject)
+            val provisional = today != RootKind.PROJECT && enclosingProject == null && !insideRoot && isCfgLessProject(dir, children)
+            val kind = if (provisional) RootKind.PROJECT else today
             if (kind != null) {
                 candidates[dir] = Candidate(dir, kind, base, enclosingProject.takeIf { kind == RootKind.NESTED_PLAYBOOK })
             }
             if (depth >= maxDepth) return
-            val nextProject = if (kind == RootKind.PROJECT) dir else enclosingProject
+            val nextProject = if (kind == RootKind.PROJECT && !provisional) dir else enclosingProject
             val nextInsideRoot = insideRoot || kind != null
+            val before = candidates.size
             for (child in children) {
                 if (!child.isDirectory || !shouldDescend(child, nextInsideRoot)) continue
                 walk(base, child, depth + 1, nextProject, nextInsideRoot)
                 if (truncated) return
+            }
+            if (provisional && candidates.size > before) {
+                if (today == null) candidates.remove(dir) else candidates[dir] = Candidate(dir, today, base, null)
             }
         }
     }
@@ -128,6 +137,22 @@ class RootDetector(
         if (insideRoot && name in AnsibleLayout.ROOT_CONTENT_DIRS) return false
         if (!insideRoot && name == AnsibleLayout.PATCHES) return false
         return !isExcluded(child)
+    }
+
+    /**
+     * F10.1 (plan amendment R10): a directory without `ansible.cfg`, outside every root and not itself a role, is a
+     * PROJECT when it has an inventory marker, or when it has real roles or a top-level vars dir and a top-level
+     * playbook. Provisional: the walk reverts it when it finds a root below (the super-repo guard).
+     */
+    private fun isCfgLessProject(dir: VirtualFile, children: Array<VirtualFile>): Boolean {
+        if (RoleDirectories.isRole(dir)) return false
+        val marker = children.any { child ->
+            if (child.isDirectory) child.name in INVENTORY_MARKER_DIRS else child.name in INVENTORY_MARKER_FILES
+        }
+        if (marker) return true
+        val candidate = children.any { it.isDirectory && (it.name == AnsibleLayout.GROUP_VARS || it.name == AnsibleLayout.HOST_VARS) } ||
+            children.firstOrNull { it.isDirectory && it.name == AnsibleLayout.ROLES }?.let(::hasRealRoles) == true
+        return candidate && children.any { !it.isDirectory && AnsibleLayout.isYamlName(it.name) && playbookProbe(it) }
     }
 
     private fun kindOf(children: Array<VirtualFile>, enclosingProject: VirtualFile?): RootKind? {
@@ -237,6 +262,13 @@ class RootDetector(
         const val DEFAULT_MAX_DEPTH: Int = 12
         const val DEFAULT_MAX_DIRECTORIES: Int = 50_000
         const val NESTED_SEPARATOR: String = "›"
+
+        /** Files that mark a directory as holding an inventory (F10.1). */
+        val INVENTORY_MARKER_FILES: Set<String> =
+            setOf("hosts", "hosts.ini", "hosts.yml", "hosts.yaml", "inventory", "inventory.ini", "inventory.yml", "inventory.yaml")
+
+        /** Directories that mark a directory as holding inventories (F10.1). */
+        val INVENTORY_MARKER_DIRS: Set<String> = setOf("inventory", "inventories", AnsibleLayout.ENVIRONMENTS)
 
         private val LOG = logger<RootDetector>()
 

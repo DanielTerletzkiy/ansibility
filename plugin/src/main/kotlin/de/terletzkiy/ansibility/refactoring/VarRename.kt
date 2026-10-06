@@ -1,5 +1,6 @@
 package de.terletzkiy.ansibility.refactoring
 
+import com.intellij.ide.TitledHandler
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.application.ApplicationManager
@@ -57,6 +58,7 @@ internal object VarRenamer {
     fun refusal(project: Project, symbol: VarSymbolElement): String? = when (symbol.scope) {
         is VarScope.Loop -> if (symbol.name in LOOP_IMPLICIT) AnsibilityRefactoringBundle.message("rename.var.refuse.loop", symbol.name) else null
         is VarScope.Local -> null
+        is VarScope.Member -> AnsibilityRefactoringBundle.message("rename.var.refuse.member", symbol.presentableText)
         is VarScope.Root -> {
             val defined = VarService.getInstance(project).symbol(symbol.root, symbol.name).definitions.any { it.kind != VarDefKind.JINJA_LOCAL }
             if (defined) null else AnsibilityRefactoringBundle.message("rename.var.refuse.undefined", symbol.name)
@@ -85,11 +87,14 @@ internal object VarRenamer {
 
     /** The variable at the caret (or right before it, at the end of a name). Read action. */
     fun symbolAt(file: PsiFile, offset: Int): VarSymbolElement? =
-        VarUsageSearch.symbolAt(file, offset) ?: offset.takeIf { it > 0 }?.let { VarUsageSearch.symbolAt(file, it - 1) }
+        (VarUsageSearch.symbolAt(file, offset) ?: offset.takeIf { it > 0 }?.let { VarUsageSearch.symbolAt(file, it - 1) })
+            ?.takeIf { it.scope !is VarScope.Member }
 }
 
 /** Shift+F6 on a variable's definition or use: [VarRenamer] behind a name dialog. */
-class VarRenameHandler : RenameHandler {
+class VarRenameHandler : RenameHandler, TitledHandler {
+    override fun getActionTitle(): String = AnsibilityRefactoringBundle.message("rename.var.action")
+
     override fun isAvailableOnDataContext(dataContext: DataContext): Boolean {
         val editor = CommonDataKeys.EDITOR.getData(dataContext) ?: return false
         val file = CommonDataKeys.PSI_FILE.getData(dataContext) ?: return false

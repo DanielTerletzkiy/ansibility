@@ -1,0 +1,75 @@
+{
+  "description": "'inventory =' (empty) and 'inventory = localhost,' in ansible.cfg. The value is a pathlist: '' resolves to the cfg's own directory, which then becomes a directory source (every file in the project root is tried as an inventory; playbooks and other YAML produce warnings). A host list does not work in ansible.cfg. VERSION-DEPENDENT through the '.ini' directory rule.",
+  "runs": [
+    {
+      "name": "graph-empty",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "--graph"
+      ]
+    },
+    {
+      "name": "list-export-empty",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "dump-empty",
+      "tool": "ansible-config",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "dump",
+        "--only-changed",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "graph-trailing-comma",
+      "cfg": "project/trailing-comma.cfg",
+      "args": [
+        "--graph"
+      ]
+    },
+    {
+      "name": "dump-trailing-comma",
+      "tool": "ansible-config",
+      "cfg": "project/trailing-comma.cfg",
+      "args": [
+        "dump",
+        "--only-changed",
+        "--format",
+        "json"
+      ]
+    },
+    {
+      "name": "graph-host-list",
+      "cfg": "project/host-list.cfg",
+      "args": [
+        "--graph"
+      ]
+    },
+    {
+      "name": "graph-env-host-list",
+      "cfg": null,
+      "env": {
+        "ANSIBLE_INVENTORY": "web1.example.test,web2.example.test"
+      },
+      "args": [
+        "--graph"
+      ]
+    },
+    {
+      "name": "graph-cli-host-list",
+      "cfg": null,
+      "args": [
+        "-i",
+        "web1.example.test,web2.example.test",
+        "--graph"
+      ]
+    }
+  ]
+}

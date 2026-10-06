@@ -19,6 +19,7 @@ import com.intellij.psi.util.CachedValuesManager
 import de.terletzkiy.ansibility.api.AnsibleRoot
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.FileContext
+import de.terletzkiy.ansibility.api.ProjectLayoutService
 import de.terletzkiy.ansibility.settings.AnsibilityProjectSettings
 import de.terletzkiy.ansibility.settings.PathSettings
 import java.util.concurrent.ConcurrentHashMap
@@ -42,7 +43,10 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class AnsibleWorkspaceImpl(private val project: Project) : AnsibleWorkspace, Disposable {
     private val tracker = SimpleModificationTracker()
-    private val classifier = AnsibleFileClassifier(moleculeSupport = { paths().moleculeSupport })
+    private val classifier = AnsibleFileClassifier(
+        moleculeSupport = { paths().moleculeSupport },
+        layoutOf = { root -> ProjectLayoutService.getInstance(project).layout(root) },
+    )
     private val contexts = ConcurrentHashMap<VirtualFile, CachedContext>()
 
     @Volatile

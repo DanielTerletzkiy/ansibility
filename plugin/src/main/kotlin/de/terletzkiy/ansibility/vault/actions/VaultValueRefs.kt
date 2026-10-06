@@ -67,8 +67,8 @@ internal class PlainValueRef private constructor(
     val root: AnsibleRoot,
     private val pointer: SmartPsiElementPointer<YAMLScalar>,
     val keyName: String,
-    /** The `environments/<env>` the file belongs to, for the env → id mapping (F7.9). */
-    val environment: String?,
+    /** The environments the file belongs to (several for shared inventory vars), for the env → id mapping (F7.9). */
+    val environments: List<String>,
     /** The value as YAML loads it. */
     val value: String,
     /** The value is a plain (unquoted) one-line scalar, typed by YAML 1.1 (`5432` is an int). */
@@ -112,7 +112,7 @@ internal class PlainValueRef private constructor(
             val project = scalar.project
             val pointer = SmartPointerManager.getInstance(project).createSmartPsiElementPointer(scalar)
             val plain = YamlPsi.contentStart(scalar)?.let(YamlPsi::styleOf) == ScalarStyle.PLAIN
-            return PlainValueRef(project, file, context.root, pointer, keyValue.keyText, context.environment, scalar.textValue, plain)
+            return PlainValueRef(project, file, context.root, pointer, keyValue.keyText, context.environments, scalar.textValue, plain)
         }
 
         /** The context of [scalar]'s file when [accepts] holds, else null. */

@@ -1,0 +1,2 @@
+l4_vs_l5: inventory/group_vars/all.yml (L4)
+only_inventory_all: L4

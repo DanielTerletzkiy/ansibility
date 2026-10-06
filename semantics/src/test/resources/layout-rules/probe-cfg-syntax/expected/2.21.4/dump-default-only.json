@@ -1,0 +1,66 @@
+{
+  "ansible_core": "2.21.4",
+  "tool": "ansible-config",
+  "args": [
+    "dump",
+    "--format",
+    "json"
+  ],
+  "cfg": "project/cfg/default-only.cfg",
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "settings": {
+    "COLLECTIONS_PATHS": {
+      "value": [
+        "{home}/.ansible/collections",
+        "/usr/share/ansible/collections"
+      ],
+      "origin": "default"
+    },
+    "DEFAULT_FORKS": {
+      "value": 5,
+      "origin": "default"
+    },
+    "DEFAULT_HOST_LIST": {
+      "value": [
+        "/etc/ansible/hosts"
+      ],
+      "origin": "default"
+    },
+    "DEFAULT_ROLES_PATH": {
+      "value": [
+        "{home}/.ansible/roles",
+        "/usr/share/ansible/roles",
+        "/etc/ansible/roles"
+      ],
+      "origin": "default"
+    },
+    "DEFAULT_TIMEOUT": {
+      "value": 10,
+      "origin": "default"
+    },
+    "INVENTORY_IGNORE_EXTS": {
+      "value": [
+        ".pyc",
+        ".pyo",
+        ".swp",
+        ".bak",
+        "~",
+        ".rpm",
+        ".md",
+        ".txt",
+        ".rst",
+        ".orig",
+        ".cfg",
+        ".retry"
+      ],
+      "origin": "default"
+    },
+    "PLAYBOOK_DIR": {
+      "value": null,
+      "origin": "default"
+    }
+  },
+  "stderr": ""
+}

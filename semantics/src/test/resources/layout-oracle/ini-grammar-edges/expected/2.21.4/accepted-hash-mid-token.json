@@ -1,0 +1,49 @@
+{
+  "ansible_core": "2.21.4",
+  "tool": "ansible-inventory",
+  "args": [
+    "-i",
+    "{project}/accepted/hash-mid-token.ini",
+    "--list",
+    "--export"
+  ],
+  "cfg": null,
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": {
+    "_meta": {
+      "hostvars": {
+        "h1": {
+          "x": "a"
+        },
+        "h2": {
+          "x": "a"
+        },
+        "h3": {
+          "x": "a b"
+        },
+        "h4": {
+          "x": "a#b",
+          "y": 4
+        }
+      },
+      "profile": "inventory_legacy"
+    },
+    "all": {
+      "children": [
+        "ungrouped",
+        "web"
+      ]
+    },
+    "web": {
+      "hosts": [
+        "h1",
+        "h2",
+        "h3",
+        "h4"
+      ]
+    }
+  },
+  "stderr": ""
+}

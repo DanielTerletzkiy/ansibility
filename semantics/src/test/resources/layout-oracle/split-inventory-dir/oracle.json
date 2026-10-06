@@ -1,0 +1,63 @@
+{
+  "description": "Inventory file in inventory/ with its own group_vars/host_vars, playbook-level group_vars/host_vars in the project root (the playbook dir). One variable per precedence pair: L4<L5, L5<L6, L7<L9, L9<L10.",
+  "runs": [
+    {
+      "name": "host-no-pbdir",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "--host",
+        "web1"
+      ]
+    },
+    {
+      "name": "host-pbdir",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "--host",
+        "web1",
+        "--playbook-dir",
+        "{project}"
+      ]
+    },
+    {
+      "name": "host-cwd-is-project",
+      "cfg": "project/ansible.cfg",
+      "cwd": "project",
+      "args": [
+        "--host",
+        "web1"
+      ]
+    },
+    {
+      "name": "list-export",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "--list",
+        "--export"
+      ]
+    },
+    {
+      "name": "list-export-pbdir",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "--list",
+        "--export",
+        "--playbook-dir",
+        "{project}"
+      ]
+    },
+    {
+      "name": "list-pbdir",
+      "cfg": "project/ansible.cfg",
+      "args": [
+        "--list",
+        "--playbook-dir",
+        "{project}"
+      ]
+    }
+  ],
+  "notes": [
+    "host-cwd-is-project equals host-pbdir: without --export, ansible-inventory loads the cwd's group_vars/host_vars at the playbook level even when --playbook-dir is not given (the loader basedir defaults to the cwd). With --export only --playbook-dir adds them.",
+    "ansible-playbook site.yml gives the same values as host-pbdir (verified in the research probe 07)."
+  ]
+}

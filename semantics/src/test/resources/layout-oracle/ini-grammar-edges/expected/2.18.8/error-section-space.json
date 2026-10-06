@@ -1,0 +1,25 @@
+{
+  "ansible_core": "2.18.8",
+  "tool": "ansible-inventory",
+  "args": [
+    "-i",
+    "{project}/errors/section-space.ini",
+    "--list",
+    "--export"
+  ],
+  "cfg": null,
+  "cwd": "cwd",
+  "env": {},
+  "rc": 0,
+  "stdout": {
+    "_meta": {
+      "hostvars": {}
+    },
+    "all": {
+      "children": [
+        "ungrouped"
+      ]
+    }
+  },
+  "stderr": "[WARNING]:  * Failed to parse {project}/errors/section-space.ini with ini\nplugin: {project}/errors/section-space.ini:1: Invalid section entry: '[\nweb ]'. Please make sure that there are no spaces in the section entry, and\nthat there are no other invalid characters\n[WARNING]: Unable to parse {project}/errors/section-space.ini as an\ninventory source\n[WARNING]: No inventory was parsed, only implicit localhost is available\n"
+}

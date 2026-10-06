@@ -60,4 +60,17 @@
         <platform.backend.documentation.linkHandler implementation="de.terletzkiy.ansibility.context.host.card.HostCardLinkHandler"/>
     </extensions>
     <!-- /ha4 -->
+    <!-- ha6a: F8.8 hosts and groups as symbols. The classifier runs before the vars area's and answers only with the
+         caret on a play's hosts:, a literal delegate_to: or the name literal of groups[...], group_names and hostvars[...]. -->
+    <extensions defaultExtensionNs="de.terletzkiy.ansibility">
+        <siteClassifier id="ansibilityHosts" order="first, before ansibilityVars"
+                        implementation="de.terletzkiy.ansibility.context.host.symbols.HostSymbolClassifier"/>
+        <siteDocumentation id="ansibilityHosts"
+                           implementation="de.terletzkiy.ansibility.context.host.symbols.HostSymbolDocumentation"/>
+        <siteNavigation id="ansibilityHosts"
+                        implementation="de.terletzkiy.ansibility.context.host.symbols.HostSymbolNavigation"/>
+        <completionSource id="ansibilityHosts"
+                          implementation="de.terletzkiy.ansibility.context.host.symbols.HostSymbolCompletion"/>
+    </extensions>
+    <!-- /ha6a -->
 </idea-plugin>

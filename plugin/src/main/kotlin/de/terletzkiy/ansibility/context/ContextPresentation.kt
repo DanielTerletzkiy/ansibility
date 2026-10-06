@@ -18,14 +18,14 @@ object ContextPresentation {
 
     /** `Ansible: falcon · All envs · core 2.18.8`; `golden (role library)` for a role library. */
     @Nls
-    fun statusText(root: AnsibleRoot, target: TargetVersion): String {
+    fun statusText(root: AnsibleRoot, target: TargetVersion, inventory: InventoryShape = InventoryShape.of(root)): String {
         val name = if (root.kind == RootKind.ROLE_LIBRARY) {
             AnsibilityCoreBundle.message("status.root.library", root.displayName)
         } else {
             root.displayName
         }
         val parts = mutableListOf(AnsibilityCoreBundle.message("status.text", name))
-        if (root.environmentsDir != null) parts += AnsibilityCoreBundle.message("status.envs.all")
+        if (inventory.hasInventory) parts += AnsibilityCoreBundle.message(if (inventory.single) "status.hosts.all" else "status.envs.all")
         target.version?.let { version ->
             parts += AnsibilityCoreBundle.message(if (target.guessed) "status.core.guessed" else "status.core", version.toString())
         }
@@ -58,7 +58,9 @@ object ContextPresentation {
     @Nls
     fun rootKindName(root: AnsibleRoot, worktree: DetachedWorktree?): String {
         val kind = when (root.kind) {
-            RootKind.PROJECT -> AnsibilityCoreBundle.message("root.kind.project")
+            RootKind.PROJECT -> AnsibilityCoreBundle.message(
+                if (root.dir.findChild(AnsibleLayout.ANSIBLE_CFG) == null) "root.kind.project.cfgless" else "root.kind.project",
+            )
             RootKind.ROLE_LIBRARY -> AnsibilityCoreBundle.message("root.kind.library")
             RootKind.NESTED_PLAYBOOK -> AnsibilityCoreBundle.message("root.kind.nested")
         }
@@ -92,6 +94,7 @@ object ContextPresentation {
             FileKind.ROLE_FILE -> "file.kind.role.file"
             FileKind.PLAYBOOK -> "file.kind.playbook"
             FileKind.INVENTORY -> "file.kind.inventory"
+            FileKind.INVENTORY_INI -> "file.kind.inventory.ini"
             FileKind.GROUP_VARS -> "file.kind.group.vars"
             FileKind.HOST_VARS -> "file.kind.host.vars"
             FileKind.MOLECULE_CONFIG -> "file.kind.molecule.config"
