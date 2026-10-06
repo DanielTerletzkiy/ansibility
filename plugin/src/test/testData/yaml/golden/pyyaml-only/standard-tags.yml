@@ -1,0 +1,15 @@
+# Explicit standard tags. SnakeYAML's composed nodes cannot tell them from implicit ones, so YamlText skips this file.
+str_tag_float: !!str 3.2
+str_tag_bool: !!str yes
+int_tag_quoted: !!int "5"
+float_tag_int: !!float 1
+float_tag_exponent: !!float 1e3
+bool_tag_invalid: !!bool maybe
+int_tag_invalid: !!int abc
+int_tag_python_octal: !!int 0o17
+null_tag: !!null anything
+verbatim: !<tag:yaml.org,2002:str> 3.2
+non_specific_plain: ! 3.2
+non_specific_quoted: ! "3.2"
+str_tag_empty: !!str
+timestamp_tag_invalid: !!timestamp nope

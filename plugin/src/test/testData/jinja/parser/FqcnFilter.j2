@@ -1,0 +1,3 @@
+{{ item.path | ansible.builtin.splitext | first }}
+{{ version is ansible.builtin.version('2.18', '>=') }}
+{{ users | map(attribute='name') | selectattr('x', 'equalto', 1) | list | to_json }}

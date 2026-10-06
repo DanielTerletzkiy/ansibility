@@ -1,0 +1,9 @@
+{% for key, value in settings.items() %}
+{{ key }}={{ value }}
+{% endfor %}
+{% for (a, b) in pairs %}{{ a }}{{ b }}{% endfor %}
+{% for x in xs if x is defined recursive %}
+  {{ loop.index }}{{ loop(x.children) }}
+{% else %}
+  empty
+{% endfor %}

@@ -1,0 +1,72 @@
+map
+  key plain "compact_nested"
+    seq
+      seq
+        scalar plain "a" => str
+        scalar plain "b" => str
+      seq
+        scalar plain "c" => str
+  key plain "duplicate_key"
+    scalar plain "second" => str
+  key plain "flow_list_of_maps"
+    seq
+      map
+        key plain "name"
+          scalar plain "a" => str
+        key plain "port"
+          scalar plain "1" => int 1
+      map
+        key plain "name"
+          scalar plain "b" => str
+        key plain "port"
+          scalar plain "2" => int 2
+  key plain "flow_nested"
+    map
+      key plain "list"
+        seq
+          scalar plain "1" => int 1
+          seq
+            scalar plain "2" => int 2
+            scalar plain "3" => int 3
+      key plain "map"
+        map
+          key plain "k"
+            scalar plain "v" => str
+  key plain "haproxy_servers"
+    seq
+      map
+        key plain "address"
+          scalar plain "10.0.0.11" => str
+        key plain "backup"
+          scalar plain "no" => bool false
+        key plain "name"
+          scalar plain "web1" => str
+        key plain "options"
+          seq
+            scalar plain "check" => str
+            scalar plain "inter 2s" => str
+        key plain "port"
+          scalar plain "8080" => int 8080
+      map
+        key plain "address"
+          scalar plain "10.0.0.12" => str
+        key plain "backup"
+          scalar plain "yes" => bool true
+        key plain "name"
+          scalar plain "web2" => str
+        key plain "options"
+          seq
+            scalar plain "check" => str
+            scalar double "inter 2s" => str
+        key plain "port"
+          scalar double "8081" => str
+  key plain "indentless"
+    seq
+      scalar plain "one" => str
+      scalar plain "two" => str
+  key plain "multi_line_flow"
+    seq
+      scalar plain "alpha" => str
+      scalar plain "beta" => str
+  key double "yes"
+    scalar plain "quoted key that looks like a bool" => str

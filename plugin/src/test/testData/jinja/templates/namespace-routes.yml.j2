@@ -1,0 +1,48 @@
+# {{ ansible_managed }}
+dispatcher:
+  version: 2
+{% set ns = namespace(active=[]) %}
+{% for channel in beacon_channels %}
+{%   if channel.active | default(true) | bool %}
+{%     set _ = ns.active.append(channel) %}
+{%   endif %}
+{% endfor %}
+{% if ns.active | length > 0 %}
+{#- The fallback channel is the one beacon_fallback_channel names; without it the first active channel takes the unmatched events. -#}
+{%   set fallback_name = beacon_fallback_channel | default(none, true) %}
+{%   set fallback_ns = namespace(channel=ns.active[0]) %}
+{%   if fallback_name %}
+{%     for candidate in ns.active %}
+{%       if candidate.name == fallback_name %}
+{%         set fallback_ns.channel = candidate %}
+{%       endif %}
+{%     endfor %}
+{%   endif %}
+{%   set fallback = fallback_ns.channel %}
+{%   set fallback_rule = beacon_defaults.rule | combine(fallback.rule | default({}), recursive=True) %}
+  fallback:
+    channel: {{ fallback.name | to_json }}
+    team: {{ fallback.team | default(beacon_defaults.team) }}
+    batch_by:
+{%   for field in fallback_rule.batch_by %}
+      - {{ field | to_json }}
+{%   endfor %}
+    delay: {{ fallback_rule.delay | to_json }}
+    resend_after: {{ fallback_rule.resend_after | to_json }}
+{%   set rules_ns = namespace(has_rules=false) %}
+{%   for channel in ns.active %}
+{%     set rule = beacon_defaults.rule | combine(channel.rule | default({}), recursive=True) %}
+{%     if rule.labels | default([]) | length > 0 %}
+{%       if not rules_ns.has_rules %}
+  rules:
+{%         set rules_ns.has_rules = true %}
+{%       endif %}
+    - channel: {{ channel.name | to_json }}
+      delay: {{ rule.delay | to_json }}
+      when_labels:
+{%       for label in rule.labels %}
+        - {{ label | to_json }}
+{%       endfor %}
+{%     endif %}
+{%   endfor %}
+{% endif %}

@@ -1,0 +1,6 @@
+---
+- name: A
+  hosts: all
+  roles:
+    - common
+- import_playbook: playbook-loop-b.yml

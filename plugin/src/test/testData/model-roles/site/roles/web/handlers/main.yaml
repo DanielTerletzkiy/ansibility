@@ -1,0 +1,6 @@
+---
+- name: Restart web
+  listen: web changed
+  ansible.builtin.systemd:
+    name: web
+    state: restarted

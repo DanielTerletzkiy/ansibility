@@ -1,0 +1,15 @@
+---
+argument_specs:
+  main:
+    short_description: Web server
+    options:
+      web_port:
+        type: int
+        required: true
+      web_settings:
+        type: dict
+        options: {}
+      web_extra:
+        type: dict
+  extra:
+    short_description: Extra entry point

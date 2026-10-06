@@ -1,0 +1,3 @@
+# PyYAML 6 accepts the JSON escape "\/" in double-quoted scalars; SnakeYAML rejects it.
+double_slash: "a\/b"
+single_backslash_slash: 'a\/b'

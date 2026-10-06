@@ -1,0 +1,4 @@
+---
+settings:
+  from_inventory: 2
+order_var: inventory

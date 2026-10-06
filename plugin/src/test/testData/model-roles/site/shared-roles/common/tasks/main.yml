@@ -1,0 +1,4 @@
+---
+- name: Common
+  ansible.builtin.debug:
+    msg: common

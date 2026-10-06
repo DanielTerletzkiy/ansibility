@@ -1,0 +1,6 @@
+---
+dependencies:
+  - base
+  - name: common
+    tags: common,deps
+  - role: ../shared-roles/common

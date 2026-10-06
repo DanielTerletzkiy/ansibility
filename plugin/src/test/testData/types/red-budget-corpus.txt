@@ -1,0 +1,80 @@
+# Corpus red budget of the role-variable type inspections on the real infra repo (plan A.6, M4 E5), checked by the
+# opt-in RedBudgetTest.testWholeRealRepo (ANSIBLE_INFRA_REPO). Default "Documented types" preset, target 2.18.8.
+# Reviewed like code: every entry is a genuine documented-type contradiction or a value ansible-core rejects.
+# Counts: AnsibleUnsupportedSubOption 2, AnsibleNullForTypedOption 2, AnsibleSpecShapeContradiction 40, AnsibleCoercedScalar 24.
+
+# ANS-T002: keycloak_clients[6|7].optional_client_scopes is not among the documented sub-options.
+repos/heron/ansible/environments/prod/group_vars/keycloak/vars.yml:236 AnsibleUnsupportedSubOption
+repos/heron/ansible/environments/prod/group_vars/keycloak/vars.yml:287 AnsibleUnsupportedSubOption
+
+# ANS-T005: keycloak_clients[6|7].secret is null for a required str (check_type_str(None) raises in 2.18.8).
+repos/heron/ansible/environments/prod/group_vars/keycloak/vars.yml:223 AnsibleNullForTypedOption
+repos/heron/ansible/environments/prod/group_vars/keycloak/vars.yml:274 AnsibleNullForTypedOption
+
+# ANS-T010: totp_users items are mappings; every root's totp-token spec documents elements: str (5 items per root).
+repos/falcon/ansible/environments/ops/group_vars/all/vars.yml:726 AnsibleSpecShapeContradiction
+repos/falcon/ansible/environments/prod/group_vars/all/vars.yml:687 AnsibleSpecShapeContradiction
+repos/falcon/ansible/environments/prod/group_vars/all/vars.yml:689 AnsibleSpecShapeContradiction
+repos/falcon/ansible/environments/test/group_vars/all/vars.yml:432 AnsibleSpecShapeContradiction
+repos/falcon/ansible/environments/test/group_vars/all/vars.yml:434 AnsibleSpecShapeContradiction
+repos/heron/ansible/environments/ops/group_vars/all/vars.yml:738 AnsibleSpecShapeContradiction
+repos/heron/ansible/environments/prod/group_vars/all/vars.yml:713 AnsibleSpecShapeContradiction
+repos/heron/ansible/environments/prod/group_vars/all/vars.yml:715 AnsibleSpecShapeContradiction
+repos/heron/ansible/environments/test/group_vars/all/vars.yml:367 AnsibleSpecShapeContradiction
+repos/heron/ansible/environments/test/group_vars/all/vars.yml:369 AnsibleSpecShapeContradiction
+repos/pelican/ansible/environments/ops/group_vars/all/vars.yml:793 AnsibleSpecShapeContradiction
+repos/pelican/ansible/environments/prod/group_vars/all/vars.yml:681 AnsibleSpecShapeContradiction
+repos/pelican/ansible/environments/prod/group_vars/all/vars.yml:683 AnsibleSpecShapeContradiction
+repos/pelican/ansible/environments/test/group_vars/all/vars.yml:486 AnsibleSpecShapeContradiction
+repos/pelican/ansible/environments/test/group_vars/all/vars.yml:488 AnsibleSpecShapeContradiction
+repos/platform/ansible/environments/ops/group_vars/system.yml:64 AnsibleSpecShapeContradiction
+repos/platform/ansible/environments/prod/group_vars/system.yml:26 AnsibleSpecShapeContradiction
+repos/platform/ansible/environments/prod/group_vars/system.yml:28 AnsibleSpecShapeContradiction
+repos/platform/ansible/environments/test/group_vars/system.yml:19 AnsibleSpecShapeContradiction
+repos/platform/ansible/environments/test/group_vars/system.yml:21 AnsibleSpecShapeContradiction
+repos/raven/ansible/environments/ops/group_vars/all/vars.yml:537 AnsibleSpecShapeContradiction
+repos/raven/ansible/environments/prod/group_vars/all/vars.yml:599 AnsibleSpecShapeContradiction
+repos/raven/ansible/environments/prod/group_vars/all/vars.yml:601 AnsibleSpecShapeContradiction
+repos/raven/ansible/environments/test/group_vars/all/vars.yml:538 AnsibleSpecShapeContradiction
+repos/raven/ansible/environments/test/group_vars/all/vars.yml:540 AnsibleSpecShapeContradiction
+repos/tern/ansible/environments/ops/group_vars/all/vars.yml:495 AnsibleSpecShapeContradiction
+repos/tern/ansible/environments/prod/group_vars/all/vars.yml:673 AnsibleSpecShapeContradiction
+repos/tern/ansible/environments/prod/group_vars/all/vars.yml:675 AnsibleSpecShapeContradiction
+repos/tern/ansible/environments/test/group_vars/all/vars.yml:428 AnsibleSpecShapeContradiction
+repos/tern/ansible/environments/test/group_vars/all/vars.yml:430 AnsibleSpecShapeContradiction
+repos/thrush/ansible/environments/ops/group_vars/all/vars.yml:532 AnsibleSpecShapeContradiction
+repos/thrush/ansible/environments/prod/group_vars/all/vars.yml:752 AnsibleSpecShapeContradiction
+repos/thrush/ansible/environments/prod/group_vars/all/vars.yml:754 AnsibleSpecShapeContradiction
+repos/thrush/ansible/environments/test/group_vars/all/vars.yml:424 AnsibleSpecShapeContradiction
+repos/thrush/ansible/environments/test/group_vars/all/vars.yml:426 AnsibleSpecShapeContradiction
+repos/wren/ansible/environments/ops/group_vars/all/vars.yml:621 AnsibleSpecShapeContradiction
+repos/wren/ansible/environments/prod/group_vars/all/vars.yml:572 AnsibleSpecShapeContradiction
+repos/wren/ansible/environments/prod/group_vars/all/vars.yml:574 AnsibleSpecShapeContradiction
+repos/wren/ansible/environments/test/group_vars/all/vars.yml:361 AnsibleSpecShapeContradiction
+repos/wren/ansible/environments/test/group_vars/all/vars.yml:363 AnsibleSpecShapeContradiction
+
+# ANS-T011: version floats where str is documented (haproxy 3.2, grafana 12.4, keycloak 26.7).
+golden/roles/grafana/defaults/main.yml:8 AnsibleCoercedScalar
+golden/roles/haproxy/defaults/main.yml:1 AnsibleCoercedScalar
+repos/falcon/ansible/environments/prod/group_vars/keycloak/vars.yml:866 AnsibleCoercedScalar
+repos/falcon/ansible/roles/grafana/defaults/main.yml:8 AnsibleCoercedScalar
+repos/falcon/ansible/roles/haproxy/defaults/main.yml:1 AnsibleCoercedScalar
+repos/heron/ansible/environments/prod/group_vars/keycloak/vars.yml:875 AnsibleCoercedScalar
+repos/heron/ansible/roles/grafana/defaults/main.yml:8 AnsibleCoercedScalar
+repos/heron/ansible/roles/haproxy/defaults/main.yml:1 AnsibleCoercedScalar
+repos/pelican/ansible/environments/prod/group_vars/keycloak/vars.yml:922 AnsibleCoercedScalar
+repos/pelican/ansible/roles/grafana/defaults/main.yml:8 AnsibleCoercedScalar
+repos/pelican/ansible/roles/haproxy/defaults/main.yml:1 AnsibleCoercedScalar
+repos/platform/ansible/environments/prod/group_vars/keycloak.yml:549 AnsibleCoercedScalar
+repos/platform/ansible/roles/grafana/defaults/main.yml:8 AnsibleCoercedScalar
+repos/platform/ansible/roles/haproxy/defaults/main.yml:1 AnsibleCoercedScalar
+repos/raven/ansible/environments/prod/group_vars/keycloak/vars.yml:679 AnsibleCoercedScalar
+repos/raven/ansible/roles/grafana/defaults/main.yml:8 AnsibleCoercedScalar
+repos/raven/ansible/roles/haproxy/defaults/main.yml:1 AnsibleCoercedScalar
+repos/tern/ansible/roles/grafana/defaults/main.yml:8 AnsibleCoercedScalar
+repos/tern/ansible/roles/haproxy/defaults/main.yml:1 AnsibleCoercedScalar
+repos/thrush/ansible/roles/grafana/defaults/main.yml:8 AnsibleCoercedScalar
+repos/thrush/ansible/roles/haproxy/defaults/main.yml:1 AnsibleCoercedScalar
+repos/wren/ansible/environments/prod/group_vars/keycloak/vars.yml:635 AnsibleCoercedScalar
+repos/wren/ansible/roles/grafana/defaults/main.yml:8 AnsibleCoercedScalar
+repos/wren/ansible/roles/haproxy/defaults/main.yml:1 AnsibleCoercedScalar

@@ -1,0 +1,7 @@
+{#- Escape $ as $$ for Compose -#}
+{% macro env(key, value, quote="'") -%}
+'{{ key }}={{ value | string | replace('$', '$$') }}'
+{%- endmacro -%}
+environment:
+  - {{ env('APP_ENV', app_env) }}
+{% call(item) env('X', 1) %}{{ item }}{% endcall %}

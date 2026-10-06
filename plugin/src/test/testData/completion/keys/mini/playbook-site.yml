@@ -1,0 +1,10 @@
+---
+- name: Web servers
+  hosts: webservers
+  roles:
+    - role: web
+
+- name: Database servers
+  hosts: dbservers
+  roles:
+    - role: db

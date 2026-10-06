@@ -1,0 +1,11 @@
+// {{ ansible_managed }}
+{% raw %}
+loki.process "docker" {
+  stage.template {
+    source   = "level"
+    template = "{{ if .level }}{{ ToLower .level }}{{ else }}info{{ end }}"
+  }
+}
+{% endraw %}
+summary: 'Disk on {% raw %}{{ $labels.host }}{% endraw %} is {{ (free / 1000000000) | round | int }}GB'
+{%- raw -%} {{ end }} {%- endraw -%}

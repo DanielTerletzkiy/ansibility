@@ -1,0 +1,4 @@
+---
+- name: Other
+  ansible.builtin.debug:
+    msg: "{{ web_port }}"

@@ -1,0 +1,853 @@
+root golden ROLE_LIBRARY detached=false parent=- roles=[golden/roles] env=- name=golden
+status golden Ansibility: golden (role library) · core 2.18.8
+root repos/falcon/ansible PROJECT detached=false parent=- roles=[repos/falcon/ansible/roles] env=repos/falcon/ansible/environments name=falcon
+status repos/falcon/ansible Ansibility: falcon · All envs · core 2.18.8
+env repos/falcon/ansible ops dir=repos/falcon/ansible/environments/ops hosts=repos/falcon/ansible/environments/ops/hosts.yml varFiles=3
+group repos/falcon/ansible ops all parents=[] hosts=[ops-ops1]
+group repos/falcon/ansible ops http_gateway parents=[all] hosts=[ops-ops1]
+group repos/falcon/ansible ops monitoring_client parents=[all] hosts=[ops-ops1]
+group repos/falcon/ansible ops nginx parents=[all] hosts=[ops-ops1]
+group repos/falcon/ansible ops observability parents=[all] hosts=[ops-ops1]
+group repos/falcon/ansible ops system parents=[all] hosts=[ops-ops1]
+group repos/falcon/ansible ops ungrouped parents=[all] hosts=[]
+view repos/falcon/ansible ops ops-ops1 groups=[http_gateway, monitoring_client, nginx, observability, system] 58c0476024ca083b
+env repos/falcon/ansible prod dir=repos/falcon/ansible/environments/prod hosts=repos/falcon/ansible/environments/prod/hosts.yml varFiles=8
+group repos/falcon/ansible prod all parents=[] hosts=[prod-prod1, prod-prod2]
+group repos/falcon/ansible prod app_mono parents=[all] hosts=[prod-prod1, prod-prod2]
+group repos/falcon/ansible prod app_services parents=[all] hosts=[prod-prod1, prod-prod2]
+group repos/falcon/ansible prod database parents=[all] hosts=[prod-prod1]
+group repos/falcon/ansible prod database_primary parents=[all] hosts=[prod-prod1]
+group repos/falcon/ansible prod haproxy parents=[all] hosts=[prod-prod1, prod-prod2]
+group repos/falcon/ansible prod keepalived parents=[all] hosts=[prod-prod1, prod-prod2]
+group repos/falcon/ansible prod keycloak parents=[all] hosts=[prod-prod1, prod-prod2]
+group repos/falcon/ansible prod monitoring_client parents=[all] hosts=[prod-prod1, prod-prod2]
+group repos/falcon/ansible prod oauth2_proxy parents=[all] hosts=[prod-prod1, prod-prod2]
+group repos/falcon/ansible prod system parents=[all] hosts=[prod-prod1, prod-prod2]
+group repos/falcon/ansible prod ungrouped parents=[all] hosts=[]
+view repos/falcon/ansible prod prod-prod1 groups=[app_mono, app_services, database, database_primary, haproxy, keepalived, keycloak, monitoring_client, oauth2_proxy, system] b95e57779e0348f8
+view repos/falcon/ansible prod prod-prod2 groups=[app_mono, app_services, haproxy, keepalived, keycloak, monitoring_client, oauth2_proxy, system] 90204b60d431d110
+env repos/falcon/ansible test dir=repos/falcon/ansible/environments/test hosts=repos/falcon/ansible/environments/test/hosts.yml varFiles=10
+group repos/falcon/ansible test all parents=[] hosts=[preview-dev1.bike.example.de, preview-dev2.bike.example.de, preview-dev3.bike.example.de, preview-dev4.bike.example.de, preview-dev5.bike.example.de, preview-dev6.bike.example.de, test-test1]
+group repos/falcon/ansible test app_mono parents=[all] hosts=[preview-dev1.bike.example.de, preview-dev2.bike.example.de, preview-dev3.bike.example.de, preview-dev4.bike.example.de, preview-dev5.bike.example.de, preview-dev6.bike.example.de, test-test1]
+group repos/falcon/ansible test app_services parents=[all] hosts=[test-test1]
+group repos/falcon/ansible test database parents=[all] hosts=[test-test1]
+group repos/falcon/ansible test database_primary parents=[all] hosts=[test-test1]
+group repos/falcon/ansible test monitoring_client parents=[all] hosts=[test-test1]
+group repos/falcon/ansible test oauth2_proxy parents=[all] hosts=[preview-dev1.bike.example.de, preview-dev2.bike.example.de, preview-dev3.bike.example.de, preview-dev4.bike.example.de, preview-dev5.bike.example.de, preview-dev6.bike.example.de, test-test1]
+group repos/falcon/ansible test system parents=[all] hosts=[test-test1]
+group repos/falcon/ansible test ungrouped parents=[all] hosts=[]
+view repos/falcon/ansible test preview-dev1.bike.example.de groups=[app_mono, oauth2_proxy] 21ac0511dfb7908e
+view repos/falcon/ansible test preview-dev2.bike.example.de groups=[app_mono, oauth2_proxy] 3a215a1de7318fdd
+view repos/falcon/ansible test preview-dev3.bike.example.de groups=[app_mono, oauth2_proxy] 1ef6af9afcd5ef28
+view repos/falcon/ansible test preview-dev4.bike.example.de groups=[app_mono, oauth2_proxy] 239dc67617b0b398
+view repos/falcon/ansible test preview-dev5.bike.example.de groups=[app_mono, oauth2_proxy] ea04dd61cb744693
+view repos/falcon/ansible test preview-dev6.bike.example.de groups=[app_mono, oauth2_proxy] d89e78658be8dc89
+view repos/falcon/ansible test test-test1 groups=[app_mono, app_services, database, database_primary, monitoring_client, oauth2_proxy, system] 4df650cb0bbb3386
+root repos/heron/ansible PROJECT detached=false parent=- roles=[repos/heron/ansible/roles] env=repos/heron/ansible/environments name=heron
+status repos/heron/ansible Ansibility: heron · All envs · core 2.18.8?
+root repos/pelican/ansible PROJECT detached=false parent=- roles=[] env=repos/pelican/ansible/environments name=pelican
+status repos/pelican/ansible Ansibility: pelican · All envs · core 2.18.8?
+env repos/pelican/ansible prod dir=repos/pelican/ansible/environments/prod hosts=repos/pelican/ansible/environments/prod/hosts.yml varFiles=0
+group repos/pelican/ansible prod all parents=[] hosts=[prod-db1, prod-db2, prod-prod1, prod-prod2, prod-replisync1]
+group repos/pelican/ansible prod app_mono parents=[all] hosts=[prod-prod1, prod-prod2]
+group repos/pelican/ansible prod app_services parents=[all] hosts=[prod-prod1, prod-prod2]
+group repos/pelican/ansible prod database parents=[all] hosts=[prod-db1, prod-db2]
+group repos/pelican/ansible prod database_primary parents=[all] hosts=[prod-db1]
+group repos/pelican/ansible prod database_replica parents=[all] hosts=[prod-db2]
+group repos/pelican/ansible prod haproxy parents=[all] hosts=[prod-prod1, prod-prod2]
+group repos/pelican/ansible prod keepalived parents=[all] hosts=[prod-prod1, prod-prod2]
+group repos/pelican/ansible prod keycloak parents=[all] hosts=[prod-prod1, prod-prod2]
+group repos/pelican/ansible prod monitoring_client parents=[all] hosts=[prod-db1, prod-db2, prod-prod1, prod-prod2, prod-replisync1]
+group repos/pelican/ansible prod oauth2_proxy parents=[all] hosts=[prod-prod1, prod-prod2]
+group repos/pelican/ansible prod replisync parents=[all] hosts=[prod-replisync1]
+group repos/pelican/ansible prod system parents=[all] hosts=[prod-db1, prod-db2, prod-prod1, prod-prod2, prod-replisync1]
+group repos/pelican/ansible prod ungrouped parents=[all] hosts=[]
+view repos/pelican/ansible prod prod-db1 groups=[database, database_primary, monitoring_client, system] a7575ebe8f1ea4e4
+view repos/pelican/ansible prod prod-db2 groups=[database, database_replica, monitoring_client, system] 120ab5a04777aa82
+view repos/pelican/ansible prod prod-prod1 groups=[app_mono, app_services, haproxy, keepalived, keycloak, monitoring_client, oauth2_proxy, system] ab2ff6760b87845d
+view repos/pelican/ansible prod prod-prod2 groups=[app_mono, app_services, haproxy, keepalived, keycloak, monitoring_client, oauth2_proxy, system] 11dd15669ac88533
+view repos/pelican/ansible prod prod-replisync1 groups=[monitoring_client, replisync, system] 010f2d42a805d69f
+root repos/pelican/ansible/danger_zone/database NESTED_PLAYBOOK detached=false parent=repos/pelican/ansible roles=[repos/pelican/ansible/danger_zone/database/roles] env=repos/pelican/ansible/environments name=pelican › danger_zone/database
+status repos/pelican/ansible/danger_zone/database Ansibility: pelican › danger_zone/database · All envs · core 2.18.8?
+env repos/pelican/ansible/danger_zone/database prod dir=repos/pelican/ansible/environments/prod hosts=repos/pelican/ansible/environments/prod/hosts.yml varFiles=0
+group repos/pelican/ansible/danger_zone/database prod all parents=[] hosts=[prod-db1, prod-db2, prod-prod1, prod-prod2, prod-replisync1]
+group repos/pelican/ansible/danger_zone/database prod app_mono parents=[all] hosts=[prod-prod1, prod-prod2]
+group repos/pelican/ansible/danger_zone/database prod app_services parents=[all] hosts=[prod-prod1, prod-prod2]
+group repos/pelican/ansible/danger_zone/database prod database parents=[all] hosts=[prod-db1, prod-db2]
+group repos/pelican/ansible/danger_zone/database prod database_primary parents=[all] hosts=[prod-db1]
+group repos/pelican/ansible/danger_zone/database prod database_replica parents=[all] hosts=[prod-db2]
+group repos/pelican/ansible/danger_zone/database prod haproxy parents=[all] hosts=[prod-prod1, prod-prod2]
+group repos/pelican/ansible/danger_zone/database prod keepalived parents=[all] hosts=[prod-prod1, prod-prod2]
+group repos/pelican/ansible/danger_zone/database prod keycloak parents=[all] hosts=[prod-prod1, prod-prod2]
+group repos/pelican/ansible/danger_zone/database prod monitoring_client parents=[all] hosts=[prod-db1, prod-db2, prod-prod1, prod-prod2, prod-replisync1]
+group repos/pelican/ansible/danger_zone/database prod oauth2_proxy parents=[all] hosts=[prod-prod1, prod-prod2]
+group repos/pelican/ansible/danger_zone/database prod replisync parents=[all] hosts=[prod-replisync1]
+group repos/pelican/ansible/danger_zone/database prod system parents=[all] hosts=[prod-db1, prod-db2, prod-prod1, prod-prod2, prod-replisync1]
+group repos/pelican/ansible/danger_zone/database prod ungrouped parents=[all] hosts=[]
+view repos/pelican/ansible/danger_zone/database prod prod-db1 groups=[database, database_primary, monitoring_client, system] a7575ebe8f1ea4e4
+view repos/pelican/ansible/danger_zone/database prod prod-db2 groups=[database, database_replica, monitoring_client, system] 120ab5a04777aa82
+view repos/pelican/ansible/danger_zone/database prod prod-prod1 groups=[app_mono, app_services, haproxy, keepalived, keycloak, monitoring_client, oauth2_proxy, system] ab2ff6760b87845d
+view repos/pelican/ansible/danger_zone/database prod prod-prod2 groups=[app_mono, app_services, haproxy, keepalived, keycloak, monitoring_client, oauth2_proxy, system] 11dd15669ac88533
+view repos/pelican/ansible/danger_zone/database prod prod-replisync1 groups=[monitoring_client, replisync, system] 010f2d42a805d69f
+root repos/platform/ansible PROJECT detached=false parent=- roles=[repos/platform/ansible/roles] env=repos/platform/ansible/environments name=platform
+status repos/platform/ansible Ansibility: platform · All envs · core 2.18.8?
+env repos/platform/ansible prod dir=repos/platform/ansible/environments/prod hosts=repos/platform/ansible/environments/prod/hosts.yml varFiles=17
+group repos/platform/ansible prod all parents=[] hosts=[prod-alias1, prod-mlflow1, prod-platform1, prod-training1]
+group repos/platform/ansible prod analytics parents=[contracting] hosts=[prod-mlflow1, prod-training1]
+group repos/platform/ansible prod app_alias parents=[all] hosts=[prod-alias1]
+group repos/platform/ansible prod app_mlflow parents=[all] hosts=[prod-mlflow1]
+group repos/platform/ansible prod app_services parents=[all] hosts=[prod-alias1, prod-mlflow1, prod-platform1]
+group repos/platform/ansible prod chronod parents=[all] hosts=[prod-alias1, prod-mlflow1, prod-platform1, prod-training1]
+group repos/platform/ansible prod contracting parents=[all] hosts=[]
+group repos/platform/ansible prod database parents=[all] hosts=[prod-alias1, prod-mlflow1, prod-platform1, prod-training1]
+group repos/platform/ansible prod database_primary parents=[all] hosts=[prod-alias1, prod-platform1, prod-training1]
+group repos/platform/ansible prod haproxy parents=[all] hosts=[prod-alias1]
+group repos/platform/ansible prod keepalived parents=[all] hosts=[prod-alias1]
+group repos/platform/ansible prod keycloak parents=[all] hosts=[prod-platform1]
+group repos/platform/ansible prod monitoring_client parents=[all] hosts=[prod-alias1, prod-mlflow1, prod-platform1, prod-training1]
+group repos/platform/ansible prod oauth2_proxy parents=[all] hosts=[prod-mlflow1, prod-platform1]
+group repos/platform/ansible prod system parents=[all] hosts=[prod-alias1, prod-mlflow1, prod-platform1, prod-training1]
+group repos/platform/ansible prod taskforce parents=[all] hosts=[prod-platform1]
+group repos/platform/ansible prod ungrouped parents=[all] hosts=[]
+group repos/platform/ansible prod web_base parents=[all] hosts=[prod-alias1, prod-mlflow1, prod-platform1, prod-training1]
+view repos/platform/ansible prod prod-alias1 groups=[app_alias, app_services, chronod, database, database_primary, haproxy, keepalived, monitoring_client, system, web_base] 1e23042ef4a52915
+view repos/platform/ansible prod prod-mlflow1 groups=[app_mlflow, app_services, chronod, contracting, database, monitoring_client, oauth2_proxy, system, web_base, analytics] 7fe51fdb05b182ac
+view repos/platform/ansible prod prod-platform1 groups=[app_services, chronod, database, database_primary, keycloak, monitoring_client, oauth2_proxy, system, taskforce, web_base] 3e43e3ef0432ec91
+view repos/platform/ansible prod prod-training1 groups=[chronod, contracting, database, database_primary, monitoring_client, system, web_base, analytics] 12f8318a96879391
+root repos/wren/ansible PROJECT detached=false parent=- roles=[repos/wren/ansible/roles] env=repos/wren/ansible/environments name=wren
+status repos/wren/ansible Ansibility: wren · All envs · core 2.18.8?
+env repos/wren/ansible prod dir=repos/wren/ansible/environments/prod hosts=repos/wren/ansible/environments/prod/hosts.yml varFiles=1
+group repos/wren/ansible prod all parents=[] hosts=[prod-db1, prod-db2, prod-prod1, prod-prod2]
+group repos/wren/ansible prod app_mono parents=[all] hosts=[prod-prod1, prod-prod2]
+group repos/wren/ansible prod app_services parents=[all] hosts=[prod-prod1, prod-prod2]
+group repos/wren/ansible prod database parents=[all] hosts=[prod-db1, prod-db2]
+group repos/wren/ansible prod database_primary parents=[all] hosts=[prod-db1]
+group repos/wren/ansible prod database_replica parents=[all] hosts=[prod-db2]
+group repos/wren/ansible prod haproxy parents=[all] hosts=[prod-prod1, prod-prod2]
+group repos/wren/ansible prod keepalived parents=[all] hosts=[prod-prod1, prod-prod2]
+group repos/wren/ansible prod keycloak parents=[all] hosts=[prod-prod1, prod-prod2]
+group repos/wren/ansible prod monitoring_client parents=[all] hosts=[prod-db1, prod-db2, prod-prod1, prod-prod2]
+group repos/wren/ansible prod oauth2_proxy parents=[all] hosts=[prod-prod1, prod-prod2]
+group repos/wren/ansible prod system parents=[all] hosts=[prod-db1, prod-db2, prod-prod1, prod-prod2]
+group repos/wren/ansible prod ungrouped parents=[all] hosts=[]
+view repos/wren/ansible prod prod-db1 groups=[database, database_primary, monitoring_client, system] 2534c75acb785007
+view repos/wren/ansible prod prod-db2 groups=[database, database_replica, monitoring_client, system] e275f7f752a1a248
+view repos/wren/ansible prod prod-prod1 groups=[app_mono, app_services, haproxy, keepalived, keycloak, monitoring_client, oauth2_proxy, system] 71e6eeaf8a34b815
+view repos/wren/ansible prod prod-prod2 groups=[app_mono, app_services, haproxy, keepalived, keycloak, monitoring_client, oauth2_proxy, system] 896c62abc768fd4e
+file golden/docker/ansible-lint/Dockerfile root=golden OTHER role=null env=null group=null host=null layer=null scenario=-
+file golden/docker/ansible-lint/requirements.yml root=golden REQUIREMENTS role=null env=null group=null host=null layer=null scenario=-
+file golden/docker/ansible-molecule/Dockerfile root=golden OTHER role=null env=null group=null host=null layer=null scenario=-
+file golden/docker/ansible-molecule/requirements.yml root=golden REQUIREMENTS role=null env=null group=null host=null layer=null scenario=-
+file golden/playbooks/playbook-initial-setup.yml root=golden PLAYBOOK role=null env=null group=null host=null layer=null scenario=-
+file golden/playbooks/playbook-setup-jenkins.yml root=golden PLAYBOOK role=null env=null group=null host=null layer=null scenario=-
+file golden/playbooks/playbook-setup-keycloak.yml root=golden PLAYBOOK role=null env=null group=null host=null layer=null scenario=-
+file golden/playbooks/playbook-setup-ops.yml root=golden PLAYBOOK role=null env=null group=null host=null layer=null scenario=-
+file golden/playbooks/playbook-setup-system.yml root=golden PLAYBOOK role=null env=null group=null host=null layer=null scenario=-
+file golden/roles/alloy/defaults/main.yml root=golden ROLE_DEFAULTS role=alloy env=null group=null host=null layer=ROLE_DEFAULTS scenario=-
+file golden/roles/alloy/handlers/main.yml root=golden ROLE_HANDLERS role=alloy env=null group=null host=null layer=null scenario=-
+file golden/roles/alloy/meta/argument_specs.yml root=golden ROLE_ARGSPEC role=alloy env=null group=null host=null layer=null scenario=-
+file golden/roles/alloy/molecule/default/Dockerfile.j2 root=golden OTHER role=alloy env=null group=null host=null layer=null scenario=golden/roles/alloy/molecule/default
+file golden/roles/alloy/molecule/default/converge.yml root=golden MOLECULE_PLAYBOOK role=alloy env=null group=null host=null layer=null scenario=golden/roles/alloy/molecule/default
+file golden/roles/alloy/molecule/default/molecule.yml root=golden MOLECULE_CONFIG role=alloy env=null group=null host=null layer=null scenario=golden/roles/alloy/molecule/default
+file golden/roles/alloy/molecule/default/prepare.yml root=golden MOLECULE_PLAYBOOK role=alloy env=null group=null host=null layer=null scenario=golden/roles/alloy/molecule/default
+file golden/roles/alloy/molecule/default/verify.yml root=golden MOLECULE_PLAYBOOK role=alloy env=null group=null host=null layer=null scenario=golden/roles/alloy/molecule/default
+file golden/roles/alloy/tasks/configure.yml root=golden ROLE_TASKS role=alloy env=null group=null host=null layer=null scenario=-
+file golden/roles/alloy/tasks/install.yml root=golden ROLE_TASKS role=alloy env=null group=null host=null layer=null scenario=-
+file golden/roles/alloy/tasks/main.yml root=golden ROLE_TASKS role=alloy env=null group=null host=null layer=null scenario=-
+file golden/roles/alloy/templates/config-base.alloy.j2 root=golden ROLE_TEMPLATE role=alloy env=null group=null host=null layer=null scenario=-
+file golden/roles/alloy/templates/config-file-logs.alloy.j2 root=golden ROLE_TEMPLATE role=alloy env=null group=null host=null layer=null scenario=-
+file golden/roles/alloy/templates/config-journal.alloy.j2 root=golden ROLE_TEMPLATE role=alloy env=null group=null host=null layer=null scenario=-
+file golden/roles/alloy/templates/config-node-exporter.alloy.j2 root=golden ROLE_TEMPLATE role=alloy env=null group=null host=null layer=null scenario=-
+file golden/roles/alloy/templates/systemd.override.conf.j2 root=golden ROLE_TEMPLATE role=alloy env=null group=null host=null layer=null scenario=-
+file golden/roles/chronod/defaults/main.yml root=golden ROLE_DEFAULTS role=chronod env=null group=null host=null layer=ROLE_DEFAULTS scenario=-
+file golden/roles/chronod/handlers/main.yml root=golden ROLE_HANDLERS role=chronod env=null group=null host=null layer=null scenario=-
+file golden/roles/chronod/meta/argument_specs.yml root=golden ROLE_ARGSPEC role=chronod env=null group=null host=null layer=null scenario=-
+file golden/roles/chronod/molecule/default/Dockerfile.j2 root=golden OTHER role=chronod env=null group=null host=null layer=null scenario=golden/roles/chronod/molecule/default
+file golden/roles/chronod/molecule/default/converge.yml root=golden MOLECULE_PLAYBOOK role=chronod env=null group=null host=null layer=null scenario=golden/roles/chronod/molecule/default
+file golden/roles/chronod/molecule/default/molecule.yml root=golden MOLECULE_CONFIG role=chronod env=null group=null host=null layer=null scenario=golden/roles/chronod/molecule/default
+file golden/roles/chronod/molecule/default/prepare.yml root=golden MOLECULE_PLAYBOOK role=chronod env=null group=null host=null layer=null scenario=golden/roles/chronod/molecule/default
+file golden/roles/chronod/molecule/default/verify.yml root=golden MOLECULE_PLAYBOOK role=chronod env=null group=null host=null layer=null scenario=golden/roles/chronod/molecule/default
+file golden/roles/chronod/molecule/vars/vars.yml root=golden MOLECULE_VARS role=chronod env=null group=null host=null layer=MOLECULE_INVENTORY scenario=-
+file golden/roles/chronod/tasks/configure.yml root=golden ROLE_TASKS role=chronod env=null group=null host=null layer=null scenario=-
+file golden/roles/chronod/tasks/install.yml root=golden ROLE_TASKS role=chronod env=null group=null host=null layer=null scenario=-
+file golden/roles/chronod/tasks/main.yml root=golden ROLE_TASKS role=chronod env=null group=null host=null layer=null scenario=-
+file golden/roles/chronod/tasks/nginx.yml root=golden ROLE_TASKS role=chronod env=null group=null host=null layer=null scenario=-
+file golden/roles/chronod/templates/chronod.env.j2 root=golden ROLE_TEMPLATE role=chronod env=null group=null host=null layer=null scenario=-
+file golden/roles/chronod/templates/chronod.service.j2 root=golden ROLE_TEMPLATE role=chronod env=null group=null host=null layer=null scenario=-
+file golden/roles/chronod/templates/chronod.yaml.j2 root=golden ROLE_TEMPLATE role=chronod env=null group=null host=null layer=null scenario=-
+file golden/roles/chronod/templates/nginx/chronod.site.proxy_protocol.conf.j2 root=golden ROLE_TEMPLATE role=chronod env=null group=null host=null layer=null scenario=-
+file golden/roles/coolify/defaults/main.yml root=golden ROLE_DEFAULTS role=coolify env=null group=null host=null layer=ROLE_DEFAULTS scenario=-
+file golden/roles/coolify/handlers/main.yml root=golden ROLE_HANDLERS role=coolify env=null group=null host=null layer=null scenario=-
+file golden/roles/coolify/meta/argument_specs.yml root=golden ROLE_ARGSPEC role=coolify env=null group=null host=null layer=null scenario=-
+file golden/roles/coolify/molecule/default/converge.yml root=golden MOLECULE_PLAYBOOK role=coolify env=null group=null host=null layer=null scenario=golden/roles/coolify/molecule/default
+file golden/roles/coolify/molecule/default/molecule.yml root=golden MOLECULE_CONFIG role=coolify env=null group=null host=null layer=null scenario=golden/roles/coolify/molecule/default
+file golden/roles/coolify/molecule/default/prepare.yml root=golden MOLECULE_PLAYBOOK role=coolify env=null group=null host=null layer=null scenario=golden/roles/coolify/molecule/default
+file golden/roles/coolify/molecule/default/verify.yml root=golden MOLECULE_PLAYBOOK role=coolify env=null group=null host=null layer=null scenario=golden/roles/coolify/molecule/default
+file golden/roles/coolify/molecule/vars/vars.yml root=golden MOLECULE_VARS role=coolify env=null group=null host=null layer=MOLECULE_INVENTORY scenario=-
+file golden/roles/coolify/tasks/deployment.yml root=golden ROLE_TASKS role=coolify env=null group=null host=null layer=null scenario=-
+file golden/roles/coolify/tasks/localhost-server.yml root=golden ROLE_TASKS role=coolify env=null group=null host=null layer=null scenario=-
+file golden/roles/coolify/tasks/main.yml root=golden ROLE_TASKS role=coolify env=null group=null host=null layer=null scenario=-
+file golden/roles/coolify/tasks/nginx.yml root=golden ROLE_TASKS role=coolify env=null group=null host=null layer=null scenario=-
+file golden/roles/coolify/tasks/oauth2-proxy.yml root=golden ROLE_TASKS role=coolify env=null group=null host=null layer=null scenario=-
+file golden/roles/coolify/tasks/ssh.yml root=golden ROLE_TASKS role=coolify env=null group=null host=null layer=null scenario=-
+file golden/roles/coolify/templates/nginx/coolify.app.proxy_protocol.conf.j2 root=golden ROLE_TEMPLATE role=coolify env=null group=null host=null layer=null scenario=-
+file golden/roles/coolify/templates/nginx/coolify.site.conf.j2 root=golden ROLE_TEMPLATE role=coolify env=null group=null host=null layer=null scenario=-
+file golden/roles/coolify/templates/nginx/coolify.site.proxy_protocol.conf.j2 root=golden ROLE_TEMPLATE role=coolify env=null group=null host=null layer=null scenario=-
+file golden/roles/coolify/templates/nginx/logrotate.conf.j2 root=golden ROLE_TEMPLATE role=coolify env=null group=null host=null layer=null scenario=-
+file golden/roles/coolify/templates/oauth2-proxy/oauth2-proxy.cfg.j2 root=golden ROLE_TEMPLATE role=coolify env=null group=null host=null layer=null scenario=-
+file golden/roles/coolify/templates/oauth2-proxy/oauth2-proxy.service.j2 root=golden ROLE_TEMPLATE role=coolify env=null group=null host=null layer=null scenario=-
+file golden/roles/coolify/templates/services/docker-compose.yml.j2 root=golden ROLE_TEMPLATE role=coolify env=null group=null host=null layer=null scenario=-
+file golden/roles/coolify/templates/services/env.j2 root=golden ROLE_TEMPLATE role=coolify env=null group=null host=null layer=null scenario=-
+file golden/roles/deployment-target/meta/argument_specs.yml root=golden ROLE_ARGSPEC role=deployment-target env=null group=null host=null layer=null scenario=-
+file golden/roles/deployment-target/molecule/default/Dockerfile.j2 root=golden OTHER role=deployment-target env=null group=null host=null layer=null scenario=golden/roles/deployment-target/molecule/default
+file golden/roles/deployment-target/molecule/default/converge.yml root=golden MOLECULE_PLAYBOOK role=deployment-target env=null group=null host=null layer=null scenario=golden/roles/deployment-target/molecule/default
+file golden/roles/deployment-target/molecule/default/files/molecule.ed25519.pub root=golden OTHER role=deployment-target env=null group=null host=null layer=null scenario=golden/roles/deployment-target/molecule/default
+file golden/roles/deployment-target/molecule/default/molecule.yml root=golden MOLECULE_CONFIG role=deployment-target env=null group=null host=null layer=null scenario=golden/roles/deployment-target/molecule/default
+file golden/roles/deployment-target/molecule/default/prepare.yml root=golden MOLECULE_PLAYBOOK role=deployment-target env=null group=null host=null layer=null scenario=golden/roles/deployment-target/molecule/default
+file golden/roles/deployment-target/molecule/default/verify.yml root=golden MOLECULE_PLAYBOOK role=deployment-target env=null group=null host=null layer=null scenario=golden/roles/deployment-target/molecule/default
+file golden/roles/deployment-target/tasks/main.yml root=golden ROLE_TASKS role=deployment-target env=null group=null host=null layer=null scenario=-
+file golden/roles/deployment-target/templates/sudoers root=golden ROLE_TEMPLATE role=deployment-target env=null group=null host=null layer=null scenario=-
+file golden/roles/docker/defaults/main.yml root=golden ROLE_DEFAULTS role=docker env=null group=null host=null layer=ROLE_DEFAULTS scenario=-
+file golden/roles/docker/files/apt.asc root=golden ROLE_FILE role=docker env=null group=null host=null layer=null scenario=-
+file golden/roles/docker/files/daemon.json root=golden ROLE_FILE role=docker env=null group=null host=null layer=null scenario=-
+file golden/roles/docker/files/docker-cleanup.sh root=golden ROLE_FILE role=docker env=null group=null host=null layer=null scenario=-
+file golden/roles/docker/handlers/main.yml root=golden ROLE_HANDLERS role=docker env=null group=null host=null layer=null scenario=-
+file golden/roles/docker/meta/argument_specs.yml root=golden ROLE_ARGSPEC role=docker env=null group=null host=null layer=null scenario=-
+file golden/roles/docker/molecule/default/Dockerfile.j2 root=golden OTHER role=docker env=null group=null host=null layer=null scenario=golden/roles/docker/molecule/default
+file golden/roles/docker/molecule/default/converge.yml root=golden MOLECULE_PLAYBOOK role=docker env=null group=null host=null layer=null scenario=golden/roles/docker/molecule/default
+file golden/roles/docker/molecule/default/molecule.yml root=golden MOLECULE_CONFIG role=docker env=null group=null host=null layer=null scenario=golden/roles/docker/molecule/default
+file golden/roles/docker/molecule/default/prepare.yml root=golden MOLECULE_PLAYBOOK role=docker env=null group=null host=null layer=null scenario=golden/roles/docker/molecule/default
+file golden/roles/docker/molecule/default/verify.yml root=golden MOLECULE_PLAYBOOK role=docker env=null group=null host=null layer=null scenario=golden/roles/docker/molecule/default
+file golden/roles/docker/tasks/cleanup.yml root=golden ROLE_TASKS role=docker env=null group=null host=null layer=null scenario=-
+file golden/roles/docker/tasks/main.yml root=golden ROLE_TASKS role=docker env=null group=null host=null layer=null scenario=-
+file golden/roles/docker/tasks/observability.yml root=golden ROLE_TASKS role=docker env=null group=null host=null layer=null scenario=-
+file golden/roles/docker/tasks/resource-limits.yml root=golden ROLE_TASKS role=docker env=null group=null host=null layer=null scenario=-
+file golden/roles/docker/tasks/setup.yml root=golden ROLE_TASKS role=docker env=null group=null host=null layer=null scenario=-
+file golden/roles/docker/templates/docker.sources.j2 root=golden ROLE_TEMPLATE role=docker env=null group=null host=null layer=null scenario=-
+file golden/roles/docker/templates/observability/config.alloy.j2 root=golden ROLE_TEMPLATE role=docker env=null group=null host=null layer=null scenario=-
+file golden/roles/docker/templates/services/docker-cleanup.service.j2 root=golden ROLE_TEMPLATE role=docker env=null group=null host=null layer=null scenario=-
+file golden/roles/docker/templates/services/docker-cleanup.timer.j2 root=golden ROLE_TEMPLATE role=docker env=null group=null host=null layer=null scenario=-
+file golden/roles/docker/templates/services/docker.service.override.conf.j2 root=golden ROLE_TEMPLATE role=docker env=null group=null host=null layer=null scenario=-
+file golden/roles/grafana/defaults/main.yml root=golden ROLE_DEFAULTS role=grafana env=null group=null host=null layer=ROLE_DEFAULTS scenario=-
+file golden/roles/grafana/files/dashboards/12486_node_exporter_full.json root=golden ROLE_FILE role=grafana env=null group=null host=null layer=null scenario=-
+file golden/roles/grafana/files/dashboards/12767_nginx.json root=golden ROLE_FILE role=grafana env=null group=null host=null layer=null scenario=-
+file golden/roles/grafana/files/dashboards/14282-cadvisor-exporter.json root=golden ROLE_FILE role=grafana env=null group=null host=null layer=null scenario=-
+file golden/roles/grafana/files/dashboards/23604-keepalived.json root=golden ROLE_FILE role=grafana env=null group=null host=null layer=null scenario=-
+file golden/roles/grafana/files/dashboards/api-performance.json root=golden ROLE_FILE role=grafana env=null group=null host=null layer=null scenario=-
+file golden/roles/grafana/files/dashboards/application-logs.json root=golden ROLE_FILE role=grafana env=null group=null host=null layer=null scenario=-
+file golden/roles/grafana/files/dashboards/haproxy.json root=golden ROLE_FILE role=grafana env=null group=null host=null layer=null scenario=-
+file golden/roles/grafana/files/dashboards/keycloak.json root=golden ROLE_FILE role=grafana env=null group=null host=null layer=null scenario=-
+file golden/roles/grafana/handlers/main.yml root=golden ROLE_HANDLERS role=grafana env=null group=null host=null layer=null scenario=-
+file golden/roles/grafana/handlers/molecule.yml root=golden ROLE_HANDLERS role=grafana env=null group=null host=null layer=null scenario=-
+file golden/roles/grafana/meta/argument_specs.yml root=golden ROLE_ARGSPEC role=grafana env=null group=null host=null layer=null scenario=-
+file golden/roles/grafana/molecule/default/Dockerfile.j2 root=golden OTHER role=grafana env=null group=null host=null layer=null scenario=golden/roles/grafana/molecule/default
+file golden/roles/grafana/molecule/default/converge.yml root=golden MOLECULE_PLAYBOOK role=grafana env=null group=null host=null layer=null scenario=golden/roles/grafana/molecule/default
+file golden/roles/grafana/molecule/default/files/grafana/alerting/allowed-rule.yml.j2 root=golden OTHER role=grafana env=null group=null host=null layer=null scenario=golden/roles/grafana/molecule/default
+file golden/roles/grafana/molecule/default/files/grafana/alerting/monolith-exceptions-slack.yml.j2 root=golden OTHER role=grafana env=null group=null host=null layer=null scenario=golden/roles/grafana/molecule/default
+file golden/roles/grafana/molecule/default/molecule.yml root=golden MOLECULE_CONFIG role=grafana env=null group=null host=null layer=null scenario=golden/roles/grafana/molecule/default
+file golden/roles/grafana/molecule/default/prepare.yml root=golden MOLECULE_PLAYBOOK role=grafana env=null group=null host=null layer=null scenario=golden/roles/grafana/molecule/default
+file golden/roles/grafana/molecule/default/verify.yml root=golden MOLECULE_PLAYBOOK role=grafana env=null group=null host=null layer=null scenario=golden/roles/grafana/molecule/default
+file golden/roles/grafana/tasks/alerting.yml root=golden ROLE_TASKS role=grafana env=null group=null host=null layer=null scenario=-
+file golden/roles/grafana/tasks/app-folders.yml root=golden ROLE_TASKS role=grafana env=null group=null host=null layer=null scenario=-
+file golden/roles/grafana/tasks/deployment.yml root=golden ROLE_TASKS role=grafana env=null group=null host=null layer=null scenario=-
+file golden/roles/grafana/tasks/main.yml root=golden ROLE_TASKS role=grafana env=null group=null host=null layer=null scenario=-
+file golden/roles/grafana/tasks/mcp.yml root=golden ROLE_TASKS role=grafana env=null group=null host=null layer=null scenario=-
+file golden/roles/grafana/tasks/nginx.yml root=golden ROLE_TASKS role=grafana env=null group=null host=null layer=null scenario=-
+file golden/roles/grafana/tasks/oauth2-proxy.yml root=golden ROLE_TASKS role=grafana env=null group=null host=null layer=null scenario=-
+file golden/roles/grafana/tasks/otel.yml root=golden ROLE_TASKS role=grafana env=null group=null host=null layer=null scenario=-
+file golden/roles/grafana/templates/config/grafana.ini.j2 root=golden ROLE_TEMPLATE role=grafana env=null group=null host=null layer=null scenario=-
+file golden/roles/grafana/templates/deployment/docker-compose.yml.j2 root=golden ROLE_TEMPLATE role=grafana env=null group=null host=null layer=null scenario=-
+file golden/roles/grafana/templates/nginx/logrotate.conf.j2 root=golden ROLE_TEMPLATE role=grafana env=null group=null host=null layer=null scenario=-
+file golden/roles/grafana/templates/nginx/main.site.conf.j2 root=golden ROLE_TEMPLATE role=grafana env=null group=null host=null layer=null scenario=-
+file golden/roles/grafana/templates/nginx/main.site.mcp.conf.j2 root=golden ROLE_TEMPLATE role=grafana env=null group=null host=null layer=null scenario=-
+file golden/roles/grafana/templates/nginx/main.site.proxy_protocol.conf.j2 root=golden ROLE_TEMPLATE role=grafana env=null group=null host=null layer=null scenario=-
+file golden/roles/grafana/templates/oauth2-proxy/oauth2-proxy.cfg.j2 root=golden ROLE_TEMPLATE role=grafana env=null group=null host=null layer=null scenario=-
+file golden/roles/grafana/templates/oauth2-proxy/oauth2-proxy.service.j2 root=golden ROLE_TEMPLATE role=grafana env=null group=null host=null layer=null scenario=-
+file golden/roles/grafana/templates/otel/nginx-logs-config.yaml.j2 root=golden ROLE_TEMPLATE role=grafana env=null group=null host=null layer=null scenario=-
+file golden/roles/grafana/templates/provisioning/alerting/contact-points.yml.j2 root=golden ROLE_TEMPLATE role=grafana env=null group=null host=null layer=null scenario=-
+file golden/roles/grafana/templates/provisioning/alerting/notification-policies.yml.j2 root=golden ROLE_TEMPLATE role=grafana env=null group=null host=null layer=null scenario=-
+file golden/roles/grafana/templates/provisioning/alerting/rules.yml.j2 root=golden ROLE_TEMPLATE role=grafana env=null group=null host=null layer=null scenario=-
+file golden/roles/grafana/templates/provisioning/dashboards/dashboards.yml.j2 root=golden ROLE_TEMPLATE role=grafana env=null group=null host=null layer=null scenario=-
+file golden/roles/grafana/templates/provisioning/datasources/datasources.yml.j2 root=golden ROLE_TEMPLATE role=grafana env=null group=null host=null layer=null scenario=-
+file golden/roles/grafana/vars/main.yml root=golden ROLE_VARS role=grafana env=null group=null host=null layer=ROLE_VARS scenario=-
+file golden/roles/haproxy/defaults/main.yml root=golden ROLE_DEFAULTS role=haproxy env=null group=null host=null layer=ROLE_DEFAULTS scenario=-
+file golden/roles/haproxy/files/override.conf root=golden ROLE_FILE role=haproxy env=null group=null host=null layer=null scenario=-
+file golden/roles/haproxy/handlers/main.yml root=golden ROLE_HANDLERS role=haproxy env=null group=null host=null layer=null scenario=-
+file golden/roles/haproxy/meta/argument_specs.yml root=golden ROLE_ARGSPEC role=haproxy env=null group=null host=null layer=null scenario=-
+file golden/roles/haproxy/molecule/default/Dockerfile.j2 root=golden OTHER role=haproxy env=null group=null host=null layer=null scenario=golden/roles/haproxy/molecule/default
+file golden/roles/haproxy/molecule/default/converge.yml root=golden MOLECULE_PLAYBOOK role=haproxy env=null group=null host=null layer=null scenario=golden/roles/haproxy/molecule/default
+file golden/roles/haproxy/molecule/default/molecule.yml root=golden MOLECULE_CONFIG role=haproxy env=null group=null host=null layer=null scenario=golden/roles/haproxy/molecule/default
+file golden/roles/haproxy/molecule/default/prepare.yml root=golden MOLECULE_PLAYBOOK role=haproxy env=null group=null host=null layer=null scenario=golden/roles/haproxy/molecule/default
+file golden/roles/haproxy/molecule/default/verify.yml root=golden MOLECULE_PLAYBOOK role=haproxy env=null group=null host=null layer=null scenario=golden/roles/haproxy/molecule/default
+file golden/roles/haproxy/tasks/access.yml root=golden ROLE_TASKS role=haproxy env=null group=null host=null layer=null scenario=-
+file golden/roles/haproxy/tasks/apt.yml root=golden ROLE_TASKS role=haproxy env=null group=null host=null layer=null scenario=-
+file golden/roles/haproxy/tasks/configure.yml root=golden ROLE_TASKS role=haproxy env=null group=null host=null layer=null scenario=-
+file golden/roles/haproxy/tasks/main.yml root=golden ROLE_TASKS role=haproxy env=null group=null host=null layer=null scenario=-
+file golden/roles/haproxy/tasks/observability.yml root=golden ROLE_TASKS role=haproxy env=null group=null host=null layer=null scenario=-
+file golden/roles/haproxy/tasks/sysctl.yml root=golden ROLE_TASKS role=haproxy env=null group=null host=null layer=null scenario=-
+file golden/roles/haproxy/tasks/systemd.yml root=golden ROLE_TASKS role=haproxy env=null group=null host=null layer=null scenario=-
+file golden/roles/haproxy/templates/haproxy.cfg.j2 root=golden ROLE_TEMPLATE role=haproxy env=null group=null host=null layer=null scenario=-
+file golden/roles/haproxy/templates/logrotate.conf.j2 root=golden ROLE_TEMPLATE role=haproxy env=null group=null host=null layer=null scenario=-
+file golden/roles/haproxy/templates/observability/config.alloy.j2 root=golden ROLE_TEMPLATE role=haproxy env=null group=null host=null layer=null scenario=-
+file golden/roles/haproxy/templates/rsyslog-haproxy.conf.j2 root=golden ROLE_TEMPLATE role=haproxy env=null group=null host=null layer=null scenario=-
+file golden/roles/iptables/handlers/main.yml root=golden ROLE_HANDLERS role=iptables env=null group=null host=null layer=null scenario=-
+file golden/roles/iptables/meta/argument_specs.yml root=golden ROLE_ARGSPEC role=iptables env=null group=null host=null layer=null scenario=-
+file golden/roles/iptables/molecule/default/Dockerfile.j2 root=golden OTHER role=iptables env=null group=null host=null layer=null scenario=golden/roles/iptables/molecule/default
+file golden/roles/iptables/molecule/default/converge.yml root=golden MOLECULE_PLAYBOOK role=iptables env=null group=null host=null layer=null scenario=golden/roles/iptables/molecule/default
+file golden/roles/iptables/molecule/default/molecule.yml root=golden MOLECULE_CONFIG role=iptables env=null group=null host=null layer=null scenario=golden/roles/iptables/molecule/default
+file golden/roles/iptables/molecule/default/prepare.yml root=golden MOLECULE_PLAYBOOK role=iptables env=null group=null host=null layer=null scenario=golden/roles/iptables/molecule/default
+file golden/roles/iptables/molecule/default/templates/rules.v4.j2 root=golden OTHER role=iptables env=null group=null host=null layer=null scenario=golden/roles/iptables/molecule/default
+file golden/roles/iptables/molecule/default/templates/rules.v6.j2 root=golden OTHER role=iptables env=null group=null host=null layer=null scenario=golden/roles/iptables/molecule/default
+file golden/roles/iptables/molecule/default/verify.yml root=golden MOLECULE_PLAYBOOK role=iptables env=null group=null host=null layer=null scenario=golden/roles/iptables/molecule/default
+file golden/roles/iptables/tasks/main.yml root=golden ROLE_TASKS role=iptables env=null group=null host=null layer=null scenario=-
+file golden/roles/iptables/tasks/persistent.yml root=golden ROLE_TASKS role=iptables env=null group=null host=null layer=null scenario=-
+file golden/roles/iptables/tasks/rules.yml root=golden ROLE_TASKS role=iptables env=null group=null host=null layer=null scenario=-
+file golden/roles/java21-jre/meta/argument_specs.yml root=golden ROLE_ARGSPEC role=java21-jre env=null group=null host=null layer=null scenario=-
+file golden/roles/java21-jre/molecule/default/converge.yml root=golden MOLECULE_PLAYBOOK role=java21-jre env=null group=null host=null layer=null scenario=golden/roles/java21-jre/molecule/default
+file golden/roles/java21-jre/molecule/default/molecule.yml root=golden MOLECULE_CONFIG role=java21-jre env=null group=null host=null layer=null scenario=golden/roles/java21-jre/molecule/default
+file golden/roles/java21-jre/molecule/default/prepare.yml root=golden MOLECULE_PLAYBOOK role=java21-jre env=null group=null host=null layer=null scenario=golden/roles/java21-jre/molecule/default
+file golden/roles/java21-jre/molecule/default/verify.yml root=golden MOLECULE_PLAYBOOK role=java21-jre env=null group=null host=null layer=null scenario=golden/roles/java21-jre/molecule/default
+file golden/roles/java21-jre/tasks/main.yml root=golden ROLE_TASKS role=java21-jre env=null group=null host=null layer=null scenario=-
+file golden/roles/jenkins-controller/defaults/main.yml root=golden ROLE_DEFAULTS role=jenkins-controller env=null group=null host=null layer=ROLE_DEFAULTS scenario=-
+file golden/roles/jenkins-controller/files/apt.asc root=golden ROLE_FILE role=jenkins-controller env=null group=null host=null layer=null scenario=-
+file golden/roles/jenkins-controller/files/ssh_config root=golden ROLE_FILE role=jenkins-controller env=null group=null host=null layer=null scenario=-
+file golden/roles/jenkins-controller/handlers/main.yml root=golden ROLE_HANDLERS role=jenkins-controller env=null group=null host=null layer=null scenario=-
+file golden/roles/jenkins-controller/meta/argument_specs.yml root=golden ROLE_ARGSPEC role=jenkins-controller env=null group=null host=null layer=null scenario=-
+file golden/roles/jenkins-controller/molecule/default/Dockerfile.j2 root=golden OTHER role=jenkins-controller env=null group=null host=null layer=null scenario=golden/roles/jenkins-controller/molecule/default
+file golden/roles/jenkins-controller/molecule/default/converge.yml root=golden MOLECULE_PLAYBOOK role=jenkins-controller env=null group=null host=null layer=null scenario=golden/roles/jenkins-controller/molecule/default
+file golden/roles/jenkins-controller/molecule/default/molecule.yml root=golden MOLECULE_CONFIG role=jenkins-controller env=null group=null host=null layer=null scenario=golden/roles/jenkins-controller/molecule/default
+file golden/roles/jenkins-controller/molecule/default/prepare.yml root=golden MOLECULE_PLAYBOOK role=jenkins-controller env=null group=null host=null layer=null scenario=golden/roles/jenkins-controller/molecule/default
+file golden/roles/jenkins-controller/molecule/default/verify.yml root=golden MOLECULE_PLAYBOOK role=jenkins-controller env=null group=null host=null layer=null scenario=golden/roles/jenkins-controller/molecule/default
+file golden/roles/jenkins-controller/tasks/jenkins.yml root=golden ROLE_TASKS role=jenkins-controller env=null group=null host=null layer=null scenario=-
+file golden/roles/jenkins-controller/tasks/main.yml root=golden ROLE_TASKS role=jenkins-controller env=null group=null host=null layer=null scenario=-
+file golden/roles/jenkins-controller/tasks/nginx.yml root=golden ROLE_TASKS role=jenkins-controller env=null group=null host=null layer=null scenario=-
+file golden/roles/jenkins-controller/tasks/oauth2-proxy.yml root=golden ROLE_TASKS role=jenkins-controller env=null group=null host=null layer=null scenario=-
+file golden/roles/jenkins-controller/tasks/observability.yml root=golden ROLE_TASKS role=jenkins-controller env=null group=null host=null layer=null scenario=-
+file golden/roles/jenkins-controller/templates/basic-security.groovy.j2 root=golden ROLE_TEMPLATE role=jenkins-controller env=null group=null host=null layer=null scenario=-
+file golden/roles/jenkins-controller/templates/jcasc.yaml.j2 root=golden ROLE_TEMPLATE role=jenkins-controller env=null group=null host=null layer=null scenario=-
+file golden/roles/jenkins-controller/templates/nginx/logrotate.conf.j2 root=golden ROLE_TEMPLATE role=jenkins-controller env=null group=null host=null layer=null scenario=-
+file golden/roles/jenkins-controller/templates/nginx/main.site.conf.j2 root=golden ROLE_TEMPLATE role=jenkins-controller env=null group=null host=null layer=null scenario=-
+file golden/roles/jenkins-controller/templates/nginx/main.site.proxy_protocol.conf.j2 root=golden ROLE_TEMPLATE role=jenkins-controller env=null group=null host=null layer=null scenario=-
+file golden/roles/jenkins-controller/templates/oauth2-proxy/oauth2-proxy.cfg.j2 root=golden ROLE_TEMPLATE role=jenkins-controller env=null group=null host=null layer=null scenario=-
+file golden/roles/jenkins-controller/templates/oauth2-proxy/oauth2-proxy.service.j2 root=golden ROLE_TEMPLATE role=jenkins-controller env=null group=null host=null layer=null scenario=-
+file golden/roles/jenkins-controller/templates/observability/config.alloy.j2 root=golden ROLE_TEMPLATE role=jenkins-controller env=null group=null host=null layer=null scenario=-
+file golden/roles/jenkins-controller/templates/override.conf.j2 root=golden ROLE_TEMPLATE role=jenkins-controller env=null group=null host=null layer=null scenario=-
+file golden/roles/keycloak/defaults/main.yml root=golden ROLE_DEFAULTS role=keycloak env=null group=null host=null layer=ROLE_DEFAULTS scenario=-
+file golden/roles/keycloak/files/blacklist.txt root=golden ROLE_FILE role=keycloak env=null group=null host=null layer=null scenario=-
+file golden/roles/keycloak/handlers/main.yml root=golden ROLE_HANDLERS role=keycloak env=null group=null host=null layer=null scenario=-
+file golden/roles/keycloak/meta/argument_specs.yml root=golden ROLE_ARGSPEC role=keycloak env=null group=null host=null layer=null scenario=-
+file golden/roles/keycloak/molecule/default/Dockerfile.j2 root=golden OTHER role=keycloak env=null group=null host=null layer=null scenario=golden/roles/keycloak/molecule/default
+file golden/roles/keycloak/molecule/default/converge.yml root=golden MOLECULE_PLAYBOOK role=keycloak env=null group=null host=null layer=null scenario=golden/roles/keycloak/molecule/default
+file golden/roles/keycloak/molecule/default/molecule.yml root=golden MOLECULE_CONFIG role=keycloak env=null group=null host=null layer=null scenario=golden/roles/keycloak/molecule/default
+file golden/roles/keycloak/molecule/default/prepare.yml root=golden MOLECULE_PLAYBOOK role=keycloak env=null group=null host=null layer=null scenario=golden/roles/keycloak/molecule/default
+file golden/roles/keycloak/molecule/default/verify.yml root=golden MOLECULE_PLAYBOOK role=keycloak env=null group=null host=null layer=null scenario=golden/roles/keycloak/molecule/default
+file golden/roles/keycloak/tasks/app-folders.yml root=golden ROLE_TASKS role=keycloak env=null group=null host=null layer=null scenario=-
+file golden/roles/keycloak/tasks/authentication_flows.yml root=golden ROLE_TASKS role=keycloak env=null group=null host=null layer=null scenario=-
+file golden/roles/keycloak/tasks/client_roles.yml root=golden ROLE_TASKS role=keycloak env=null group=null host=null layer=null scenario=-
+file golden/roles/keycloak/tasks/clients.yml root=golden ROLE_TASKS role=keycloak env=null group=null host=null layer=null scenario=-
+file golden/roles/keycloak/tasks/configuration.yml root=golden ROLE_TASKS role=keycloak env=null group=null host=null layer=null scenario=-
+file golden/roles/keycloak/tasks/deployment.yml root=golden ROLE_TASKS role=keycloak env=null group=null host=null layer=null scenario=-
+file golden/roles/keycloak/tasks/docker.yml root=golden ROLE_TASKS role=keycloak env=null group=null host=null layer=null scenario=-
+file golden/roles/keycloak/tasks/groups.yml root=golden ROLE_TASKS role=keycloak env=null group=null host=null layer=null scenario=-
+file golden/roles/keycloak/tasks/install.yml root=golden ROLE_TASKS role=keycloak env=null group=null host=null layer=null scenario=-
+file golden/roles/keycloak/tasks/main.yml root=golden ROLE_TASKS role=keycloak env=null group=null host=null layer=null scenario=-
+file golden/roles/keycloak/tasks/mysql.yml root=golden ROLE_TASKS role=keycloak env=null group=null host=null layer=null scenario=-
+file golden/roles/keycloak/tasks/nginx.yml root=golden ROLE_TASKS role=keycloak env=null group=null host=null layer=null scenario=-
+file golden/roles/keycloak/tasks/observability.yml root=golden ROLE_TASKS role=keycloak env=null group=null host=null layer=null scenario=-
+file golden/roles/keycloak/tasks/realm.yml root=golden ROLE_TASKS role=keycloak env=null group=null host=null layer=null scenario=-
+file golden/roles/keycloak/tasks/roles.yml root=golden ROLE_TASKS role=keycloak env=null group=null host=null layer=null scenario=-
+file golden/roles/keycloak/tasks/users.yml root=golden ROLE_TASKS role=keycloak env=null group=null host=null layer=null scenario=-
+file golden/roles/keycloak/tasks/users_role_mapping.yml root=golden ROLE_TASKS role=keycloak env=null group=null host=null layer=null scenario=-
+file golden/roles/keycloak/templates/deployment/docker-compose.yml.j2 root=golden ROLE_TEMPLATE role=keycloak env=null group=null host=null layer=null scenario=-
+file golden/roles/keycloak/templates/nginx/main.site.conf.j2 root=golden ROLE_TEMPLATE role=keycloak env=null group=null host=null layer=null scenario=-
+file golden/roles/keycloak/templates/nginx/main.site.proxy_protocol.conf.j2 root=golden ROLE_TEMPLATE role=keycloak env=null group=null host=null layer=null scenario=-
+file golden/roles/keycloak/templates/observability/config.alloy.j2 root=golden ROLE_TEMPLATE role=keycloak env=null group=null host=null layer=null scenario=-
+file golden/roles/keycloak/templates/otel/keycloak-metrics-config.yaml.j2 root=golden ROLE_TEMPLATE role=keycloak env=null group=null host=null layer=null scenario=-
+file golden/roles/keycloak/templates/otel/nginx-logs-config.yaml.j2 root=golden ROLE_TEMPLATE role=keycloak env=null group=null host=null layer=null scenario=-
+file golden/roles/keycloak/vars/main.yml root=golden ROLE_VARS role=keycloak env=null group=null host=null layer=ROLE_VARS scenario=-
+file golden/roles/loki/defaults/main.yml root=golden ROLE_DEFAULTS role=loki env=null group=null host=null layer=ROLE_DEFAULTS scenario=-
+file golden/roles/loki/handlers/main.yml root=golden ROLE_HANDLERS role=loki env=null group=null host=null layer=null scenario=-
+file golden/roles/loki/meta/argument_specs.yml root=golden ROLE_ARGSPEC role=loki env=null group=null host=null layer=null scenario=-
+file golden/roles/loki/molecule/default/Dockerfile.j2 root=golden OTHER role=loki env=null group=null host=null layer=null scenario=golden/roles/loki/molecule/default
+file golden/roles/loki/molecule/default/converge.yml root=golden MOLECULE_PLAYBOOK role=loki env=null group=null host=null layer=null scenario=golden/roles/loki/molecule/default
+file golden/roles/loki/molecule/default/molecule.yml root=golden MOLECULE_CONFIG role=loki env=null group=null host=null layer=null scenario=golden/roles/loki/molecule/default
+file golden/roles/loki/molecule/default/prepare.yml root=golden MOLECULE_PLAYBOOK role=loki env=null group=null host=null layer=null scenario=golden/roles/loki/molecule/default
+file golden/roles/loki/molecule/default/verify.yml root=golden MOLECULE_PLAYBOOK role=loki env=null group=null host=null layer=null scenario=golden/roles/loki/molecule/default
+file golden/roles/loki/tasks/loki.yml root=golden ROLE_TASKS role=loki env=null group=null host=null layer=null scenario=-
+file golden/roles/loki/tasks/main.yml root=golden ROLE_TASKS role=loki env=null group=null host=null layer=null scenario=-
+file golden/roles/loki/tasks/nginx.yml root=golden ROLE_TASKS role=loki env=null group=null host=null layer=null scenario=-
+file golden/roles/loki/tasks/observability.yml root=golden ROLE_TASKS role=loki env=null group=null host=null layer=null scenario=-
+file golden/roles/loki/templates/logrotate.conf.j2 root=golden ROLE_TEMPLATE role=loki env=null group=null host=null layer=null scenario=-
+file golden/roles/loki/templates/loki/docker-compose.yaml.j2 root=golden ROLE_TEMPLATE role=loki env=null group=null host=null layer=null scenario=-
+file golden/roles/loki/templates/loki/local-config.yaml.j2 root=golden ROLE_TEMPLATE role=loki env=null group=null host=null layer=null scenario=-
+file golden/roles/loki/templates/nginx/main.site.combined.conf.j2 root=golden ROLE_TEMPLATE role=loki env=null group=null host=null layer=null scenario=-
+file golden/roles/loki/templates/nginx/main.site.proxy_protocol.conf.j2 root=golden ROLE_TEMPLATE role=loki env=null group=null host=null layer=null scenario=-
+file golden/roles/loki/templates/observability/config.alloy.j2 root=golden ROLE_TEMPLATE role=loki env=null group=null host=null layer=null scenario=-
+file golden/roles/nginx/defaults/main.yml root=golden ROLE_DEFAULTS role=nginx env=null group=null host=null layer=ROLE_DEFAULTS scenario=-
+file golden/roles/nginx/files/update-cidrs.sh root=golden ROLE_FILE role=nginx env=null group=null host=null layer=null scenario=-
+file golden/roles/nginx/handlers/main.yml root=golden ROLE_HANDLERS role=nginx env=null group=null host=null layer=null scenario=-
+file golden/roles/nginx/meta/argument_specs.yml root=golden ROLE_ARGSPEC role=nginx env=null group=null host=null layer=null scenario=-
+file golden/roles/nginx/molecule/default/Dockerfile.j2 root=golden OTHER role=nginx env=null group=null host=null layer=null scenario=golden/roles/nginx/molecule/default
+file golden/roles/nginx/molecule/default/converge.yml root=golden MOLECULE_PLAYBOOK role=nginx env=null group=null host=null layer=null scenario=golden/roles/nginx/molecule/default
+file golden/roles/nginx/molecule/default/molecule.yml root=golden MOLECULE_CONFIG role=nginx env=null group=null host=null layer=null scenario=golden/roles/nginx/molecule/default
+file golden/roles/nginx/molecule/default/prepare.yml root=golden MOLECULE_PLAYBOOK role=nginx env=null group=null host=null layer=null scenario=golden/roles/nginx/molecule/default
+file golden/roles/nginx/molecule/default/verify.yml root=golden MOLECULE_PLAYBOOK role=nginx env=null group=null host=null layer=null scenario=golden/roles/nginx/molecule/default
+file golden/roles/nginx/tasks/logging.yml root=golden ROLE_TASKS role=nginx env=null group=null host=null layer=null scenario=-
+file golden/roles/nginx/tasks/main.yml root=golden ROLE_TASKS role=nginx env=null group=null host=null layer=null scenario=-
+file golden/roles/nginx/tasks/observability.yml root=golden ROLE_TASKS role=nginx env=null group=null host=null layer=null scenario=-
+file golden/roles/nginx/tasks/update-cidrs.yml root=golden ROLE_TASKS role=nginx env=null group=null host=null layer=null scenario=-
+file golden/roles/nginx/templates/logging/logrotate.j2 root=golden ROLE_TEMPLATE role=nginx env=null group=null host=null layer=null scenario=-
+file golden/roles/nginx/templates/nginx.conf.j2 root=golden ROLE_TEMPLATE role=nginx env=null group=null host=null layer=null scenario=-
+file golden/roles/nginx/templates/observability/config.alloy.j2 root=golden ROLE_TEMPLATE role=nginx env=null group=null host=null layer=null scenario=-
+file golden/roles/nginx/templates/observability/prometheus-nginx-exporter.default.j2 root=golden ROLE_TEMPLATE role=nginx env=null group=null host=null layer=null scenario=-
+file golden/roles/nginx/templates/services/update-cidrs.service.j2 root=golden ROLE_TEMPLATE role=nginx env=null group=null host=null layer=null scenario=-
+file golden/roles/nginx/templates/services/update-cidrs.timer.j2 root=golden ROLE_TEMPLATE role=nginx env=null group=null host=null layer=null scenario=-
+file golden/roles/percona/defaults/main.yml root=golden ROLE_DEFAULTS role=percona env=null group=null host=null layer=ROLE_DEFAULTS scenario=-
+file golden/roles/percona/files/mysqld.sensor.conf root=golden ROLE_FILE role=percona env=null group=null host=null layer=null scenario=-
+file golden/roles/percona/handlers/main.yml root=golden ROLE_HANDLERS role=percona env=null group=null host=null layer=null scenario=-
+file golden/roles/percona/meta/argument_specs.yml root=golden ROLE_ARGSPEC role=percona env=null group=null host=null layer=null scenario=-
+file golden/roles/percona/molecule/default/Dockerfile.j2 root=golden OTHER role=percona env=null group=null host=null layer=null scenario=golden/roles/percona/molecule/default
+file golden/roles/percona/molecule/default/converge.yml root=golden MOLECULE_PLAYBOOK role=percona env=null group=null host=null layer=null scenario=golden/roles/percona/molecule/default
+file golden/roles/percona/molecule/default/molecule.yml root=golden MOLECULE_CONFIG role=percona env=null group=null host=null layer=null scenario=golden/roles/percona/molecule/default
+file golden/roles/percona/molecule/default/prepare.yml root=golden MOLECULE_PLAYBOOK role=percona env=null group=null host=null layer=null scenario=golden/roles/percona/molecule/default
+file golden/roles/percona/molecule/default/verify.yml root=golden MOLECULE_PLAYBOOK role=percona env=null group=null host=null layer=null scenario=golden/roles/percona/molecule/default
+file golden/roles/percona/tasks/database.yml root=golden ROLE_TASKS role=percona env=null group=null host=null layer=null scenario=-
+file golden/roles/percona/tasks/install.yml root=golden ROLE_TASKS role=percona env=null group=null host=null layer=null scenario=-
+file golden/roles/percona/tasks/logging.yml root=golden ROLE_TASKS role=percona env=null group=null host=null layer=null scenario=-
+file golden/roles/percona/tasks/main.yml root=golden ROLE_TASKS role=percona env=null group=null host=null layer=null scenario=-
+file golden/roles/percona/tasks/monitoring.yml root=golden ROLE_TASKS role=percona env=null group=null host=null layer=null scenario=-
+file golden/roles/percona/tasks/observability.yml root=golden ROLE_TASKS role=percona env=null group=null host=null layer=null scenario=-
+file golden/roles/percona/tasks/percona_backup.yml root=golden ROLE_TASKS role=percona env=null group=null host=null layer=null scenario=-
+file golden/roles/percona/tasks/remove_users.yml root=golden ROLE_TASKS role=percona env=null group=null host=null layer=null scenario=-
+file golden/roles/percona/tasks/service.yml root=golden ROLE_TASKS role=percona env=null group=null host=null layer=null scenario=-
+file golden/roles/percona/templates/binary-backup-clean.sh root=golden ROLE_TEMPLATE role=percona env=null group=null host=null layer=null scenario=-
+file golden/roles/percona/templates/binary-backup.sh root=golden ROLE_TEMPLATE role=percona env=null group=null host=null layer=null scenario=-
+file golden/roles/percona/templates/binlog-backup-clean.sh root=golden ROLE_TEMPLATE role=percona env=null group=null host=null layer=null scenario=-
+file golden/roles/percona/templates/binlog-backup.sh root=golden ROLE_TEMPLATE role=percona env=null group=null host=null layer=null scenario=-
+file golden/roles/percona/templates/logging/filebeat.yml.j2 root=golden ROLE_TEMPLATE role=percona env=null group=null host=null layer=null scenario=-
+file golden/roles/percona/templates/logging/logrotate root=golden ROLE_TEMPLATE role=percona env=null group=null host=null layer=null scenario=-
+file golden/roles/percona/templates/logging/logrotate.backup.j2 root=golden ROLE_TEMPLATE role=percona env=null group=null host=null layer=null scenario=-
+file golden/roles/percona/templates/my.cnf.j2 root=golden ROLE_TEMPLATE role=percona env=null group=null host=null layer=null scenario=-
+file golden/roles/percona/templates/observability/config.alloy.j2 root=golden ROLE_TEMPLATE role=percona env=null group=null host=null layer=null scenario=-
+file golden/roles/percona/templates/root-my.cnf.j2 root=golden ROLE_TEMPLATE role=percona env=null group=null host=null layer=null scenario=-
+file golden/roles/postfix/defaults/main.yml root=golden ROLE_DEFAULTS role=postfix env=null group=null host=null layer=ROLE_DEFAULTS scenario=-
+file golden/roles/postfix/files/postfix-header-classification.py root=golden ROLE_FILE role=postfix env=null group=null host=null layer=null scenario=-
+file golden/roles/postfix/handlers/main.yml root=golden ROLE_HANDLERS role=postfix env=null group=null host=null layer=null scenario=-
+file golden/roles/postfix/meta/argument_specs.yml root=golden ROLE_ARGSPEC role=postfix env=null group=null host=null layer=null scenario=-
+file golden/roles/postfix/molecule/default/Dockerfile.j2 root=golden OTHER role=postfix env=null group=null host=null layer=null scenario=golden/roles/postfix/molecule/default
+file golden/roles/postfix/molecule/default/converge.yml root=golden MOLECULE_PLAYBOOK role=postfix env=null group=null host=null layer=null scenario=golden/roles/postfix/molecule/default
+file golden/roles/postfix/molecule/default/molecule.yml root=golden MOLECULE_CONFIG role=postfix env=null group=null host=null layer=null scenario=golden/roles/postfix/molecule/default
+file golden/roles/postfix/molecule/default/prepare.yml root=golden MOLECULE_PLAYBOOK role=postfix env=null group=null host=null layer=null scenario=golden/roles/postfix/molecule/default
+file golden/roles/postfix/molecule/default/verify.yml root=golden MOLECULE_PLAYBOOK role=postfix env=null group=null host=null layer=null scenario=golden/roles/postfix/molecule/default
+file golden/roles/postfix/molecule/disabled-inbound-email-processing/Dockerfile.j2 root=golden OTHER role=postfix env=null group=null host=null layer=null scenario=golden/roles/postfix/molecule/disabled-inbound-email-processing
+file golden/roles/postfix/molecule/disabled-inbound-email-processing/converge.yml root=golden MOLECULE_PLAYBOOK role=postfix env=null group=null host=null layer=null scenario=golden/roles/postfix/molecule/disabled-inbound-email-processing
+file golden/roles/postfix/molecule/disabled-inbound-email-processing/molecule.yml root=golden MOLECULE_CONFIG role=postfix env=null group=null host=null layer=null scenario=golden/roles/postfix/molecule/disabled-inbound-email-processing
+file golden/roles/postfix/molecule/disabled-inbound-email-processing/prepare.yml root=golden MOLECULE_PLAYBOOK role=postfix env=null group=null host=null layer=null scenario=golden/roles/postfix/molecule/disabled-inbound-email-processing
+file golden/roles/postfix/molecule/disabled-inbound-email-processing/verify.yml root=golden MOLECULE_PLAYBOOK role=postfix env=null group=null host=null layer=null scenario=golden/roles/postfix/molecule/disabled-inbound-email-processing
+file golden/roles/postfix/tasks/additional-inbound-email-processing-instance.yml root=golden ROLE_TASKS role=postfix env=null group=null host=null layer=null scenario=-
+file golden/roles/postfix/tasks/additional-inbound-email-processing.yml root=golden ROLE_TASKS role=postfix env=null group=null host=null layer=null scenario=-
+file golden/roles/postfix/tasks/inbound-email-processing.yml root=golden ROLE_TASKS role=postfix env=null group=null host=null layer=null scenario=-
+file golden/roles/postfix/tasks/main.yml root=golden ROLE_TASKS role=postfix env=null group=null host=null layer=null scenario=-
+file golden/roles/postfix/tasks/observability.yml root=golden ROLE_TASKS role=postfix env=null group=null host=null layer=null scenario=-
+file golden/roles/postfix/templates/logrotate.conf.j2 root=golden ROLE_TEMPLATE role=postfix env=null group=null host=null layer=null scenario=-
+file golden/roles/postfix/templates/main.cf.j2 root=golden ROLE_TEMPLATE role=postfix env=null group=null host=null layer=null scenario=-
+file golden/roles/postfix/templates/master.cf.j2 root=golden ROLE_TEMPLATE role=postfix env=null group=null host=null layer=null scenario=-
+file golden/roles/postfix/templates/observability/config.alloy.j2 root=golden ROLE_TEMPLATE role=postfix env=null group=null host=null layer=null scenario=-
+file golden/roles/postfix/templates/process_mail.sh.j2 root=golden ROLE_TEMPLATE role=postfix env=null group=null host=null layer=null scenario=-
+file golden/roles/redis/defaults/main.yml root=golden ROLE_DEFAULTS role=redis env=null group=null host=null layer=ROLE_DEFAULTS scenario=-
+file golden/roles/redis/handlers/main.yml root=golden ROLE_HANDLERS role=redis env=null group=null host=null layer=null scenario=-
+file golden/roles/redis/meta/argument_specs.yml root=golden ROLE_ARGSPEC role=redis env=null group=null host=null layer=null scenario=-
+file golden/roles/redis/molecule/auth/Dockerfile.j2 root=golden OTHER role=redis env=null group=null host=null layer=null scenario=golden/roles/redis/molecule/auth
+file golden/roles/redis/molecule/auth/converge.yml root=golden MOLECULE_PLAYBOOK role=redis env=null group=null host=null layer=null scenario=golden/roles/redis/molecule/auth
+file golden/roles/redis/molecule/auth/molecule.yml root=golden MOLECULE_CONFIG role=redis env=null group=null host=null layer=null scenario=golden/roles/redis/molecule/auth
+file golden/roles/redis/molecule/auth/prepare.yml root=golden MOLECULE_PLAYBOOK role=redis env=null group=null host=null layer=null scenario=golden/roles/redis/molecule/auth
+file golden/roles/redis/molecule/auth/vars/main.yml root=golden MOLECULE_VARS role=redis env=null group=null host=null layer=MOLECULE_INVENTORY scenario=golden/roles/redis/molecule/auth
+file golden/roles/redis/molecule/auth/verify.yml root=golden MOLECULE_PLAYBOOK role=redis env=null group=null host=null layer=null scenario=golden/roles/redis/molecule/auth
+file golden/roles/redis/molecule/default/Dockerfile.j2 root=golden OTHER role=redis env=null group=null host=null layer=null scenario=golden/roles/redis/molecule/default
+file golden/roles/redis/molecule/default/converge.yml root=golden MOLECULE_PLAYBOOK role=redis env=null group=null host=null layer=null scenario=golden/roles/redis/molecule/default
+file golden/roles/redis/molecule/default/molecule.yml root=golden MOLECULE_CONFIG role=redis env=null group=null host=null layer=null scenario=golden/roles/redis/molecule/default
+file golden/roles/redis/molecule/default/prepare.yml root=golden MOLECULE_PLAYBOOK role=redis env=null group=null host=null layer=null scenario=golden/roles/redis/molecule/default
+file golden/roles/redis/molecule/default/verify.yml root=golden MOLECULE_PLAYBOOK role=redis env=null group=null host=null layer=null scenario=golden/roles/redis/molecule/default
+file golden/roles/redis/tasks/install.yml root=golden ROLE_TASKS role=redis env=null group=null host=null layer=null scenario=-
+file golden/roles/redis/tasks/main.yml root=golden ROLE_TASKS role=redis env=null group=null host=null layer=null scenario=-
+file golden/roles/redis/tasks/observability.yml root=golden ROLE_TASKS role=redis env=null group=null host=null layer=null scenario=-
+file golden/roles/redis/templates/observability/config.alloy.j2 root=golden ROLE_TEMPLATE role=redis env=null group=null host=null layer=null scenario=-
+file golden/roles/redis/templates/observability/prometheus-redis-exporter.default.j2 root=golden ROLE_TEMPLATE role=redis env=null group=null host=null layer=null scenario=-
+file golden/roles/redis/templates/redis/ansible-local.conf.j2 root=golden ROLE_TEMPLATE role=redis env=null group=null host=null layer=null scenario=-
+file golden/roles/system/defaults/main.yml root=golden ROLE_DEFAULTS role=system env=null group=null host=null layer=ROLE_DEFAULTS scenario=-
+file golden/roles/system/files/bash/bashrc_default root=golden ROLE_FILE role=system env=null group=null host=null layer=null scenario=-
+file golden/roles/system/files/localization/default-locale root=golden ROLE_FILE role=system env=null group=null host=null layer=null scenario=-
+file golden/roles/system/files/localization/timesyncd.conf root=golden ROLE_FILE role=system env=null group=null host=null layer=null scenario=-
+file golden/roles/system/files/localization/timezone root=golden ROLE_FILE role=system env=null group=null host=null layer=null scenario=-
+file golden/roles/system/files/scripts/show_totp_qrcode.sh root=golden ROLE_FILE role=system env=null group=null host=null layer=null scenario=-
+file golden/roles/system/files/tuning/security-limits.conf root=golden ROLE_FILE role=system env=null group=null host=null layer=null scenario=-
+file golden/roles/system/handlers/main.yml root=golden ROLE_HANDLERS role=system env=null group=null host=null layer=null scenario=-
+file golden/roles/system/meta/argument_specs.yml root=golden ROLE_ARGSPEC role=system env=null group=null host=null layer=null scenario=-
+file golden/roles/system/molecule/default/Dockerfile.j2 root=golden OTHER role=system env=null group=null host=null layer=null scenario=golden/roles/system/molecule/default
+file golden/roles/system/molecule/default/converge.yml root=golden MOLECULE_PLAYBOOK role=system env=null group=null host=null layer=null scenario=golden/roles/system/molecule/default
+file golden/roles/system/molecule/default/molecule.yml root=golden MOLECULE_CONFIG role=system env=null group=null host=null layer=null scenario=golden/roles/system/molecule/default
+file golden/roles/system/molecule/default/prepare.yml root=golden MOLECULE_PLAYBOOK role=system env=null group=null host=null layer=null scenario=golden/roles/system/molecule/default
+file golden/roles/system/molecule/default/verify.yml root=golden MOLECULE_PLAYBOOK role=system env=null group=null host=null layer=null scenario=golden/roles/system/molecule/default
+file golden/roles/system/tasks/bash_config.yml root=golden ROLE_TASKS role=system env=null group=null host=null layer=null scenario=-
+file golden/roles/system/tasks/dns.yml root=golden ROLE_TASKS role=system env=null group=null host=null layer=null scenario=-
+file golden/roles/system/tasks/housekeeping.yml root=golden ROLE_TASKS role=system env=null group=null host=null layer=null scenario=-
+file golden/roles/system/tasks/localization.yml root=golden ROLE_TASKS role=system env=null group=null host=null layer=null scenario=-
+file golden/roles/system/tasks/main.yml root=golden ROLE_TASKS role=system env=null group=null host=null layer=null scenario=-
+file golden/roles/system/tasks/networking.yml root=golden ROLE_TASKS role=system env=null group=null host=null layer=null scenario=-
+file golden/roles/system/tasks/packages.yml root=golden ROLE_TASKS role=system env=null group=null host=null layer=null scenario=-
+file golden/roles/system/tasks/scripts.yml root=golden ROLE_TASKS role=system env=null group=null host=null layer=null scenario=-
+file golden/roles/system/tasks/tuning.yml root=golden ROLE_TASKS role=system env=null group=null host=null layer=null scenario=-
+file golden/roles/system/templates/bash_completion.j2 root=golden ROLE_TEMPLATE role=system env=null group=null host=null layer=null scenario=-
+file golden/roles/system/templates/colorprompt.j2 root=golden ROLE_TEMPLATE role=system env=null group=null host=null layer=null scenario=-
+file golden/roles/system/templates/dir_colors.j2 root=golden ROLE_TEMPLATE role=system env=null group=null host=null layer=null scenario=-
+file golden/roles/system/templates/dns/hostname.j2 root=golden ROLE_TEMPLATE role=system env=null group=null host=null layer=null scenario=-
+file golden/roles/system/templates/vimrc.j2 root=golden ROLE_TEMPLATE role=system env=null group=null host=null layer=null scenario=-
+file golden/roles/system/vars/main.yml root=golden ROLE_VARS role=system env=null group=null host=null layer=ROLE_VARS scenario=-
+file golden/roles/totp-token/meta/argument_specs.yml root=golden ROLE_ARGSPEC role=totp-token env=null group=null host=null layer=null scenario=-
+file golden/roles/totp-token/molecule/default/Dockerfile.j2 root=golden OTHER role=totp-token env=null group=null host=null layer=null scenario=golden/roles/totp-token/molecule/default
+file golden/roles/totp-token/molecule/default/converge.yml root=golden MOLECULE_PLAYBOOK role=totp-token env=null group=null host=null layer=null scenario=golden/roles/totp-token/molecule/default
+file golden/roles/totp-token/molecule/default/molecule.yml root=golden MOLECULE_CONFIG role=totp-token env=null group=null host=null layer=null scenario=golden/roles/totp-token/molecule/default
+file golden/roles/totp-token/molecule/default/prepare.yml root=golden MOLECULE_PLAYBOOK role=totp-token env=null group=null host=null layer=null scenario=golden/roles/totp-token/molecule/default
+file golden/roles/totp-token/molecule/default/verify.yml root=golden MOLECULE_PLAYBOOK role=totp-token env=null group=null host=null layer=null scenario=golden/roles/totp-token/molecule/default
+file golden/roles/totp-token/tasks/main.yml root=golden ROLE_TASKS role=totp-token env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/ansible.cfg root=repos/falcon/ansible ANSIBLE_CFG role=null env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/docker/ansible-encrypt/Dockerfile root=repos/falcon/ansible OTHER role=null env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/docker/ansible-lint/Dockerfile root=repos/falcon/ansible OTHER role=null env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/docker/ansible-molecule/Dockerfile root=repos/falcon/ansible OTHER role=null env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/docker/ansible-playbook/Dockerfile root=repos/falcon/ansible OTHER role=null env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/environments/ops/group_vars/all/vars.yml root=repos/falcon/ansible GROUP_VARS role=null env=ops group=all host=null layer=INVENTORY_GROUP_VARS_ALL scenario=-
+file repos/falcon/ansible/environments/ops/host_vars/ops-ops1/vars.yml root=repos/falcon/ansible HOST_VARS role=null env=ops group=null host=ops-ops1 layer=INVENTORY_HOST_VARS scenario=-
+file repos/falcon/ansible/environments/ops/host_vars/ops-ops1/vault.yml root=repos/falcon/ansible HOST_VARS role=null env=ops group=null host=ops-ops1 layer=INVENTORY_HOST_VARS scenario=-
+file repos/falcon/ansible/environments/ops/hosts.yml root=repos/falcon/ansible INVENTORY role=null env=ops group=null host=null layer=null scenario=-
+file repos/falcon/ansible/environments/prod/group_vars/all/vars.yml root=repos/falcon/ansible GROUP_VARS role=null env=prod group=all host=null layer=INVENTORY_GROUP_VARS_ALL scenario=-
+file repos/falcon/ansible/environments/prod/group_vars/all/vault.yml root=repos/falcon/ansible GROUP_VARS role=null env=prod group=all host=null layer=INVENTORY_GROUP_VARS_ALL scenario=-
+file repos/falcon/ansible/environments/prod/group_vars/keycloak/vars.yml root=repos/falcon/ansible GROUP_VARS role=null env=prod group=keycloak host=null layer=INVENTORY_GROUP_VARS scenario=-
+file repos/falcon/ansible/environments/prod/group_vars/keycloak/vault.yml root=repos/falcon/ansible GROUP_VARS role=null env=prod group=keycloak host=null layer=INVENTORY_GROUP_VARS scenario=-
+file repos/falcon/ansible/environments/prod/host_vars/prod-prod1/vars.yml root=repos/falcon/ansible HOST_VARS role=null env=prod group=null host=prod-prod1 layer=INVENTORY_HOST_VARS scenario=-
+file repos/falcon/ansible/environments/prod/host_vars/prod-prod1/vault.yml root=repos/falcon/ansible HOST_VARS role=null env=prod group=null host=prod-prod1 layer=INVENTORY_HOST_VARS scenario=-
+file repos/falcon/ansible/environments/prod/host_vars/prod-prod2/vars.yml root=repos/falcon/ansible HOST_VARS role=null env=prod group=null host=prod-prod2 layer=INVENTORY_HOST_VARS scenario=-
+file repos/falcon/ansible/environments/prod/host_vars/prod-prod2/vault.yml root=repos/falcon/ansible HOST_VARS role=null env=prod group=null host=prod-prod2 layer=INVENTORY_HOST_VARS scenario=-
+file repos/falcon/ansible/environments/prod/hosts.yml root=repos/falcon/ansible INVENTORY role=null env=prod group=null host=null layer=null scenario=-
+file repos/falcon/ansible/environments/test/group_vars/all/vars.yml root=repos/falcon/ansible GROUP_VARS role=null env=test group=all host=null layer=INVENTORY_GROUP_VARS_ALL scenario=-
+file repos/falcon/ansible/environments/test/group_vars/all/vault.yml root=repos/falcon/ansible GROUP_VARS role=null env=test group=all host=null layer=INVENTORY_GROUP_VARS_ALL scenario=-
+file repos/falcon/ansible/environments/test/host_vars/preview-dev1.bike.example.de/vars.yml root=repos/falcon/ansible HOST_VARS role=null env=test group=null host=preview-dev1.bike.example.de layer=INVENTORY_HOST_VARS scenario=-
+file repos/falcon/ansible/environments/test/host_vars/preview-dev2.bike.example.de/vars.yml root=repos/falcon/ansible HOST_VARS role=null env=test group=null host=preview-dev2.bike.example.de layer=INVENTORY_HOST_VARS scenario=-
+file repos/falcon/ansible/environments/test/host_vars/preview-dev3.bike.example.de/vars.yml root=repos/falcon/ansible HOST_VARS role=null env=test group=null host=preview-dev3.bike.example.de layer=INVENTORY_HOST_VARS scenario=-
+file repos/falcon/ansible/environments/test/host_vars/preview-dev4.bike.example.de/vars.yml root=repos/falcon/ansible HOST_VARS role=null env=test group=null host=preview-dev4.bike.example.de layer=INVENTORY_HOST_VARS scenario=-
+file repos/falcon/ansible/environments/test/host_vars/preview-dev5.bike.example.de/vars.yml root=repos/falcon/ansible HOST_VARS role=null env=test group=null host=preview-dev5.bike.example.de layer=INVENTORY_HOST_VARS scenario=-
+file repos/falcon/ansible/environments/test/host_vars/preview-dev6.bike.example.de/vars.yml root=repos/falcon/ansible HOST_VARS role=null env=test group=null host=preview-dev6.bike.example.de layer=INVENTORY_HOST_VARS scenario=-
+file repos/falcon/ansible/environments/test/host_vars/test-test1/vars.yml root=repos/falcon/ansible HOST_VARS role=null env=test group=null host=test-test1 layer=INVENTORY_HOST_VARS scenario=-
+file repos/falcon/ansible/environments/test/host_vars/test-test1/vault.yml root=repos/falcon/ansible HOST_VARS role=null env=test group=null host=test-test1 layer=INVENTORY_HOST_VARS scenario=-
+file repos/falcon/ansible/environments/test/hosts.yml root=repos/falcon/ansible INVENTORY role=null env=test group=null host=null layer=null scenario=-
+file repos/falcon/ansible/group_vars/all/vars.yml root=repos/falcon/ansible GROUP_VARS role=null env=null group=all host=null layer=PLAYBOOK_GROUP_VARS_ALL scenario=-
+file repos/falcon/ansible/group_vars/all/vault.yml root=repos/falcon/ansible GROUP_VARS role=null env=null group=all host=null layer=PLAYBOOK_GROUP_VARS_ALL scenario=-
+file repos/falcon/ansible/playbook-initial-setup.yml root=repos/falcon/ansible PLAYBOOK role=null env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/playbook-setup-apps.yml root=repos/falcon/ansible PLAYBOOK role=null env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/playbook-setup-jenkins.yml root=repos/falcon/ansible PLAYBOOK role=null env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/playbook-setup-keycloak.yml root=repos/falcon/ansible PLAYBOOK role=null env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/playbook-setup-ops.yml root=repos/falcon/ansible PLAYBOOK role=null env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/playbook-setup-system.yml root=repos/falcon/ansible PLAYBOOK role=null env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/docker/defaults/main.yml root=repos/falcon/ansible ROLE_DEFAULTS role=docker env=null group=null host=null layer=ROLE_DEFAULTS scenario=-
+file repos/falcon/ansible/roles/docker/files/apt.asc root=repos/falcon/ansible ROLE_FILE role=docker env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/docker/files/daemon.json root=repos/falcon/ansible ROLE_FILE role=docker env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/docker/files/docker-cleanup.sh root=repos/falcon/ansible ROLE_FILE role=docker env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/docker/handlers/main.yml root=repos/falcon/ansible ROLE_HANDLERS role=docker env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/docker/meta/argument_specs.yml root=repos/falcon/ansible ROLE_ARGSPEC role=docker env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/docker/molecule/default/Dockerfile.j2 root=repos/falcon/ansible OTHER role=docker env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/docker/molecule/default
+file repos/falcon/ansible/roles/docker/molecule/default/converge.yml root=repos/falcon/ansible MOLECULE_PLAYBOOK role=docker env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/docker/molecule/default
+file repos/falcon/ansible/roles/docker/molecule/default/molecule.yml root=repos/falcon/ansible MOLECULE_CONFIG role=docker env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/docker/molecule/default
+file repos/falcon/ansible/roles/docker/molecule/default/prepare.yml root=repos/falcon/ansible MOLECULE_PLAYBOOK role=docker env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/docker/molecule/default
+file repos/falcon/ansible/roles/docker/molecule/default/verify.yml root=repos/falcon/ansible MOLECULE_PLAYBOOK role=docker env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/docker/molecule/default
+file repos/falcon/ansible/roles/docker/tasks/cleanup.yml root=repos/falcon/ansible ROLE_TASKS role=docker env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/docker/tasks/main.yml root=repos/falcon/ansible ROLE_TASKS role=docker env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/docker/tasks/observability.yml root=repos/falcon/ansible ROLE_TASKS role=docker env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/docker/tasks/resource-limits.yml root=repos/falcon/ansible ROLE_TASKS role=docker env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/docker/tasks/setup.yml root=repos/falcon/ansible ROLE_TASKS role=docker env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/docker/templates/docker.sources.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=docker env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/docker/templates/observability/config.alloy.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=docker env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/docker/templates/services/docker-cleanup.service.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=docker env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/docker/templates/services/docker-cleanup.timer.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=docker env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/docker/templates/services/docker.service.override.conf.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=docker env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/defaults/main.yml root=repos/falcon/ansible ROLE_DEFAULTS role=grafana env=null group=null host=null layer=ROLE_DEFAULTS scenario=-
+file repos/falcon/ansible/roles/grafana/files/dashboards/12486_node_exporter_full.json root=repos/falcon/ansible ROLE_FILE role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/files/dashboards/12767_nginx.json root=repos/falcon/ansible ROLE_FILE role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/files/dashboards/14282-cadvisor-exporter.json root=repos/falcon/ansible ROLE_FILE role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/files/dashboards/23604-keepalived.json root=repos/falcon/ansible ROLE_FILE role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/files/dashboards/api-performance.json root=repos/falcon/ansible ROLE_FILE role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/files/dashboards/application-logs.json root=repos/falcon/ansible ROLE_FILE role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/files/dashboards/frankenphp-process-health.json root=repos/falcon/ansible ROLE_FILE role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/files/dashboards/frankenphp-workers.json root=repos/falcon/ansible ROLE_FILE role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/files/dashboards/haproxy.json root=repos/falcon/ansible ROLE_FILE role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/files/dashboards/keycloak.json root=repos/falcon/ansible ROLE_FILE role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/files/dashboards/outgoing-http-calls.json root=repos/falcon/ansible ROLE_FILE role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/handlers/main.yml root=repos/falcon/ansible ROLE_HANDLERS role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/handlers/molecule.yml root=repos/falcon/ansible ROLE_HANDLERS role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/meta/argument_specs.yml root=repos/falcon/ansible ROLE_ARGSPEC role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/molecule/default/Dockerfile.j2 root=repos/falcon/ansible OTHER role=grafana env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/grafana/molecule/default
+file repos/falcon/ansible/roles/grafana/molecule/default/converge.yml root=repos/falcon/ansible MOLECULE_PLAYBOOK role=grafana env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/grafana/molecule/default
+file repos/falcon/ansible/roles/grafana/molecule/default/files/grafana/alerting/allowed-rule.yml.j2 root=repos/falcon/ansible OTHER role=grafana env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/grafana/molecule/default
+file repos/falcon/ansible/roles/grafana/molecule/default/files/grafana/alerting/monolith-exceptions-slack.yml.j2 root=repos/falcon/ansible OTHER role=grafana env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/grafana/molecule/default
+file repos/falcon/ansible/roles/grafana/molecule/default/files/grafana/alerting/slack-monolith-exceptions-receiver-color.j2 root=repos/falcon/ansible OTHER role=grafana env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/grafana/molecule/default
+file repos/falcon/ansible/roles/grafana/molecule/default/files/grafana/alerting/slack-monolith-exceptions-receiver-text.j2 root=repos/falcon/ansible OTHER role=grafana env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/grafana/molecule/default
+file repos/falcon/ansible/roles/grafana/molecule/default/files/grafana/alerting/slack-monolith-exceptions-receiver-title.j2 root=repos/falcon/ansible OTHER role=grafana env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/grafana/molecule/default
+file repos/falcon/ansible/roles/grafana/molecule/default/molecule.yml root=repos/falcon/ansible MOLECULE_CONFIG role=grafana env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/grafana/molecule/default
+file repos/falcon/ansible/roles/grafana/molecule/default/prepare.yml root=repos/falcon/ansible MOLECULE_PLAYBOOK role=grafana env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/grafana/molecule/default
+file repos/falcon/ansible/roles/grafana/molecule/default/verify.yml root=repos/falcon/ansible MOLECULE_PLAYBOOK role=grafana env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/grafana/molecule/default
+file repos/falcon/ansible/roles/grafana/tasks/alerting.yml root=repos/falcon/ansible ROLE_TASKS role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/tasks/app-folders.yml root=repos/falcon/ansible ROLE_TASKS role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/tasks/deployment.yml root=repos/falcon/ansible ROLE_TASKS role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/tasks/main.yml root=repos/falcon/ansible ROLE_TASKS role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/tasks/mcp.yml root=repos/falcon/ansible ROLE_TASKS role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/tasks/nginx.yml root=repos/falcon/ansible ROLE_TASKS role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/tasks/oauth2-proxy.yml root=repos/falcon/ansible ROLE_TASKS role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/tasks/otel.yml root=repos/falcon/ansible ROLE_TASKS role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/templates/config/grafana.ini.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/templates/deployment/docker-compose.yml.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/templates/nginx/logrotate.conf.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/templates/nginx/main.site.conf.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/templates/nginx/main.site.mcp.conf.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/templates/nginx/main.site.proxy_protocol.conf.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/templates/oauth2-proxy/oauth2-proxy.cfg.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/templates/oauth2-proxy/oauth2-proxy.service.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/templates/otel/nginx-logs-config.yaml.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/templates/provisioning/alerting/contact-points.yml.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/templates/provisioning/alerting/notification-policies.yml.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/templates/provisioning/alerting/rules.yml.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/templates/provisioning/dashboards/dashboards.yml.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/templates/provisioning/datasources/datasources.yml.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=grafana env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/grafana/vars/main.yml root=repos/falcon/ansible ROLE_VARS role=grafana env=null group=null host=null layer=ROLE_VARS scenario=-
+file repos/falcon/ansible/roles/haproxy/defaults/main.yml root=repos/falcon/ansible ROLE_DEFAULTS role=haproxy env=null group=null host=null layer=ROLE_DEFAULTS scenario=-
+file repos/falcon/ansible/roles/haproxy/files/override.conf root=repos/falcon/ansible ROLE_FILE role=haproxy env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/haproxy/handlers/main.yml root=repos/falcon/ansible ROLE_HANDLERS role=haproxy env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/haproxy/meta/argument_specs.yml root=repos/falcon/ansible ROLE_ARGSPEC role=haproxy env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/haproxy/molecule/default/Dockerfile.j2 root=repos/falcon/ansible OTHER role=haproxy env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/haproxy/molecule/default
+file repos/falcon/ansible/roles/haproxy/molecule/default/converge.yml root=repos/falcon/ansible MOLECULE_PLAYBOOK role=haproxy env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/haproxy/molecule/default
+file repos/falcon/ansible/roles/haproxy/molecule/default/molecule.yml root=repos/falcon/ansible MOLECULE_CONFIG role=haproxy env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/haproxy/molecule/default
+file repos/falcon/ansible/roles/haproxy/molecule/default/prepare.yml root=repos/falcon/ansible MOLECULE_PLAYBOOK role=haproxy env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/haproxy/molecule/default
+file repos/falcon/ansible/roles/haproxy/molecule/default/verify.yml root=repos/falcon/ansible MOLECULE_PLAYBOOK role=haproxy env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/haproxy/molecule/default
+file repos/falcon/ansible/roles/haproxy/tasks/access.yml root=repos/falcon/ansible ROLE_TASKS role=haproxy env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/haproxy/tasks/apt.yml root=repos/falcon/ansible ROLE_TASKS role=haproxy env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/haproxy/tasks/configure.yml root=repos/falcon/ansible ROLE_TASKS role=haproxy env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/haproxy/tasks/main.yml root=repos/falcon/ansible ROLE_TASKS role=haproxy env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/haproxy/tasks/observability.yml root=repos/falcon/ansible ROLE_TASKS role=haproxy env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/haproxy/tasks/sysctl.yml root=repos/falcon/ansible ROLE_TASKS role=haproxy env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/haproxy/tasks/systemd.yml root=repos/falcon/ansible ROLE_TASKS role=haproxy env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/haproxy/templates/haproxy.cfg.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=haproxy env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/haproxy/templates/logrotate.conf.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=haproxy env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/haproxy/templates/observability/config.alloy.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=haproxy env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/haproxy/templates/rsyslog-haproxy.conf.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=haproxy env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/jenkins-agent-docker/files/ssh_config root=repos/falcon/ansible ROLE_FILE role=jenkins-agent-docker env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/jenkins-agent-docker/meta/argument_specs.yml root=repos/falcon/ansible ROLE_ARGSPEC role=jenkins-agent-docker env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/jenkins-agent-docker/meta/main.yml root=repos/falcon/ansible ROLE_META role=jenkins-agent-docker env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/jenkins-agent-docker/molecule/default/Dockerfile.j2 root=repos/falcon/ansible OTHER role=jenkins-agent-docker env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/jenkins-agent-docker/molecule/default
+file repos/falcon/ansible/roles/jenkins-agent-docker/molecule/default/converge.yml root=repos/falcon/ansible MOLECULE_PLAYBOOK role=jenkins-agent-docker env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/jenkins-agent-docker/molecule/default
+file repos/falcon/ansible/roles/jenkins-agent-docker/molecule/default/molecule.yml root=repos/falcon/ansible MOLECULE_CONFIG role=jenkins-agent-docker env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/jenkins-agent-docker/molecule/default
+file repos/falcon/ansible/roles/jenkins-agent-docker/molecule/default/prepare.yml root=repos/falcon/ansible MOLECULE_PLAYBOOK role=jenkins-agent-docker env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/jenkins-agent-docker/molecule/default
+file repos/falcon/ansible/roles/jenkins-agent-docker/molecule/default/verify.yml root=repos/falcon/ansible MOLECULE_PLAYBOOK role=jenkins-agent-docker env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/jenkins-agent-docker/molecule/default
+file repos/falcon/ansible/roles/jenkins-agent-docker/tasks/main.yml root=repos/falcon/ansible ROLE_TASKS role=jenkins-agent-docker env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/loki/defaults/main.yml root=repos/falcon/ansible ROLE_DEFAULTS role=loki env=null group=null host=null layer=ROLE_DEFAULTS scenario=-
+file repos/falcon/ansible/roles/loki/handlers/main.yml root=repos/falcon/ansible ROLE_HANDLERS role=loki env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/loki/meta/argument_specs.yml root=repos/falcon/ansible ROLE_ARGSPEC role=loki env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/loki/molecule/default/Dockerfile.j2 root=repos/falcon/ansible OTHER role=loki env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/loki/molecule/default
+file repos/falcon/ansible/roles/loki/molecule/default/converge.yml root=repos/falcon/ansible MOLECULE_PLAYBOOK role=loki env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/loki/molecule/default
+file repos/falcon/ansible/roles/loki/molecule/default/molecule.yml root=repos/falcon/ansible MOLECULE_CONFIG role=loki env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/loki/molecule/default
+file repos/falcon/ansible/roles/loki/molecule/default/prepare.yml root=repos/falcon/ansible MOLECULE_PLAYBOOK role=loki env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/loki/molecule/default
+file repos/falcon/ansible/roles/loki/molecule/default/verify.yml root=repos/falcon/ansible MOLECULE_PLAYBOOK role=loki env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/loki/molecule/default
+file repos/falcon/ansible/roles/loki/tasks/loki.yml root=repos/falcon/ansible ROLE_TASKS role=loki env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/loki/tasks/main.yml root=repos/falcon/ansible ROLE_TASKS role=loki env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/loki/tasks/nginx.yml root=repos/falcon/ansible ROLE_TASKS role=loki env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/loki/tasks/observability.yml root=repos/falcon/ansible ROLE_TASKS role=loki env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/loki/templates/logrotate.conf.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=loki env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/loki/templates/loki/docker-compose.yaml.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=loki env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/loki/templates/loki/local-config.yaml.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=loki env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/loki/templates/nginx/main.site.combined.conf.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=loki env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/loki/templates/nginx/main.site.proxy_protocol.conf.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=loki env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/loki/templates/observability/config.alloy.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=loki env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/nginx/defaults/main.yml root=repos/falcon/ansible ROLE_DEFAULTS role=nginx env=null group=null host=null layer=ROLE_DEFAULTS scenario=-
+file repos/falcon/ansible/roles/nginx/files/update-cidrs.sh root=repos/falcon/ansible ROLE_FILE role=nginx env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/nginx/handlers/main.yml root=repos/falcon/ansible ROLE_HANDLERS role=nginx env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/nginx/meta/argument_specs.yml root=repos/falcon/ansible ROLE_ARGSPEC role=nginx env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/nginx/molecule/default/Dockerfile.j2 root=repos/falcon/ansible OTHER role=nginx env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/nginx/molecule/default
+file repos/falcon/ansible/roles/nginx/molecule/default/converge.yml root=repos/falcon/ansible MOLECULE_PLAYBOOK role=nginx env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/nginx/molecule/default
+file repos/falcon/ansible/roles/nginx/molecule/default/molecule.yml root=repos/falcon/ansible MOLECULE_CONFIG role=nginx env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/nginx/molecule/default
+file repos/falcon/ansible/roles/nginx/molecule/default/prepare.yml root=repos/falcon/ansible MOLECULE_PLAYBOOK role=nginx env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/nginx/molecule/default
+file repos/falcon/ansible/roles/nginx/molecule/default/verify.yml root=repos/falcon/ansible MOLECULE_PLAYBOOK role=nginx env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/nginx/molecule/default
+file repos/falcon/ansible/roles/nginx/tasks/logging.yml root=repos/falcon/ansible ROLE_TASKS role=nginx env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/nginx/tasks/main.yml root=repos/falcon/ansible ROLE_TASKS role=nginx env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/nginx/tasks/observability.yml root=repos/falcon/ansible ROLE_TASKS role=nginx env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/nginx/tasks/update-cidrs.yml root=repos/falcon/ansible ROLE_TASKS role=nginx env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/nginx/templates/logging/logrotate.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=nginx env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/nginx/templates/nginx.conf.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=nginx env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/nginx/templates/observability/config.alloy.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=nginx env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/nginx/templates/observability/prometheus-nginx-exporter.default.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=nginx env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/nginx/templates/services/update-cidrs.service.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=nginx env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/nginx/templates/services/update-cidrs.timer.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=nginx env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/postfix/defaults/main.yml root=repos/falcon/ansible ROLE_DEFAULTS role=postfix env=null group=null host=null layer=ROLE_DEFAULTS scenario=-
+file repos/falcon/ansible/roles/postfix/files/postfix-header-classification.py root=repos/falcon/ansible ROLE_FILE role=postfix env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/postfix/handlers/main.yml root=repos/falcon/ansible ROLE_HANDLERS role=postfix env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/postfix/meta/argument_specs.yml root=repos/falcon/ansible ROLE_ARGSPEC role=postfix env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/postfix/molecule/default/Dockerfile.j2 root=repos/falcon/ansible OTHER role=postfix env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/postfix/molecule/default
+file repos/falcon/ansible/roles/postfix/molecule/default/converge.yml root=repos/falcon/ansible MOLECULE_PLAYBOOK role=postfix env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/postfix/molecule/default
+file repos/falcon/ansible/roles/postfix/molecule/default/molecule.yml root=repos/falcon/ansible MOLECULE_CONFIG role=postfix env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/postfix/molecule/default
+file repos/falcon/ansible/roles/postfix/molecule/default/prepare.yml root=repos/falcon/ansible MOLECULE_PLAYBOOK role=postfix env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/postfix/molecule/default
+file repos/falcon/ansible/roles/postfix/molecule/default/verify.yml root=repos/falcon/ansible MOLECULE_PLAYBOOK role=postfix env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/postfix/molecule/default
+file repos/falcon/ansible/roles/postfix/tasks/main.yml root=repos/falcon/ansible ROLE_TASKS role=postfix env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/postfix/templates/main.cf.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=postfix env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/postfix/templates/master.cf.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=postfix env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/system/defaults/main.yml root=repos/falcon/ansible ROLE_DEFAULTS role=system env=null group=null host=null layer=ROLE_DEFAULTS scenario=-
+file repos/falcon/ansible/roles/system/files/bash/bashrc_default root=repos/falcon/ansible ROLE_FILE role=system env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/system/files/localization/default-locale root=repos/falcon/ansible ROLE_FILE role=system env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/system/files/localization/timesyncd.conf root=repos/falcon/ansible ROLE_FILE role=system env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/system/files/localization/timezone root=repos/falcon/ansible ROLE_FILE role=system env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/system/files/scripts/show_totp_qrcode.sh root=repos/falcon/ansible ROLE_FILE role=system env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/system/files/tuning/security-limits.conf root=repos/falcon/ansible ROLE_FILE role=system env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/system/handlers/main.yml root=repos/falcon/ansible ROLE_HANDLERS role=system env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/system/meta/argument_specs.yml root=repos/falcon/ansible ROLE_ARGSPEC role=system env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/system/molecule/default/Dockerfile.j2 root=repos/falcon/ansible OTHER role=system env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/system/molecule/default
+file repos/falcon/ansible/roles/system/molecule/default/converge.yml root=repos/falcon/ansible MOLECULE_PLAYBOOK role=system env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/system/molecule/default
+file repos/falcon/ansible/roles/system/molecule/default/molecule.yml root=repos/falcon/ansible MOLECULE_CONFIG role=system env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/system/molecule/default
+file repos/falcon/ansible/roles/system/molecule/default/prepare.yml root=repos/falcon/ansible MOLECULE_PLAYBOOK role=system env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/system/molecule/default
+file repos/falcon/ansible/roles/system/molecule/default/verify.yml root=repos/falcon/ansible MOLECULE_PLAYBOOK role=system env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/system/molecule/default
+file repos/falcon/ansible/roles/system/tasks/bash_config.yml root=repos/falcon/ansible ROLE_TASKS role=system env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/system/tasks/dns.yml root=repos/falcon/ansible ROLE_TASKS role=system env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/system/tasks/housekeeping.yml root=repos/falcon/ansible ROLE_TASKS role=system env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/system/tasks/localization.yml root=repos/falcon/ansible ROLE_TASKS role=system env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/system/tasks/main.yml root=repos/falcon/ansible ROLE_TASKS role=system env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/system/tasks/networking.yml root=repos/falcon/ansible ROLE_TASKS role=system env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/system/tasks/packages.yml root=repos/falcon/ansible ROLE_TASKS role=system env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/system/tasks/scripts.yml root=repos/falcon/ansible ROLE_TASKS role=system env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/system/tasks/tuning.yml root=repos/falcon/ansible ROLE_TASKS role=system env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/system/templates/bash_completion.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=system env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/system/templates/colorprompt.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=system env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/system/templates/dir_colors.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=system env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/system/templates/dns/hostname.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=system env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/system/templates/vimrc.j2 root=repos/falcon/ansible ROLE_TEMPLATE role=system env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/system/vars/main.yml root=repos/falcon/ansible ROLE_VARS role=system env=null group=null host=null layer=ROLE_VARS scenario=-
+file repos/falcon/ansible/roles/totp-token/meta/argument_specs.yml root=repos/falcon/ansible ROLE_ARGSPEC role=totp-token env=null group=null host=null layer=null scenario=-
+file repos/falcon/ansible/roles/totp-token/molecule/default/Dockerfile.j2 root=repos/falcon/ansible OTHER role=totp-token env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/totp-token/molecule/default
+file repos/falcon/ansible/roles/totp-token/molecule/default/converge.yml root=repos/falcon/ansible MOLECULE_PLAYBOOK role=totp-token env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/totp-token/molecule/default
+file repos/falcon/ansible/roles/totp-token/molecule/default/molecule.yml root=repos/falcon/ansible MOLECULE_CONFIG role=totp-token env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/totp-token/molecule/default
+file repos/falcon/ansible/roles/totp-token/molecule/default/prepare.yml root=repos/falcon/ansible MOLECULE_PLAYBOOK role=totp-token env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/totp-token/molecule/default
+file repos/falcon/ansible/roles/totp-token/molecule/default/verify.yml root=repos/falcon/ansible MOLECULE_PLAYBOOK role=totp-token env=null group=null host=null layer=null scenario=repos/falcon/ansible/roles/totp-token/molecule/default
+file repos/falcon/ansible/roles/totp-token/tasks/main.yml root=repos/falcon/ansible ROLE_TASKS role=totp-token env=null group=null host=null layer=null scenario=-
+file repos/heron/ansible/ansible.cfg root=repos/heron/ansible ANSIBLE_CFG role=null env=null group=null host=null layer=null scenario=-
+file repos/heron/ansible/environments/prod/group_vars/keycloak/vars.yml root=repos/heron/ansible GROUP_VARS role=null env=prod group=keycloak host=null layer=INVENTORY_GROUP_VARS scenario=-
+file repos/heron/ansible/roles/keycloak/defaults/main.yml root=repos/heron/ansible ROLE_DEFAULTS role=keycloak env=null group=null host=null layer=ROLE_DEFAULTS scenario=-
+file repos/heron/ansible/roles/keycloak/files/blacklist.txt root=repos/heron/ansible ROLE_FILE role=keycloak env=null group=null host=null layer=null scenario=-
+file repos/heron/ansible/roles/keycloak/handlers/main.yml root=repos/heron/ansible ROLE_HANDLERS role=keycloak env=null group=null host=null layer=null scenario=-
+file repos/heron/ansible/roles/keycloak/meta/argument_specs.yml root=repos/heron/ansible ROLE_ARGSPEC role=keycloak env=null group=null host=null layer=null scenario=-
+file repos/heron/ansible/roles/keycloak/molecule/default/Dockerfile.j2 root=repos/heron/ansible OTHER role=keycloak env=null group=null host=null layer=null scenario=repos/heron/ansible/roles/keycloak/molecule/default
+file repos/heron/ansible/roles/keycloak/molecule/default/converge.yml root=repos/heron/ansible MOLECULE_PLAYBOOK role=keycloak env=null group=null host=null layer=null scenario=repos/heron/ansible/roles/keycloak/molecule/default
+file repos/heron/ansible/roles/keycloak/molecule/default/molecule.yml root=repos/heron/ansible MOLECULE_CONFIG role=keycloak env=null group=null host=null layer=null scenario=repos/heron/ansible/roles/keycloak/molecule/default
+file repos/heron/ansible/roles/keycloak/molecule/default/prepare.yml root=repos/heron/ansible MOLECULE_PLAYBOOK role=keycloak env=null group=null host=null layer=null scenario=repos/heron/ansible/roles/keycloak/molecule/default
+file repos/heron/ansible/roles/keycloak/molecule/default/verify.yml root=repos/heron/ansible MOLECULE_PLAYBOOK role=keycloak env=null group=null host=null layer=null scenario=repos/heron/ansible/roles/keycloak/molecule/default
+file repos/heron/ansible/roles/keycloak/tasks/app-folders.yml root=repos/heron/ansible ROLE_TASKS role=keycloak env=null group=null host=null layer=null scenario=-
+file repos/heron/ansible/roles/keycloak/tasks/authentication_flows.yml root=repos/heron/ansible ROLE_TASKS role=keycloak env=null group=null host=null layer=null scenario=-
+file repos/heron/ansible/roles/keycloak/tasks/client_roles.yml root=repos/heron/ansible ROLE_TASKS role=keycloak env=null group=null host=null layer=null scenario=-
+file repos/heron/ansible/roles/keycloak/tasks/clients.yml root=repos/heron/ansible ROLE_TASKS role=keycloak env=null group=null host=null layer=null scenario=-
+file repos/heron/ansible/roles/keycloak/tasks/configuration.yml root=repos/heron/ansible ROLE_TASKS role=keycloak env=null group=null host=null layer=null scenario=-
+file repos/heron/ansible/roles/keycloak/tasks/deployment.yml root=repos/heron/ansible ROLE_TASKS role=keycloak env=null group=null host=null layer=null scenario=-
+file repos/heron/ansible/roles/keycloak/tasks/docker.yml root=repos/heron/ansible ROLE_TASKS role=keycloak env=null group=null host=null layer=null scenario=-
+file repos/heron/ansible/roles/keycloak/tasks/groups.yml root=repos/heron/ansible ROLE_TASKS role=keycloak env=null group=null host=null layer=null scenario=-
+file repos/heron/ansible/roles/keycloak/tasks/install.yml root=repos/heron/ansible ROLE_TASKS role=keycloak env=null group=null host=null layer=null scenario=-
+file repos/heron/ansible/roles/keycloak/tasks/main.yml root=repos/heron/ansible ROLE_TASKS role=keycloak env=null group=null host=null layer=null scenario=-
+file repos/heron/ansible/roles/keycloak/tasks/mysql.yml root=repos/heron/ansible ROLE_TASKS role=keycloak env=null group=null host=null layer=null scenario=-
+file repos/heron/ansible/roles/keycloak/tasks/nginx.yml root=repos/heron/ansible ROLE_TASKS role=keycloak env=null group=null host=null layer=null scenario=-
+file repos/heron/ansible/roles/keycloak/tasks/observability.yml root=repos/heron/ansible ROLE_TASKS role=keycloak env=null group=null host=null layer=null scenario=-
+file repos/heron/ansible/roles/keycloak/tasks/realm.yml root=repos/heron/ansible ROLE_TASKS role=keycloak env=null group=null host=null layer=null scenario=-
+file repos/heron/ansible/roles/keycloak/tasks/roles.yml root=repos/heron/ansible ROLE_TASKS role=keycloak env=null group=null host=null layer=null scenario=-
+file repos/heron/ansible/roles/keycloak/tasks/users.yml root=repos/heron/ansible ROLE_TASKS role=keycloak env=null group=null host=null layer=null scenario=-
+file repos/heron/ansible/roles/keycloak/tasks/users_role_mapping.yml root=repos/heron/ansible ROLE_TASKS role=keycloak env=null group=null host=null layer=null scenario=-
+file repos/heron/ansible/roles/keycloak/templates/deployment/docker-compose.yml.j2 root=repos/heron/ansible ROLE_TEMPLATE role=keycloak env=null group=null host=null layer=null scenario=-
+file repos/heron/ansible/roles/keycloak/templates/nginx/main.site.conf.j2 root=repos/heron/ansible ROLE_TEMPLATE role=keycloak env=null group=null host=null layer=null scenario=-
+file repos/heron/ansible/roles/keycloak/templates/nginx/main.site.proxy_protocol.conf.j2 root=repos/heron/ansible ROLE_TEMPLATE role=keycloak env=null group=null host=null layer=null scenario=-
+file repos/heron/ansible/roles/keycloak/templates/observability/config.alloy.j2 root=repos/heron/ansible ROLE_TEMPLATE role=keycloak env=null group=null host=null layer=null scenario=-
+file repos/heron/ansible/roles/keycloak/templates/otel/keycloak-metrics-config.yaml.j2 root=repos/heron/ansible ROLE_TEMPLATE role=keycloak env=null group=null host=null layer=null scenario=-
+file repos/heron/ansible/roles/keycloak/templates/otel/nginx-logs-config.yaml.j2 root=repos/heron/ansible ROLE_TEMPLATE role=keycloak env=null group=null host=null layer=null scenario=-
+file repos/heron/ansible/roles/keycloak/vars/main.yml root=repos/heron/ansible ROLE_VARS role=keycloak env=null group=null host=null layer=ROLE_VARS scenario=-
+file repos/pelican/ansible/ansible.cfg root=repos/pelican/ansible ANSIBLE_CFG role=null env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/README.md root=repos/pelican/ansible/danger_zone/database OTHER role=null env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/RUNBOOK-replisync.md root=repos/pelican/ansible/danger_zone/database OTHER role=null env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/playbook-check-replica-state.yml root=repos/pelican/ansible/danger_zone/database PLAYBOOK role=null env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/playbook-clone-to-primary.yml root=repos/pelican/ansible/danger_zone/database PLAYBOOK role=null env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/playbook-clone-to-replica.yml root=repos/pelican/ansible/danger_zone/database PLAYBOOK role=null env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/playbook-clone-to-replisync.yml root=repos/pelican/ansible/danger_zone/database PLAYBOOK role=null env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/playbook-disaster-promote-replica.yml root=repos/pelican/ansible/danger_zone/database PLAYBOOK role=null env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/playbook-initial-setup.yml root=repos/pelican/ansible/danger_zone/database PLAYBOOK role=null env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/playbook-maintenance-1-switchover-to-replica.yml root=repos/pelican/ansible/danger_zone/database PLAYBOOK role=null env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/playbook-maintenance-2-switchback-to-primary.yml root=repos/pelican/ansible/danger_zone/database PLAYBOOK role=null env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/playbook-skip-replica-error.yml root=repos/pelican/ansible/danger_zone/database PLAYBOOK role=null env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/playbook-start-replica.yml root=repos/pelican/ansible/danger_zone/database PLAYBOOK role=null env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/playbook-stop-replica.yml root=repos/pelican/ansible/danger_zone/database PLAYBOOK role=null env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/playbook-xtrabackup-on-primary.yml root=repos/pelican/ansible/danger_zone/database PLAYBOOK role=null env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/playbook-xtrabackup-to-replica.yml root=repos/pelican/ansible/danger_zone/database PLAYBOOK role=null env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/roles/check-replica-state/tasks/main.yml root=repos/pelican/ansible/danger_zone/database ROLE_TASKS role=check-replica-state env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/roles/clone-percona-to-primary/tasks/main.yml root=repos/pelican/ansible/danger_zone/database ROLE_TASKS role=clone-percona-to-primary env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/roles/clone-percona-to-replica/defaults/main.yml root=repos/pelican/ansible/danger_zone/database ROLE_DEFAULTS role=clone-percona-to-replica env=null group=null host=null layer=ROLE_DEFAULTS scenario=-
+file repos/pelican/ansible/danger_zone/database/roles/clone-percona-to-replica/tasks/main.yml root=repos/pelican/ansible/danger_zone/database ROLE_TASKS role=clone-percona-to-replica env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/roles/floating-ip-off/handlers/main.yml root=repos/pelican/ansible/danger_zone/database ROLE_HANDLERS role=floating-ip-off env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/roles/floating-ip-off/tasks/main.yml root=repos/pelican/ansible/danger_zone/database ROLE_TASKS role=floating-ip-off env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/roles/floating-ip-on/handlers/main.yml root=repos/pelican/ansible/danger_zone/database ROLE_HANDLERS role=floating-ip-on env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/roles/floating-ip-on/tasks/main.yml root=repos/pelican/ansible/danger_zone/database ROLE_TASKS role=floating-ip-on env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/roles/floating-ip-on/templates/alias.floating root=repos/pelican/ansible/danger_zone/database ROLE_TEMPLATE role=floating-ip-on env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/roles/promote-percona-to-primary/tasks/main.yml root=repos/pelican/ansible/danger_zone/database ROLE_TASKS role=promote-percona-to-primary env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/roles/read-only-off/tasks/main.yml root=repos/pelican/ansible/danger_zone/database ROLE_TASKS role=read-only-off env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/roles/read-only-on/tasks/main.yml root=repos/pelican/ansible/danger_zone/database ROLE_TASKS role=read-only-on env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/roles/replica-detach/tasks/main.yml root=repos/pelican/ansible/danger_zone/database ROLE_TASKS role=replica-detach env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/roles/replica-skip-error/tasks/main.yml root=repos/pelican/ansible/danger_zone/database ROLE_TASKS role=replica-skip-error env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/roles/replica-turn-off/tasks/main.yml root=repos/pelican/ansible/danger_zone/database ROLE_TASKS role=replica-turn-off env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/roles/replica-turn-on/tasks/main.yml root=repos/pelican/ansible/danger_zone/database ROLE_TASKS role=replica-turn-on env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/roles/resync-primary-from-replica/tasks/main.yml root=repos/pelican/ansible/danger_zone/database ROLE_TASKS role=resync-primary-from-replica env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/roles/setup-percona-replica-replication/defaults/main.yml root=repos/pelican/ansible/danger_zone/database ROLE_DEFAULTS role=setup-percona-replica-replication env=null group=null host=null layer=ROLE_DEFAULTS scenario=-
+file repos/pelican/ansible/danger_zone/database/roles/setup-percona-replica-replication/tasks/main.yml root=repos/pelican/ansible/danger_zone/database ROLE_TASKS role=setup-percona-replica-replication env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/roles/wait-replica-catchup/tasks/main.yml root=repos/pelican/ansible/danger_zone/database ROLE_TASKS role=wait-replica-catchup env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/roles/xtrabackup-percona-on-primary/tasks/main.yml root=repos/pelican/ansible/danger_zone/database ROLE_TASKS role=xtrabackup-percona-on-primary env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/roles/xtrabackup-percona-to-replica/defaults/main.yml root=repos/pelican/ansible/danger_zone/database ROLE_DEFAULTS role=xtrabackup-percona-to-replica env=null group=null host=null layer=ROLE_DEFAULTS scenario=-
+file repos/pelican/ansible/danger_zone/database/roles/xtrabackup-percona-to-replica/meta/argument_specs.yml root=repos/pelican/ansible/danger_zone/database ROLE_ARGSPEC role=xtrabackup-percona-to-replica env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/roles/xtrabackup-percona-to-replica/tasks/check-space.yml root=repos/pelican/ansible/danger_zone/database ROLE_TASKS role=xtrabackup-percona-to-replica env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/danger_zone/database/roles/xtrabackup-percona-to-replica/tasks/main.yml root=repos/pelican/ansible/danger_zone/database ROLE_TASKS role=xtrabackup-percona-to-replica env=null group=null host=null layer=null scenario=-
+file repos/pelican/ansible/environments/prod/hosts.yml root=repos/pelican/ansible INVENTORY role=null env=prod group=null host=null layer=null scenario=-
+file repos/pelican/ansible/playbook-setup-replisync.yml root=repos/pelican/ansible PLAYBOOK role=null env=null group=null host=null layer=null scenario=-
+file repos/platform/ansible/ansible.cfg root=repos/platform/ansible ANSIBLE_CFG role=null env=null group=null host=null layer=null scenario=-
+file repos/platform/ansible/environments/ops/group_vars/all.yml root=repos/platform/ansible GROUP_VARS role=null env=ops group=all host=null layer=INVENTORY_GROUP_VARS_ALL scenario=-
+file repos/platform/ansible/environments/ops/group_vars/coolify/vars.yml root=repos/platform/ansible GROUP_VARS role=null env=ops group=coolify host=null layer=INVENTORY_GROUP_VARS scenario=-
+file repos/platform/ansible/environments/ops/group_vars/coolify/vault.yml root=repos/platform/ansible GROUP_VARS role=null env=ops group=coolify host=null layer=INVENTORY_GROUP_VARS scenario=-
+file repos/platform/ansible/environments/ops/group_vars/http_gateway/vars.yml root=repos/platform/ansible GROUP_VARS role=null env=ops group=http_gateway host=null layer=INVENTORY_GROUP_VARS scenario=-
+file repos/platform/ansible/environments/ops/group_vars/observability.yml root=repos/platform/ansible GROUP_VARS role=null env=ops group=observability host=null layer=INVENTORY_GROUP_VARS scenario=-
+file repos/platform/ansible/environments/ops/group_vars/system.yml root=repos/platform/ansible GROUP_VARS role=null env=ops group=system host=null layer=INVENTORY_GROUP_VARS scenario=-
+file repos/platform/ansible/environments/prod/group_vars/all.yml root=repos/platform/ansible GROUP_VARS role=null env=prod group=all host=null layer=INVENTORY_GROUP_VARS_ALL scenario=-
+file repos/platform/ansible/environments/prod/group_vars/app_alias/vars.yml root=repos/platform/ansible GROUP_VARS role=null env=prod group=app_alias host=null layer=INVENTORY_GROUP_VARS scenario=-
+file repos/platform/ansible/environments/prod/group_vars/app_alias/vault.yml root=repos/platform/ansible GROUP_VARS role=null env=prod group=app_alias host=null layer=INVENTORY_GROUP_VARS scenario=-
+file repos/platform/ansible/environments/prod/group_vars/app_mlflow.yml root=repos/platform/ansible GROUP_VARS role=null env=prod group=app_mlflow host=null layer=INVENTORY_GROUP_VARS scenario=-
+file repos/platform/ansible/environments/prod/group_vars/app_platform.yml root=repos/platform/ansible GROUP_VARS role=null env=prod group=app_platform host=null layer=INVENTORY_GROUP_VARS scenario=-
+file repos/platform/ansible/environments/prod/group_vars/app_services.yml root=repos/platform/ansible GROUP_VARS role=null env=prod group=app_services host=null layer=INVENTORY_GROUP_VARS scenario=-
+file repos/platform/ansible/environments/prod/group_vars/contracting/mysql_users.yml root=repos/platform/ansible GROUP_VARS role=null env=prod group=contracting host=null layer=INVENTORY_GROUP_VARS scenario=-
+file repos/platform/ansible/environments/prod/group_vars/contracting/vault.yml root=repos/platform/ansible GROUP_VARS role=null env=prod group=contracting host=null layer=INVENTORY_GROUP_VARS scenario=-
+file repos/platform/ansible/environments/prod/group_vars/database.yml root=repos/platform/ansible GROUP_VARS role=null env=prod group=database host=null layer=INVENTORY_GROUP_VARS scenario=-
+file repos/platform/ansible/environments/prod/group_vars/keycloak.yml root=repos/platform/ansible GROUP_VARS role=null env=prod group=keycloak host=null layer=INVENTORY_GROUP_VARS scenario=-
+file repos/platform/ansible/environments/prod/group_vars/monitoring_client.yml root=repos/platform/ansible GROUP_VARS role=null env=prod group=monitoring_client host=null layer=INVENTORY_GROUP_VARS scenario=-
+file repos/platform/ansible/environments/prod/group_vars/system.yml root=repos/platform/ansible GROUP_VARS role=null env=prod group=system host=null layer=INVENTORY_GROUP_VARS scenario=-
+file repos/platform/ansible/environments/prod/host_vars/prod-training1/chronod.yml root=repos/platform/ansible HOST_VARS role=null env=prod group=null host=prod-training1 layer=INVENTORY_HOST_VARS scenario=-
+file repos/platform/ansible/environments/prod/host_vars/prod-training1/mysql.yml root=repos/platform/ansible HOST_VARS role=null env=prod group=null host=prod-training1 layer=INVENTORY_HOST_VARS scenario=-
+file repos/platform/ansible/environments/prod/host_vars/prod-training1/users.yml root=repos/platform/ansible HOST_VARS role=null env=prod group=null host=prod-training1 layer=INVENTORY_HOST_VARS scenario=-
+file repos/platform/ansible/environments/prod/host_vars/prod-training1/vars.yml root=repos/platform/ansible HOST_VARS role=null env=prod group=null host=prod-training1 layer=INVENTORY_HOST_VARS scenario=-
+file repos/platform/ansible/environments/prod/host_vars/prod-training1/vault.yml root=repos/platform/ansible HOST_VARS role=null env=prod group=null host=prod-training1 layer=INVENTORY_HOST_VARS scenario=-
+file repos/platform/ansible/environments/prod/hosts.yml root=repos/platform/ansible INVENTORY role=null env=prod group=null host=null layer=null scenario=-
+file repos/platform/ansible/group_vars/all.yml root=repos/platform/ansible GROUP_VARS role=null env=null group=all host=null layer=PLAYBOOK_GROUP_VARS_ALL scenario=-
+file repos/platform/ansible/group_vars/app_alias.yml root=repos/platform/ansible GROUP_VARS role=null env=null group=app_alias host=null layer=PLAYBOOK_GROUP_VARS scenario=-
+file repos/platform/ansible/group_vars/chronod.yml root=repos/platform/ansible GROUP_VARS role=null env=null group=chronod host=null layer=PLAYBOOK_GROUP_VARS scenario=-
+file repos/platform/ansible/group_vars/monitoring_client.yml root=repos/platform/ansible GROUP_VARS role=null env=null group=monitoring_client host=null layer=PLAYBOOK_GROUP_VARS scenario=-
+file repos/platform/ansible/group_vars/system.yml root=repos/platform/ansible GROUP_VARS role=null env=null group=system host=null layer=PLAYBOOK_GROUP_VARS scenario=-
+file repos/platform/ansible/playbook-puppet-migration.yml root=repos/platform/ansible PLAYBOOK role=null env=null group=null host=null layer=null scenario=-
+file repos/platform/ansible/roles/puppet-migration/meta/argument_specs.yml root=repos/platform/ansible ROLE_ARGSPEC role=puppet-migration env=null group=null host=null layer=null scenario=-
+file repos/wren/ansible/ansible.cfg root=repos/wren/ansible ANSIBLE_CFG role=null env=null group=null host=null layer=null scenario=-
+file repos/wren/ansible/environments/prod/group_vars/all/vars.yml root=repos/wren/ansible GROUP_VARS role=null env=prod group=all host=null layer=INVENTORY_GROUP_VARS_ALL scenario=-
+file repos/wren/ansible/environments/prod/hosts.yml root=repos/wren/ansible INVENTORY role=null env=prod group=null host=null layer=null scenario=-
+file repos/wren/ansible/roles/app-wren-mono/handlers/main.yml root=repos/wren/ansible ROLE_HANDLERS role=app-wren-mono env=null group=null host=null layer=null scenario=-
+file repos/wren/ansible/roles/app-wren-mono/tasks/nginx.yml root=repos/wren/ansible ROLE_TASKS role=app-wren-mono env=null group=null host=null layer=null scenario=-
+file repos/wren/ansible/roles/app-wren-mono/templates/nginx/frontend.protected.site.https.conf.j2 root=repos/wren/ansible ROLE_TEMPLATE role=app-wren-mono env=null group=null host=null layer=null scenario=-
+file repos/wren/ansible/roles/app-wren-mono/templates/nginx/frontend.protected.site.proxy.conf.j2 root=repos/wren/ansible ROLE_TEMPLATE role=app-wren-mono env=null group=null host=null layer=null scenario=-
+file repos/wren/ansible/roles/app-wren-mono/templates/nginx/frontend.site.https.conf.j2 root=repos/wren/ansible ROLE_TEMPLATE role=app-wren-mono env=null group=null host=null layer=null scenario=-
+file repos/wren/ansible/roles/app-wren-mono/templates/nginx/frontend.site.proxy.conf.j2 root=repos/wren/ansible ROLE_TEMPLATE role=app-wren-mono env=null group=null host=null layer=null scenario=-
+file repos/wren/ansible/roles/app-wren-mono/templates/nginx/main.site.https.conf.j2 root=repos/wren/ansible ROLE_TEMPLATE role=app-wren-mono env=null group=null host=null layer=null scenario=-
+file repos/wren/ansible/roles/app-wren-mono/templates/nginx/main.site.proxy.conf.j2 root=repos/wren/ansible ROLE_TEMPLATE role=app-wren-mono env=null group=null host=null layer=null scenario=-

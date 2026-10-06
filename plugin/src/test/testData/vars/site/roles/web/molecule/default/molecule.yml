@@ -1,0 +1,10 @@
+---
+driver:
+  name: docker
+provisioner:
+  name: ansible
+  inventory:
+    group_vars:
+      all:
+        mol_var: 1
+        web_port: 9090

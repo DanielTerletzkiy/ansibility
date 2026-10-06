@@ -1,0 +1,5 @@
+map
+  key plain "double_slash"
+    scalar double "a/b" => str
+  key plain "single_backslash_slash"
+    scalar single "a\\/b" => str

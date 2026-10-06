@@ -1,0 +1,21 @@
+---
+# A playbook: the top-level value is a sequence of plays.
+- name: Configure web servers
+  hosts: web:&prod
+  become: true
+  vars:
+    http_port: 80
+  roles:
+    - role: nginx
+      tags: [web]
+  tasks:
+    - name: Ping
+      ansible.builtin.ping:
+    - name: Template
+      ansible.builtin.template:
+        src: templates/nginx.conf.j2
+        dest: /etc/nginx/nginx.conf
+        mode: "0644"
+      notify: Reload nginx
+      when: nginx_enabled | bool
+- import_playbook: other.yml

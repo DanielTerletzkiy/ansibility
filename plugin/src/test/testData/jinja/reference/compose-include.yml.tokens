@@ -1,0 +1,46 @@
+comment
+block_begin
+name	if
+name	bakery_queue_enabled
+operator	|
+name	default
+operator	(
+name	false
+operator	)
+operator	|
+name	bool
+block_end
+block_begin
+name	include
+string	'compose/worker.yml.j2'
+block_end
+block_begin
+name	endif
+block_end
+block_begin
+name	include
+string	'compose/web.yml.j2'
+block_end
+comment
+block_begin
+name	if
+name	inventory_hostname
+name	not
+name	in
+name	groups
+operator	.
+name	get
+operator	(
+string	'sandbox_hosts'
+operator	,
+operator	[
+operator	]
+operator	)
+block_end
+block_begin
+name	include
+string	'compose/cron.yml.j2'
+block_end
+block_begin
+name	endif
+block_end

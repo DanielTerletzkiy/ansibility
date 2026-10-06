@@ -1,0 +1,26 @@
+{% set bucket_name = bucket.name | default('uploads') %}
+{% set quota_size = bucket.quota | default('64M') %}
+{% set versioning = bucket.versioning | default(false) | bool %}
+{# Turn the quota ("512k", "64M", "2G", "1T") into bytes; a bare number is taken as bytes. #}
+{% set _suffix = quota_size[-1] %}
+{% set _amount = (quota_size[:-1] | int(default=64)) %}
+{% if _suffix == 'k' %}
+{%   set quota_bytes = _amount * 1024 %}
+{% elif _suffix == 'M' %}
+{%   set quota_bytes = _amount * 1024 * 1024 %}
+{% elif _suffix == 'G' %}
+{%   set quota_bytes = _amount * 1024 * 1024 * 1024 %}
+{% elif _suffix == 'T' %}
+{%   set quota_bytes = _amount * 1024 * 1024 * 1024 * 1024 %}
+{% else %}
+{%   set quota_bytes = quota_size | int %}
+{% endif %}
+- bucket: {{ bucket_name | to_json }}
+  owner: {{ bucket.owner | default(storage_defaults.owner) | to_json }}
+  quota_bytes: {{ quota_bytes }}
+  versioning: {{ versioning | to_json }}
+  lifecycle:
+    - prefix: {{ (bucket.prefix | default('tmp/')) | to_json }}
+      expire_days: {{ bucket.expire_days | default(7) }}
+  notify:
+    subject: '{% raw %}{{ .Bucket }} is at {{ printf "%.0f" .UsedPercent }}% of its quota{% endraw %}'

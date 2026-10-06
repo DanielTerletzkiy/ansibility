@@ -1,0 +1,5 @@
+---
+vault_web_secret: !vault |
+  $ANSIBLE_VAULT;1.1;AES256
+  64756d6d7964756d6d7964756d6d7964756d6d7964756d6d7964756d6d7964756d6d7964756d6d79
+plain_in_vault: plaintext-never-shown

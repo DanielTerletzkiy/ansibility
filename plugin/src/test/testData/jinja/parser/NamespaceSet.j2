@@ -1,0 +1,12 @@
+{% set ns = namespace(found=false, items=[]) %}
+{% for candidate in candidates %}
+{%   if candidate.name == wanted %}
+{%     set ns.found = true %}
+{%     set _ = ns.items.append(candidate) %}
+{%   endif %}
+{% endfor %}
+{% set a, b = 1, 2 %}
+{% set block = 'x' %}
+{% set body | trim %}
+  text {{ a }}
+{% endset %}

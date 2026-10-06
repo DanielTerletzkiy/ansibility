@@ -66,9 +66,6 @@ jobs:
         with:
           cache-read-only: true
 
-      - name: Restore fixture .git links
-        run: python3 tools/fixtures/sync.py --links-only
-
       - name: Test and verify
         run: ./gradlew -PpluginVersion=${{ steps.version.outputs.version }} check verifyPlugin
 

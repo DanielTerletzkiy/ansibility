@@ -1,0 +1,12 @@
+# Explicit tags: vault bodies are opaque, !unsafe stays a string, unknown tags make the file unloadable.
+vault_system_access_root_pw: !vault |
+  $ANSIBLE_VAULT;1.1;AES256
+  64756d6d79
+unsafe_quoted: !unsafe '{{ not templated }}'
+unsafe_plain: !unsafe 3.2
+custom_tag: !Ref something
+in_list:
+  - !vault |
+    $ANSIBLE_VAULT;1.1;AES256
+    64756d6d79
+  - plain

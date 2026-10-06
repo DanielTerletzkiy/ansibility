@@ -1,0 +1,7 @@
+---
+- name: Main
+  hosts: all
+  tasks:
+    - name: Use
+      ansible.builtin.debug:
+        msg: "{{ db_user }}"

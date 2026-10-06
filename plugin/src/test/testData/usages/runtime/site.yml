@@ -1,0 +1,13 @@
+---
+- name: Site
+  hosts: all
+  roles:
+    - alpha
+    - beta
+  tasks:
+    - name: Playbook probe
+      ansible.builtin.command: /bin/true
+      register: result
+    - name: Playbook use
+      ansible.builtin.debug:
+        msg: "{{ result.stdout }}"

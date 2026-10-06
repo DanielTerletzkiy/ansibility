@@ -1,0 +1,29 @@
+# Quoted scalars are always strings; escapes and line folding follow the YAML 1.1 scanner.
+quoted_float: "3.2"
+quoted_bool: 'yes'
+quoted_octal: "0644"
+quoted_null: "~"
+empty_single: ''
+empty_double: ""
+single_escape: 'it''s'
+double_escapes: "tab\there \x41 \u00e4 \U0001F600 \" \\ \0 \a \e \N \_ \L \P end"
+single_backslash: 'C:\temp\new'
+multi_line_double: "multi
+  line   folded
+
+  para"
+line_continuation: "cont\
+  inued"
+escaped_space_after_continuation: "a\
+  \ b"
+trailing_spaces_before_break: "trail   
+  next"
+multi_line_single: 'single ''q''
+  next'
+leading_spaces: "   lead"
+jinja: "{{ haproxy_settings_maximum_connections }}"
+jinja_single: '{{ item.port | int }}'
+german: "Größe: 5"
+"quoted key": 1
+'single quoted key': 2
+"escaped\tkey": 3

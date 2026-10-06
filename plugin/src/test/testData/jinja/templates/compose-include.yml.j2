@@ -1,0 +1,15 @@
+services:
+{# The worker drains the shared order queue. It runs only where the queue
+   service is switched on; the sandbox hosts keep it off and replay the
+   queue from a dump instead. #}
+{% if bakery_queue_enabled | default(false) | bool %}
+{% include 'compose/worker.yml.j2' %}
+{% endif %}
+
+{% include 'compose/web.yml.j2' %}
+
+{# Cron jobs everywhere except on the sandbox hosts: they share one database
+   with staging, so a second scheduler would run every job twice. #}
+{% if inventory_hostname not in groups.get('sandbox_hosts', []) %}
+{% include 'compose/cron.yml.j2' %}
+{% endif %}

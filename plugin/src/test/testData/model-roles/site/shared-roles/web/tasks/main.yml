@@ -1,0 +1,4 @@
+---
+- name: Shadowed copy
+  ansible.builtin.debug:
+    msg: shadowed

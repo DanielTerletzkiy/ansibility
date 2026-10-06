@@ -1,0 +1,91 @@
+map
+  key plain "binary"
+    scalar plain "0b1010" => int 10
+  key plain "colon_inside"
+    scalar plain "a:b" => str
+  key plain "date"
+    scalar plain "2024-01-01" => timestamp
+  key plain "datetime"
+    scalar plain "2001-12-14 21:59:43.10 -5" => timestamp
+  key plain "disabled_off"
+    scalar plain "OFF" => bool false
+  key plain "enabled_on"
+    scalar plain "On" => bool true
+  key plain "enabled_yes"
+    scalar plain "yes" => bool true
+  key plain "explicit_plus"
+    scalar plain "+12" => int 12
+  key plain "exponent_with_sign"
+    scalar plain "1.0e+3" => float 1000.0
+  key plain "exponent_without_dot"
+    scalar plain "1e3" => str
+  key plain "exponent_without_sign"
+    scalar plain "1.0e3" => str
+  key plain "file_mode"
+    scalar plain "0644" => int 420
+  key plain "flow_items"
+    seq
+      scalar plain "3.2" => float 3.2
+      scalar double "3.2" => str
+      scalar plain "yes" => bool true
+      scalar single "no" => str
+      scalar plain "~" => null
+      scalar plain "0644" => int 420
+  key plain "flow_map"
+    map
+      key plain "name"
+        scalar plain "web" => str
+      key plain "port"
+        scalar plain "8080" => int 8080
+      key plain "ratio"
+        scalar plain "0.5" => float 0.5
+  key plain "folded_plain"
+    scalar plain "first line second line\nafter a blank line" => str
+  key plain "german"
+    scalar plain "Grüße aus Köln" => str
+  key plain "grafana_version"
+    scalar plain "12.4" => float 12.4
+  key plain "haproxy_backports_version"
+    scalar plain "3.2" => float 3.2
+  key plain "hash_inside"
+    scalar plain "a#b" => str
+  key plain "hex"
+    scalar plain "0x1F" => int 31
+  key plain "infinity"
+    scalar plain ".inf" => float inf
+  key plain "jinja_in_plain"
+    scalar plain "prefix {{ item.name }} suffix" => str
+  key plain "minus_infinity"
+    scalar plain "-.Inf" => float -inf
+  key plain "negative"
+    scalar plain "-17" => int -17
+  key plain "not_a_number"
+    scalar plain ".NaN" => float nan
+  key plain "not_octal"
+    scalar plain "08" => str
+  key plain "null_word"
+    scalar plain "null" => null
+  key plain "sexagesimal"
+    scalar plain "1:20" => int 80
+  key plain "single_n"
+    scalar plain "n" => str
+  key plain "single_y"
+    scalar plain "y" => str
+  key plain "spaces_inside"
+    scalar plain "plain  with   spaces" => str
+  key plain "tilde"
+    scalar plain "~" => null
+  key plain "title_true"
+    scalar plain "True" => bool true
+  key plain "trailing_comment"
+    scalar plain "value" => str
+  key plain "underscored"
+    scalar plain "1_000" => int 1000
+  key plain "unloadable_equals"
+    scalar plain "=" => unloadable
+  key plain "url"
+    scalar plain "http://example.org:8080/path" => str
+  key plain "version_trailing_zero"
+    scalar plain "3.10" => float 3.1
+  key plain "yaml12_octal"
+    scalar plain "0o644" => str

@@ -1,0 +1,7 @@
+listen {{ web_port }};
+{# a comment {{ commented_var }} #}
+{% raw %}{{ raw_var }}{% endraw %}
+{% set local_name = web_port %}
+{{ local_name }} {{ "string {{ not_var }}" }} {{ web_nested.inner | default(1) }}
+{% for srv in web_servers %}{{ srv.name }}{% endfor %}
+{{ item.floating.ssl['cert_file'] }}

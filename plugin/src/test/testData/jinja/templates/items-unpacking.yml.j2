@@ -1,0 +1,18 @@
+# {{ ansible_managed }}
+receivers:
+{% for hook in webhook_targets %}
+{%   if hook.enabled | default(true) | bool %}
+{%     set options = webhook_defaults.options | combine(hook.options | default({}), recursive=True) %}
+  - name: {{ hook.name | to_json }}
+    url: {{ (hook.url | default('https://hooks.example.test/' ~ hook.name)) | to_json }}
+    send_resolved: {{ hook.send_resolved | default(false) | bool | to_json }}
+    headers:
+{%       for header, header_value in (hook.headers | default({})).items() %}
+      {{ header }}: {{ header_value | string | to_json }}
+{%       endfor %}
+    options:
+{%       for option_key, option_value in options.items() %}
+      {{ option_key }}: {{ option_value | to_json }}
+{%       endfor %}
+{%   endif %}
+{% endfor %}

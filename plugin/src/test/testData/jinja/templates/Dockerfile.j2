@@ -1,0 +1,15 @@
+FROM {{ item.image }}
+
+ENV LANG=C.UTF-8
+
+RUN if command -v apt-get >/dev/null; then \
+      apt-get update && apt-get install -y --no-install-recommends python3 sudo && apt-get clean; \
+    elif command -v dnf >/dev/null; then \
+      dnf install -y python3 sudo && dnf clean all; \
+    fi
+
+{% if item.command is not none %}
+CMD {{ item.command }}
+{% else %}
+CMD ["sleep", "infinity"]
+{% endif %}

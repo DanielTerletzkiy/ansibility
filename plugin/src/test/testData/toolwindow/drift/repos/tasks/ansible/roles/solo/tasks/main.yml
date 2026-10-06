@@ -1,0 +1,4 @@
+---
+- name: Solo
+  ansible.builtin.debug:
+    msg: "{{ solo_mode }}"

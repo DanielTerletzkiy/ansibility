@@ -1,0 +1,599 @@
+### 0
+variable_begin
+name	bakery_stage
+variable_end
+variable_begin
+string	'{{'
+variable_end
+variable_begin
+string	'}}'
+variable_end
+### 1
+name	web_healthy
+operator	.
+name	stdout
+operator	|
+name	length
+operator	>
+integer	0
+### 2
+block_begin
+name	for
+name	keyfile
+name	in
+name	release_key_files
+block_end
+variable_begin
+name	lookup
+operator	(
+string	'file'
+operator	,
+name	keyfile
+operator	)
+operator	~
+string	'\\n'
+variable_end
+block_begin
+name	endfor
+block_end
+### 3
+variable_begin
+name	release_key_sources
+operator	|
+name	join
+operator	(
+string	','
+operator	)
+variable_end
+### 4
+variable_begin
+name	item
+operator	|
+name	basename
+operator	|
+name	regex_replace
+operator	(
+string	'^part-'
+operator	,
+string	''
+operator	)
+operator	|
+name	regex_replace
+operator	(
+string	'\\\\.j2$'
+operator	,
+string	''
+operator	)
+variable_end
+### 5
+variable_begin
+name	lookup
+operator	(
+string	'fileglob'
+operator	,
+name	role_path
+operator	~
+string	'/templates/part-*.conf.j2'
+operator	,
+name	wantlist
+operator	=
+name	True
+operator	)
+operator	|
+name	sort
+variable_end
+### 6
+operator	(
+name	item
+operator	.
+name	path
+operator	|
+name	basename
+operator	|
+name	ansible
+operator	.
+name	builtin
+operator	.
+name	splitext
+operator	|
+name	first
+operator	)
+name	not
+name	in
+name	collector_parts
+### 7
+variable_begin
+name	collector_found
+operator	.
+name	files
+operator	|
+name	map
+operator	(
+name	attribute
+operator	=
+string	'path'
+operator	)
+operator	|
+name	map
+operator	(
+string	'basename'
+operator	)
+operator	|
+name	list
+variable_end
+### 8
+operator	(
+name	app_settings_file
+name	is
+name	defined
+name	and
+name	app_settings_file
+operator	.
+name	changed
+operator	)
+name	or
+operator	(
+name	app_proxy_file
+name	is
+name	defined
+name	and
+name	app_proxy_file
+operator	.
+name	changed
+operator	)
+### 9
+block_begin
+name	for
+name	entry
+name	in
+name	hosts_entries
+block_end
+variable_begin
+name	entry
+operator	.
+name	ip
+variable_end
+variable_begin
+name	entry
+operator	.
+name	hostname
+variable_end
+block_begin
+name	endfor
+block_end
+### 10
+variable_begin
+name	item
+operator	.
+name	app
+variable_end
+raw_begin
+raw_end
+### 11
+variable_begin
+name	hostvars
+operator	[
+name	groups
+operator	[
+string	'collectors'
+operator	]
+operator	[
+integer	0
+operator	]
+operator	]
+operator	.
+name	ansible_host
+variable_end
+### 12
+name	ansible_facts
+operator	[
+string	'distribution_release'
+operator	]
+operator	==
+string	'bookworm'
+name	and
+name	ansible_facts
+operator	[
+string	"service_mgr"
+operator	]
+operator	==
+string	'systemd'
+### 13
+string	'collectors'
+name	in
+name	group_names
+name	and
+name	not
+name	known_hosts_file
+operator	.
+name	stat
+operator	.
+name	exists
+### 14
+block_begin
+name	if
+name	a
+block_end
+variable_begin
+name	b
+variable_end
+block_begin
+name	endif
+block_end
+comment
+variable_begin
+name	d
+variable_end
+### 15
+variable_begin
+name	x
+variable_end
+variable_begin
+integer	5
+operator	-
+integer	3
+variable_end
+variable_begin
+integer	5
+variable_end
+### 16
+block_begin
+name	macro
+name	env
+operator	(
+name	name
+operator	,
+name	text
+operator	)
+block_end
+variable_begin
+name	name
+variable_end
+variable_begin
+name	text
+operator	|
+name	string
+operator	|
+name	replace
+operator	(
+string	"'"
+operator	,
+string	"''"
+operator	)
+operator	|
+name	replace
+operator	(
+string	'%'
+operator	,
+string	'%%'
+operator	)
+variable_end
+block_begin
+name	endmacro
+block_end
+### 17
+block_begin
+name	set
+name	ns
+operator	=
+name	namespace
+operator	(
+name	found
+operator	=
+name	false
+operator	)
+block_end
+block_begin
+name	set
+name	ns
+operator	.
+name	found
+operator	=
+name	true
+block_end
+variable_begin
+name	ns
+operator	.
+name	found
+variable_end
+### 18
+variable_begin
+operator	{
+string	'a'
+operator	:
+operator	{
+string	'b'
+operator	:
+integer	1
+operator	}
+operator	}
+variable_end
+variable_begin
+operator	{
+string	'a'
+operator	:
+integer	1
+operator	}
+variable_end
+### 19
+variable_begin
+integer	1_000
+operator	+
+integer	0x1F
+operator	+
+integer	0o17
+operator	+
+integer	0b101
+operator	+
+float	1.5e-3
+operator	+
+float	2e10
+operator	+
+float	3.25
+operator	+
+name	item
+operator	.
+integer	0
+operator	.
+name	name
+operator	+
+integer	1
+operator	.
+name	x
+variable_end
+### 20
+variable_begin
+string	'a\\'b'
+operator	~
+string	"c\\"d"
+operator	~
+string	'%}'
+variable_end
+block_begin
+name	set
+name	x
+operator	=
+string	"}}"
+block_end
+### 21
+variable_begin
+name	q
+operator	[
+operator	:
+operator	-
+integer	1
+operator	]
+operator	|
+name	int
+operator	(
+name	default
+operator	=
+integer	5
+operator	)
+variable_end
+variable_begin
+name	q
+operator	[
+operator	-
+integer	1
+operator	]
+variable_end
+variable_begin
+name	l
+operator	[
+integer	1
+operator	:
+integer	3
+operator	]
+variable_end
+variable_begin
+name	l
+operator	[
+operator	:
+operator	:
+integer	2
+operator	]
+variable_end
+### 22
+variable_begin
+name	x
+name	is
+name	not
+name	none
+name	and
+name	y
+name	is
+name	defined
+variable_end
+variable_begin
+string	'a'
+name	not
+name	in
+name	b
+variable_end
+variable_begin
+name	v
+name	is
+name	ansible
+operator	.
+name	builtin
+operator	.
+name	version
+operator	(
+string	'2.0'
+operator	,
+string	'>='
+operator	)
+variable_end
+### 23
+block_begin
+name	for
+name	x
+name	in
+name	y
+name	if
+name	x
+operator	.
+name	a
+name	recursive
+block_end
+variable_begin
+name	loop
+operator	(
+name	x
+operator	.
+name	children
+operator	)
+variable_end
+block_begin
+name	endfor
+block_end
+### 24
+block_begin
+name	from
+string	'forms'
+name	import
+name	input
+name	as
+name	field
+name	with
+name	context
+block_end
+block_begin
+name	include
+string	'x'
+name	ignore
+name	missing
+block_end
+block_begin
+name	filter
+name	upper
+block_end
+block_begin
+name	endfilter
+block_end
+### 25
+raw_begin
+raw_end
+raw_begin
+raw_end
+### 26
+comment
+comment
+comment
+### 27
+name	a
+operator	+
+name	b
+operator	-
+name	c
+operator	*
+name	d
+operator	/
+name	e
+operator	//
+name	f
+operator	%
+name	g
+operator	**
+name	h
+operator	~
+name	i
+operator	==
+name	j
+operator	!=
+name	k
+operator	<
+name	l
+operator	>
+name	m
+operator	<=
+name	n
+operator	>=
+name	o
+operator	|
+name	p
+operator	.
+name	q
+operator	,
+name	s
+operator	:
+name	t
+operator	(
+operator	)
+operator	[
+operator	]
+operator	{
+operator	}
+### 28
+variable_begin
+name	raw
+variable_end
+variable_begin
+name	x
+operator	.
+name	if
+variable_end
+block_begin
+name	set
+name	block
+operator	=
+integer	1
+block_end
+variable_begin
+name	d
+operator	|
+name	combine
+operator	(
+name	e
+operator	,
+name	recursive
+operator	=
+name	True
+operator	)
+variable_end
+variable_begin
+name	for
+variable_end
+### 29
+block_begin
+name	set
+name	body
+operator	|
+name	upper
+block_end
+variable_begin
+name	inner
+variable_end
+block_begin
+name	endset
+block_end
+block_begin
+name	with
+name	a
+operator	=
+integer	1
+operator	,
+name	b
+operator	=
+name	c
+block_end
+variable_begin
+name	a
+operator	~
+name	b
+variable_end
+block_begin
+name	endwith
+block_end
+block_begin
+name	do
+name	ns
+operator	.
+name	list
+operator	.
+name	append
+operator	(
+integer	1
+operator	)
+block_end

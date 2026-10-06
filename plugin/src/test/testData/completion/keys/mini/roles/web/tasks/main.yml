@@ -1,0 +1,4 @@
+---
+- name: Configure web
+  ansible.builtin.debug:
+    msg: "{{ web_port }}"

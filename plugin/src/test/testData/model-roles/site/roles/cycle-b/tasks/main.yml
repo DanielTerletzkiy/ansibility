@@ -1,0 +1,3 @@
+---
+- name: Noop
+  ansible.builtin.meta: noop

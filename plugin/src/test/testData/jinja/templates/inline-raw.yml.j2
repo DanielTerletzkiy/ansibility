@@ -1,0 +1,19 @@
+{# Available-memory alert for the sandbox hosts (sandbox-a1 / sandbox-a2), rendered    #}
+{# into the alerting provisioning of the monitoring stack. The numbers are examples —  #}
+{# tune them per host group in group_vars.                                              #}
+{% set uid_prefix = check.uid_prefix | default('mem-available') %}
+{% set pending_for = check.for | default('10m') %}
+{% set group_name = check.group_name | default('memory') %}
+{% set threshold_mb = check.threshold_mb | default(512) %}
+{% set alert_severity = check.severity | default('warning') %}
+- name: {{ group_name | to_json }}
+  interval: {{ check.interval | default('1m') | to_json }}
+  rules:
+    - uid: {{ uid_prefix }}-low
+      for: {{ pending_for | to_json }}
+      annotations:
+        summary: 'Host {% raw %}{{ $labels.instance }}{% endraw %} has less than {{ (threshold_mb / 1024) | round(1) }}GB of memory available.'
+        description: 'Look at the largest processes first (ps aux --sort=-rss | head), then at the page cache (free -m). Current value: {% raw %}{{ $value | humanize1024 }}{% endraw %}B, threshold {{ threshold_mb }}MB.'
+      labels:
+        severity: {{ alert_severity | to_json }}
+        component: memory

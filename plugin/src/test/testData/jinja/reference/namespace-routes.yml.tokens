@@ -1,0 +1,329 @@
+variable_begin
+name	ansible_managed
+variable_end
+block_begin
+name	set
+name	ns
+operator	=
+name	namespace
+operator	(
+name	active
+operator	=
+operator	[
+operator	]
+operator	)
+block_end
+block_begin
+name	for
+name	channel
+name	in
+name	beacon_channels
+block_end
+block_begin
+name	if
+name	channel
+operator	.
+name	active
+operator	|
+name	default
+operator	(
+name	true
+operator	)
+operator	|
+name	bool
+block_end
+block_begin
+name	set
+name	_
+operator	=
+name	ns
+operator	.
+name	active
+operator	.
+name	append
+operator	(
+name	channel
+operator	)
+block_end
+block_begin
+name	endif
+block_end
+block_begin
+name	endfor
+block_end
+block_begin
+name	if
+name	ns
+operator	.
+name	active
+operator	|
+name	length
+operator	>
+integer	0
+block_end
+comment
+block_begin
+name	set
+name	fallback_name
+operator	=
+name	beacon_fallback_channel
+operator	|
+name	default
+operator	(
+name	none
+operator	,
+name	true
+operator	)
+block_end
+block_begin
+name	set
+name	fallback_ns
+operator	=
+name	namespace
+operator	(
+name	channel
+operator	=
+name	ns
+operator	.
+name	active
+operator	[
+integer	0
+operator	]
+operator	)
+block_end
+block_begin
+name	if
+name	fallback_name
+block_end
+block_begin
+name	for
+name	candidate
+name	in
+name	ns
+operator	.
+name	active
+block_end
+block_begin
+name	if
+name	candidate
+operator	.
+name	name
+operator	==
+name	fallback_name
+block_end
+block_begin
+name	set
+name	fallback_ns
+operator	.
+name	channel
+operator	=
+name	candidate
+block_end
+block_begin
+name	endif
+block_end
+block_begin
+name	endfor
+block_end
+block_begin
+name	endif
+block_end
+block_begin
+name	set
+name	fallback
+operator	=
+name	fallback_ns
+operator	.
+name	channel
+block_end
+block_begin
+name	set
+name	fallback_rule
+operator	=
+name	beacon_defaults
+operator	.
+name	rule
+operator	|
+name	combine
+operator	(
+name	fallback
+operator	.
+name	rule
+operator	|
+name	default
+operator	(
+operator	{
+operator	}
+operator	)
+operator	,
+name	recursive
+operator	=
+name	True
+operator	)
+block_end
+variable_begin
+name	fallback
+operator	.
+name	name
+operator	|
+name	to_json
+variable_end
+variable_begin
+name	fallback
+operator	.
+name	team
+operator	|
+name	default
+operator	(
+name	beacon_defaults
+operator	.
+name	team
+operator	)
+variable_end
+block_begin
+name	for
+name	field
+name	in
+name	fallback_rule
+operator	.
+name	batch_by
+block_end
+variable_begin
+name	field
+operator	|
+name	to_json
+variable_end
+block_begin
+name	endfor
+block_end
+variable_begin
+name	fallback_rule
+operator	.
+name	delay
+operator	|
+name	to_json
+variable_end
+variable_begin
+name	fallback_rule
+operator	.
+name	resend_after
+operator	|
+name	to_json
+variable_end
+block_begin
+name	set
+name	rules_ns
+operator	=
+name	namespace
+operator	(
+name	has_rules
+operator	=
+name	false
+operator	)
+block_end
+block_begin
+name	for
+name	channel
+name	in
+name	ns
+operator	.
+name	active
+block_end
+block_begin
+name	set
+name	rule
+operator	=
+name	beacon_defaults
+operator	.
+name	rule
+operator	|
+name	combine
+operator	(
+name	channel
+operator	.
+name	rule
+operator	|
+name	default
+operator	(
+operator	{
+operator	}
+operator	)
+operator	,
+name	recursive
+operator	=
+name	True
+operator	)
+block_end
+block_begin
+name	if
+name	rule
+operator	.
+name	labels
+operator	|
+name	default
+operator	(
+operator	[
+operator	]
+operator	)
+operator	|
+name	length
+operator	>
+integer	0
+block_end
+block_begin
+name	if
+name	not
+name	rules_ns
+operator	.
+name	has_rules
+block_end
+block_begin
+name	set
+name	rules_ns
+operator	.
+name	has_rules
+operator	=
+name	true
+block_end
+block_begin
+name	endif
+block_end
+variable_begin
+name	channel
+operator	.
+name	name
+operator	|
+name	to_json
+variable_end
+variable_begin
+name	rule
+operator	.
+name	delay
+operator	|
+name	to_json
+variable_end
+block_begin
+name	for
+name	label
+name	in
+name	rule
+operator	.
+name	labels
+block_end
+variable_begin
+name	label
+operator	|
+name	to_json
+variable_end
+block_begin
+name	endfor
+block_end
+block_begin
+name	endif
+block_end
+block_begin
+name	endfor
+block_end
+block_begin
+name	endif
+block_end

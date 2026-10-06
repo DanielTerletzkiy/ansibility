@@ -1,0 +1,9 @@
+ansible [core 2.21.4]
+  config file = None
+  configured module search path = ['/Users/dev/.ansible/plugins/modules', '/usr/share/ansible/plugins/modules']
+  ansible python module location = /opt/homebrew/Cellar/ansible/14.4.0/libexec/lib/python3.14/site-packages/ansible
+  ansible collection location = /Users/dev/.ansible/collections:/usr/share/ansible/collections
+  executable location = /opt/homebrew/bin/ansible
+  python version = 3.14.7 (main, Aug  5 2026, 10:29:49) [Clang 21.0.0 (clang-2100.1.1.101)] (/opt/homebrew/Cellar/ansible/14.4.0/libexec/bin/python)
+  jinja version = 3.1.6
+  pyyaml version = 6.0.3 (with libyaml v0.2.5)

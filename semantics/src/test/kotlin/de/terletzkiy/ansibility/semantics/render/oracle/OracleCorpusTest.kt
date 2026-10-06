@@ -150,9 +150,10 @@ class OracleCorpusTest {
 
     @Test
     fun `an unknown case or core is reported with the known ones`() {
-        val e = assertThrows(IllegalArgumentException::class.java) { corpus.case("00_none") }
+        val loaded = corpus
+        val e = assertThrows(IllegalArgumentException::class.java) { loaded.case("00_none") }
         assertTrue("01_user_example_fileglob" in e.message!!)
-        assertThrows(IllegalArgumentException::class.java) { corpus.case("15_regex_python_vs_java").core("2.19") }
+        assertThrows(IllegalArgumentException::class.java) { loaded.case("15_regex_python_vs_java").core("2.19") }
     }
 
     private fun check(case: OracleCase, core: String, id: String): OracleCheck =

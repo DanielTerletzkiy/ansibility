@@ -1,0 +1,42 @@
+---
+- name: Check
+  ansible.builtin.stat:
+    path: "/etc/{{ web_nested.inner }}/x"
+  register: web_stat
+- name: Use
+  ansible.builtin.debug:
+    var: web_stat.stat.exists
+  when: web_stat.stat.exists and web_port | int > 0
+- name: Loop
+  ansible.builtin.debug:
+    msg: "{{ item }}"
+  loop: "{{ web_list }}"
+- name: Block
+  block:
+    - name: Inner
+      ansible.builtin.command: echo
+      vars:
+        task_var:
+          nested_task: 1
+  vars:
+    block_var: 1
+- name: Include
+  ansible.builtin.include_role:
+    name: other
+  vars:
+    include_var: 2
+- name: Assert
+  ansible.builtin.assert:
+    that:
+      - web_port > 0
+- name: Folded
+  ansible.builtin.shell: >-
+    echo {{ web_port }}
+    and {{ web_version }}
+- name: Quoted
+  ansible.builtin.debug:
+    msg: "a\tb {{ web_version }}"
+- name: Register late
+  ansible.builtin.debug:
+    msg: "{{ web_stat }}"
+  register: web_stat

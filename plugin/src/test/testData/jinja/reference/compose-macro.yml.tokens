@@ -1,0 +1,99 @@
+comment
+block_begin
+name	macro
+name	env
+operator	(
+name	name
+operator	,
+name	text
+operator	)
+block_end
+variable_begin
+name	name
+variable_end
+variable_begin
+name	text
+operator	|
+name	string
+operator	|
+name	replace
+operator	(
+string	"'"
+operator	,
+string	"''"
+operator	)
+operator	|
+name	replace
+operator	(
+string	'%'
+operator	,
+string	'%%'
+operator	)
+variable_end
+block_begin
+name	endmacro
+block_end
+variable_begin
+name	bakery_stage
+variable_end
+variable_begin
+name	bakery_slot
+variable_end
+variable_begin
+name	bakery_stage
+variable_end
+variable_begin
+name	bakery_slot
+variable_end
+variable_begin
+name	bakery_web_port
+operator	+
+name	bakery_slot_offset
+variable_end
+variable_begin
+name	bakery_metrics_port
+operator	+
+name	bakery_slot_offset
+variable_end
+block_begin
+name	if
+name	bakery_debug
+operator	|
+name	default
+operator	(
+name	false
+operator	)
+block_end
+variable_begin
+name	env
+operator	(
+string	'LOG_LEVEL'
+operator	,
+string	'debug'
+operator	)
+variable_end
+variable_begin
+name	env
+operator	(
+string	'TRACE_SAMPLE'
+operator	,
+string	'100%'
+operator	)
+variable_end
+block_begin
+name	else
+block_end
+variable_begin
+name	env
+operator	(
+string	'LOG_LEVEL'
+operator	,
+string	'info'
+operator	)
+variable_end
+block_begin
+name	endif
+block_end
+variable_begin
+name	bakery_db_host
+variable_end

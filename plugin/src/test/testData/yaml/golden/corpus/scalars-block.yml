@@ -1,0 +1,46 @@
+# Block scalars: literal and folded, with chomping and indentation indicators.
+literal: |
+  line one
+    indented
+  line three
+literal_strip: |-
+  no trailing newline
+literal_keep: |+
+  keep
+
+folded: >
+  folded
+  text
+
+  new paragraph
+folded_more_indented: >-
+  folded
+    more indented
+  back
+folded_keep: >+
+  kept
+
+explicit_indent: |2
+    two extra spaces
+trailing_blank_lines: |
+  trailing
+
+
+header_comment: | # comment after the header
+  text
+leading_blank_line: |
+
+  after a blank line
+nested:
+  script: |
+    #!/bin/sh
+    echo "{{ item }}"
+  deeper:
+    - |
+      in a sequence
+    - >-
+      folded in a sequence
+anchored_block: &blk |
+  anchored block
+alias_of_block: *blk
+last: done

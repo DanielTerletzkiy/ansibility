@@ -1,0 +1,7 @@
+map
+  key plain "first"
+    scalar plain "document" => str
+  key plain "list"
+    seq
+      scalar plain "1" => int 1
+      scalar plain "2" => int 2

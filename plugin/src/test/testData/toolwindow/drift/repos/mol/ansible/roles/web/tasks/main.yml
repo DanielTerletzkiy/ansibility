@@ -1,0 +1,9 @@
+---
+- name: Install web
+  ansible.builtin.import_tasks: install.yml
+
+- name: Configure web
+  ansible.builtin.import_tasks: configure.yml
+
+- name: Run web
+  ansible.builtin.import_tasks: service.yml

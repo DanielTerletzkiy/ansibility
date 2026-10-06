@@ -1,0 +1,16 @@
+---
+argument_specs:
+  main:
+    short_description: A small database role.
+    options:
+      db_name:
+        type: str
+        required: true
+        description: Database name.
+      db_port:
+        type: int
+        default: 5432
+        description: Database port.
+      web_port:
+        type: int
+        description: The web port the database allows.

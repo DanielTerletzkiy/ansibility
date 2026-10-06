@@ -1,0 +1,117 @@
+comment
+comment
+comment
+block_begin
+name	set
+name	uid_prefix
+operator	=
+name	check
+operator	.
+name	uid_prefix
+operator	|
+name	default
+operator	(
+string	'mem-available'
+operator	)
+block_end
+block_begin
+name	set
+name	pending_for
+operator	=
+name	check
+operator	.
+name	for
+operator	|
+name	default
+operator	(
+string	'10m'
+operator	)
+block_end
+block_begin
+name	set
+name	group_name
+operator	=
+name	check
+operator	.
+name	group_name
+operator	|
+name	default
+operator	(
+string	'memory'
+operator	)
+block_end
+block_begin
+name	set
+name	threshold_mb
+operator	=
+name	check
+operator	.
+name	threshold_mb
+operator	|
+name	default
+operator	(
+integer	512
+operator	)
+block_end
+block_begin
+name	set
+name	alert_severity
+operator	=
+name	check
+operator	.
+name	severity
+operator	|
+name	default
+operator	(
+string	'warning'
+operator	)
+block_end
+variable_begin
+name	group_name
+operator	|
+name	to_json
+variable_end
+variable_begin
+name	check
+operator	.
+name	interval
+operator	|
+name	default
+operator	(
+string	'1m'
+operator	)
+operator	|
+name	to_json
+variable_end
+variable_begin
+name	uid_prefix
+variable_end
+variable_begin
+name	pending_for
+operator	|
+name	to_json
+variable_end
+raw_begin
+raw_end
+variable_begin
+operator	(
+name	threshold_mb
+operator	/
+integer	1024
+operator	)
+operator	|
+name	round
+operator	(
+integer	1
+operator	)
+variable_end
+raw_begin
+raw_end
+variable_begin
+name	threshold_mb
+variable_end
+variable_begin
+name	alert_severity
+operator	|
+name	to_json
+variable_end

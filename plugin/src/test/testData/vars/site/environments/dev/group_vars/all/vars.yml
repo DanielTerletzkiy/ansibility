@@ -1,0 +1,6 @@
+---
+web_port: 8080
+web_nested:
+  inner: 1
+inventory_only: x
+web_secret: "{{ vault_web_secret }}"

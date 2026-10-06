@@ -1,0 +1,3 @@
+# {{ ansible_managed }}
+{{ release_user }} ALL=({{ release_app_user }}) NOPASSWD: ALL
+{{ release_user }} ALL=(root) NOPASSWD: /usr/bin/systemctl restart {{ release_service }}

@@ -1,0 +1,6 @@
+variable_begin
+name	firewall_ssh_port
+variable_end
+variable_begin
+name	firewall_admin_cidr
+variable_end

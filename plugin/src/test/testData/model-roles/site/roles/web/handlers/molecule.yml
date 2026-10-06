@@ -1,0 +1,4 @@
+---
+- name: Molecule handler
+  ansible.builtin.debug:
+    msg: handler

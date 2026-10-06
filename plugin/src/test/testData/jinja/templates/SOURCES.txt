@@ -1,0 +1,39 @@
+Synthetic templates written for the Jinja lexer, oracle, highlighter and reference tests. They copy nothing: every
+name, value and host is invented (example.test domains, TEST-NET addresses from RFC 5737). Each one exercises the
+template forms listed below, in the outer languages Ansible roles render (YAML, Alloy/HCL, nginx, shell-like configs).
+
+namespace-routes.yml.j2
+    covers: namespace() with attribute sets, {#- -#} comment, indented tags, combine(..., recursive=True), default(none, true)
+compose-macro.yml.j2
+    covers: macro named env with -%} and {%- endmacro -%}, calls of it, if/else, arithmetic in outer YAML strings
+compose-include.yml.j2
+    covers: multi-line comments, include, groups.get(...), not in
+lookup-template.yml.j2
+    covers: lookup('template', ..., template_vars={...}), ~ concatenation, playbook_dir, indent(2, true)
+inline-raw.yml.j2
+    covers: comment banner with a non-ASCII character, set with default(), inline {% raw %} around Go templates in
+    single-quoted YAML values, long lines
+raw-block.alloy.j2
+    covers: {% raw %} block guarding Go templates (with {{- -}} and escaped quotes) in Alloy
+kiosk.default.j2
+    covers: orphan template whose variables no task defines
+Dockerfile.j2
+    covers: molecule Dockerfile, item.image, is not none, no trailing newline
+rules.v4.j2
+    covers: iptables rules, [0:0] outer text
+service.env.j2
+    covers: k, v unpacking with dictsort, filter on a loop variable
+items-unpacking.yml.j2
+    covers: for over .items() with unpacking (also on a parenthesised filter result), nested filters, combine(recursive=True)
+whitespace-list.alloy.j2
+    covers: {%- whitespace control inside an Alloy list, elif chain
+inline-if.conf.j2
+    covers: inline if/else, is not none, default(..., true)
+redirect.site.conf.j2
+    covers: nginx: item.listen.tls.* paths, filters without spaces (|join, |first, |default), {% if %} inside a line
+slices-elif.yml.j2
+    covers: slices [:-1] and [-1], int(default=64), elif chain, {# #} comment, inline raw with a Go template
+vimrc.j2
+    covers: ansible_managed behind a vim comment marker
+sudoers.j2
+    covers: a template that keeps no .j2 suffix under roles/*/templates (sudoers)

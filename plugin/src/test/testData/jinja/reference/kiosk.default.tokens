@@ -1,0 +1,9 @@
+variable_begin
+name	ansible_managed
+variable_end
+variable_begin
+name	kiosk_listen_address
+variable_end
+variable_begin
+name	kiosk_upstream_url
+variable_end

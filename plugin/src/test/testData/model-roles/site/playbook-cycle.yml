@@ -1,0 +1,5 @@
+---
+- name: Cycle
+  hosts: all
+  roles:
+    - cycle-a

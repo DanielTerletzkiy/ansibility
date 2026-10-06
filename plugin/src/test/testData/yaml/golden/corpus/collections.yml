@@ -1,0 +1,30 @@
+# Nested lists of dicts, flow collections and sequence forms.
+haproxy_servers:
+  - name: web1
+    address: 10.0.0.11
+    port: 8080
+    options:
+      - check
+      - inter 2s
+    backup: no
+  - name: web2
+    address: 10.0.0.12
+    port: "8081"
+    options: [check, "inter 2s"]
+    backup: yes
+indentless:
+- one
+- two
+compact_nested:
+  - - a
+    - b
+  - - c
+flow_nested: {list: [1, [2, 3]], map: {k: v}}
+flow_list_of_maps: [{name: a, port: 1}, {name: b, port: 2}]
+multi_line_flow: [
+  alpha,
+  beta
+]
+duplicate_key: first
+duplicate_key: second
+"yes": quoted key that looks like a bool

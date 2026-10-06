@@ -1,0 +1,13 @@
+map
+  key plain "custom_tag"
+    scalar plain !Ref "something" => unloadable
+  key plain "in_list"
+    seq
+      vault
+      scalar plain "plain" => str
+  key plain "unsafe_plain"
+    scalar plain !unsafe "3.2" => str
+  key plain "unsafe_quoted"
+    scalar single !unsafe "{{ not templated }}" => str
+  key plain "vault_system_access_root_pw"
+    vault

@@ -1,0 +1,207 @@
+block_begin
+name	set
+name	bucket_name
+operator	=
+name	bucket
+operator	.
+name	name
+operator	|
+name	default
+operator	(
+string	'uploads'
+operator	)
+block_end
+block_begin
+name	set
+name	quota_size
+operator	=
+name	bucket
+operator	.
+name	quota
+operator	|
+name	default
+operator	(
+string	'64M'
+operator	)
+block_end
+block_begin
+name	set
+name	versioning
+operator	=
+name	bucket
+operator	.
+name	versioning
+operator	|
+name	default
+operator	(
+name	false
+operator	)
+operator	|
+name	bool
+block_end
+comment
+block_begin
+name	set
+name	_suffix
+operator	=
+name	quota_size
+operator	[
+operator	-
+integer	1
+operator	]
+block_end
+block_begin
+name	set
+name	_amount
+operator	=
+operator	(
+name	quota_size
+operator	[
+operator	:
+operator	-
+integer	1
+operator	]
+operator	|
+name	int
+operator	(
+name	default
+operator	=
+integer	64
+operator	)
+operator	)
+block_end
+block_begin
+name	if
+name	_suffix
+operator	==
+string	'k'
+block_end
+block_begin
+name	set
+name	quota_bytes
+operator	=
+name	_amount
+operator	*
+integer	1024
+block_end
+block_begin
+name	elif
+name	_suffix
+operator	==
+string	'M'
+block_end
+block_begin
+name	set
+name	quota_bytes
+operator	=
+name	_amount
+operator	*
+integer	1024
+operator	*
+integer	1024
+block_end
+block_begin
+name	elif
+name	_suffix
+operator	==
+string	'G'
+block_end
+block_begin
+name	set
+name	quota_bytes
+operator	=
+name	_amount
+operator	*
+integer	1024
+operator	*
+integer	1024
+operator	*
+integer	1024
+block_end
+block_begin
+name	elif
+name	_suffix
+operator	==
+string	'T'
+block_end
+block_begin
+name	set
+name	quota_bytes
+operator	=
+name	_amount
+operator	*
+integer	1024
+operator	*
+integer	1024
+operator	*
+integer	1024
+operator	*
+integer	1024
+block_end
+block_begin
+name	else
+block_end
+block_begin
+name	set
+name	quota_bytes
+operator	=
+name	quota_size
+operator	|
+name	int
+block_end
+block_begin
+name	endif
+block_end
+variable_begin
+name	bucket_name
+operator	|
+name	to_json
+variable_end
+variable_begin
+name	bucket
+operator	.
+name	owner
+operator	|
+name	default
+operator	(
+name	storage_defaults
+operator	.
+name	owner
+operator	)
+operator	|
+name	to_json
+variable_end
+variable_begin
+name	quota_bytes
+variable_end
+variable_begin
+name	versioning
+operator	|
+name	to_json
+variable_end
+variable_begin
+operator	(
+name	bucket
+operator	.
+name	prefix
+operator	|
+name	default
+operator	(
+string	'tmp/'
+operator	)
+operator	)
+operator	|
+name	to_json
+variable_end
+variable_begin
+name	bucket
+operator	.
+name	expire_days
+operator	|
+name	default
+operator	(
+integer	7
+operator	)
+variable_end
+raw_begin
+raw_end

@@ -1,0 +1,15 @@
+variable_begin
+name	ansible_managed
+variable_end
+variable_begin
+name	release_user
+variable_end
+variable_begin
+name	release_app_user
+variable_end
+variable_begin
+name	release_user
+variable_end
+variable_begin
+name	release_service
+variable_end

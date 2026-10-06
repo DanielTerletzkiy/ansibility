@@ -1,0 +1,13 @@
+{% extends "base.j2" %}
+{% import 'macros.j2' as m with context %}
+{% from 'forms.j2' import input as field, label without context %}
+{% include 'part.j2' ignore missing with context %}
+{% include ['a.j2', 'b.j2'] %}
+{% block content scoped %}
+  {% filter upper | trim %}hello{% endfilter %}
+  {% with a = 1, b = x %}{{ a }}{% endwith %}
+  {% do items.append(1) %}
+  {% for i in range(3) %}{% if i == 1 %}{% continue %}{% endif %}{% break %}{% endfor %}
+{% endblock content %}
+{% print value %}
+{% autoescape true %}x{% endautoescape %}

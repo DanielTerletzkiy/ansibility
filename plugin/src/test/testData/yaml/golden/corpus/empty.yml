@@ -1,0 +1,16 @@
+# Empty values load as None.
+no_value:
+tilde: ~
+null_word: null
+empty_string: ""
+nested:
+  inner:
+  other: 1
+list:
+  -
+  - value
+  -
+flow_map_keys_only: {a, b: 1}
+flow_seq: [a, ~]
+commented_out:
+  # - item

@@ -1,0 +1,11 @@
+---
+# Port the web server listens on
+web_port: 80
+web_nested:
+  inner: 0
+web_version: 3.2
+# Plain comment docs for an unspecced default
+web_unspecced: "on"
+web_motd: |
+  Welcome to {{ inventory_hostname }}
+  second line

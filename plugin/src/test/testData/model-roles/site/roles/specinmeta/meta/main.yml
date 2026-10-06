@@ -1,0 +1,7 @@
+---
+argument_specs:
+  main:
+    short_description: Spec kept in meta/main.yml
+    options:
+      specinmeta_flag:
+        type: bool

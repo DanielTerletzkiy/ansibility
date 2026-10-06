@@ -1,0 +1,1 @@
+{% for host in groups['web']%}{{ host }}{% if not loop.last %},{% endif %}{% endfor%}

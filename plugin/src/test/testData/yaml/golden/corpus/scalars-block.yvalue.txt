@@ -1,0 +1,35 @@
+map
+  key plain "alias_of_block"
+    scalar literal "anchored block\n" => str
+  key plain "anchored_block"
+    scalar literal "anchored block\n" => str
+  key plain "explicit_indent"
+    scalar literal "  two extra spaces\n" => str
+  key plain "folded"
+    scalar folded "folded text\nnew paragraph\n" => str
+  key plain "folded_keep"
+    scalar folded "kept\n\n" => str
+  key plain "folded_more_indented"
+    scalar folded "folded\n  more indented\nback" => str
+  key plain "header_comment"
+    scalar literal "text\n" => str
+  key plain "last"
+    scalar plain "done" => str
+  key plain "leading_blank_line"
+    scalar literal "\nafter a blank line\n" => str
+  key plain "literal"
+    scalar literal "line one\n  indented\nline three\n" => str
+  key plain "literal_keep"
+    scalar literal "keep\n\n" => str
+  key plain "literal_strip"
+    scalar literal "no trailing newline" => str
+  key plain "nested"
+    map
+      key plain "deeper"
+        seq
+          scalar literal "in a sequence\n" => str
+          scalar folded "folded in a sequence" => str
+      key plain "script"
+        scalar literal "#!/bin/sh\necho \"{{ item }}\"\n" => str
+  key plain "trailing_blank_lines"
+    scalar literal "trailing\n" => str

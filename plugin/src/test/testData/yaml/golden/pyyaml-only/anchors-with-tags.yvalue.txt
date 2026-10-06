@@ -1,0 +1,23 @@
+map
+  key plain "alias_a"
+    scalar double "anchored" => str
+  key plain "alias_c"
+    scalar single !!str "anchor first" => str
+  key plain "alias_e"
+    empty
+  key plain "anchor_double"
+    scalar double "anchored" => str
+  key plain "anchor_only"
+    empty
+  key plain "anchor_then_tag"
+    scalar single !!str "anchor first" => str
+  key plain "anchor_then_tag_plain"
+    scalar plain !!str "3.2" => str
+  key plain "tag_then_anchor"
+    scalar double !!str "tag first" => str
+  key plain "vault_alias"
+    vault
+  key plain "vault_anchor"
+    vault
+  key plain "vault_encrypted_tag"
+    vault

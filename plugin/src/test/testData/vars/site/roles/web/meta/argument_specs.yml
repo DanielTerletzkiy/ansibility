@@ -1,0 +1,21 @@
+---
+argument_specs:
+  main:
+    options:
+      web_port:
+        type: int
+        description: The port. See O(web_nested) for more.
+      web_nested:
+        type: dict
+        options:
+          inner:
+            type: int
+            required: true
+            description: Inner value, e.g. 1. Second sentence.
+          type:
+            type: str
+            description: An option literally named type.
+      web_version:
+        type: str
+        default: "3.2"
+        choices: ["3.2", "3.3"]

@@ -1,0 +1,6 @@
+---
+- name: Start web
+  ansible.builtin.service:
+    name: nginx
+    state: started
+    enabled: true

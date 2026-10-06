@@ -1,0 +1,96 @@
+variable_begin
+name	ansible_managed
+variable_end
+variable_begin
+name	cache_listen_addresses
+operator	|
+name	join
+operator	(
+string	' '
+operator	)
+variable_end
+variable_begin
+name	cache_port
+operator	|
+name	int
+variable_end
+variable_begin
+string	'on'
+name	if
+name	cache_verbose
+operator	|
+name	bool
+name	else
+string	'off'
+variable_end
+variable_begin
+name	cache_max_items
+operator	|
+name	int
+variable_end
+variable_begin
+name	cache_threads
+operator	|
+name	default
+operator	(
+name	ansible_processor_vcpus
+operator	,
+name	true
+operator	)
+operator	|
+name	int
+variable_end
+block_begin
+name	if
+name	cache_idle_timeout
+name	is
+name	not
+name	none
+block_end
+variable_begin
+name	cache_idle_timeout
+operator	|
+name	int
+variable_end
+block_begin
+name	endif
+block_end
+block_begin
+name	set
+name	_limit
+operator	=
+name	cache_memory_limit
+operator	|
+name	default
+operator	(
+string	''
+operator	,
+name	true
+operator	)
+operator	|
+name	string
+operator	|
+name	trim
+block_end
+block_begin
+name	if
+name	_limit
+operator	|
+name	length
+operator	>
+integer	0
+block_end
+variable_begin
+name	_limit
+variable_end
+variable_begin
+name	cache_eviction
+operator	|
+name	default
+operator	(
+string	'lru'
+operator	)
+variable_end
+block_begin
+name	endif
+block_end

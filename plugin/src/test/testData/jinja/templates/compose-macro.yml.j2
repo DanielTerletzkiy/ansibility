@@ -1,0 +1,24 @@
+{#- One KEY=VALUE list item, single-quoted for YAML: a ' doubles, a % doubles for the entrypoint's printf. -#}
+{% macro env(name, text) -%}
+'{{ name }}={{ text | string | replace("'", "''") | replace('%', '%%') }}'
+{%- endmacro -%}
+name: bakery-{{ bakery_stage }}-{{ bakery_slot }}
+
+services:
+  web:
+    image: registry.example.test/bakery/web:${WEB_TAG}
+    hostname: bakery-web-{{ bakery_stage }}-{{ bakery_slot }}
+    ports:
+      - "127.0.0.1:{{ bakery_web_port + bakery_slot_offset }}:8080"
+      - "127.0.0.1:{{ bakery_metrics_port + bakery_slot_offset }}:9100"
+    restart: unless-stopped
+{% if bakery_debug | default(false) %}
+    environment:
+      - {{ env('LOG_LEVEL', 'debug') }}
+      - {{ env('TRACE_SAMPLE', '100%') }}
+{% else %}
+    environment:
+      - {{ env('LOG_LEVEL', 'info') }}
+{% endif %}
+    extra_hosts:
+      - "db.example.test:{{ bakery_db_host }}"

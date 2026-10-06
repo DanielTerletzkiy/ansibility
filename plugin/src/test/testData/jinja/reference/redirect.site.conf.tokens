@@ -1,0 +1,130 @@
+variable_begin
+name	item
+operator	.
+name	listen
+operator	.
+name	address
+variable_end
+variable_begin
+name	item
+operator	.
+name	listen
+operator	.
+name	port
+variable_end
+variable_begin
+name	item
+operator	.
+name	names
+operator	|
+name	join
+operator	(
+string	' '
+operator	)
+variable_end
+variable_begin
+name	item
+operator	.
+name	listen
+operator	.
+name	address
+variable_end
+variable_begin
+name	item
+operator	.
+name	listen
+operator	.
+name	tls_port
+variable_end
+block_begin
+name	if
+name	nginx_http2
+block_end
+block_begin
+name	endif
+block_end
+variable_begin
+name	item
+operator	.
+name	names
+operator	|
+name	join
+operator	(
+string	' '
+operator	)
+variable_end
+variable_begin
+name	item
+operator	.
+name	listen
+operator	.
+name	tls
+operator	.
+name	cert
+variable_end
+variable_begin
+name	item
+operator	.
+name	listen
+operator	.
+name	tls
+operator	.
+name	key
+variable_end
+variable_begin
+name	item
+operator	.
+name	names
+operator	|
+name	first
+variable_end
+variable_begin
+name	item
+operator	.
+name	names
+operator	|
+name	first
+variable_end
+block_begin
+name	if
+name	item
+operator	.
+name	allow
+name	is
+name	defined
+name	and
+name	item
+operator	.
+name	allow
+operator	|
+name	length
+operator	>
+integer	0
+block_end
+block_begin
+name	for
+name	cidr
+name	in
+name	item
+operator	.
+name	allow
+block_end
+variable_begin
+name	cidr
+variable_end
+block_begin
+name	endfor
+block_end
+block_begin
+name	endif
+block_end
+variable_begin
+name	item
+operator	.
+name	target
+operator	|
+name	default
+operator	(
+string	'https://www.example.test'
+operator	)
+variable_end

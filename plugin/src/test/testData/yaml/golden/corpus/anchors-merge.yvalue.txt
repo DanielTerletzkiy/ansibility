@@ -1,0 +1,113 @@
+map
+  key plain "alias_items"
+    seq
+      scalar plain "4.7" => float 4.7
+      map
+        key plain "compress"
+          scalar plain "true" => bool true
+        key plain "timeout"
+          scalar plain "30" => int 30
+        key plain "workers"
+          scalar plain "4" => int 4
+  key plain "bucket_profile_audit"
+    map
+      key double "logs/audit/*"
+        scalar double "read" => str
+  key plain "bucket_profile_reader"
+    map
+      key double "assets/*"
+        scalar double "read,list" => str
+      key double "exports/*"
+        scalar double "read,list" => str
+      key double "logs/audit/*"
+        scalar double "none" => str
+  key plain "explicit_before_merge"
+    map
+      key plain "compress"
+        scalar plain "true" => bool true
+      key plain "timeout"
+        scalar plain "5" => int 5
+      key plain "workers"
+        scalar plain "4" => int 4
+  key plain "inline_merge"
+    map
+      key plain "inline"
+        scalar plain "1" => int 1
+      key plain "workers"
+        scalar plain "2" => int 2
+  key plain "limits"
+    map
+      key plain "compress"
+        scalar plain "true" => bool true
+      key plain "timeout"
+        scalar plain "30" => int 30
+      key plain "workers"
+        scalar plain "4" => int 4
+  key plain "list_alias"
+    seq
+      scalar plain "north" => str
+      scalar plain "south" => str
+  key plain "list_anchor"
+    seq
+      scalar plain "north" => str
+      scalar plain "south" => str
+  key plain "nested_merge_source"
+    map
+      key plain "compress"
+        scalar plain "false" => bool false
+      key plain "timeout"
+        scalar plain "30" => int 30
+      key plain "workers"
+        scalar plain "4" => int 4
+  key plain "nested_merge_user"
+    map
+      key plain "compress"
+        scalar plain "false" => bool false
+      key plain "name"
+        scalar plain "tuned" => str
+      key plain "timeout"
+        scalar plain "30" => int 30
+      key plain "workers"
+        scalar plain "4" => int 4
+  key plain "scalar_alias"
+    scalar plain "4.7" => float 4.7
+  key plain "scalar_anchor"
+    scalar plain "4.7" => float 4.7
+  key plain "single_merge"
+    map
+      key plain "compress"
+        scalar plain "true" => bool true
+      key plain "timeout"
+        scalar plain "30" => int 30
+      key plain "workers"
+        scalar plain "8" => int 8
+  key plain "storage_accounts"
+    seq
+      map
+        key plain "grants"
+          map
+            key double "assets/*"
+              scalar double "read,list" => str
+            key double "exports/*"
+              scalar double "read,list" => str
+            key double "logs/audit/*"
+              scalar double "none" => str
+        key plain "name"
+          scalar plain "report-builder" => str
+        key plain "secret"
+          scalar double "{{ vault_storage_report_builder_secret }}" => str
+        key plain "source"
+          scalar plain "192.0.2.10" => str
+      map
+        key plain "grants"
+          map
+            key double "assets/*"
+              scalar double "read,list" => str
+            key double "exports/*"
+              scalar double "read,list" => str
+            key double "logs/audit/*"
+              scalar double "none" => str
+        key plain "name"
+          scalar plain "viewer.example" => str
+        key plain "source"
+          scalar plain "127.0.0.1" => str

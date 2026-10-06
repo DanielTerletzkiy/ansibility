@@ -1,0 +1,3 @@
+variable_begin
+name	ansible_managed
+variable_end

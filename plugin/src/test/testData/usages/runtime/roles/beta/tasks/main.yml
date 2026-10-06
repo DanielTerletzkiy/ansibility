@@ -1,0 +1,10 @@
+---
+- name: Other probe
+  ansible.builtin.command: /bin/false
+  register: result
+- name: Other use
+  ansible.builtin.debug:
+    var: result
+- name: Beta facts
+  ansible.builtin.set_fact:
+    alpha_fact: 2

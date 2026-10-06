@@ -1,0 +1,15 @@
+# {{ ansible_managed }}
+
+listen {{ cache_listen_addresses | join(' ') }}
+port {{ cache_port | int }}
+verbose {{ 'on' if cache_verbose | bool else 'off' }}
+max-items {{ cache_max_items | int }}
+threads {{ cache_threads | default(ansible_processor_vcpus, true) | int }}
+{% if cache_idle_timeout is not none %}
+idle-timeout {{ cache_idle_timeout | int }}
+{% endif %}
+{% set _limit = cache_memory_limit | default('', true) | string | trim %}
+{% if _limit | length > 0 %}
+memory-limit {{ _limit }}
+eviction {{ cache_eviction | default('lru') }}
+{% endif %}

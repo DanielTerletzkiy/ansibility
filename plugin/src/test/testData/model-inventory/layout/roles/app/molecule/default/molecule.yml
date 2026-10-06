@@ -1,0 +1,36 @@
+---
+driver:
+  name: docker
+platforms:
+  - name: app_master-${MOLECULE_RUN_ID:-local}
+    image: debian:12
+    groups:
+      - keepalived_master
+    children:
+      - keepalived_nodes
+  - name: app_backup-${MOLECULE_RUN_ID:-local}
+    image: debian:12
+    groups:
+      - keepalived_backup
+  - name: app_plain
+    image: debian:12
+provisioner:
+  name: ansible
+  inventory:
+    hosts:
+      extra_group:
+        hosts:
+          app_plain:
+    group_vars:
+      all:
+        system_hostname: molecule.example.test
+        vault_molecule_secret: REDACTED
+      keepalived_master:
+        keepalived_state: MASTER
+    host_vars:
+      app_plain:
+        app_port: 8080
+    links:
+      group_vars: linked_vars/
+verifier:
+  name: ansible

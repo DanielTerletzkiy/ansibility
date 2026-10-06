@@ -1,0 +1,12 @@
+---
+- name: Verify
+  hosts: all
+  tasks:
+    - name: Stat the config
+      ansible.builtin.stat:
+        path: /etc/web/web.conf
+      register: web_conf
+
+    - name: The config is a file
+      ansible.builtin.assert:
+        that: web_conf.stat.isfile

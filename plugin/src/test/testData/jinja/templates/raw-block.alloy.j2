@@ -1,0 +1,30 @@
+    stage.json {
+      expressions = {
+        req_id     = "request.id",
+        req_method = "request.method",
+      }
+    }
+
+{% raw %}
+    // A request without an id gets a placeholder, so the label is never empty.
+    stage.template {
+      source   = "req_id"
+      template = "{{ if .req_id }}{{ .req_id }}{{ else }}none{{ end }}"
+    }
+
+    // Methods arrive in any case; lower-case them, keep unknown ones as "other".
+    stage.template {
+      source   = "req_method"
+      template = "{{ if eq .req_method \"\" }}other{{ else if .req_method }}{{ ToLower .req_method }}{{ end }}"
+    }
+
+    stage.template {
+      source   = "slow"
+      template = "{{- if gt (len .duration) 3 -}}yes{{- else -}}no{{- end -}}"
+    }
+{% endraw %}
+
+    // Keep the label set small: the method and the slow flag only.
+    stage.labels {
+      values = { method = "req_method", slow = "" }
+    }

@@ -1,0 +1,30 @@
+# Fixture red budget of the role-variable type inspections (plan A.6 "Corpus red budget", M4 E5) under the default
+# "Documented types" preset: every ERROR the eleven inspections report on the sanitised infra fixture, as
+# `path:line ShortName`. Line numbers are the real repo's. Reviewed like code: each entry is a genuine
+# documented-type contradiction (the value's YAML type is not the type its role's argument_specs documents) or a
+# value ansible-core 2.18.8 rejects. Any other ERROR fails RedBudgetTest.
+
+# ANS-T002: unknown key in a list-of-dict option with `options` (keycloak_clients[6|7].optional_client_scopes);
+# ansible-core rejects nested unknown keys.
+repos/heron/ansible/environments/prod/group_vars/keycloak/vars.yml:236 AnsibleUnsupportedSubOption
+repos/heron/ansible/environments/prod/group_vars/keycloak/vars.yml:287 AnsibleUnsupportedSubOption
+
+# ANS-T005: `secret: null` for the required `str` sub-option of keycloak_clients[6|7]; check_type_str(None) raises
+# in 2.18.8.
+repos/heron/ansible/environments/prod/group_vars/keycloak/vars.yml:223 AnsibleNullForTypedOption
+repos/heron/ansible/environments/prod/group_vars/keycloak/vars.yml:274 AnsibleNullForTypedOption
+
+# ANS-T010: totp_users items are mappings; repos/falcon/ansible/roles/totp-token/meta/argument_specs.yml:6-8 documents
+# `elements: str` (ansible-core stringifies each item). No play of falcon applies totp-token.
+repos/falcon/ansible/environments/ops/group_vars/all/vars.yml:726 AnsibleSpecShapeContradiction
+repos/falcon/ansible/environments/prod/group_vars/all/vars.yml:687 AnsibleSpecShapeContradiction
+repos/falcon/ansible/environments/prod/group_vars/all/vars.yml:689 AnsibleSpecShapeContradiction
+repos/falcon/ansible/environments/test/group_vars/all/vars.yml:432 AnsibleSpecShapeContradiction
+repos/falcon/ansible/environments/test/group_vars/all/vars.yml:434 AnsibleSpecShapeContradiction
+
+# ANS-T011: version floats where `str` is documented (YAML 1.1 reads them as float; ansible-core coerces with str()).
+golden/roles/grafana/defaults/main.yml:8 AnsibleCoercedScalar
+golden/roles/haproxy/defaults/main.yml:1 AnsibleCoercedScalar
+repos/falcon/ansible/roles/grafana/defaults/main.yml:8 AnsibleCoercedScalar
+repos/falcon/ansible/roles/haproxy/defaults/main.yml:1 AnsibleCoercedScalar
+repos/heron/ansible/environments/prod/group_vars/keycloak/vars.yml:875 AnsibleCoercedScalar

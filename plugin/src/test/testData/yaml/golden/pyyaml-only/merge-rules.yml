@@ -1,0 +1,9 @@
+# PyYAML merge rules that YamlText does not model: separate merge keys (the later one wins).
+a: &a {x: 1, y: 1}
+b: &b {x: 2, z: 2}
+two_merge_keys:
+  <<: *a
+  <<: *b
+sequence_merge:
+  <<: [*a, *b]
+  w: 0

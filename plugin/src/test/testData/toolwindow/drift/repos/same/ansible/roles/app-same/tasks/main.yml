@@ -1,0 +1,4 @@
+---
+- name: App
+  ansible.builtin.debug:
+    msg: same only

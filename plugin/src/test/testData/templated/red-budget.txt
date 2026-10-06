@@ -1,0 +1,18 @@
+# ANS-T020 findings on the sanitised infra fixture (plugin/src/test/testData/infra), default preset, target 2.18.8.
+# Pinned by TemplatedRedBudgetTest; one line per finding: <path>:<line> <level> <message>. Lines starting with # are ignored.
+#
+# Review (2026-10-01):
+# - golden/roles/haproxy/defaults/main.yml:15 and its copy in repos/falcon: haproxy_settings_kernel_somaxconn is documented
+#   `str` (meta/argument_specs.yml:147-150, spec default "65535"), but '{{ haproxy_settings_maximum_connections }}' is a
+#   bare reference to the only definition, the int literal 65535 at defaults/main.yml:12. ansible-core 2.18.8's
+#   SINGLE_VAR shortcut keeps the int, check_type_str turns it into '65535' and the role keeps the int (M4 acceptance 4).
+# - The fixture has 65 templated values of spec'd variables (top level and nested). The other 63 are silent:
+#   29 vault references (11 at top level, 18 `keycloak_clients[*].secret`), 16 str chains into str
+#   (system_networking_main_ip, system_ip_floating), 6 `| upper`/`| join` into str, 5 multi-node templates into str,
+#   4 `{% raw %}` texts into str (grafana_alerting_defaults), 1 list chain into a list (loki_tenants via alloy_tenants),
+#   1 `| bool … | length > 0` pipeline into bool (grafana_alerting_enabled), and percona_host, which is not defined in
+#   the heron root (unknown).
+# The opt-in run against the real repo (ANSIBLE_INFRA_REPO) finds the same haproxy line in all 9 roots that carry the
+# role (golden and repos/{falcon,heron,pelican,platform,raven,tern,thrush,wren}), and nothing else.
+golden/roles/haproxy/defaults/main.yml:15 ERROR documented `str` for role `haproxy` (entry point `main`), but this is int `65535` via `haproxy_settings_maximum_connections: 65535` (defaults/main.yml:12); ansible-core 2.18.8 would coerce it to `'65535'` (the role itself still receives `65535`)
+repos/falcon/ansible/roles/haproxy/defaults/main.yml:15 ERROR documented `str` for role `haproxy` (entry point `main`), but this is int `65535` via `haproxy_settings_maximum_connections: 65535` (defaults/main.yml:12); ansible-core 2.18.8 would coerce it to `'65535'` (the role itself still receives `65535`)

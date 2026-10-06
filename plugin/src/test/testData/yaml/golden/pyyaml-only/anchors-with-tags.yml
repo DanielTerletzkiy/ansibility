@@ -1,0 +1,16 @@
+# Anchors next to tags and quotes, where IntelliJ's own YAMLScalar.getTextValue() is wrong.
+anchor_double: &a "anchored"
+tag_then_anchor: !!str &b "tag first"
+anchor_then_tag: &c !!str 'anchor first'
+anchor_then_tag_plain: &d !!str 3.2
+anchor_only: &e
+alias_a: *a
+alias_c: *c
+alias_e: *e
+vault_anchor: &v !vault |
+  $ANSIBLE_VAULT;1.1;AES256
+  64756d6d79
+vault_alias: *v
+vault_encrypted_tag: !vault-encrypted |
+  $ANSIBLE_VAULT;1.1;AES256
+  64756d6d79

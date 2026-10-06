@@ -1,0 +1,21 @@
+---
+- name: Web
+  hosts: web
+  pre_tasks:
+    - name: Prepare
+      ansible.builtin.import_role:
+        name: common
+  roles:
+    - web
+    - role: base
+      tags: base,always
+  tasks:
+    - name: Extra entry point
+      block:
+        - name: Include extra
+          ansible.builtin.include_role:
+            name: web
+            tasks_from: extra
+      tags: [extra]
+
+- ansible.builtin.import_playbook: playbook-loop-a.yml

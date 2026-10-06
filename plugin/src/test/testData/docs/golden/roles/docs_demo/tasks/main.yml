@@ -1,0 +1,74 @@
+---
+# Synthetic task file for the docs area tests (not from the infra repo).
+- name: Run a container with mounts
+  community.docker.docker_container:
+    name: web
+    image: nginx
+    mounts:
+      - type: bind
+        source: /srv/www
+        target: /usr/share/nginx/html
+    healthcheck:
+      interval: 30s
+    env:
+      FOO: bar
+
+- name: Loop with args and loop_control
+  ansible.builtin.file:
+    state: directory
+  args:
+    path: "/srv/{{ item | basename }}"
+    mode: "0755"
+  with_items: "{{ demo_dirs }}"
+  loop_control:
+    loop_var: dir_item
+    label: "{{ dir_item }}"
+  vars:
+    demo_dirs:
+      - a
+      - b
+  when: demo_dirs is defined and demo_dirs | length > 0
+
+- name: Set a fact
+  ansible.builtin.set_fact:
+    demo_fact: 1
+    cacheable: true
+
+- name: Old style arguments
+  ansible.builtin.copy: src=a.txt dest=/tmp/a.txt
+
+- name: Action form
+  action: ansible.builtin.ping data=pong
+
+- name: Include with apply
+  ansible.builtin.include_tasks:
+    file: other.yml
+    apply:
+      tags: [demo]
+      become: true
+
+- name: Command free form
+  ansible.builtin.command: echo {{ demo_word | upper }}
+  changed_when: false
+
+- name: Unknown module
+  acme.custom.no_such_module:
+    foo: bar
+
+- name: Removed module
+  ansible.builtin.include: other.yml
+
+- name: Redirects
+  ansible.builtin.uri:
+    url: https://example.invalid
+    follow_redirects: safe
+    dest: /tmp/page
+
+- name: A block
+  block:
+    - name: Inside the block
+      ansible.builtin.ping:
+  rescue:
+    - ansible.builtin.debug:
+        msg: failed
+  become: true

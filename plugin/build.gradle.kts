@@ -86,6 +86,10 @@ tasks.test {
     // Opt-in corpus tests (ANSIBLE_INFRA_REPO, ANSIBILITY_PYYAML_HASHES) must re-run when these variables change.
     inputs.property("ansibleInfraRepo", providers.environmentVariable("ANSIBLE_INFRA_REPO").orElse(""))
     inputs.property("ansibilityPyyamlHashes", providers.environmentVariable("ANSIBILITY_PYYAML_HASHES").orElse(""))
+    // Without the local infra fixture, skip the @RequiresInfraFixture tests.
+    if (!file("src/test/testData/infra").isDirectory) {
+        systemProperty("idea.test.execution.policy", "de.terletzkiy.ansibility.fixtures.InfraFixturePolicy")
+    }
 }
 
 // Run the plugin in the locally installed (Toolbox) IDEs. Their paths are machine-specific: a Gradle property

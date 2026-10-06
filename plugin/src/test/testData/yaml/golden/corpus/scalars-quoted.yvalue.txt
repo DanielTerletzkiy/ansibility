@@ -1,0 +1,43 @@
+map
+  key plain "double_escapes"
+    scalar double "tab\there A ä 😀 \" \\ \u0000 \u0007 \u001b \u0085   \u2028 \u2029 end" => str
+  key plain "empty_double"
+    scalar double "" => str
+  key plain "empty_single"
+    scalar single "" => str
+  key double "escaped\tkey"
+    scalar plain "3" => int 3
+  key plain "escaped_space_after_continuation"
+    scalar double "a b" => str
+  key plain "german"
+    scalar double "Größe: 5" => str
+  key plain "jinja"
+    scalar double "{{ haproxy_settings_maximum_connections }}" => str
+  key plain "jinja_single"
+    scalar single "{{ item.port | int }}" => str
+  key plain "leading_spaces"
+    scalar double "   lead" => str
+  key plain "line_continuation"
+    scalar double "continued" => str
+  key plain "multi_line_double"
+    scalar double "multi line   folded\npara" => str
+  key plain "multi_line_single"
+    scalar single "single 'q' next" => str
+  key double "quoted key"
+    scalar plain "1" => int 1
+  key plain "quoted_bool"
+    scalar single "yes" => str
+  key plain "quoted_float"
+    scalar double "3.2" => str
+  key plain "quoted_null"
+    scalar double "~" => str
+  key plain "quoted_octal"
+    scalar double "0644" => str
+  key single "single quoted key"
+    scalar plain "2" => int 2
+  key plain "single_backslash"
+    scalar single "C:\\temp\\new" => str
+  key plain "single_escape"
+    scalar single "it's" => str
+  key plain "trailing_spaces_before_break"
+    scalar double "trail next" => str

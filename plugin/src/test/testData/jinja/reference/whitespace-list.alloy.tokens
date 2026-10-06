@@ -1,0 +1,89 @@
+block_begin
+name	if
+name	log_sources
+name	is
+name	defined
+name	and
+name	log_sources
+operator	|
+name	length
+operator	>
+integer	0
+block_end
+block_begin
+name	for
+name	source
+name	in
+name	log_sources
+block_end
+variable_begin
+name	source
+operator	.
+name	path
+variable_end
+variable_begin
+name	source
+operator	.
+name	kind
+variable_end
+block_begin
+name	if
+name	source
+operator	.
+name	kind
+operator	==
+string	"web"
+block_end
+variable_begin
+name	source
+operator	.
+name	vhost
+variable_end
+block_begin
+name	elif
+name	source
+operator	.
+name	kind
+operator	==
+string	"worker"
+block_end
+variable_begin
+name	source
+operator	.
+name	queue
+variable_end
+block_begin
+name	elif
+name	source
+operator	.
+name	kind
+operator	==
+string	"cron"
+block_end
+variable_begin
+name	source
+operator	.
+name	job
+variable_end
+variable_begin
+name	source
+operator	.
+name	schedule
+operator	|
+name	default
+operator	(
+string	'daily'
+operator	)
+variable_end
+block_begin
+name	endif
+block_end
+block_begin
+name	endfor
+block_end
+variable_begin
+name	site_name
+variable_end
+block_begin
+name	endif
+block_end

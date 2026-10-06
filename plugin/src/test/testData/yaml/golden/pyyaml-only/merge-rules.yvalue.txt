@@ -1,0 +1,31 @@
+map
+  key plain "a"
+    map
+      key plain "x"
+        scalar plain "1" => int 1
+      key plain "y"
+        scalar plain "1" => int 1
+  key plain "b"
+    map
+      key plain "x"
+        scalar plain "2" => int 2
+      key plain "z"
+        scalar plain "2" => int 2
+  key plain "sequence_merge"
+    map
+      key plain "w"
+        scalar plain "0" => int 0
+      key plain "x"
+        scalar plain "1" => int 1
+      key plain "y"
+        scalar plain "1" => int 1
+      key plain "z"
+        scalar plain "2" => int 2
+  key plain "two_merge_keys"
+    map
+      key plain "x"
+        scalar plain "2" => int 2
+      key plain "y"
+        scalar plain "1" => int 1
+      key plain "z"
+        scalar plain "2" => int 2

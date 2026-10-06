@@ -1,0 +1,75 @@
+variable_begin
+name	ansible_managed
+variable_end
+block_begin
+name	for
+name	probe
+name	in
+name	uptime_probes
+block_end
+block_begin
+name	if
+name	probe
+operator	.
+name	enabled
+operator	|
+name	default
+operator	(
+name	true
+operator	)
+operator	|
+name	bool
+name	and
+name	probe
+operator	.
+name	template
+name	is
+name	defined
+block_end
+block_begin
+name	set
+name	probe_template
+operator	=
+name	playbook_dir
+operator	~
+string	'/probes/'
+operator	~
+name	probe
+operator	.
+name	template
+block_end
+variable_begin
+name	lookup
+operator	(
+string	'template'
+operator	,
+name	probe_template
+operator	,
+name	template_vars
+operator	=
+operator	{
+string	'probe'
+operator	:
+name	probe
+operator	,
+string	'interval'
+operator	:
+name	uptime_interval
+operator	}
+operator	)
+operator	|
+name	trim
+operator	|
+name	indent
+operator	(
+integer	2
+operator	,
+name	true
+operator	)
+variable_end
+block_begin
+name	endif
+block_end
+block_begin
+name	endfor
+block_end

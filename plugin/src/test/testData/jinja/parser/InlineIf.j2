@@ -1,0 +1,5 @@
+{{ 'yes' if enabled else 'no' }}
+{{ 'only' if flag }}
+{{ a if b else c if d else e }}
+{{ (x | default('')) if x is defined else none }}
+{% set mode = 'tls' if ssl.enabled | bool else 'plain' %}

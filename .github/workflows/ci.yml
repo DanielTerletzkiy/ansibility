@@ -28,10 +28,6 @@ jobs:
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
-      # Git cannot track the fixtures' synthetic .git files (tools/fixtures/README.md).
-      - name: Restore fixture .git links
-        run: python3 tools/fixtures/sync.py --links-only
-
       - name: Fixture tool tests
         run: python3 -m unittest discover -s tools/fixtures -p 'test_*.py'
 

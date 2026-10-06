@@ -1,0 +1,4 @@
+---
+- name: Configure db
+  ansible.builtin.debug:
+    msg: "{{ db_name }}"

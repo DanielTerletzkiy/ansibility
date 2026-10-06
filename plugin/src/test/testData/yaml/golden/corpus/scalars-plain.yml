@@ -1,0 +1,44 @@
+---
+# Plain scalars and the YAML 1.1 implicit types Ansible's loader applies to them.
+haproxy_backports_version: 3.2
+grafana_version: 12.4
+version_trailing_zero: 3.10
+file_mode: 0644
+not_octal: 08
+yaml12_octal: 0o644
+sexagesimal: 1:20
+hex: 0x1F
+binary: 0b1010
+exponent_without_dot: 1e3
+exponent_with_sign: 1.0e+3
+exponent_without_sign: 1.0e3
+negative: -17
+explicit_plus: +12
+underscored: 1_000
+infinity: .inf
+minus_infinity: -.Inf
+not_a_number: .NaN
+enabled_yes: yes
+enabled_on: On
+disabled_off: OFF
+title_true: True
+single_y: y
+single_n: n
+tilde: ~
+null_word: null
+date: 2024-01-01
+datetime: 2001-12-14 21:59:43.10 -5
+unloadable_equals: =
+url: http://example.org:8080/path
+colon_inside: a:b
+hash_inside: a#b
+spaces_inside: plain  with   spaces
+trailing_comment: value   # not part of the value
+jinja_in_plain: prefix {{ item.name }} suffix
+german: Grüße aus Köln
+folded_plain: first line
+  second line
+
+  after a blank line
+flow_items: [3.2, "3.2", yes, 'no', ~, 0644]
+flow_map: {port: 8080, name: web, ratio: 0.5}

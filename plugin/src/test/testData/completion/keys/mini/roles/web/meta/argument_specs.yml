@@ -1,0 +1,73 @@
+---
+argument_specs:
+  main:
+    short_description: A small web role for key completion tests.
+    options:
+      web_port:
+        type: int
+        required: true
+        description: Port the web server listens on.
+      web_mode:
+        type: str
+        default: auto
+        choices:
+          - "yes"
+          - "no"
+          - auto
+          - "on: demand"
+        description: How the server starts.
+      web_enabled:
+        type: bool
+        default: true
+        description: Whether the server runs.
+      web_legacy:
+        type: str
+        description: Old setting.
+        deprecated:
+          why: replaced by web_mode
+      web_sites:
+        type: list
+        elements: dict
+        description: Virtual hosts.
+        options:
+          name:
+            type: str
+            required: true
+            description: Site name.
+          listen:
+            type: dict
+            description: Listener settings.
+            options:
+              port:
+                type: int
+                required: true
+                description: Listener port.
+              tls:
+                type: bool
+                description: Serve TLS.
+          aliases:
+            type: list
+            elements: str
+            description: Extra names.
+      web_protocols:
+        type: list
+        elements: str
+        choices:
+          - http
+          - https
+        description: Enabled protocols.
+      web_flags:
+        type: list
+        elements: bool
+        description: Feature flags.
+      web_limits:
+        type: dict
+        description: Request limits.
+        options:
+          rate:
+            type: int
+            description: Requests per second.
+          burst:
+            type: int
+            required: true
+            description: Burst size.

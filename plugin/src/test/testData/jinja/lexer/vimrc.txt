@@ -1,0 +1,7 @@
+TEXT ('" ')
+VAR_START ('{{')
+WHITE_SPACE (' ')
+IDENTIFIER ('ansible_managed')
+WHITE_SPACE (' ')
+VAR_END ('}}')
+TEXT ('\nset number\nset shiftwidth=2\n')

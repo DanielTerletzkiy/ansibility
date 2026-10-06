@@ -1,0 +1,5 @@
+map
+  key plain "first"
+    scalar plain "1" => int 1
+  key plain "last_block"
+    scalar literal "no newline at the end of the file" => str

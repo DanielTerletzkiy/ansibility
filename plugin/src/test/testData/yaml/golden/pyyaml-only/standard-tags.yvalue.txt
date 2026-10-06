@@ -1,0 +1,29 @@
+map
+  key plain "bool_tag_invalid"
+    scalar plain !!bool "maybe" => unloadable
+  key plain "float_tag_exponent"
+    scalar plain !!float "1e3" => float 1000.0
+  key plain "float_tag_int"
+    scalar plain !!float "1" => float 1.0
+  key plain "int_tag_invalid"
+    scalar plain !!int "abc" => unloadable
+  key plain "int_tag_python_octal"
+    scalar plain !!int "0o17" => int 15
+  key plain "int_tag_quoted"
+    scalar double !!int "5" => int 5
+  key plain "non_specific_plain"
+    scalar plain ! "3.2" => float 3.2
+  key plain "non_specific_quoted"
+    scalar double ! "3.2" => float 3.2
+  key plain "null_tag"
+    scalar plain !!null "anything" => null
+  key plain "str_tag_bool"
+    scalar plain !!str "yes" => str
+  key plain "str_tag_empty"
+    scalar plain !!str "" => str
+  key plain "str_tag_float"
+    scalar plain !!str "3.2" => str
+  key plain "timestamp_tag_invalid"
+    scalar plain !!timestamp "nope" => unloadable
+  key plain "verbatim"
+    scalar plain !!str "3.2" => str

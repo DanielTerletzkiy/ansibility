@@ -1,0 +1,5 @@
+---
+- name: B
+  hosts: all
+  tasks: []
+- import_playbook: playbook-loop-a.yml

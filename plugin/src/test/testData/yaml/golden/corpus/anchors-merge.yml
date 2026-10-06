@@ -1,0 +1,46 @@
+---
+# Synthetic: permission profiles that exist only to carry YAML anchors, merged with the sequence form of the merge key,
+# followed by the other anchor, alias and merge-key shapes.
+bucket_profile_audit: &audit_profile
+  "logs/audit/*": "read"
+bucket_profile_reader: &reader_profile
+  "assets/*": "read,list"
+  "exports/*": "read,list"
+  "logs/audit/*": "none"
+
+storage_accounts:
+  - name: report-builder
+    source: 192.0.2.10
+    secret: "{{ vault_storage_report_builder_secret }}"
+    grants:
+      <<: [*reader_profile, *audit_profile]
+  - name: viewer.example
+    source: 127.0.0.1
+    grants: *reader_profile
+
+limits: &limits
+  workers: 4
+  compress: true
+  timeout: 30
+single_merge:
+  <<: *limits
+  workers: 8
+explicit_before_merge:
+  timeout: 5
+  <<: *limits
+nested_merge_source: &tuned
+  <<: *limits
+  compress: false
+nested_merge_user:
+  <<: *tuned
+  name: tuned
+inline_merge:
+  <<: {inline: 1, workers: 1}
+  workers: 2
+scalar_anchor: &release 4.7
+scalar_alias: *release
+list_anchor: &zones [north, south]
+list_alias: *zones
+alias_items:
+  - *release
+  - *limits

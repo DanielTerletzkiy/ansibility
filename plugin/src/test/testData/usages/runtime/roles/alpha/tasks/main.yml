@@ -1,0 +1,30 @@
+---
+- name: Probe
+  ansible.builtin.command: /bin/true
+  register: result
+- name: Use the result
+  ansible.builtin.debug:
+    msg: "rc {{ result.rc }}"
+  when: result is succeeded
+- name: Render
+  ansible.builtin.template:
+    src: alpha.conf.j2
+    dest: /etc/alpha.conf
+- name: Servers
+  ansible.builtin.template:
+    src: servers.j2
+    dest: "/etc/servers/{{ server.name }}"
+  loop: "{{ alpha_servers }}"
+  loop_control:
+    loop_var: server
+- name: Not in the loop
+  ansible.builtin.debug:
+    msg: "{{ server }}"
+- name: Items
+  ansible.builtin.debug:
+    msg: "{{ item }}"
+  loop: [1, 2]
+- name: Facts
+  ansible.builtin.set_fact:
+    alpha_fact: "{{ result.rc }}"
+    alpha_declared: 1

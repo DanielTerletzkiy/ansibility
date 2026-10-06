@@ -1,0 +1,5 @@
+---
+- name: Install and run web
+  ansible.builtin.apt:
+    name: nginx
+    state: present

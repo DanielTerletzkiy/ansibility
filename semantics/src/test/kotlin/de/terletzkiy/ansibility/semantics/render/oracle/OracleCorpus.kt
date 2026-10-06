@@ -2,6 +2,7 @@ package de.terletzkiy.ansibility.semantics.render.oracle
 
 import de.terletzkiy.ansibility.semantics.CoreVersion
 import de.terletzkiy.ansibility.semantics.json.Json
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import java.io.File
 
 /**
@@ -35,9 +36,12 @@ class OracleCorpus private constructor(val root: File, val cases: List<OracleCas
             return OracleCorpus(root, dirs.map { OracleCase.load(it) })
         }
 
-        /** The oracle's directory on the test classpath. */
-        fun resourceRoot(): File =
-            File(requireNotNull(OracleCorpus::class.java.getResource(RESOURCE)) { "render oracle resources missing" }.toURI())
+        /** The oracle's directory on the test classpath; skips the calling test when the (git-ignored) corpus is absent. */
+        fun resourceRoot(): File {
+            val url = OracleCorpus::class.java.getResource(RESOURCE)
+            assumeTrue(url != null) { "render oracle resources missing (git-ignored); skipped" }
+            return File(url!!.toURI())
+        }
     }
 }
 

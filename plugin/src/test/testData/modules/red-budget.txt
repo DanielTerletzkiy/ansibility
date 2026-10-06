@@ -1,0 +1,7 @@
+# Module option and keyword findings over the whole infra fixture (ModuleChecksRedBudgetTest), under the default
+# "Documented types" preset with default toggles. One line per finding: path:line: highlight inspection: message.
+# Every line is reviewed; a new finding fails the test until it is reviewed and added here.
+#
+# Reviewed: `vars:` is written inside the ansible.builtin.assert arguments instead of at task level (research
+# tasks.md section 2); ansible-core 2.18.8 fails with "Invalid options for ansible.builtin.assert: vars".
+repos/platform/ansible/roles/mysql-databases/molecule/default/verify.yml:34: GENERIC_ERROR AnsibleUnknownModuleOption: Unsupported option `vars` for ansible.builtin.assert: `vars` is a task keyword, which belongs at task level; ansible-core 2.18.8 fails the task (Invalid options for ansible.builtin.assert: vars)

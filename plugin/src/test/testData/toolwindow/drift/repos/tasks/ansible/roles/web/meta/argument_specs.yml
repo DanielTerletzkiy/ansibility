@@ -1,0 +1,18 @@
+---
+argument_specs:
+  main:
+    short_description: A synthetic web server role.
+    options:
+      web_port:
+        type: int
+        default: 8080
+        description: Listen port.
+      web_user:
+        type: str
+        default: www-data
+        description: Service user.
+      web_sites:
+        type: list
+        elements: str
+        default: []
+        description: Site names.

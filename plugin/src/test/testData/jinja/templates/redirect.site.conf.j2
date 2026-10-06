@@ -1,0 +1,30 @@
+server {
+    listen {{ item.listen.address }}:{{ item.listen.port }};
+    server_name {{ item.names|join(' ') }};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen {{ item.listen.address }}:{{ item.listen.tls_port }} ssl{% if nginx_http2 %} http2{% endif %};
+    server_name {{ item.names|join(' ') }};
+
+    ssl_certificate /etc/nginx/tls/{{ item.listen.tls.cert }};
+    ssl_certificate_key /etc/nginx/tls/private/{{ item.listen.tls.key }};
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_cache shared:TLS:5m;
+    resolver 192.0.2.53 198.51.100.53 valid=60s;
+
+    access_log /var/log/nginx/{{ item.names|first }}.access.log;
+    error_log /var/log/nginx/{{ item.names|first }}.error.log warn;
+
+{% if item.allow is defined and item.allow|length > 0 %}
+{% for cidr in item.allow %}
+    allow {{ cidr }};
+{% endfor %}
+    deny all;
+{% endif %}
+
+    location / {
+        return 308 {{ item.target|default('https://www.example.test') }}$request_uri;
+    }
+}

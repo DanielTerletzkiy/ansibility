@@ -1,0 +1,11 @@
+---
+driver:
+  name: docker
+platforms:
+  - name: instance
+provisioner:
+  name: ansible
+  inventory:
+    group_vars:
+      all:
+        web_port: 8080

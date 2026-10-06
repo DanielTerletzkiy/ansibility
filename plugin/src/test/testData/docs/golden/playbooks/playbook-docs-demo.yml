@@ -1,0 +1,17 @@
+---
+# Synthetic playbook for the docs area tests (not from the infra repo).
+- name: Demo play
+  hosts: all
+  gather_facts: false
+  vars:
+    play_var: 1
+  roles:
+    - role: docs_demo
+      tags: [demo]
+      demo_param: 1
+  tasks:
+    - name: Ping
+      ansible.builtin.ping:
+
+- ansible.builtin.import_playbook: playbook-docs-other.yml
+  when: true

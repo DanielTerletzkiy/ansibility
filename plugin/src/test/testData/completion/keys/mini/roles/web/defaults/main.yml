@@ -1,0 +1,6 @@
+---
+web_mode: auto
+web_enabled: true
+web_root: /srv/www
+web_extra:
+  a: 1

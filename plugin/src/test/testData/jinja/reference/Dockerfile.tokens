@@ -1,0 +1,25 @@
+variable_begin
+name	item
+operator	.
+name	image
+variable_end
+block_begin
+name	if
+name	item
+operator	.
+name	command
+name	is
+name	not
+name	none
+block_end
+variable_begin
+name	item
+operator	.
+name	command
+variable_end
+block_begin
+name	else
+block_end
+block_begin
+name	endif
+block_end

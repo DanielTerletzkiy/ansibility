@@ -1,0 +1,1 @@
+scalar literal "A document that is a single block scalar.\n  Indented line.\n" => str

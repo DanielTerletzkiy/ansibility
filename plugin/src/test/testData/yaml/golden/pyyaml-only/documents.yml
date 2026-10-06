@@ -1,0 +1,7 @@
+# The adapter reads the first document (Ansible itself rejects files with more than one; so does YamlText).
+---
+first: document
+list: [1, 2]
+...
+---
+second: document

@@ -1,0 +1,14 @@
+---
+- name: Web servers
+  hosts: web
+  vars:
+    play_var: 1
+  roles:
+    - role: web
+      web_param: 2
+      tags: [web]
+  tasks:
+    - name: Remember the port
+      ansible.builtin.set_fact:
+        fact_one: "{{ web_port }}"
+        cacheable: true

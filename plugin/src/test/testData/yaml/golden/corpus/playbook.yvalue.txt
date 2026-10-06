@@ -1,0 +1,45 @@
+seq
+  map
+    key plain "become"
+      scalar plain "true" => bool true
+    key plain "hosts"
+      scalar plain "web:&prod" => str
+    key plain "name"
+      scalar plain "Configure web servers" => str
+    key plain "roles"
+      seq
+        map
+          key plain "role"
+            scalar plain "nginx" => str
+          key plain "tags"
+            seq
+              scalar plain "web" => str
+    key plain "tasks"
+      seq
+        map
+          key plain "ansible.builtin.ping"
+            empty
+          key plain "name"
+            scalar plain "Ping" => str
+        map
+          key plain "ansible.builtin.template"
+            map
+              key plain "dest"
+                scalar plain "/etc/nginx/nginx.conf" => str
+              key plain "mode"
+                scalar double "0644" => str
+              key plain "src"
+                scalar plain "templates/nginx.conf.j2" => str
+          key plain "name"
+            scalar plain "Template" => str
+          key plain "notify"
+            scalar plain "Reload nginx" => str
+          key plain "when"
+            scalar plain "nginx_enabled | bool" => str
+    key plain "vars"
+      map
+        key plain "http_port"
+          scalar plain "80" => int 80
+  map
+    key plain "import_playbook"
+      scalar plain "other.yml" => str

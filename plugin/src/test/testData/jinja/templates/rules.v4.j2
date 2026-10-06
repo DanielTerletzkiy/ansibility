@@ -1,0 +1,8 @@
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT ACCEPT [0:0]
+-A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+-A INPUT -p tcp --dport {{ firewall_ssh_port }} -s {{ firewall_admin_cidr }} -m conntrack --ctstate NEW -j ACCEPT
+-A INPUT -p tcp -m multiport --dports 80,443 -j ACCEPT
+COMMIT

@@ -1,0 +1,150 @@
+variable_begin
+name	ansible_managed
+variable_end
+block_begin
+name	for
+name	hook
+name	in
+name	webhook_targets
+block_end
+block_begin
+name	if
+name	hook
+operator	.
+name	enabled
+operator	|
+name	default
+operator	(
+name	true
+operator	)
+operator	|
+name	bool
+block_end
+block_begin
+name	set
+name	options
+operator	=
+name	webhook_defaults
+operator	.
+name	options
+operator	|
+name	combine
+operator	(
+name	hook
+operator	.
+name	options
+operator	|
+name	default
+operator	(
+operator	{
+operator	}
+operator	)
+operator	,
+name	recursive
+operator	=
+name	True
+operator	)
+block_end
+variable_begin
+name	hook
+operator	.
+name	name
+operator	|
+name	to_json
+variable_end
+variable_begin
+operator	(
+name	hook
+operator	.
+name	url
+operator	|
+name	default
+operator	(
+string	'https://hooks.example.test/'
+operator	~
+name	hook
+operator	.
+name	name
+operator	)
+operator	)
+operator	|
+name	to_json
+variable_end
+variable_begin
+name	hook
+operator	.
+name	send_resolved
+operator	|
+name	default
+operator	(
+name	false
+operator	)
+operator	|
+name	bool
+operator	|
+name	to_json
+variable_end
+block_begin
+name	for
+name	header
+operator	,
+name	header_value
+name	in
+operator	(
+name	hook
+operator	.
+name	headers
+operator	|
+name	default
+operator	(
+operator	{
+operator	}
+operator	)
+operator	)
+operator	.
+name	items
+operator	(
+operator	)
+block_end
+variable_begin
+name	header
+variable_end
+variable_begin
+name	header_value
+operator	|
+name	string
+operator	|
+name	to_json
+variable_end
+block_begin
+name	endfor
+block_end
+block_begin
+name	for
+name	option_key
+operator	,
+name	option_value
+name	in
+name	options
+operator	.
+name	items
+operator	(
+operator	)
+block_end
+variable_begin
+name	option_key
+variable_end
+variable_begin
+name	option_value
+operator	|
+name	to_json
+variable_end
+block_begin
+name	endfor
+block_end
+block_begin
+name	endif
+block_end
+block_begin
+name	endfor
+block_end

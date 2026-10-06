@@ -1,0 +1,8 @@
+# {{ ansible_managed }}
+probes:
+{% for probe in uptime_probes %}
+{%   if probe.enabled | default(true) | bool and probe.template is defined %}
+{%     set probe_template = playbook_dir ~ '/probes/' ~ probe.template %}
+{{ lookup('template', probe_template, template_vars={'probe': probe, 'interval': uptime_interval}) | trim | indent(2, true) }}
+{%   endif %}
+{% endfor %}

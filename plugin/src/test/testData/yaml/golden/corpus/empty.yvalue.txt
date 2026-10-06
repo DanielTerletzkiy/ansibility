@@ -1,0 +1,32 @@
+map
+  key plain "commented_out"
+    empty
+  key plain "empty_string"
+    scalar double "" => str
+  key plain "flow_map_keys_only"
+    map
+      key plain "a"
+        empty
+      key plain "b"
+        scalar plain "1" => int 1
+  key plain "flow_seq"
+    seq
+      scalar plain "a" => str
+      scalar plain "~" => null
+  key plain "list"
+    seq
+      empty
+      scalar plain "value" => str
+      empty
+  key plain "nested"
+    map
+      key plain "inner"
+        empty
+      key plain "other"
+        scalar plain "1" => int 1
+  key plain "no_value"
+    empty
+  key plain "null_word"
+    scalar plain "null" => null
+  key plain "tilde"
+    scalar plain "~" => null
