@@ -80,6 +80,13 @@ internal object HostSymbols {
         return SymbolScope(root, ordered, moleculeOnly)
     }
 
+    /** The environments of [root] (its inventory root's), for symbol lists outside any file. */
+    fun environments(project: Project, root: AnsibleRoot): List<SymbolEnvironment> {
+        val service = AnsibleContextService.getInstance(project) as? AnsibleContextServiceImpl ?: return emptyList()
+        val model = service.model
+        return model.environments(model.inventoryRoot(root)).map { SymbolEnvironment(it.name, it.graph, it.sourceFiles, null) }
+    }
+
     /** The hosts [pattern] selects in [environment], without the implicit localhost, plus whether it is implicit. */
     fun match(environment: SymbolEnvironment, pattern: String): PatternResult {
         val match = HostPattern.resolve(environment.graph, pattern)

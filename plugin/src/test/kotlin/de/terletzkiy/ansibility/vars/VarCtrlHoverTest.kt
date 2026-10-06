@@ -46,8 +46,8 @@ class VarCtrlHoverTest : VarsTestCase() {
 
     fun testHintsForNavigationTargets() {
         copyInfra("repos/falcon")
-        val prod = "repos/falcon/ansible/environments/prod/group_vars/all/vars.yml"
-        val targets = gotoTargets(prod, offsetAt(prod, 471, "postfix_relayhost", 2))
+        val template = "repos/falcon/ansible/roles/postfix/templates/main.cf.j2"
+        val targets = gotoTargets(template, offsetAt(template, 9, "postfix_relayhost", 2))
         assertEquals(2, targets.size)
         for (target in targets) assertEquals("postfix_relayhost: str = \"\" · postfix (optional)", hintOf(target))
     }
@@ -69,11 +69,11 @@ class VarCtrlHoverTest : VarsTestCase() {
 
     fun testSeveralTargetsShowNoVariableHint() {
         copyInfra("repos/falcon")
-        val prod = "repos/falcon/ansible/environments/prod/group_vars/all/vars.yml"
-        myFixture.configureFromTempProjectFile(prod)
+        val template = "repos/falcon/ansible/roles/postfix/templates/main.cf.j2"
+        myFixture.configureFromTempProjectFile(template)
         val editor = myFixture.editor
         val file = myFixture.file
-        val offset = offsetAt(prod, 471, "postfix_relayhost", 2)
+        val offset = offsetAt(template, 9, "postfix_relayhost", 2)
         val data = inBackgroundReadAction { GotoDeclarationOrUsageHandler2.getCtrlMouseData(editor, file, offset) }
         assertNotNull(data)
         assertFalse("the platform shows no documentation hint for several targets", plain(data!!.hintText ?: "").startsWith("postfix_relayhost:"))

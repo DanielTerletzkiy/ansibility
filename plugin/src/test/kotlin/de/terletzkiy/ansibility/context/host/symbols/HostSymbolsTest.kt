@@ -123,6 +123,19 @@ class HostSymbolsTest : BasePlatformTestCase() {
         assertTrue(myFixture.editor.document.text, myFixture.editor.document.text.startsWith("- hosts: database_primary"))
     }
 
+    fun testHostvarsMemberGoesToTheWinningDefinition() {
+        val path = "roles/db/tasks/main.yml"
+        val text = String(myFixture.findFileInTempDir(path).contentsToByteArray())
+        val offset = text.indexOf("ansible_host }}") + 1
+        val targets = runReadActionBlocking {
+            val psi = psiManager.findFile(myFixture.findFileInTempDir(path))!!
+            val site = SiteClassifier.EP_NAME.extensionList.firstNotNullOf { it.classify(psi, offset) }
+            assertTrue(site.toString(), site is AnsibleSite.VarRef)
+            HostvarsMemberNavigation().targets(site, psi).map { it.containingFile.virtualFile.path.substringAfter("environments/") to it.text }
+        }
+        assertEquals(listOf("prod/hosts.yml" to "ansible_host: 192.0.2.20"), targets)
+    }
+
     private fun siteAt(path: String, needle: String): AnsibleSite {
         val text = String(myFixture.findFileInTempDir(path).contentsToByteArray())
         val offset = text.indexOf(needle)

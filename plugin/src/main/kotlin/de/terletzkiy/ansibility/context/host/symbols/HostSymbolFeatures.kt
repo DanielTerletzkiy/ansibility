@@ -22,6 +22,7 @@ import com.intellij.psi.PsiManager
 import com.intellij.psi.util.PsiTreeUtil
 import de.terletzkiy.ansibility.api.AnsibleSite
 import de.terletzkiy.ansibility.api.CompletionSource
+import de.terletzkiy.ansibility.api.EffectiveVarsService
 import de.terletzkiy.ansibility.api.HostConstruct
 import de.terletzkiy.ansibility.api.HostPatternSite
 import de.terletzkiy.ansibility.api.InventoryNameSite
@@ -29,6 +30,7 @@ import de.terletzkiy.ansibility.api.SiteDocumentation
 import de.terletzkiy.ansibility.api.SiteNavigation
 import de.terletzkiy.ansibility.api.SourceLocation
 import de.terletzkiy.ansibility.context.host.AnsibilityHostBundle.message
+import org.jetbrains.yaml.psi.YAMLKeyValue
 import org.jetbrains.yaml.psi.YAMLScalar
 
 /** Hover and Ctrl+Q on a host symbol (F8.8): per environment, what the pattern, group or host resolves to. */
@@ -104,7 +106,9 @@ class HostSymbolNavigation : SiteNavigation {
             val scope = HostSymbols.scope(project, file) ?: return emptyList()
             return when (site) {
                 is InventoryNameSite -> scope.environments.flatMap { env ->
-                    if (site.isGroup) HostSymbols.groupLocations(env, site.name).take(1) else HostSymbols.hostLocations(env, site.name).take(1)
+                    val all = if (site.isGroup) HostSymbols.groupLocations(env, site.name) else HostSymbols.hostLocations(env, site.name)
+                    // In an inventory file the name itself is one of the locations; Ctrl+B goes to the others.
+                    all.filterNot { it.file == file && it.offset in site.range.startOffset..site.range.endOffset }.take(1)
                 }
                 is HostPatternSite -> {
                     val names = if (site.construct == HostConstruct.DELEGATE_TO) listOf(site.pattern) else HostSymbols.names(site.pattern)
@@ -172,5 +176,29 @@ class HostSymbolCompletion : CompletionSource {
         } else {
             typed
         }
+    }
+}
+
+/**
+ * Ctrl+B on the member of `hostvars['h'].x` (or `hostvars['h']['x']`): the definition of `x` that wins on host `h`
+ * at inventory level, in every environment that has the host (the selected environment's first).
+ */
+class HostvarsMemberNavigation : SiteNavigation {
+    override fun targets(site: AnsibleSite, file: PsiFile): List<PsiElement> {
+        if (site !is AnsibleSite.VarRef || site.name != HOSTVARS || site.attrPath.size < 2 || HOSTVARS in site.localNames) return emptyList()
+        val (host, name) = site.attrPath
+        val project = file.project
+        val scope = HostSymbols.scope(project, file.originalFile.viewProvider.virtualFile) ?: return emptyList()
+        val service = EffectiveVarsService.getInstance(project)
+        val manager = PsiManager.getInstance(project)
+        return scope.environments.filter { it.graph.host(host) != null }.mapNotNull { env ->
+            val winner = service.inventoryView(scope.root, env.name, host, null)?.get(name)?.winner ?: return@mapNotNull null
+            val psi = manager.findFile(winner.file) ?: return@mapNotNull null
+            psi.findElementAt(winner.offset)?.let { PsiTreeUtil.getParentOfType(it, YAMLKeyValue::class.java, false) ?: it }
+        }.distinct()
+    }
+
+    private companion object {
+        const val HOSTVARS = "hostvars"
     }
 }

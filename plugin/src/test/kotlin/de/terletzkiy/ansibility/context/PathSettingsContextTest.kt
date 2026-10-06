@@ -116,11 +116,7 @@ class PathSettingsContextTest : BasePlatformTestCase() {
         val moleculeKinds = setOf(FileKind.MOLECULE_CONFIG, FileKind.MOLECULE_PLAYBOOK, FileKind.MOLECULE_TASKS, FileKind.MOLECULE_VARS)
 
         paths { it.copy(moleculeSupport = false) }
-        val context = workspace.contextOf(config)!!
-        assertEquals(FileKind.OTHER, context.kind)
-        assertEquals("the file still belongs to its role", "docker-registry", context.roleName)
-        assertNull(context.moleculeScenarioDir)
-        assertNull(context.layer)
+        assertNull("molecule files are skipped like ignored paths", workspace.contextOf(config))
         val kinds = allFiles().mapNotNull { workspace.contextOf(it)?.kind }
         assertTrue(kinds.isNotEmpty())
         assertTrue("no molecule kind in $kinds", kinds.none { it in moleculeKinds })

@@ -5,6 +5,7 @@ import de.terletzkiy.ansibility.api.AnsibleSite
 import de.terletzkiy.ansibility.api.FileKind
 import de.terletzkiy.ansibility.api.SiteClassifier
 import de.terletzkiy.ansibility.context.host.symbols.HostSymbolClassifier
+import de.terletzkiy.ansibility.navigation.tags.TagSiteClassifier
 
 /** [VarsSiteClassifier]: variable references and structurally decided variable keys; null for everything else. */
 class VarsSiteClassifierTest : VarsTestCase() {
@@ -24,10 +25,10 @@ class VarsSiteClassifierTest : VarsTestCase() {
         site(path, line, marker, delta) as? AnsibleSite.VarKey ?: error("no VarKey at $path:$line '$marker': ${site(path, line, marker, delta)}")
 
     fun testIsRegisteredFirst() {
-        // The host-symbol classifier (F8.8) precedes it; it answers only on host and group names.
+        // The host-symbol (F8.8) and tag (X70) classifiers precede it; they answer only on host/group names and tags.
         val classifiers = SiteClassifier.EP_NAME.extensionList
-        assertTrue(classifiers[0] is HostSymbolClassifier)
-        assertTrue(classifiers[1] is VarsSiteClassifier)
+        val vars = classifiers.indexOfFirst { it is VarsSiteClassifier }
+        assertEquals(setOf(HostSymbolClassifier::class.java, TagSiteClassifier::class.java), classifiers.take(vars).mapTo(HashSet()) { it.javaClass })
     }
 
     fun testReferencesComeFromTheLocator() {

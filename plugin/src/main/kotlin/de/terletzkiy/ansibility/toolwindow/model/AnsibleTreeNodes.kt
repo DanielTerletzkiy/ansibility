@@ -23,6 +23,9 @@ enum class NodeIcon {
 
     /** HA7: a variable of a host's Effective vars, a definition it shadows, a role a play applies, a runtime marker. */
     VARIABLE, SHADOWED, ROLE, RUNTIME,
+
+    /** R9: a plain file of a role's listing. */
+    FILE,
 }
 
 /** How the name of a node is drawn: regular, bold (the selected environment of a play), struck through (a shadowed definition). */
@@ -109,13 +112,16 @@ abstract class AnsibleTreeNode(val parent: AnsibleTreeNode?, segment: String) {
 }
 
 /** The invisible root: one node per non-detached root, then one per detached worktree. */
-class WorkspaceNode(val snapshot: WorkspaceSnapshot) : AnsibleTreeNode(null, "workspace") {
+class WorkspaceNode(val snapshot: WorkspaceSnapshot, val view: TreeView = TreeView.REPOS) : AnsibleTreeNode(null, view.segment) {
     override val project: Project? get() = snapshot.project
 
     override fun presentation() = NodePresentation(message("toolwindow.title"), icon = NodeIcon.WORKSPACE)
 
-    override fun children(context: TreeContext): List<AnsibleTreeNode> =
-        snapshot.roots.map { RootNode(this, it) } + snapshot.worktrees.map { WorktreeNode(this, it) }
+    override fun children(context: TreeContext): List<AnsibleTreeNode> = when (view) {
+        TreeView.REPOS -> snapshot.roots.map { RootNode(this, it) } + snapshot.worktrees.map { WorktreeNode(this, it) }
+        TreeView.ROLES -> RoleNameNode.all(this, snapshot)
+        TreeView.ENVIRONMENTS -> EnvironmentNameNode.all(this, snapshot)
+    }
 }
 
 /** A root: `falcon  core 2.18.8 (docker pin) · 35 roles · 4 envs`. */
@@ -148,6 +154,7 @@ class RootNode(parent: AnsibleTreeNode, val root: RootSnapshot) : AnsibleTreeNod
             RootKind.ROLE_LIBRARY -> Unit
         }
         if (root.playbooks.isNotEmpty()) add(PlaybooksNode(this@RootNode, root))
+        if (root.ownRoles.isNotEmpty()) add(RolesNode(this@RootNode, root))
     }.withContributions(this)
 
     override fun details(): NodeDetails = ToolWindowDetails.root(root)
@@ -216,9 +223,15 @@ class SharedEnvironmentsNode(parent: AnsibleTreeNode, val root: RootSnapshot) : 
 }
 
 /** `prod  environments/prod/hosts.yml · 12 groups · 2 hosts`. */
-class EnvironmentNode(parent: AnsibleTreeNode, val env: EnvironmentView) : AnsibleTreeNode(parent, "env:${env.name}") {
+class EnvironmentNode(
+    parent: AnsibleTreeNode,
+    val env: EnvironmentView,
+    /** The row's name in the Environments tab (the root), instead of the environment name. */
+    @Nls private val label: String? = null,
+    segment: String = "env:${env.name}",
+) : AnsibleTreeNode(parent, segment) {
     override fun presentation() = NodePresentation(
-        env.name,
+        label ?: env.name,
         message(
             "environment.extra", env.hostsFileLabel, message("count.groups", env.visibleGroups.size), message("count.hosts", env.inventory.hosts.size),
         ),

@@ -10,6 +10,19 @@
         <applicationService serviceInterface="de.terletzkiy.ansibility.workspace.ScopeUi"
                             serviceImplementation="de.terletzkiy.ansibility.workspace.DefaultScopeUi"/>
         <!-- /ws1 -->
+        <!-- ws8: F9.9 Find choosers and Search Everywhere › Symbols -->
+        <searchScopesProvider implementation="de.terletzkiy.ansibility.workspace.search.AnsibleSearchScopes"/>
+        <gotoSymbolContributor implementation="de.terletzkiy.ansibility.workspace.search.AnsibleSymbolContributor"/>
+        <!-- /ws8 -->
+        <!-- x69: task, block, loop and Jinja live templates in YAML and templates -->
+        <defaultLiveTemplates file="/liveTemplates/Ansibility.xml"/>
+        <liveTemplateContext contextId="ANSIBILITY_YAML" implementation="de.terletzkiy.ansibility.workspace.AnsibleTemplateContext"/>
+    </extensions>
+
+    <extensions defaultExtensionNs="de.terletzkiy.ansibility">
+        <!-- ws9: the scope segment of the context widget, after the file scope and vault segments -->
+        <contextWidgetSegment id="ansibilityWorkspaceScope" order="last"
+                              implementation="de.terletzkiy.ansibility.workspace.ScopeWidgetSegment"/>
     </extensions>
 
     <actions resource-bundle="messages.AnsibilityScopeBundle">
@@ -23,5 +36,30 @@
         <action id="Ansibility.Scope.OpenInProjectView"
                 class="de.terletzkiy.ansibility.workspace.actions.OpenScopeInProjectViewAction"/>
         <!-- /ws1 -->
+        <!-- ws7: F9.8 -->
+        <action id="Ansibility.VarInAllRepos" class="de.terletzkiy.ansibility.workspace.crossroot.VarInAllReposAction">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <add-to-group group-id="GoToMenu" anchor="last"/>
+        </action>
+        <!-- /ws7 -->
+        <!-- ws9: the Environments tab's env rows -->
+        <action id="Ansibility.UseEnvInAllRoots" class="de.terletzkiy.ansibility.workspace.actions.UseEnvInAllRootsAction">
+            <add-to-group group-id="Ansibility.ToolWindow.Popup" anchor="last"/>
+        </action>
+        <!-- /ws9 -->
+        <!-- x64 -->
+        <action id="Ansibility.NewRole" class="de.terletzkiy.ansibility.workspace.actions.NewRoleAction" icon="AllIcons.Nodes.Package">
+            <add-to-group group-id="NewGroup" anchor="last"/>
+        </action>
+    </actions>
+    <!-- x82: node context menu -->
+    <actions resource-bundle="messages.AnsibilityToolWindowBundle">
+        <action id="Ansibility.ToolWindow.CopyName" class="de.terletzkiy.ansibility.toolwindow.CopyNodeNameAction"
+                icon="AllIcons.Actions.Copy">
+            <add-to-group group-id="Ansibility.ToolWindow.Popup" anchor="last"/>
+        </action>
+        <action id="Ansibility.ToolWindow.ShowInProject" class="de.terletzkiy.ansibility.toolwindow.ShowNodeInProjectAction">
+            <add-to-group group-id="Ansibility.ToolWindow.Popup" anchor="last"/>
+        </action>
     </actions>
 </idea-plugin>

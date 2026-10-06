@@ -1,0 +1,25 @@
+<templateSet group="Ansibility">
+  <template name="task" value="- name: $NAME$&#10;  ansible.builtin.$MODULE$:&#10;    $END$" description="Ansible task" toReformat="false" toShortenFQNames="false">
+    <variable name="NAME" expression="" defaultValue="&quot;Describe the task&quot;" alwaysStopAt="true"/>
+    <variable name="MODULE" expression="" defaultValue="&quot;debug&quot;" alwaysStopAt="true"/>
+    <context><option name="ANSIBILITY_YAML" value="true"/></context>
+  </template>
+  <template name="block" value="- name: $NAME$&#10;  block:&#10;    - $END$&#10;  rescue: []&#10;  always: []" description="Ansible block with rescue and always" toReformat="false" toShortenFQNames="false">
+    <variable name="NAME" expression="" defaultValue="&quot;Describe the block&quot;" alwaysStopAt="true"/>
+    <context><option name="ANSIBILITY_YAML" value="true"/></context>
+  </template>
+  <template name="loop" value="loop: &quot;{{ $LIST$ }}&quot;&#10;loop_control:&#10;  loop_var: $VAR$&#10;$END$" description="Ansible loop with loop_control" toReformat="false" toShortenFQNames="false">
+    <variable name="LIST" expression="" defaultValue="&quot;items&quot;" alwaysStopAt="true"/>
+    <variable name="VAR" expression="" defaultValue="&quot;item&quot;" alwaysStopAt="true"/>
+    <context><option name="ANSIBILITY_YAML" value="true"/></context>
+  </template>
+  <template name="whendef" value="when: $NAME$ is defined$END$" description="when: variable is defined" toReformat="false" toShortenFQNames="false">
+    <variable name="NAME" expression="" defaultValue="" alwaysStopAt="true"/>
+    <context><option name="ANSIBILITY_YAML" value="true"/></context>
+  </template>
+  <template name="incrole" value="- name: $NAME$&#10;  ansible.builtin.include_role:&#10;    name: $ROLE$&#10;$END$" description="include_role task" toReformat="false" toShortenFQNames="false">
+    <variable name="NAME" expression="" defaultValue="&quot;Include role&quot;" alwaysStopAt="true"/>
+    <variable name="ROLE" expression="" defaultValue="" alwaysStopAt="true"/>
+    <context><option name="ANSIBILITY_YAML" value="true"/></context>
+  </template>
+</templateSet>

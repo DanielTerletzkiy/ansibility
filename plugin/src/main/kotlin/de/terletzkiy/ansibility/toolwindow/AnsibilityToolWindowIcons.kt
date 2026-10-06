@@ -46,6 +46,7 @@ object AnsibilityToolWindowIcons {
         NodeIcon.SHADOWED -> ShadowedVariable
         NodeIcon.ROLE -> AllIcons.Nodes.Package
         NodeIcon.RUNTIME -> AllIcons.Actions.Lightning
+        NodeIcon.FILE -> AllIcons.FileTypes.Any_type
     }
 
     /** A definition another one shadows: the variable icon, greyed. */

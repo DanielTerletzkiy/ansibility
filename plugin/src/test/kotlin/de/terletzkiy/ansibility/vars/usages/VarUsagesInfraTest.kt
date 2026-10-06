@@ -62,14 +62,13 @@ class VarUsagesInfraTest : UsagesTestCase() {
     }
 
     /**
-     * Acceptance 3: Ctrl+B on an override key keeps going to the declaration. With `alloy` in falcon (as in the real
-     * repository) a role declares `environment_group`; without it the key's X87 siblings are the targets
-     * (`VarNavigationTest.testReferenceInAVarsFileGoesToTheSameFilesDefinition`, `VarFindUsagesTest`).
+     * Ctrl+B on an override key shows its usages, even though `alloy` in falcon declares `environment_group`: the key
+     * is a definition itself; Go to Super and the override gutter lead to the declaration.
      */
-    fun testCtrlBOnAnOverrideKeyKeepsItsNavigation() {
+    fun testCtrlBOnAnOverrideKeyShowsUsages() {
         val ops = "repos/falcon/ansible/environments/ops/group_vars/all/vars.yml"
-        assertEquals(GTDUOutcome.GTD, gtdu(at(ops, 56, "environment_group")))
-        assertEquals(listOf("$SPEC:105"), gotoTargets(ops, offsetAt(ops, 56, "environment_group", 1)).map(::describe))
+        assertEquals(GTDUOutcome.SU, gtdu(at(ops, 56, "environment_group")))
+        assertEquals(emptyList<String>(), gotoTargets(ops, offsetAt(ops, 56, "environment_group", 1)).map(::describe))
     }
 
     /** Acceptance 4: highlighting marks every use in the open file, injected uses included. */

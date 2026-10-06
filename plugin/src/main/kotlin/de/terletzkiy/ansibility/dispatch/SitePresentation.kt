@@ -4,9 +4,12 @@ import de.terletzkiy.ansibility.api.AnsibleSite
 import de.terletzkiy.ansibility.api.FileKind
 import de.terletzkiy.ansibility.api.HostPatternSite
 import de.terletzkiy.ansibility.api.InventoryNameSite
+import de.terletzkiy.ansibility.api.JinjaBlockSite
 import de.terletzkiy.ansibility.api.JinjaContainer
 import de.terletzkiy.ansibility.api.KeywordLevel
 import de.terletzkiy.ansibility.api.RenderKind
+import de.terletzkiy.ansibility.api.TagSite
+import de.terletzkiy.ansibility.api.TemplatedValueSite
 import de.terletzkiy.ansibility.api.VarDefKind
 import de.terletzkiy.ansibility.context.ContextPresentation
 import org.jetbrains.annotations.Nls
@@ -40,6 +43,9 @@ object SitePresentation {
         is HostPatternSite -> AnsibilityDispatchBundle.message("site.host.pattern", site.pattern)
         is InventoryNameSite ->
             AnsibilityDispatchBundle.message(if (site.isGroup) "site.inventory.group" else "site.inventory.host", site.name)
+        is TemplatedValueSite -> AnsibilityDispatchBundle.message("site.templated.value", containerName(site.container))
+        is JinjaBlockSite -> AnsibilityDispatchBundle.message("site.jinja.block", site.keyword, containerName(site.container))
+        is TagSite -> AnsibilityDispatchBundle.message("site.tag", site.name)
     }
 
     /**
@@ -122,6 +128,7 @@ object SitePresentation {
             VarDefKind.JINJA_LOCAL -> "def.kind.jinja.local"
             VarDefKind.ROLE_PARAMS -> "def.kind.role.params"
             VarDefKind.VARS_PROMPT -> "def.kind.vars.prompt"
+            VarDefKind.INCLUDE_VARS -> "def.kind.include.vars"
         },
     )
 

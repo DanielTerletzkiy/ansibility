@@ -9,6 +9,17 @@
         <problemHighlightFilter implementation="de.terletzkiy.ansibility.render.editor.PreviewSecretsFilter"/>
         <!-- /r11-14 -->
     </extensions>
+    <!-- F11.1: rendered values in hover. The classifier runs last, so it only answers where no other area does. -->
+    <extensions defaultExtensionNs="de.terletzkiy.ansibility">
+        <siteClassifier id="ansibilityRender" order="last"
+                        implementation="de.terletzkiy.ansibility.render.hover.TemplatedValueClassifier"/>
+        <siteDocumentation id="ansibilityRenderBlocks" order="last"
+                           implementation="de.terletzkiy.ansibility.render.hover.JinjaBlockDocumentation"/>
+        <siteDocumentation id="ansibilityRender" order="last"
+                           implementation="de.terletzkiy.ansibility.render.hover.RenderedValueDocumentation"/>
+        <cardSection id="ansibilityRendered" order="last"
+                     implementation="de.terletzkiy.ansibility.render.hover.RenderedValueCardSection"/>
+    </extensions>
     <actions resource-bundle="messages.AnsibilityRenderBundle">
         <!-- r11-15 -->
         <action id="Ansibility.Render.Show" class="de.terletzkiy.ansibility.render.editor.ShowRenderedTemplateAction">

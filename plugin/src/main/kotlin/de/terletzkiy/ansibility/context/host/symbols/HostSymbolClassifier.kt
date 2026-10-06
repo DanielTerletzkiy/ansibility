@@ -28,8 +28,11 @@ import org.jetbrains.yaml.psi.YAMLSequenceItem
  */
 class HostSymbolClassifier : SiteClassifier, DumbAware {
     override fun classify(file: PsiFile, offset: Int): AnsibleSite? {
-        if (file !is YAMLFile) return null
         val virtualFile = file.originalFile.viewProvider.virtualFile
+        if (file !is YAMLFile) {
+            val context = AnsibleWorkspace.getInstance(file.project).contextOf(virtualFile) ?: return null
+            return if (context.kind == FileKind.INVENTORY_INI) iniNameAt(file.viewProvider.contents, offset) else null
+        }
         val context = AnsibleWorkspace.getInstance(file.project).contextOf(virtualFile) ?: return null
         // At the end of a value (where completion runs) the element at the caret is the line break after it.
         val scalar = PsiTreeUtil.getParentOfType(file.findElementAt(offset), YAMLScalar::class.java, false)
@@ -73,6 +76,43 @@ class HostSymbolClassifier : SiteClassifier, DumbAware {
                 ?: find(GROUPS_ATTRIBUTE, 1, true, HostConstruct.GROUPS)
                 ?: find(HOSTVARS_SUBSCRIPT, 2, false, HostConstruct.HOSTVARS)
                 ?: find(GROUP_NAMES_TEST, 2, true, HostConstruct.GROUP_NAMES)
+        }
+
+        private val INI_HEADER = Regex("""^\s*\[([^\]:\s]+)(?::(\w+))?]""")
+        private val INI_NAME = Regex("""^\s*([^\s#;=\[]+)""")
+
+        /**
+         * The group or host name at [offset] of an INI inventory: the group of a section header, a child group of a
+         * `:children` section, the host of a host line (not host ranges). Keys of `:vars` sections are variables.
+         */
+        internal fun iniNameAt(text: CharSequence, offset: Int): InventoryNameSite? {
+            if (offset < 0 || offset > text.length) return null
+            val lineStart = text.lastIndexOf('\n', (offset - 1).coerceAtLeast(0)).let { if (it < 0 || offset == 0) 0 else it + 1 }
+            val lineEnd = text.indexOf('\n', offset).let { if (it < 0) text.length else it }
+            val line = text.subSequence(lineStart, lineEnd).toString()
+            val column = offset - lineStart
+            INI_HEADER.find(line)?.let { header ->
+                val name = header.groups[1]!!
+                if (column !in name.range.first..name.range.last + 1) return null
+                return InventoryNameSite(name.value, true, HostConstruct.INVENTORY_FILE, TextRange(lineStart + name.range.first, lineStart + name.range.last + 1))
+            }
+            val section = sectionAbove(text, lineStart) ?: return null
+            if (section == "vars") return null
+            val name = INI_NAME.find(line)?.groups?.get(1) ?: return null
+            if (column !in name.range.first..name.range.last + 1 || name.value.startsWith("#") || name.value.startsWith(";")) return null
+            val range = TextRange(lineStart + name.range.first, lineStart + name.range.last + 1)
+            return InventoryNameSite(name.value, section == "children", HostConstruct.INVENTORY_FILE, range)
+        }
+
+        /** The suffix of the section header above [lineStart] (`children`, `vars`, or "" for a host section). */
+        private fun sectionAbove(text: CharSequence, lineStart: Int): String? {
+            var end = lineStart - 1
+            while (end > 0) {
+                val start = text.lastIndexOf('\n', end - 1).let { if (it < 0) 0 else it + 1 }
+                INI_HEADER.find(text.subSequence(start, end))?.let { return it.groups[2]?.value.orEmpty() }
+                end = start - 1
+            }
+            return ""
         }
 
         internal fun isTemplated(text: String): Boolean = "{{" in text || "{%" in text

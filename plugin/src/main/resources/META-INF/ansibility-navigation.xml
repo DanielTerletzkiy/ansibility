@@ -21,4 +21,24 @@
                          enabledByDefault="true" level="ERROR"
                          implementationClass="de.terletzkiy.ansibility.inspections.references.AnsibleUnresolvedReferenceInspection"/>
     </extensions>
+    <!-- x53 Go to Related inside a role; x60 console hyperlinks for ansible-playbook output -->
+    <extensions defaultExtensionNs="com.intellij">
+        <gotoRelatedProvider implementation="de.terletzkiy.ansibility.navigation.RoleRelatedItems"/>
+        <consoleFilterProvider implementation="de.terletzkiy.ansibility.navigation.AnsibleConsoleFilterProvider"/>
+        <!-- x37: paths in lookup('file' | 'template' | 'fileglob', ...) -->
+        <!-- x55: plays, sections, blocks and tasks in the structure view and the breadcrumbs -->
+        <breadcrumbsInfoProvider order="first" implementation="de.terletzkiy.ansibility.navigation.structure.AnsibleBreadcrumbsProvider"/>
+        <gotoDeclarationHandler id="AnsibilityLookupPath" order="first, before AnsibilityGotoDeclaration" implementation="de.terletzkiy.ansibility.navigation.LookupPathNavigation"/>
+    </extensions>
+    <!-- x70: tags as symbols: completion from the root's tags, hover with who carries a tag, Ctrl+B to the others -->
+    <extensions defaultExtensionNs="de.terletzkiy.ansibility">
+        <siteClassifier id="ansibilityTags" order="first, before ansibilityVars"
+                        implementation="de.terletzkiy.ansibility.navigation.tags.TagSiteClassifier"/>
+        <siteDocumentation id="ansibilityTags" implementation="de.terletzkiy.ansibility.navigation.tags.TagDocumentation"/>
+        <siteNavigation id="ansibilityTags" implementation="de.terletzkiy.ansibility.navigation.tags.TagNavigation"/>
+        <completionSource id="ansibilityTags" implementation="de.terletzkiy.ansibility.navigation.tags.TagCompletion"/>
+    </extensions>
+    <extensions defaultExtensionNs="com.intellij.yaml">
+        <customStructureViewFactory implementation="de.terletzkiy.ansibility.navigation.structure.AnsibleStructureViewFactory"/>
+    </extensions>
 </idea-plugin>

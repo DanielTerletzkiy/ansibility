@@ -11,6 +11,7 @@ import de.terletzkiy.ansibility.api.FileKind
 import de.terletzkiy.ansibility.api.Inventory
 import de.terletzkiy.ansibility.api.InventoryService
 import de.terletzkiy.ansibility.api.PlayGraph
+import de.terletzkiy.ansibility.api.RoleRef
 import de.terletzkiy.ansibility.api.RoleRegistry
 import de.terletzkiy.ansibility.api.RootKind
 import de.terletzkiy.ansibility.api.VarFile
@@ -98,10 +99,17 @@ class RootSnapshot(
     val precedence: List<PrecedenceEntry>,
     /** The enclosing PROJECT root of a NESTED_PLAYBOOK root. */
     val parent: AnsibleRoot?,
+    /** The roles the root resolves (`RoleRegistry.roles`), for the Roles node and tab (R9 F9.2, F9.3). */
+    val roles: List<RoleRef> = emptyList(),
 ) {
     val dir: VirtualFile get() = root.dir
 
     val kind: RootKind get() = root.kind
+
+    /** The roles listed under this root: a nested playbook root's own only, since its parent's are listed there. */
+    val ownRoles: List<RoleRef> by lazy {
+        if (kind == RootKind.NESTED_PLAYBOOK) roles.filter { VfsUtilCore.isAncestor(dir, it.dir, false) } else roles
+    }
 
     val environments: List<EnvironmentView> by lazy { inventories.map { EnvironmentView(this, it) } }
 
@@ -194,10 +202,11 @@ object WorkspaceSnapshotBuilder {
             workspace.contextOf(playbook)?.kind == FileKind.PLAYBOOK
         }
         val inventories = InventoryService.getInstance(project)
+        val roles = RoleRegistry.getInstance(project).roles(root)
         return RootSnapshot(
             root = root,
             target = TargetVersionDetector.getInstance(project).targetVersion(root),
-            roleCount = RoleRegistry.getInstance(project).roles(root).size,
+            roleCount = roles.size,
             inventories = inventories.inventories(root),
             playbookVarFiles = inventories.playbookVarFiles(root),
             playbooks = playbooks,
@@ -205,6 +214,7 @@ object WorkspaceSnapshotBuilder {
             connection = cfgText?.let { ConnectionSettings.parse(cfgFile, it) },
             precedence = precedence,
             parent = root.parentDir?.let { dir -> all.firstOrNull { it.dir == dir && !it.detached } },
+            roles = roles,
         )
     }
 

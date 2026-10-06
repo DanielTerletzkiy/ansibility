@@ -22,6 +22,7 @@ import de.terletzkiy.ansibility.api.FileContext
 import de.terletzkiy.ansibility.api.ProjectLayoutService
 import de.terletzkiy.ansibility.settings.AnsibilityProjectSettings
 import de.terletzkiy.ansibility.settings.PathSettings
+import de.terletzkiy.ansibility.settings.layout.LayoutSettings
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -141,6 +142,7 @@ class AnsibleWorkspaceImpl(private val project: Project) : AnsibleWorkspace, Dis
         return RootDetector(
             isExcluded = { dir -> fileIndex.isExcluded(dir) || isIgnored(dir) },
             detachedRule = settings.settings.paths.detachedRule,
+            rolesPathOverride = { dir -> LayoutSettings.getInstance(project).of(dir).override.rolesPath },
         ).detect(bases)
     }
 

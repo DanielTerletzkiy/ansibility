@@ -111,10 +111,13 @@ class VarFindUsagesTest : UsagesTestCase() {
         }
     }
 
-    fun testCtrlBOnUsesOverrideKeysAndNestedKeysStillNavigates() {
-        for ((path, line) in listOf(TASKS to 9, TASKS to 34, TEMPLATE to 1, GROUP_VARS to 2, MOLECULE to 10)) {
+    fun testCtrlBOnUsesAndNestedKeysNavigatesWhileOverrideKeysShowUsages() {
+        for ((path, line) in listOf(TASKS to 9, TASKS to 34, TEMPLATE to 1)) {
             val offset = at(path, line, "web_port")
             assertEquals("$path:$line", GTDUOutcome.GTD, gtdu(offset))
+        }
+        for ((path, line) in listOf(GROUP_VARS to 2, MOLECULE to 10)) {
+            assertEquals("an override key is a definition: $path:$line", GTDUOutcome.SU, gtdu(at(path, line, "web_port")))
         }
         assertEquals(
             "a use still goes to the spec, then the defaults",
@@ -124,10 +127,10 @@ class VarFindUsagesTest : UsagesTestCase() {
         assertEquals("a nested key", GTDUOutcome.GTD, gtdu(at(GROUP_VARS, 4, "inner")))
     }
 
-    /** Acceptance 3 on an inventory-only key: Ctrl+B keeps X87 (the sibling definitions), Alt+F7 lists the usages. */
-    fun testCtrlBOnAnInventoryOnlyKeyKeepsX87() {
-        assertEquals(GTDUOutcome.GTD, gtdu(at(GROUP_VARS, 5, "inventory_only")))
-        assertEquals(listOf("site/environments/stage/group_vars/all/vars.yml:2"), gotoTargets(GROUP_VARS, offsetAt(GROUP_VARS, 5, "inventory_only", 1)).map(::describe))
+    /** An inventory-only key is a definition too: Ctrl+B and Alt+F7 both list the usages, the sibling key included. */
+    fun testCtrlBOnAnInventoryOnlyKeyShowsUsages() {
+        assertEquals(GTDUOutcome.SU, gtdu(at(GROUP_VARS, 5, "inventory_only")))
+        assertEquals(emptyList<String>(), gotoTargets(GROUP_VARS, offsetAt(GROUP_VARS, 5, "inventory_only", 1)).map(::describe))
         assertEquals(
             listOf("site/environments/dev/group_vars/all/vars.yml:5:inventory_only W", "site/environments/stage/group_vars/all/vars.yml:2:inventory_only W"),
             describeUsages(findUsagesViaAction()),

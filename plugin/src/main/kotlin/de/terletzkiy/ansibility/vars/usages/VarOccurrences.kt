@@ -158,7 +158,9 @@ internal object VarOccurrences {
             for (step in path) keyValue = (keyValue.value as? YAMLMapping)?.getKeyValueByKey(step) ?: break
             if (keyValue.keyText != path.last()) continue
             val key = keyValue.key ?: continue
-            result += VarOccurrence(location.file, key.textRange, write = true, definition = definition, kind = VarUsageKind.of(definition))
+            val quoted = key.textLength >= 2 && key.text.first() in QUOTES && key.text.last() == key.text.first()
+            val range = if (quoted) TextRange(key.textRange.startOffset + 1, key.textRange.endOffset - 1) else key.textRange
+            result += VarOccurrence(location.file, range, write = true, definition = definition, kind = VarUsageKind.of(definition))
         }
         return result
     }
@@ -178,6 +180,7 @@ internal object VarOccurrences {
     }
 
     private const val MEMBER_WINDOW = 400
+    private val QUOTES = setOf('\'', '"')
 
     // -------------------------------------------------------------------------------------------- root variables
 

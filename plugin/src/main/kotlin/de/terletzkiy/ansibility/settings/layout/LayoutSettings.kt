@@ -25,12 +25,15 @@ data class LayoutOverride(
     val inventories: List<LayoutInventory>? = null,
     /** One environment per file for a cfg inventory that is a single directory (D49); null is Auto (off). */
     val onePerFile: Boolean? = null,
+    /** Custom roles directories, root-relative, replacing `<root>/roles` and `roles_path`; null is Auto. */
+    val rolesPath: List<String>? = null,
 ) {
-    val isEmpty: Boolean get() = inventories == null && onePerFile == null
+    val isEmpty: Boolean get() = inventories == null && onePerFile == null && rolesPath == null
 
     /** This override with every Auto field taken from [fallback]. */
     fun orElse(fallback: LayoutOverride?): LayoutOverride =
-        if (fallback == null) this else LayoutOverride(inventories ?: fallback.inventories, onePerFile ?: fallback.onePerFile)
+        if (fallback == null) this
+        else LayoutOverride(inventories ?: fallback.inventories, onePerFile ?: fallback.onePerFile, rolesPath ?: fallback.rolesPath)
 }
 
 /** Where the overrides of a root are stored (D54). */
@@ -197,9 +200,16 @@ class RootLayoutBean {
     @get:XCollection(style = XCollection.Style.v2)
     var inventories: MutableList<InventoryBean> = ArrayList()
 
+    @get:Attribute("customRoles")
+    var customRoles: Boolean = false
+
+    @get:XCollection(style = XCollection.Style.v2, propertyElementName = "rolesPath", elementName = "dir")
+    var rolesPath: MutableList<String> = ArrayList()
+
     fun toOverride(): LayoutOverride = LayoutOverride(
         inventories = if (custom) inventories.map { LayoutInventory(it.name, it.sources.map(String::trim).filter(String::isNotEmpty), it.isDefault) } else null,
         onePerFile = onePerFile,
+        rolesPath = if (customRoles) rolesPath.map(String::trim).filter(String::isNotEmpty) else null,
     )
 
     companion object {
@@ -209,6 +219,8 @@ class RootLayoutBean {
             onePerFile = override.onePerFile
             this.follow = follow
             inventories = override.inventories.orEmpty().mapTo(ArrayList()) { InventoryBean.of(it) }
+            customRoles = override.rolesPath != null
+            rolesPath = override.rolesPath.orEmpty().toMutableList()
         }
     }
 }

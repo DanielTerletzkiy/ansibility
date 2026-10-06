@@ -8,6 +8,7 @@ import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.InventoryService
 import de.terletzkiy.ansibility.api.LayoutOrigin
 import de.terletzkiy.ansibility.api.ProjectLayoutService
+import de.terletzkiy.ansibility.api.RoleRegistry
 import de.terletzkiy.ansibility.context.AnsibleWorkspaceImpl
 import de.terletzkiy.ansibility.settings.RootKeys
 import de.terletzkiy.ansibility.settings.layout.LayoutInventory
@@ -89,6 +90,16 @@ class LayoutSettingsTest : BasePlatformTestCase() {
         assertEquals(listOf("mine"), ids())
     }
 
+    fun testRolesPathOverrideReplacesDetectedRoleDirs() {
+        add("site.yml", "- hosts: all\n  roles: [a]\n")
+        add("inventory/hosts.yml", "all:\n  hosts:\n    h1:\n")
+        add("roles/a/tasks/main.yml", "- debug: {}\n")
+        add("shared/b/tasks/main.yml", "- debug: {}\n")
+        assertEquals(listOf("a"), roleNames())
+        LayoutSettings.getInstance(project).update(key(), LayoutOverride(rolesPath = listOf("shared")), LayoutStorage.PROJECT, follow = false)
+        assertEquals(listOf("b"), roleNames())
+    }
+
     fun testStateRoundTrips() {
         val bean = LayoutSettingsBean.of(
             mapOf("." to LayoutOverride(listOf(LayoutInventory("prod", listOf("a.ini", "b/"), isDefault = true)), onePerFile = true)),
@@ -119,4 +130,6 @@ class LayoutSettingsTest : BasePlatformTestCase() {
     private fun layout() = root().let { root -> runReadActionBlocking { ProjectLayoutService.getInstance(project).layout(root) } }
 
     private fun ids(): List<String> = layout().inventories.map { it.id }
+
+    private fun roleNames(): List<String> = root().let { root -> runReadActionBlocking { RoleRegistry.getInstance(project).roles(root).map { it.name }.sorted() } }
 }

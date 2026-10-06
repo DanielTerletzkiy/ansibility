@@ -45,6 +45,7 @@ import de.terletzkiy.ansibility.toolwindow.model.AnsibleTreeNode
 import de.terletzkiy.ansibility.toolwindow.model.NavigationTarget
 import de.terletzkiy.ansibility.toolwindow.model.NodeDetails
 import de.terletzkiy.ansibility.toolwindow.model.TreeContext
+import de.terletzkiy.ansibility.toolwindow.model.TreeView
 import de.terletzkiy.ansibility.toolwindow.model.WorkspaceSnapshot
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -81,8 +82,8 @@ import javax.swing.tree.TreeSelectionModel
  *   the cached tables answer (or compute what the indexes now allow).
  * - Expand All ([expandAll]) leaves the per-host subtrees collapsed (a host's Effective vars and Targeted by).
  */
-class AnsibleToolWindowPanel(private val project: Project) : SimpleToolWindowPanel(true, true), Disposable {
-    private val structure = AnsibleTreeStructure(project, TreeContext { PlayGraph.getInstance(project).playsOf(it) })
+class AnsibleToolWindowPanel(private val project: Project, val view: TreeView = TreeView.REPOS) : SimpleToolWindowPanel(true, true), Disposable {
+    private val structure = AnsibleTreeStructure(project, TreeContext { PlayGraph.getInstance(project).playsOf(it) }, view)
     private val structureModel = StructureTreeModel(structure, this)
     private val asyncModel = AsyncTreeModel(structureModel, this)
 
@@ -182,7 +183,7 @@ class AnsibleToolWindowPanel(private val project: Project) : SimpleToolWindowPan
             tree.emptyText.clear()
         }
         val done = structureModel.invalidateAsync()
-        if (!expandedOnce && snapshot.roots.isNotEmpty()) {
+        if (!expandedOnce && snapshot.roots.isNotEmpty() && view == TreeView.REPOS) {
             expandedOnce = true
             done.thenRun {
                 ApplicationManager.getApplication().invokeLater(

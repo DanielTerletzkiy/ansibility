@@ -1,11 +1,13 @@
 package de.terletzkiy.ansibility.vars
 
 import com.intellij.openapi.application.runReadActionBlocking
+import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.terletzkiy.ansibility.api.AnsibleSite
 import de.terletzkiy.ansibility.api.SiteClassifier
 import de.terletzkiy.ansibility.context.AnsibleWorkspaceImpl
+import de.terletzkiy.ansibility.refactoring.VarRenamer
 import de.terletzkiy.ansibility.vars.usages.VarOccurrences
 import de.terletzkiy.ansibility.vars.usages.VarScope
 import de.terletzkiy.ansibility.vars.usages.VarUsageSearch
@@ -52,5 +54,17 @@ class MemberKeyNavigationTest : BasePlatformTestCase() {
             assertEquals(setOf("defaults", "tasks"), reads.map { it.file.parent.name }.toSet())
             reads.forEach { assertEquals("ops-pxe1", String(it.file.contentsToByteArray()).substring(it.range.startOffset, it.range.endOffset)) }
         }
+
+        val symbol = runReadActionBlocking { VarRenamer.symbolAt(psiManager.findFile(vars)!!, offset)!! }
+        assertNull(VarRenamer.refusal(project, symbol))
+        assertNotNull(VarRenamer.invalidMemberName("ops pxe"))
+        val plan = runReadActionBlocking { VarRenamer.plan(project, symbol, "ops-pxe2") }
+        assertEquals(3, plan.edits.size)
+        plan.apply(project, "rename")
+        val document = { path: String -> FileDocumentManager.getInstance().getDocument(myFixture.findFileInTempDir(path))!!.text }
+        assertTrue(document("environments/prod/group_vars/all.yml").contains("  ops-pxe2: 10.0.0.247\n"))
+        assertTrue(document("roles/fw/tasks/main.yml").contains("host_ips['ops-pxe2']"))
+        assertTrue("other members stay", document("roles/fw/tasks/main.yml").contains("host_ips['ops-ops1']"))
+        assertTrue(document("roles/fw/defaults/main.yml").contains("host_ips['ops-pxe2'] }}\" # ops-pxe1"))
     }
 }

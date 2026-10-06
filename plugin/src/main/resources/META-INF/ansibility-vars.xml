@@ -78,4 +78,10 @@
                 implementation="de.terletzkiy.ansibility.vars.registered.RegisteredDocumentationLinkHandler"/>
     </extensions>
     <!-- /rv1 -->
+    <!-- x42: override gutter icons on role defaults, spec options and vars-file keys -->
+    <extensions defaultExtensionNs="com.intellij">
+        <codeInsight.lineMarkerProvider language="yaml"
+                                        implementationClass="de.terletzkiy.ansibility.vars.gutter.OverrideLineMarkers"/>
+        <codeInsight.gotoSuper language="yaml" implementationClass="de.terletzkiy.ansibility.vars.gutter.OverrideGotoSuper"/>
+    </extensions>
 </idea-plugin>

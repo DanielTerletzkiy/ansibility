@@ -163,9 +163,6 @@ class VarNavigation : SiteNavigation {
             /** File kinds that hold argument_specs options. */
             private val SPEC_KINDS = setOf(FileKind.ROLE_ARGSPEC, FileKind.ROLE_META)
 
-            /** Definitions a task or a block makes for its own run (D-FU2: Ctrl+B shows their usages when no role declares the name). */
-            private val TASK_SCOPED_KINDS = setOf(VarDefKind.SET_FACT, VarDefKind.TASK_VARS, VarDefKind.BLOCK_VARS, VarDefKind.INCLUDE_PARAMS)
-
             /**
              * True when a direct read of [name] has constant accessors starting with [path] (`host_ips['ops-pxe1']`
              * for the key `ops-pxe1` under `host_ips`), in [root] or a nested playbook root inside it.
@@ -221,9 +218,9 @@ class VarNavigation : SiteNavigation {
                 val symbol = VarService.getInstance(project).symbol(root, keySite.name)
                 val ranking = VarRanking(project, root, context.roleName, virtualFile, context.kind, symbol)
                 val keyLocation = keySite.variable.key?.let { SourceLocation(virtualFile, it.textRange.startOffset) }
-                if (topLevel && !ranking.anyRoleDeclares && symbol.definitions.any { it.location == keyLocation && it.kind in TASK_SCOPED_KINDS }) {
-                    return emptyList()
-                }
+                // A key that is itself a definition (an inventory override, set_fact, task vars …) is a declaration:
+                // Ctrl+B shows its usages; Go to Super and the override gutter lead to what it overrides.
+                if (topLevel && symbol.definitions.any { it.location == keyLocation }) return emptyList()
                 val collector = Collector(project, root, ranking)
                 keyLocation?.let(collector.excluded::add)
                 // A nested key is never its own target either: a nested argument_specs option resolves to itself.

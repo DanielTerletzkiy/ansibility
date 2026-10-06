@@ -8,6 +8,8 @@
         <fileBasedIndex implementation="de.terletzkiy.ansibility.index.HandlerIndex"/>
         <fileBasedIndex implementation="de.terletzkiy.ansibility.index.ModuleUseIndex"/>
         <fileBasedIndex implementation="de.terletzkiy.ansibility.index.PlayIndex"/>
+        <!-- x70: tag name -> tags: scalars of plays, role entries, blocks and tasks -->
+        <fileBasedIndex implementation="de.terletzkiy.ansibility.index.TagIndex"/>
 
         <!-- v2b: `ansible.vault` (plan amendment R7/R8, A.7): raw label -> inline and whole-file vault envelopes, header
              facts only (never plaintext, never the payload); queries in index.vault.VaultIndexQueries. -->

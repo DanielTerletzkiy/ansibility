@@ -7,6 +7,7 @@ import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.content.ContentFactory
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
+import de.terletzkiy.ansibility.toolwindow.model.TreeView
 
 /**
  * The "Ansibility" tool window (plan F6.1, `<toolWindow id="Ansibility" anchor="left">` in `ansibility-inventory.xml`).
@@ -20,11 +21,14 @@ class AnsibleToolWindowFactory : ToolWindowFactory, DumbAware {
         readAction { AnsibleWorkspace.getInstance(project).roots().any { !it.detached } }
 
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
-        val panel = AnsibleToolWindowPanel(project)
-        val content = ContentFactory.getInstance().createContent(panel, null, false)
-        content.setDisposer(panel)
-        content.preferredFocusableComponent = panel.tree
-        toolWindow.contentManager.addContent(content)
+        for ((view, title) in TABS) {
+            val panel = AnsibleToolWindowPanel(project, view)
+            val content = ContentFactory.getInstance().createContent(panel, AnsibilityToolWindowBundle.message(title), false)
+            content.isCloseable = false
+            content.setDisposer(panel)
+            content.preferredFocusableComponent = panel.tree
+            toolWindow.contentManager.addContent(content)
+        }
     }
 
     companion object {
@@ -33,5 +37,11 @@ class AnsibleToolWindowFactory : ToolWindowFactory, DumbAware {
          * (`messages/AnsibilityBundle.properties`), which the platform looks up by id.
          */
         const val ID: String = "Ansibility"
+
+        private val TABS = listOf(
+            TreeView.REPOS to "toolwindow.tab.workspace",
+            TreeView.ROLES to "toolwindow.tab.roles",
+            TreeView.ENVIRONMENTS to "toolwindow.tab.environments",
+        )
     }
 }

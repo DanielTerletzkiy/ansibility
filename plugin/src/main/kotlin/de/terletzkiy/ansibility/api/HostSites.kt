@@ -18,6 +18,9 @@ enum class HostConstruct {
 
     /** The host part of `hostvars['h']`. */
     HOSTVARS,
+
+    /** A group or host name of an INI inventory: a `[g]`, `[g:vars]`, `[g:children]` header, a child group, a host line. */
+    INVENTORY_FILE,
 }
 
 /** A host pattern: a play's `hosts:` (`web:&prod:!db`, `all`) or a literal `delegate_to:` host. */

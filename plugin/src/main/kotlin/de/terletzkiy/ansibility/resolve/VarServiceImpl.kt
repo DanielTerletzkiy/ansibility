@@ -99,6 +99,7 @@ class VarServiceImpl(private val project: Project) : VarService {
         )
         val indexed = definitions.mapTo(HashSet()) { it.location }
         InlineInventoryDefinitions.of(project, root, name).filterTo(definitions) { it.location !in indexed }
+        IncludedVarsDefinitions.of(project, root, name).filterTo(definitions) { it.location !in indexed && definitions.none { d -> d.location == it.location } }
         definitions.sortWith(compareBy<VarDefinition>({ it.location.file.path }, { it.location.offset }))
         bindings.sortWith(compareBy<SpecBinding>({ it.location.file.path }, { it.location.offset }))
         return VarSymbol(root.dir, name, definitions, bindings)
@@ -133,6 +134,7 @@ class VarServiceImpl(private val project: Project) : VarService {
             )
         }
         names += InlineInventoryDefinitions.names(project, root)
+        names += IncludedVarsDefinitions.names(project, root)
         return names
     }
 

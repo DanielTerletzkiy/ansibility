@@ -67,6 +67,8 @@
                         implementation="de.terletzkiy.ansibility.context.host.symbols.HostSymbolClassifier"/>
         <siteDocumentation id="ansibilityHosts"
                            implementation="de.terletzkiy.ansibility.context.host.symbols.HostSymbolDocumentation"/>
+        <siteNavigation id="ansibilityHostvarsMember" order="first"
+                        implementation="de.terletzkiy.ansibility.context.host.symbols.HostvarsMemberNavigation"/>
         <siteNavigation id="ansibilityHosts"
                         implementation="de.terletzkiy.ansibility.context.host.symbols.HostSymbolNavigation"/>
         <completionSource id="ansibilityHosts"

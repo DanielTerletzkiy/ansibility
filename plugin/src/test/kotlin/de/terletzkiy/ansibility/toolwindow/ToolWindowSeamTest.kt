@@ -49,7 +49,7 @@ class ToolWindowSeamTest : ToolWindowTestCase() {
 
     fun testContributedChildrenFollowTheBuiltInOnes() {
         ExtensionTestUtil.maskExtensions(ToolWindowNodeContributor.EP_NAME, listOf(everywhere), testRootDisposable)
-        assertEquals(listOf("Shared (playbook-level) vars", "Environments", "Playbooks", "extra:test:root"), names(path("falcon")))
+        assertEquals(listOf("Shared (playbook-level) vars", "Environments", "Playbooks", "Roles (9)", "extra:test:root"), names(path("falcon")))
         assertEquals(listOf("Groups", "Hosts", "extra:test:env"), names(path("falcon", "Environments", "prod")))
         assertEquals("extra:test:group", names(path("falcon", "Environments", "prod", "Groups", "keycloak")).last())
         assertEquals("extra:test:group", names(path("falcon", "Environments", "prod", "Groups", "all")).last())

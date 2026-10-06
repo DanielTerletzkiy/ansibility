@@ -48,6 +48,9 @@ enum class VarDefKind {
     SET_FACT, REGISTER, LOOP_VAR, INDEX_VAR,
     TEMPLATE_VARS, JINJA_LOCAL,
     ROLE_PARAMS, VARS_PROMPT,
+
+    /** A top-level key of a file a literal `include_vars` task loads. */
+    INCLUDE_VARS,
 }
 
 enum class ValueShape { LITERAL, JINJA, VAULT, NULL, CONTAINER }

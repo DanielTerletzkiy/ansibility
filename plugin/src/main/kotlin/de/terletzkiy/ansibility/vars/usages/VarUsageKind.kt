@@ -83,6 +83,7 @@ internal data class VarUsageKind(
             VarDefKind.TEMPLATE_VARS -> VarUsageKind("usage.set.template.vars")
             VarDefKind.VARS_PROMPT -> VarUsageKind("usage.set.vars.prompt")
             VarDefKind.JINJA_LOCAL -> SET_LOCAL
+            VarDefKind.INCLUDE_VARS -> VarUsageKind("usage.set.include.vars.file")
         }
 
         private fun environmentOf(definition: VarDefinition): String =

@@ -34,22 +34,13 @@ class VarNavigationTest : VarsTestCase() {
         refreshRoots()
         val prod = "repos/falcon/ansible/environments/prod/group_vars/all/vars.yml"
 
-        assertEquals(
-            listOf("repos/falcon/ansible/roles/postfix/meta/argument_specs.yml:6", "repos/falcon/ansible/roles/postfix/defaults/main.yml:2"),
-            targets(prod, 471, "postfix_relayhost"),
-        )
+        assertEquals("an override key is a definition: Ctrl+B shows its usages", emptyList<String>(), targets(prod, 471, "postfix_relayhost"))
 
         val hostVars = "repos/falcon/ansible/environments/prod/host_vars/prod-prod1/vars.yml"
-        val mainIp = gotoTargets(hostVars, offsetAt(hostVars, 25, "system_networking_main_ip", 2))
-        val roles = listOf("grafana", "haproxy", "loki", "system")
-        assertEquals("one chooser entry per falcon role that declares it", roles.map { "repos/falcon/ansible/roles/$it/meta/argument_specs.yml" }, mainIp.map { describe(it).substringBefore(':') })
-        assertTrue(mainIp.all { "/repos/falcon/" in (it as VarTargetElement).location.file.path })
-        val presentations = runReadActionBlocking { mainIp.map { targetPresentation(it) } }
-        assertEquals(List(4) { "system_networking_main_ip" }, presentations.map { it.presentableText })
         assertEquals(
-            "each entry shows role, kind, file and line",
-            "grafana · spec · roles/grafana/meta/argument_specs.yml:385",
-            presentations.first().containerText,
+            "a host_vars key declared by four roles is still a definition: Ctrl+B shows its usages, no role chooser",
+            emptyList<String>(),
+            targets(hostVars, 25, "system_networking_main_ip", 2),
         )
 
         assertEquals(
@@ -150,15 +141,12 @@ class VarNavigationTest : VarsTestCase() {
 
     fun testVarsFileKeys() {
         copyVarsData("site")
-        assertEquals(
-            listOf("site/roles/web/meta/argument_specs.yml:5", "site/roles/web/defaults/main.yml:3", "site/roles/other/meta/argument_specs.yml:5"),
-            targets(GROUP_VARS, 2, "web_port", 1),
-        )
+        assertEquals("an override key: nothing, Ctrl+B shows usages (Ctrl+U goes to what it overrides)", emptyList<String>(), targets(GROUP_VARS, 2, "web_port", 1))
         // D-FU1 (plan amendment FU): a role's own declaration gets no targets; the platform then shows its usages.
         assertEquals("from the defaults key: nothing, Ctrl+B shows usages", emptyList<String>(), targets(DEFAULTS, 3, "web_port", 1))
         assertEquals("from the spec option: nothing, Ctrl+B shows usages", emptyList<String>(), targets(SPEC, 5, "web_port", 1))
         assertEquals("from a role vars key: nothing", emptyList<String>(), targets("site/roles/web/vars/main.yml", 2, "web_internal", 1))
-        assertEquals("X87: an inventory-only key offers its siblings", listOf("site/environments/stage/group_vars/all/vars.yml:2"), targets(GROUP_VARS, 5, "inventory_only", 1))
+        assertEquals("an inventory-only key: nothing either", emptyList<String>(), targets(GROUP_VARS, 5, "inventory_only", 1))
         assertEquals("vault indirection", listOf("site/environments/dev/group_vars/all/vault.yml:2"), targets(GROUP_VARS, 6, "vault_web_secret", 1))
     }
 
@@ -172,19 +160,14 @@ class VarNavigationTest : VarsTestCase() {
 
     /**
      * The user's report: `color_prompt_environment: "{{ environment_group | upper }}"` offered only the spec options.
-     * A reference inside a vars file goes to the definition that file sees; the spec stays one Ctrl+B away, on the key.
+     * A reference inside a vars file goes to the definition that file sees; the key itself shows its usages.
      */
     fun testReferenceInAVarsFileGoesToTheSameFilesDefinition() {
         copyInfra("repos/falcon")
         refreshRoots()
         val ops = "repos/falcon/ansible/environments/ops/group_vars/all/vars.yml"
         assertEquals("only the key below, so Ctrl+B jumps", listOf("$ops:56"), targets(ops, 47, "environment_group", 2))
-        val fromKey = targets(ops, 56, "environment_group", 1)
-        assertEquals(
-            "the key keeps its own rule (no falcon role declares it: X87, the other environments' keys), never itself",
-            listOf("repos/falcon/ansible/environments/prod/group_vars/all/vars.yml:520", "repos/falcon/ansible/environments/test/group_vars/all/vars.yml:292"),
-            fromKey,
-        )
+        assertEquals("the key is a definition: Ctrl+B shows its usages", emptyList<String>(), targets(ops, 56, "environment_group", 1))
     }
 
     fun testPlatformGotoDeclarationJumpsFromAVarsFileReference() {
@@ -247,7 +230,7 @@ class VarNavigationTest : VarsTestCase() {
 
     fun testTargetsNavigateAndCarryTheCard() {
         copyVarsData("site")
-        val target = gotoTargets(GROUP_VARS, offsetAt(GROUP_VARS, 2, "web_port", 1)).first() as VarTargetElement
+        val target = gotoTargets(TASKS, offsetAt(TASKS, 34, "web_port", 1)).first() as VarTargetElement
         val navigation = runReadActionBlocking { target.navigationElement }
         assertTrue(navigation is YAMLKeyValue)
         assertEquals("web_port", (navigation as YAMLKeyValue).keyText)
@@ -257,7 +240,7 @@ class VarNavigationTest : VarsTestCase() {
         val editor = FileEditorManager.getInstance(project).selectedTextEditor!!
         assertEquals(vf("site/roles/web/meta/argument_specs.yml"), editor.virtualFile)
         assertEquals(target.location.offset, editor.caretModel.offset)
-        assertEquals(target, gotoTargets(GROUP_VARS, offsetAt(GROUP_VARS, 2, "web_port", 1)).first())
+        assertEquals(target, gotoTargets(TASKS, offsetAt(TASKS, 34, "web_port", 1)).first())
     }
 
     fun testPlatformGotoDeclarationActionJumpsToASingleTarget() {

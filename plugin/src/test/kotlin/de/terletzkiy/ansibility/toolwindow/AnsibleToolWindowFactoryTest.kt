@@ -64,7 +64,10 @@ class AnsibleToolWindowFactoryTest : ToolWindowTestCase() {
         refreshRoots()
         val toolWindow = ToolWindowHeadlessManagerImpl.MockToolWindow(project)
         AnsibleToolWindowFactory().createToolWindowContent(project, toolWindow)
-        val content = toolWindow.contentManager.contents.single()
+        val contents = toolWindow.contentManager.contents
+        assertEquals(listOf("Repos", "Roles", "Environments"), contents.map { it.displayName })
+        assertTrue("the fixed tabs cannot be closed", contents.none { it.isCloseable })
+        val content = contents.first()
         val panel = content.component as AnsibleToolWindowPanel
         assertSame(panel.tree, content.preferredFocusableComponent)
         PlatformTestUtil.waitWithEventsDispatching("no refresh", { panel.refreshCount > 0 }, 20)

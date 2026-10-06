@@ -22,7 +22,7 @@ import de.terletzkiy.ansibility.semantics.inventory.InventoryDirectoryWalk
  * ghosts). The ignored paths of the project settings are applied by the caller (`AnsibleWorkspaceImpl`).
  *
  * [moleculeSupport] is read on every classification: when it answers false, files below a `molecule/` directory
- * are [FileKind.OTHER] (still with their role), so no `MOLECULE_*` kind is ever reported.
+ * are skipped like ignored paths, so no `MOLECULE_*` kind is ever reported and their plays and vars never take part.
  *
  * [layoutOf] answers first for inventory files and inventory-level vars directories (plan amendment R10): a file
  * that is an inventory source of the root's layout is [FileKind.INVENTORY] or [FileKind.INVENTORY_INI], and a
@@ -43,7 +43,9 @@ class AnsibleFileClassifier(
         val relative = VfsUtilCore.getRelativePath(file, root.dir) ?: return Result(null, false)
         val segments = relative.split('/')
         if (AnsibleLayout.DOT_ANSIBLE in segments || segments.first() == AnsibleLayout.PATCHES) return Result(null, false)
-        val run = Run(file, root, moleculeSupport())
+        val molecule = moleculeSupport()
+        if (!molecule && AnsibleLayout.MOLECULE in segments.dropLast(1)) return Result(null, false)
+        val run = Run(file, root, molecule)
         val roleDir = roleDirOf(file, root)
         val context = when {
             roleDir == null -> run.rootFile(segments)

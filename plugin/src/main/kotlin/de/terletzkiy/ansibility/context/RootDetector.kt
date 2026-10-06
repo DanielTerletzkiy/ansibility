@@ -74,6 +74,8 @@ class RootDetector(
     private val maxDirectories: Int = DEFAULT_MAX_DIRECTORIES,
     private val detachedRule: Boolean = true,
     private val playbookProbe: (VirtualFile) -> Boolean = PlaybookProbe::looksLikePlaybook,
+    /** Custom roles directories of a root dir (Layout settings, root-relative), replacing the detected ones; null is Auto. */
+    private val rolesPathOverride: (VirtualFile) -> List<String>? = { null },
 ) {
     private class Candidate(
         val dir: VirtualFile,
@@ -183,7 +185,8 @@ class RootDetector(
                 kind = c.kind,
                 detached = worktree != null,
                 parentDir = c.parentProject,
-                rolesDirs = (ownRoles + cfgRoles).distinct(),
+                rolesDirs = rolesPathOverride(c.dir)?.mapNotNull { c.dir.findFileByRelativePath(it.removePrefix("./"))?.takeIf { d -> d.isDirectory } }
+                    ?: (ownRoles + cfgRoles).distinct(),
                 environmentsDir = c.dir.childDirectory(AnsibleLayout.ENVIRONMENTS)
                     ?: c.parentProject?.takeIf { c.kind == RootKind.NESTED_PLAYBOOK }?.childDirectory(AnsibleLayout.ENVIRONMENTS),
                 displayName = displayName(c, byDir, worktree),

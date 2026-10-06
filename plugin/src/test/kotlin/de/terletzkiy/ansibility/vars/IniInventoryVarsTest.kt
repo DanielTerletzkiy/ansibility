@@ -1,5 +1,6 @@
 package de.terletzkiy.ansibility.vars
 
+import com.intellij.codeInsight.navigation.actions.GotoDeclarationOrUsageHandler2
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.actionSystem.impl.SimpleDataContext
 import com.intellij.openapi.application.runReadActionBlocking
@@ -59,6 +60,13 @@ class IniInventoryVarsTest : VarsTestCase() {
         rename("web_user")
         assertText("hosts.ini", "web_user=www")
         assertText("roles/web/tasks/main.yml", "{{ web_user }}")
+    }
+
+    fun testCtrlBOnAnIniKeyShowsItsUsages() {
+        setUpProject()
+        caret("hosts.ini", "nginx_user=")
+        val outcome = runReadActionBlocking { GotoDeclarationOrUsageHandler2.testGTDUOutcome(myFixture.editor, myFixture.file, myFixture.caretOffset) }
+        assertEquals(GotoDeclarationOrUsageHandler2.GTDUOutcome.SU, outcome)
     }
 
     private fun caret(path: String, marker: String) {

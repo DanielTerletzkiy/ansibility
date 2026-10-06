@@ -54,11 +54,23 @@ internal object VarRenamer {
         else -> null
     }
 
+    private val MEMBER = Regex("""[A-Za-z0-9_.:@-]+""")
+
+    /** The error for [name] as a new member key (`ops-pxe1`), or null. */
+    fun invalidMemberName(name: String): String? = when {
+        name.isEmpty() -> AnsibilityRefactoringBundle.message("rename.var.error.empty")
+        !MEMBER.matches(name) -> AnsibilityRefactoringBundle.message("rename.member.error", name)
+        else -> null
+    }
+
+    /** The text [symbol] has at each occurrence: the variable name, or a member's last key. */
+    fun oldName(symbol: VarSymbolElement): String = (symbol.scope as? VarScope.Member)?.path?.last() ?: symbol.name
+
     /** Why [symbol] cannot be renamed, or null. Read action, smart mode. */
     fun refusal(project: Project, symbol: VarSymbolElement): String? = when (symbol.scope) {
         is VarScope.Loop -> if (symbol.name in LOOP_IMPLICIT) AnsibilityRefactoringBundle.message("rename.var.refuse.loop", symbol.name) else null
         is VarScope.Local -> null
-        is VarScope.Member -> AnsibilityRefactoringBundle.message("rename.var.refuse.member", symbol.presentableText)
+        is VarScope.Member -> null
         is VarScope.Root -> {
             val defined = VarService.getInstance(project).symbol(symbol.root, symbol.name).definitions.any { it.kind != VarDefKind.JINJA_LOCAL }
             if (defined) null else AnsibilityRefactoringBundle.message("rename.var.refuse.undefined", symbol.name)
@@ -79,7 +91,7 @@ internal object VarRenamer {
         for (occurrence in VarOccurrences.of(project, symbol, null)) {
             ProgressManager.checkCanceled()
             val text = documents.getDocument(occurrence.file)?.immutableCharSequence
-            val edit = text?.let { RenamePlan.edit(occurrence.file, it, occurrence.range, symbol.name, newName) }
+            val edit = text?.let { RenamePlan.edit(occurrence.file, it, occurrence.range, oldName(symbol), newName) }
             if (edit != null) edits += edit else skipped++
         }
         return RenamePlan(RenamePlan.distinct(edits), skipped = skipped)
@@ -87,8 +99,7 @@ internal object VarRenamer {
 
     /** The variable at the caret (or right before it, at the end of a name). Read action. */
     fun symbolAt(file: PsiFile, offset: Int): VarSymbolElement? =
-        (VarUsageSearch.symbolAt(file, offset) ?: offset.takeIf { it > 0 }?.let { VarUsageSearch.symbolAt(file, it - 1) })
-            ?.takeIf { it.scope !is VarScope.Member }
+        VarUsageSearch.symbolAt(file, offset) ?: offset.takeIf { it > 0 }?.let { VarUsageSearch.symbolAt(file, it - 1) }
 }
 
 /** Shift+F6 on a variable's definition or use: [VarRenamer] behind a name dialog. */
@@ -111,7 +122,8 @@ class VarRenameHandler : RenameHandler, TitledHandler {
             return
         }
         val newName = askName(project, dataContext, symbol) ?: return
-        if (newName == symbol.name) return
+        val oldName = VarRenamer.oldName(symbol)
+        if (newName == oldName) return
         val clashes = VarRenamer.clashes(project, symbol, newName)
         if (clashes > 0 && !ApplicationManager.getApplication().isUnitTestMode) {
             val answer = Messages.showYesNoDialog(
@@ -124,10 +136,10 @@ class VarRenameHandler : RenameHandler, TitledHandler {
             ThrowableComputable<RenamePlan, RuntimeException> {
                 ReadAction.nonBlocking(Callable { VarRenamer.plan(project, symbol, newName) }).inSmartMode(project).executeSynchronously()
             },
-            AnsibilityRefactoringBundle.message("rename.var.searching", symbol.name), true, project,
+            AnsibilityRefactoringBundle.message("rename.var.searching", oldName), true, project,
         )
-        plan.apply(project, AnsibilityRefactoringBundle.message("rename.var.command", symbol.name, newName))
-        report(project, AnsibilityRefactoringBundle.message("rename.done", symbol.name, newName, plan.edits.size, plan.files, plan.skipped))
+        plan.apply(project, AnsibilityRefactoringBundle.message("rename.var.command", oldName, newName))
+        report(project, AnsibilityRefactoringBundle.message("rename.done", oldName, newName, plan.edits.size, plan.files, plan.skipped))
     }
 
     override fun invoke(project: Project, elements: Array<out PsiElement>, dataContext: DataContext) {}
@@ -136,7 +148,8 @@ class VarRenameHandler : RenameHandler, TitledHandler {
         if (ApplicationManager.getApplication().isUnitTestMode) return PsiElementRenameHandler.DEFAULT_NAME.getData(dataContext)
         val dialog = RenameDialog(
             project, AnsibilityRefactoringBundle.message("rename.var.title"),
-            AnsibilityRefactoringBundle.message("rename.var.label", symbol.presentableText), symbol.name, null, VarRenamer::invalidName,
+            AnsibilityRefactoringBundle.message("rename.var.label", symbol.presentableText), VarRenamer.oldName(symbol), null,
+            if (symbol.scope is VarScope.Member) VarRenamer::invalidMemberName else VarRenamer::invalidName,
         )
         return if (dialog.showAndGet()) dialog.newName else null
     }

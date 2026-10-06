@@ -62,6 +62,31 @@ class PreviewReport(
     val complete: Boolean get() = rendered?.complete == true
 }
 
+/** One rendered output of a templated value and who produces it: `prod › prod-prod1`, `item 2 (web)` … */
+class ValueOutcome(
+    val text: String,
+    val who: List<String>,
+    /** The first error the run would raise here (the text is then what rendered before it), or null. */
+    val error: String?,
+    val placeholders: Int,
+)
+
+/**
+ * A templated value rendered over the hosts of its scope × its task's loop items (plan amendment R11, F11.1), equal
+ * outputs grouped. [hosts] counts the hosts rendered; [items] the loop length when the task loops; [itemsUnknown] why
+ * the loop could not be evaluated. [noHost] is set when nothing selects a host, so names resolve root-wide.
+ */
+class ValueReport(
+    val outcomes: List<ValueOutcome>,
+    val hosts: Int,
+    val items: Int?,
+    val itemsUnknown: String?,
+    val core: CoreVersion,
+    @Nls val noHost: String?,
+    /** The rendering tasks of a template, when [ValueReport] is about a template file. */
+    val tasks: Int = 0,
+)
+
 /**
  * Renders template files for the preview (F11.2): the render contexts of the template × the root's selected host
  * (the first target of the task's host scope) × the task's loop items whose `src` renders this file. Call in a read
@@ -174,6 +199,93 @@ class TemplatePreviewService(private val project: Project) {
             .renderTemplate(tree, at.url)
     }
 
+    /**
+     * [text], the Jinja at [offset] of [file] (a decoded YAML scalar, or one `{{ }}`/`{% %}` span of a template), rendered
+     * on up to [MAX_HOSTS] hosts of its scope and up to [MAX_ITEMS] items of its task's loop. An implicit expression
+     * (`when:`) renders to its value. In a template file, every rendering task counts. Read action, smart mode.
+     */
+    fun renderValue(
+        file: VirtualFile, offset: Int, text: String, expression: Boolean, loopApplies: Boolean = true, prelude: String = "", postlude: String = "",
+    ): ValueReport? {
+        val fileContext = AnsibleWorkspace.getInstance(project).contextOf(file) ?: return null
+        val root = fileContext.root
+        val core = TargetVersionDetector.getInstance(project).targetVersion(root).version ?: CoreVersion.PINNED
+        val cfg = cfgOf(root)
+        val jinja2Native = cfg?.value("defaults", "jinja2_native")?.lowercase() in setOf("true", "yes", "1", "on")
+        val contextService = AnsibleContextService.getInstance(project)
+        val source = prelude + (if (expression) "{{ ($text) }}" else text) + postlude
+        val env = EnvOptions()
+        val tree = TemplateTree.parse(source, LexerJinjaTokenizer, env)
+        val template = isTemplate(file)
+
+        class Origin(val site: TaskSite?, val scope: HostScope, val roleName: String?, val roleDir: VirtualFile?, val fallbackPlaybookDir: VirtualFile?)
+        val origins = if (template) {
+            TemplateContextService.getInstance(project).renderContexts(file).take(MAX_CONTEXTS).map { context ->
+                Origin(
+                    TaskSite.of(project, context), contextService.hostScope(context.taskSite.file, context.taskSite.offset),
+                    context.role?.name, context.role?.dir, context.taskSite.file.parent.takeIf { context.role == null },
+                )
+            }.ifEmpty { listOf(Origin(null, contextService.hostScope(file), fileContext.roleName, fileContext.roleDir, null)) }
+        } else {
+            listOf(Origin(TaskSite.at(project, file, offset), contextService.hostScope(file, offset), fileContext.roleName, fileContext.roleDir, null))
+        }
+
+        val outputs = LinkedHashMap<String, MutableList<String>>()
+        val errors = HashMap<String, String>()
+        val holes = HashMap<String, Int>()
+        val hosts = LinkedHashSet<String>()
+        var items: Int? = null
+        var itemsUnknown: String? = null
+        var noHost: String? = null
+        for (origin in origins) {
+            val targets: List<EvalTarget?> = origin.scope.targets.take(MAX_HOSTS).ifEmpty {
+                noHost = origin.scope.emptyReason ?: AnsibilityRenderBundle.message("preview.headline.no.host")
+                listOf(null)
+            }
+            for (target in targets) {
+                ProgressManager.checkCanceled()
+                val playbookDir = target?.play?.playbookDir ?: origin.fallbackPlaybookDir
+                val values = target?.let { HostValueService.getInstance(project).values(it, origin.roleName, origin.site?.siteVars.orEmpty()) }
+                val binder = RenderBinder(
+                    target, values, target?.let { contextService.inventoryFacts(origin.scope) }, file, origin.roleName, origin.roleDir,
+                    playbookDir, core, cfg?.value("defaults", "ansible_managed"),
+                )
+                val search = SearchPath(origin.roleDir, playbookDir, listOfNotNull(root.dir, root.parentDir) + root.rolesDirs)
+                val options = RenderOptions(RenderMode.TEMPLATE_FILE, core, env, jinja2Native = jinja2Native)
+                val loop = origin.site?.takeIf { loopApplies }?.let { site ->
+                    LoopItems.evaluate(site, binder.scope(), options.copy(mode = RenderMode.YAML_VALUE), search.resolver())
+                }
+                val host = target?.let { "${it.host.environment} › ${it.host.host}" }
+                host?.let(hosts::add)
+                val runs: List<Pair<String?, Map<String, RValue>>> = when (loop) {
+                    is LoopItems.Result.Items -> {
+                        items = loop.total
+                        loop.items.take(MAX_ITEMS).map { item ->
+                            AnsibilityRenderBundle.message("hover.item", item.index + 1, item.label) to item.locals
+                        }
+                    }
+                    is LoopItems.Result.Unknown -> {
+                        itemsUnknown = loop.reason
+                        listOf(null to emptyMap())
+                    }
+                    null -> listOf(null to emptyMap())
+                }
+                for ((item, locals) in runs) {
+                    ProgressManager.checkCanceled()
+                    val rendered = TemplateRenderer(
+                        LexerJinjaTokenizer, binder.scope(locals), options, search.resolver(), search.loader(file), cancel = ProgressManager::checkCanceled,
+                    ).renderTemplate(tree, file.url)
+                    val who = listOfNotNull(host, item).joinToString(" · ").ifEmpty { root.displayName }
+                    outputs.getOrPut(rendered.text) { ArrayList() } += who
+                    rendered.errors.firstOrNull()?.let { errors.putIfAbsent(rendered.text, it.message) }
+                    holes[rendered.text] = rendered.placeholders + rendered.unknownBranches
+                }
+            }
+        }
+        val outcomes = outputs.map { (text, who) -> ValueOutcome(text, who, errors[text], holes[text] ?: 0) }
+        return ValueReport(outcomes, hosts.size, items, itemsUnknown, core, noHost.takeIf { hosts.isEmpty() }, if (template) origins.count { it.site != null } else 0)
+    }
+
     /** Whether the task's `src` for [item] names [template]; an unknown `src` keeps the item. */
     private fun rendersThis(site: TaskSite, item: LoopItems.Item, binder: RenderBinder, options: RenderOptions, search: SearchPath, template: VirtualFile): Boolean {
         if (!site.isTemplateModule) return true
@@ -214,6 +326,8 @@ class TemplatePreviewService(private val project: Project) {
 
     companion object {
         private const val MAX_CONTEXTS = 20
+        private const val MAX_HOSTS = 10
+        private const val MAX_ITEMS = 10
 
         fun getInstance(project: Project): TemplatePreviewService = project.service()
     }

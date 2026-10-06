@@ -1,6 +1,7 @@
 package de.terletzkiy.ansibility.render.bind
 
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.vfs.VirtualFile
 import de.terletzkiy.ansibility.api.RenderContext
 import de.terletzkiy.ansibility.model.task.LoopControlInfo
 import de.terletzkiy.ansibility.model.task.LoopInfo
@@ -16,7 +17,8 @@ import de.terletzkiy.ansibility.semantics.yaml.YValue
  * loop and the template module's options. Read from the task model, so unsaved edits of the task file count.
  */
 internal class TaskSite(
-    val context: RenderContext,
+    /** The render context the site was found for; null for a site found at a caret ([at]). */
+    val context: RenderContext?,
     val task: TaskNode,
     val siteVars: Map<String, YValue>,
 ) {
@@ -41,9 +43,12 @@ internal class TaskSite(
         private val TEMPLATE_MODULES = setOf("ansible.builtin.template", "ansible.windows.win_template")
 
         /** The task of [context], or null when its file no longer has a task there. Call in a read action. */
-        fun of(project: Project, context: RenderContext): TaskSite? {
-            val yaml = YamlFiles.yamlFile(project, context.taskSite.file) ?: return null
-            val chain = TaskChains.chainAt(TaskFileModels.of(yaml), context.taskSite.offset)
+        fun of(project: Project, context: RenderContext): TaskSite? = at(project, context.taskSite.file, context.taskSite.offset, context)
+
+        /** The task around [offset] of the task file [file], or null when no task encloses it. Call in a read action. */
+        fun at(project: Project, file: VirtualFile, offset: Int, context: RenderContext? = null): TaskSite? {
+            val yaml = YamlFiles.yamlFile(project, file) ?: return null
+            val chain = TaskChains.chainAt(TaskFileModels.of(yaml), offset)
             val task = TaskChains.taskOf(chain) ?: return null
             val vars = LinkedHashMap<String, YValue>()
             for (item in chain) {

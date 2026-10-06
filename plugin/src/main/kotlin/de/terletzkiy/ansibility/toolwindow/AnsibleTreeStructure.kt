@@ -11,6 +11,7 @@ import com.intellij.ui.tree.LeafState
 import de.terletzkiy.ansibility.toolwindow.model.AnsibleTreeNode
 import de.terletzkiy.ansibility.toolwindow.model.NodeStyle
 import de.terletzkiy.ansibility.toolwindow.model.TreeContext
+import de.terletzkiy.ansibility.toolwindow.model.TreeView
 import de.terletzkiy.ansibility.toolwindow.model.WorkspaceNode
 import de.terletzkiy.ansibility.toolwindow.model.WorkspaceSnapshot
 
@@ -19,16 +20,20 @@ import de.terletzkiy.ansibility.toolwindow.model.WorkspaceSnapshot
  * the current [snapshot]; the model calls this class on its background invoker inside a read action, and children
  * are computed from the in-memory snapshot (plays of an expanded playbook come from [context]).
  */
-class AnsibleTreeStructure(private val project: Project, private val context: TreeContext) : AbstractTreeStructure() {
+class AnsibleTreeStructure(
+    private val project: Project,
+    private val context: TreeContext,
+    private val view: TreeView = TreeView.REPOS,
+) : AbstractTreeStructure() {
     /** The snapshot the tree shows; replaced on the EDT before `StructureTreeModel.invalidateAsync()`. */
     @Volatile
     var snapshot: WorkspaceSnapshot = WorkspaceSnapshot.EMPTY
 
-    override fun getRootElement(): Any = WorkspaceNode(snapshot)
+    override fun getRootElement(): Any = WorkspaceNode(snapshot, view)
 
     override fun getChildElements(element: Any): Array<Any> {
         // The root element is equal across snapshots; always expand the current one.
-        val node = if (element is WorkspaceNode) WorkspaceNode(snapshot) else element as? AnsibleTreeNode ?: return emptyArray()
+        val node = if (element is WorkspaceNode) WorkspaceNode(snapshot, view) else element as? AnsibleTreeNode ?: return emptyArray()
         return node.children(context).toTypedArray()
     }
 

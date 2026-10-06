@@ -6,7 +6,7 @@
         <toolWindow id="Ansibility"
                     anchor="left"
                     secondary="false"
-                    canCloseContents="false"
+                    canCloseContents="true"
                     doNotActivateOnStart="true"
                     icon="/icons/ansibilityToolWindow.svg"
                     factoryClass="de.terletzkiy.ansibility.toolwindow.AnsibleToolWindowFactory"/>

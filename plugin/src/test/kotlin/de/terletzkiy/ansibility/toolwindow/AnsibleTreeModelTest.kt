@@ -56,11 +56,11 @@ class AnsibleTreeModelTest : ToolWindowTestCase() {
         assertEquals("golden  role library · 18 roles · 5 playbooks", path("golden").presentation().text)
         assertEquals(NodeIcon.PROJECT_ROOT, path("falcon").presentation().icon)
         assertEquals(NodeIcon.ROLE_LIBRARY, path("golden").presentation().icon)
-        assertEquals(listOf("Shared (playbook-level) vars", "Environments", "Playbooks"), names(path("falcon")))
-        assertEquals(listOf("Environments", "Playbooks"), names(path("pelican › danger_zone/database")))
+        assertEquals(listOf("Shared (playbook-level) vars", "Environments", "Playbooks", "Roles (9)"), names(path("falcon")))
+        assertEquals(listOf("Environments", "Playbooks", "Roles (17)"), names(path("pelican › danger_zone/database")))
         assertEquals("Environments  shared with pelican: prod", path("pelican › danger_zone/database", "Environments").presentation().text)
-        assertEquals(listOf("Playbooks"), names(path("golden")))
-        assertEquals("roots without inventories have no Environments node", emptyList<String>(), names(path("heron")))
+        assertEquals(listOf("Playbooks", "Roles (18)"), names(path("golden")))
+        assertEquals("roots without inventories have no Environments node", listOf("Roles (1)"), names(path("heron")))
     }
 
     fun testRootDetails() {

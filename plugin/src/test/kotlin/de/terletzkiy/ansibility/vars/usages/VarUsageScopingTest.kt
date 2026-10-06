@@ -134,7 +134,7 @@ class VarUsageScopingTest : UsagesTestCase() {
     // ------------------------------------------------------------------------------------------------ Ctrl+B (D-FU2, D-FU4)
 
     /** D-FU2: before, Ctrl+B on alpha's `alpha_fact` went to beta's same-named `set_fact`; now it shows the usages. */
-    fun testCtrlBOnASetFactKeyShowsUsagesUnlessARoleDeclaresTheName() {
+    fun testCtrlBOnASetFactKeyShowsUsages() {
         assertEquals("no role declares alpha_fact", GTDUOutcome.SU, gtdu(at(ALPHA_TASKS, 29, "alpha_fact")))
         assertEquals(emptyList<String>(), gotoTargets(ALPHA_TASKS, offsetAt(ALPHA_TASKS, 29, "alpha_fact", 1)).map(::describe))
         assertEquals(
@@ -143,8 +143,8 @@ class VarUsageScopingTest : UsagesTestCase() {
         )
         val tree = myFixture.getUsageViewTreeTextRepresentation(targetAtCaret()!!)
         assertTrue(tree, tree.contains("Set: set_fact (1)") && tree.contains("Shared name · role beta (1)"))
-        assertEquals("alpha's defaults declare alpha_declared", GTDUOutcome.GTD, gtdu(at(ALPHA_TASKS, 30, "alpha_declared")))
-        assertEquals(listOf("runtime/roles/alpha/defaults/main.yml:2"), gotoTargets(ALPHA_TASKS, offsetAt(ALPHA_TASKS, 30, "alpha_declared", 1)).map(::describe))
+        assertEquals("a set_fact key is a definition even when alpha's defaults declare the name", GTDUOutcome.SU, gtdu(at(ALPHA_TASKS, 30, "alpha_declared")))
+        assertEquals(emptyList<String>(), gotoTargets(ALPHA_TASKS, offsetAt(ALPHA_TASKS, 30, "alpha_declared", 1)).map(::describe))
     }
 
     fun testARegisterValueStartsFindUsagesWhileCtrlBIsUnchanged() {
