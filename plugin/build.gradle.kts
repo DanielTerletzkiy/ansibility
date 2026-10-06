@@ -57,6 +57,17 @@ intellijPlatform {
         }
     }
 
+    // Marketplace credentials come from the environment (GitHub Actions secrets in .github/workflows/release.yml).
+    signing {
+        certificateChain = providers.environmentVariable("CERTIFICATE_CHAIN")
+        privateKey = providers.environmentVariable("PRIVATE_KEY")
+        password = providers.environmentVariable("PRIVATE_KEY_PASSWORD")
+    }
+    publishing {
+        token = providers.environmentVariable("PUBLISH_TOKEN")
+        channels = providers.gradleProperty("pluginChannel").map { listOf(it) }.orElse(listOf("default"))
+    }
+
     pluginVerification {
         ides {
             create(IntelliJPlatformType.PyCharm, "2026.2.3")

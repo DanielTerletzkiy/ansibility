@@ -1,0 +1,133 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Plugin version to release (empty = pluginVersion from gradle.properties)
+        required: false
+        type: string
+      channel:
+        description: JetBrains Marketplace channel
+        required: true
+        default: default
+        type: choice
+        options: [default, eap, beta]
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    # Only the repository owner may release, and only from main.
+    if: github.actor == github.repository_owner && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    # Holds the Marketplace secrets (without them the release is only built, not published); add required reviewers
+    # to it for a second approval gate.
+    environment: marketplace
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Resolve version
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          version="${INPUT_VERSION:-$(sed -n 's/^pluginVersion *= *//p' gradle.properties)}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Invalid version '$version'"
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null; then
+            echo "::error::Tag v$version already exists"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      # verifyPlugin downloads several full IDEs.
+      - uses: jlumbroso/free-disk-space@v2.0.0
+        with:
+          tool-cache: false
+          large-packages: false
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: true
+
+      - name: Restore fixture .git links
+        run: python3 tools/fixtures/sync.py --links-only
+
+      - name: Test and verify
+        run: ./gradlew -PpluginVersion=${{ steps.version.outputs.version }} check verifyPlugin
+
+      - name: Check Marketplace credentials
+        id: marketplace
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+          CERTIFICATE_CHAIN: ${{ secrets.CERTIFICATE_CHAIN }}
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          PRIVATE_KEY_PASSWORD: ${{ secrets.PRIVATE_KEY_PASSWORD }}
+        run: |
+          missing=()
+          for name in PUBLISH_TOKEN CERTIFICATE_CHAIN PRIVATE_KEY PRIVATE_KEY_PASSWORD; do
+            [[ -n "${!name}" ]] || missing+=("$name")
+          done
+          if (( ${#missing[@]} == 0 )); then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          elif (( ${#missing[@]} == 4 )); then
+            echo "::notice::No Marketplace secrets configured; building without publishing"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Incomplete Marketplace secrets, missing: ${missing[*]}"
+            exit 1
+          fi
+
+      - name: Build, sign and publish
+        if: steps.marketplace.outputs.publish == 'true'
+        env:
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+          CERTIFICATE_CHAIN: ${{ secrets.CERTIFICATE_CHAIN }}
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          PRIVATE_KEY_PASSWORD: ${{ secrets.PRIVATE_KEY_PASSWORD }}
+        run: >-
+          ./gradlew
+          -PpluginVersion=${{ steps.version.outputs.version }}
+          -PpluginChannel=${{ inputs.channel }}
+          :plugin:publishPlugin
+
+      - name: Build
+        if: steps.marketplace.outputs.publish != 'true'
+        run: ./gradlew -PpluginVersion=${{ steps.version.outputs.version }} :plugin:buildPlugin
+
+      - name: Tag and create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          PUBLISHED: ${{ steps.marketplace.outputs.publish }}
+        run: |
+          zip="plugin/build/distributions/Ansibility-$VERSION.zip"
+          [[ "$PUBLISHED" == true ]] && zip="plugin/build/distributions/Ansibility-$VERSION-signed.zip"
+          gh release create "v$VERSION" \
+            --target "$GITHUB_SHA" \
+            --title "v$VERSION" \
+            --generate-notes \
+            ${{ inputs.channel != 'default' && '--prerelease' || '' }} \
+            "$zip"
+
+      - name: Upload plugin artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ansibility-${{ steps.version.outputs.version }}
+          path: plugin/build/distributions/*.zip
