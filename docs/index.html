@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ansibility — Ansible Plugin for JetBrains IDEs</title>
+  <meta name="description" content="Ansibility brings deep, native Ansible support to JetBrains IDEs. Host awareness, 22-step variable precedence, vault security, Jinja2 preview, and role argument specs.">
+  <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Navigation -->
+  <header class="site-header">
+    <div class="container nav-bar">
+      <a href="#" class="brand">
+        <img src="assets/logo.svg" alt="Ansibility">
+        <span>Ansibility</span>
+        <span class="brand-tag">JetBrains Plugin</span>
+      </a>
+
+      <nav aria-label="Main navigation">
+        <ul class="nav-links">
+          <li><a href="#showcase">Demo</a></li>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#precedence">Inventory</a></li>
+          <li><a href="#vault">Vault</a></li>
+          <li><a href="#compatibility">Compatibility</a></li>
+          <li><a href="#install">Build</a></li>
+        </ul>
+      </nav>
+
+      <div style="display: flex; gap: 0.75rem; align-items: center;">
+        <a href="https://github.com/danielterletzkiy/ansibility" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+          </svg>
+          GitHub
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section id="overview" class="hero">
+    <div class="container">
+      <div class="hero-header">
+        <p class="hero-kicker">Ansible development, inside your IDE</p>
+        <h1 class="hero-title">Ansible intelligence for JetBrains IDEs.</h1>
+        <p class="hero-description">
+          Ansibility brings deep semantic support for Ansible to PyCharm, IntelliJ IDEA, WebStorm, and PhpStorm. Instead of generic YAML highlighting, it models your entire Ansible project: multi-environment inventories, 22-step variable precedence, transparent vault editing, role argument specs, and live Jinja2 previews.
+        </p>
+
+        <div class="hero-actions">
+          <a href="#install" class="btn btn-primary">Get Started</a>
+          <a href="https://github.com/danielterletzkiy/ansibility" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">Source Code</a>
+        </div>
+
+        <div class="hero-meta">
+          <span>Target IDE: <strong>2026.2+ (build 262+)</strong></span>
+          <span>JDK: <strong>Java 25+</strong></span>
+          <span>License: <strong>GPL-3.0</strong></span>
+        </div>
+      </div>
+
+      <!-- Big AI-Assisted Development Disclaimer Banner -->
+      <div class="ai-disclaimer-banner">
+        <div class="ai-banner-header">
+          <div class="ai-banner-badge">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <span>AI-ASSISTED DEVELOPMENT DISCLAIMER</span>
+          </div>
+          <span class="ai-banner-tag">Transparency Notice</span>
+        </div>
+        <div class="ai-banner-body">
+          <p class="ai-banner-lead">
+            <strong>Ansibility has been developed with extensive use of Artificial Intelligence (Large Language Models / LLMs).</strong>
+          </p>
+          <p class="ai-banner-text">
+            While this plugin has been rigorously engineered, strictly typed, and backed by comprehensive unit and integration test suites adhering to authentic <code>ansible-core</code> semantics and specification models, we believe in complete openness and do not want to mislead anyone about how the codebase was constructed.
+          </p>
+          <p class="ai-banner-callout">
+            If you encounter any bugs, hallucinations, edge-case quirks, or unexpected behavior while using the plugin, please report them via the <a href="https://github.com/danielterletzkiy/ansibility/issues" target="_blank" rel="noopener noreferrer">project issue tracker</a>!
+          </p>
+        </div>
+      </div>
+
+      <!-- Interactive Multi-Example Showcase Box -->
+      <div id="showcase" class="preview-card">
+        <div class="preview-tab-bar">
+          <button class="preview-tab active" data-tab="precedence">1. Precedence & Host Scope</button>
+          <button class="preview-tab" data-tab="vault">2. Ansible Vault Security</button>
+          <button class="preview-tab" data-tab="specs">3. Role Argument Specs</button>
+          <button class="preview-tab" data-tab="jinja">4. Jinja2 Split Preview</button>
+          <button class="preview-tab" data-tab="navigation">5. Navigation & Modules</button>
+        </div>
+
+        <!-- TAB 1: PRECEDENCE -->
+        <div class="tab-panel active" id="tab-precedence">
+          <div class="preview-bar">
+            <div class="bar-left">
+              <span class="file-tag">playbooks/deploy.yml</span>
+              <span class="divider">&bull;</span>
+              <span class="label">Context:</span>
+              <select class="host-selector" id="prec-host-select" aria-label="Select Target Host">
+                <option value="web-prod-01">web-prod-01 (group: production)</option>
+                <option value="web-stage-01">web-stage-01 (group: staging)</option>
+                <option value="db-prod-01">db-prod-01 (group: production)</option>
+              </select>
+            </div>
+            <div class="bar-right">
+              <span class="badge-twoslash">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                Twoslash Hover Active
+              </span>
+            </div>
+          </div>
+          <div class="preview-grid">
+            <div class="preview-code shiki">
+              <div class="line"><span class="syn-c"># Hover any variable or directive for Twoslash type and source inspector</span></div>
+              <div class="line"><span class="syn-k">- name:</span> <span class="syn-s">Deploy web tier</span></div>
+              <div class="line">  <span class="syn-k">hosts:</span> <span class="twoslash-hover"><span class="syn-s">webservers</span><span class="twoslash-popup"><span class="twoslash-popup-header"><span class="twoslash-popup-type">(inventory group) webservers</span><span class="twoslash-popup-tag">Group Scope</span></span><span class="twoslash-popup-source">Inventory: <strong>production/hosts.ini</strong></span><span class="twoslash-popup-doc">Contains 2 active hosts: <code>[web-prod-01, web-stage-01]</code>. Target host context switches evaluate against this group hierarchy.</span><span class="twoslash-popup-action">Ctrl+B: Navigate to inventory group definition</span></span></span></div>
+              <div class="line">  <span class="syn-k">roles:</span></div>
+              <div class="line">    <span class="syn-k">- role:</span> <span class="twoslash-hover"><span class="syn-s">nginx_service</span><span class="twoslash-popup"><span class="twoslash-popup-header"><span class="twoslash-popup-type">(role) nginx_service</span><span class="twoslash-popup-tag">Ansible Role</span></span><span class="twoslash-popup-source">Path: <strong>roles/nginx_service</strong></span><span class="twoslash-popup-doc">Provides Nginx reverse proxy configuration. Introduces default variable layer (Layer 04) with default port 80.</span><span class="twoslash-popup-action">Ctrl+B: Jump to roles/nginx_service/tasks/main.yml</span></span></span></div>
+              <div class="line">  <span class="syn-k">tasks:</span></div>
+              <div class="line">    <span class="syn-k">- name:</span> <span class="syn-s">Configure listener</span></div>
+              <div class="line">      <span class="twoslash-hover"><span class="syn-k">ansible.builtin.template</span><span class="twoslash-popup"><span class="twoslash-popup-header"><span class="twoslash-popup-type">(module) ansible.builtin.template</span><span class="twoslash-popup-tag">Core Module</span></span><span class="twoslash-popup-source">Collection: <strong>ansible.builtin</strong></span><span class="twoslash-popup-doc">Template a file out to a target host. Evaluates embedded Jinja2 expressions against the selected host context.</span><span class="twoslash-popup-action">Ctrl+B: Open module documentation &amp; schema</span></span></span>:</div>
+              <div class="line">        <span class="syn-p">src:</span> <span class="syn-s">"vhost.conf.j2"</span></div>
+              <div class="line">        <span class="syn-p">dest:</span> <span class="syn-s">"/etc/nginx/sites-available/app.conf"</span></div>
+              <div class="line">      <span class="syn-k">vars:</span></div>
+              <div class="line highlight-line">        <span class="twoslash-hover"><span class="syn-p">listen_port</span><span class="twoslash-popup"><span class="twoslash-popup-header"><span class="twoslash-popup-type" id="prec-popup-type">(variable) listen_port: int</span><span class="twoslash-popup-tag">Precedence Layer 08</span></span><span class="twoslash-popup-source">Winner: <strong id="prec-popup-source">group_vars/production.yml</strong></span><span class="twoslash-popup-doc">TCP listener port. Resolves to <strong id="prec-popup-val">443</strong> under active host <span id="prec-popup-host">web-prod-01</span>. Defined in 3 hierarchy layers.</span><span class="twoslash-popup-action">Ctrl+B: Jump to winning variable declaration</span></span></span>: <span class="syn-n" id="prec-var-val">443</span> <span class="syn-c" id="prec-var-comment"># Resolved: group_vars/production.yml</span></div>
+              
+              <!-- Twoslash Query Pin -->
+              <div class="twoslash-query" id="prec-query-pin">
+                <span class="twoslash-query-pin">^?</span>
+                <span class="twoslash-query-text" id="prec-query-text">(variable) listen_port: int = 443</span>
+                <span class="twoslash-query-source" id="prec-query-source">(winner: group_vars/production.yml &bull; Layer 08)</span>
+              </div>
+
+              <div class="line">        <span class="twoslash-hover"><span class="syn-p">server_workers</span><span class="twoslash-popup"><span class="twoslash-popup-header"><span class="twoslash-popup-type">(variable) server_workers: int</span><span class="twoslash-popup-tag">Precedence Layer 12</span></span><span class="twoslash-popup-source">Winner: <strong id="prec-workers-source">host_vars/web-prod-01.yml</strong></span><span class="twoslash-popup-doc">Nginx CPU worker process count override for dedicated high-core host.</span><span class="twoslash-popup-action">Ctrl+B: Jump to host_vars declaration</span></span></span>: <span class="syn-n" id="prec-workers-val">8</span> <span class="syn-c" id="prec-workers-comment"># Resolved: host_vars/web-prod-01.yml</span></div>
+              <div class="line">      <span class="syn-k">when:</span> <span class="syn-o">{{</span> <span class="syn-p">listen_port</span> <span class="syn-o">|</span> <span class="syn-f">int</span> <span class="syn-o">&gt;</span> <span class="syn-n">80</span> <span class="syn-o">}}</span></div>
+            </div>
+            <div class="preview-aside">
+              <div class="aside-title">Explain Precedence: <code>listen_port</code></div>
+              <div class="precedence-table" id="prec-breakdown-list">
+                <div class="prec-row winner">
+                  <span class="prec-level">08</span>
+                  <div class="prec-details">
+                    <div class="prec-source">inventory group_vars/production.yml</div>
+                    <div class="prec-val">listen_port: 443 <span class="badge badge-winner">Active Winner</span></div>
+                  </div>
+                </div>
+                <div class="prec-row">
+                  <span class="prec-level">07</span>
+                  <div class="prec-details">
+                    <div class="prec-source">inventory group_vars/all.yml</div>
+                    <div class="prec-val">listen_port: 8080 (Overridden)</div>
+                  </div>
+                </div>
+                <div class="prec-row">
+                  <span class="prec-level">04</span>
+                  <div class="prec-details">
+                    <div class="prec-source">roles/nginx_service/defaults/main.yml</div>
+                    <div class="prec-val">listen_port: 80 (Overridden)</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: VAULT -->
+        <div class="tab-panel" id="tab-vault">
+          <div class="preview-bar">
+            <div class="bar-left">
+              <span class="file-tag">group_vars/production/vault.yml</span>
+              <span class="divider">&bull;</span>
+              <span class="badge badge-vault">Vault ID: prod_vault</span>
+            </div>
+            <div class="bar-right">
+              <button class="btn-micro" id="vault-toggle-reveal">Reveal Secret (Inline Popup)</button>
+              <button class="btn-micro" id="vault-toggle-lint">Toggle Envelope Lint (ANS-V101)</button>
+            </div>
+          </div>
+          <div class="preview-grid">
+            <div class="preview-code vault-code-container shiki">
+              <div class="line"><span class="syn-c"># Hover on tokens for Shiki/Twoslash envelope inspect; click 🔒 to decrypt</span></div>
+              <div class="line"><span class="twoslash-hover"><span class="syn-p">database_credentials</span><span class="twoslash-popup"><span class="twoslash-popup-header"><span class="twoslash-popup-type">(dictionary) database_credentials</span><span class="twoslash-popup-tag">YAML Dict</span></span><span class="twoslash-popup-doc">Contains database connection parameters including transparently encrypted Vault passwords.</span></span></span>:</div>
+              <div class="line">  <span class="syn-p">db_user:</span> <span class="syn-s">"app_prod_user"</span></div>
+              <div class="line vault-gutter-line">
+                <span class="gutter-lock" id="vault-lock-btn" title="Click to reveal plaintext secret or in-place edit">🔒</span>
+                <span class="twoslash-hover"><span class="syn-p">db_password</span><span class="twoslash-popup"><span class="twoslash-popup-header"><span class="twoslash-popup-type">(vault secret) db_password: !vault</span><span class="twoslash-popup-tag">AES-256</span></span><span class="twoslash-popup-source">Vault ID: <strong>prod_vault</strong> &bull; Format: <strong>1.2</strong></span><span class="twoslash-popup-doc">Encrypted Ansible Vault scalar envelope. In-editor peek and in-place editing active with disk-sync leak prevention.</span><span class="twoslash-popup-action">Click 🔒 gutter lock to reveal plaintext</span></span></span>: <span class="syn-tag">!vault |</span>
+              </div>
+              
+              <!-- Twoslash Query Pin for Vault -->
+              <div class="twoslash-query">
+                <span class="twoslash-query-pin">^?</span>
+                <span class="twoslash-query-text">!vault | $ANSIBLE_VAULT;1.2;AES256;prod_vault</span>
+                <span class="twoslash-query-source">(AES-256 ciphertext block)</span>
+              </div>
+
+              <div class="line vault-ciphertext" id="vault-cipher-block">
+                <div>    <span class="syn-c" id="vault-header-text">$ANSIBLE_VAULT;1.2;AES256;prod_vault</span></div>
+                <div>    <span class="syn-c">36396434313532393339316538393562386234323233306161363539653738363231366164</span></div>
+                <div>    <span class="syn-c">34653531633534343162386236353931363630653634353436323634373339343336336336</span></div>
+              </div>
+
+              <!-- Inline Reveal Overlay -->
+              <div class="vault-reveal-popup" id="vault-popup" style="display: none;">
+                <div class="popup-header">
+                  <span>Decrypted Plaintext &bull; <strong id="popup-timer">10s auto-mask</strong></span>
+                  <button class="popup-close" id="popup-close-btn">&times;</button>
+                </div>
+                <div class="popup-body">
+                  <span class="syn-s">"P@ssw0rd_Sup3r_S3cur3!"</span>
+                  <button class="btn-micro copy-secret-btn" id="copy-secret-btn">Copy Secret</button>
+                </div>
+                <div class="popup-footer">Actions: [Edit in-place] [Rekey] [Change Vault ID]</div>
+              </div>
+
+              <!-- Lint Warning Marker -->
+              <div class="lint-warning-banner" id="vault-lint-banner" style="display: none;">
+                <span class="warn-code">ANS-V101</span>
+                <span>Malformed vault envelope header: missing cipher identifier in <code>$ANSIBLE_VAULT;1.2;UNKNOWN</code></span>
+              </div>
+            </div>
+
+            <div class="preview-aside">
+              <div class="aside-title">Ansible Vault Features</div>
+              <div class="vault-feature-list">
+                <div class="vault-item">
+                  <strong>🔒 In-Editor Plaintext Reveal:</strong> Click the gutter lock marker for timed & masked preview dialogs.
+                </div>
+                <div class="vault-item">
+                  <strong>✏️ In-Place Edit & Rekey:</strong> Edit encrypted blocks directly in the IDE and re-encrypt seamlessly.
+                </div>
+                <div class="vault-item">
+                  <strong>🛡️ Disk-Sync Protection:</strong> Whole-file encrypted tabs veto unencrypted temporary files from being written to disk.
+                </div>
+                <div class="vault-item">
+                  <strong>⚡ Password-Free Linting:</strong> Statically inspects envelopes for trailing whitespace (ANS-V103) and malformed headers (ANS-V101) without passwords.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: ARGUMENT SPECS -->
+        <div class="tab-panel" id="tab-specs">
+          <div class="preview-bar">
+            <div class="bar-left">
+              <span class="file-tag">roles/database/tasks/main.yml</span>
+              <span class="divider">&bull;</span>
+              <span class="label">Spec:</span>
+              <span>meta/argument_specs.yml</span>
+            </div>
+            <div class="bar-right">
+              <button class="btn-micro" id="specs-toggle-mode">Toggle Valid / Error State</button>
+            </div>
+          </div>
+          <div class="preview-grid">
+            <div class="preview-code shiki">
+              <div class="line"><span class="syn-c"># Validates parameters against meta/argument_specs.yml type contracts</span></div>
+              <div class="line"><span class="syn-k">- name:</span> <span class="syn-s">Provision database cluster</span></div>
+              <div class="line">  <span class="twoslash-hover"><span class="syn-k">database_provision</span><span class="twoslash-popup"><span class="twoslash-popup-header"><span class="twoslash-popup-type">(role action) database_provision</span><span class="twoslash-popup-tag">Role Entrypoint</span></span><span class="twoslash-popup-source">Contract: <strong>meta/argument_specs.yml</strong></span><span class="twoslash-popup-doc">Provisions high-availability database cluster instances with validation specs.</span><span class="twoslash-popup-action">Ctrl+B: Jump to meta/argument_specs.yml</span></span></span>:</div>
+              <div class="line">    <span class="twoslash-hover"><span class="syn-p">cluster_name</span><span class="twoslash-popup"><span class="twoslash-popup-header"><span class="twoslash-popup-type">(argument) cluster_name: str</span><span class="twoslash-popup-tag">Required</span></span><span class="twoslash-popup-doc">Unique name identifying the target database cluster group.</span></span></span>: <span class="syn-s">"prod-pg-cluster"</span></div>
+              <div class="line" id="spec-port-line">
+                <span class="twoslash-hover"><span class="syn-p">    port</span><span class="twoslash-popup"><span class="twoslash-popup-header"><span class="twoslash-popup-type">(argument) port: int</span><span class="twoslash-popup-tag">Optional &bull; default: 5432</span></span><span class="twoslash-popup-doc">Port on which the database instance listens for client queries.</span></span></span>: <span class="syn-n" id="spec-port-val">5432</span>
+              </div>
+              <div class="line" id="spec-engine-line">
+                <span class="twoslash-hover"><span class="syn-p">    engine</span><span class="twoslash-popup"><span class="twoslash-popup-header"><span class="twoslash-popup-type">(argument) engine: "postgres" | "mysql" | "mariadb"</span><span class="twoslash-popup-tag">Required Choice</span></span><span class="twoslash-popup-doc">Database engine type. Must strictly match declared <code>choices: [...]</code> list.</span><span class="twoslash-popup-action">Ctrl+Space: Trigger autocompletion for allowed choices</span></span></span>: <span class="syn-s" id="spec-engine-val">"postgres"</span>
+              </div>
+              
+              <!-- Twoslash Query Pin / Diagnostic Callout -->
+              <div class="twoslash-query" id="spec-query-pin">
+                <span class="twoslash-query-pin">^?</span>
+                <span class="twoslash-query-text">(argument) engine: "postgres" | "mysql" | "mariadb" = "postgres"</span>
+                <span class="twoslash-query-source">(type checked ✓)</span>
+              </div>
+
+              <div class="twoslash-error-callout" id="spec-error-callout" style="display: none;">
+                <span class="twoslash-error-badge">ANS-T004</span>
+                <span>Type <code>'oracle-db'</code> is not assignable to type choices: <code>['postgres', 'mysql', 'mariadb']</code></span>
+              </div>
+
+              <div class="line" id="spec-storage-line">
+                <span class="twoslash-hover"><span class="syn-p">    storage</span><span class="twoslash-popup"><span class="twoslash-popup-header"><span class="twoslash-popup-type">(argument) storage: { size_gb: int }</span><span class="twoslash-popup-tag">Required Dict</span></span><span class="twoslash-popup-doc">Storage configuration dictionary requiring <code>size_gb</code> sub-option.</span></span></span>:
+                <div>      <span class="syn-p">size_gb:</span> <span class="syn-n">250</span></div>
+              </div>
+
+              <!-- Diagnostic Tooltip Box -->
+              <div class="diag-tooltip" id="spec-diag-box" style="display: none;">
+                <div class="diag-tooltip-title"><span class="warn-code">ANS-T004</span> Choice Mismatch</div>
+                <div>Value <code>'oracle-db'</code> is not valid for parameter <code>engine</code>. Allowed choices: <code>['postgres', 'mysql', 'mariadb']</code></div>
+              </div>
+            </div>
+
+            <div class="preview-aside">
+              <div class="aside-title">Active Contract: <code>meta/argument_specs.yml</code></div>
+              <div class="spec-view-box">
+                <div class="spec-entry">
+                  <code>port:</code> <strong>type: int</strong> &bull; default: <code>5432</code>
+                </div>
+                <div class="spec-entry">
+                  <code>engine:</code> <strong>type: str</strong> &bull; choices: <code>['postgres', 'mysql', 'mariadb']</code>
+                </div>
+                <div class="spec-entry">
+                  <code>storage:</code> <strong>type: dict</strong> &bull; required: <code>['size_gb']</code>
+                </div>
+              </div>
+              <div class="spec-status-msg" id="spec-status-msg">
+                <span class="badge badge-winner">✓ All 3 parameters strictly match argument_specs.yml</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 4: JINJA2 PREVIEW -->
+        <div class="tab-panel" id="tab-jinja">
+          <div class="preview-bar">
+            <div class="bar-left">
+              <span class="file-tag">templates/nginx.conf.j2</span>
+              <span class="divider">&bull;</span>
+              <span class="label">Split Preview Target:</span>
+              <select class="host-selector" id="jinja-host-select" aria-label="Select Target Host for Jinja2">
+                <option value="web-prod-01">web-prod-01 (Ubuntu 24.04, 8 cores)</option>
+                <option value="web-stage-01">web-stage-01 (Debian 12, 2 cores)</option>
+              </select>
+            </div>
+            <div class="bar-right">AnsibleJinja Live Split View</div>
+          </div>
+          <div class="preview-grid split-equal">
+            <div class="preview-code shiki">
+              <div class="line"><span class="syn-c"># Jinja2 Template Source (with Twoslash fact hover)</span></div>
+              <div class="line"><span class="syn-k">worker_processes</span> <span class="syn-o">{{</span> <span class="twoslash-hover"><span class="syn-p">ansible_processor_vcpus</span><span class="twoslash-popup"><span class="twoslash-popup-header"><span class="twoslash-popup-type">(fact) ansible_processor_vcpus: int</span><span class="twoslash-popup-tag">Discovered Fact</span></span><span class="twoslash-popup-source">Origin: <strong>ansible.builtin.setup</strong></span><span class="twoslash-popup-doc">Detected virtual CPU cores on target host. Resolves to <strong id="jinja-popup-cores">8</strong> on active host context.</span></span></span> <span class="syn-o">}}</span>;</div>
+              <div class="line"><span class="syn-k">events</span> {</div>
+              <div class="line">    <span class="syn-k">worker_connections</span> <span class="syn-o">{{</span> (<span class="syn-p">ansible_processor_vcpus</span> <span class="syn-o">*</span> <span class="syn-n">1024</span>) <span class="syn-o">}}</span>;</div>
+              <div class="line">}</div>
+              <div class="line"><span class="syn-k">http</span> {</div>
+              <div class="line">    <span class="syn-k">server</span> {</div>
+              <div class="line">        <span class="syn-k">listen</span> <span class="syn-o">{{</span> <span class="syn-p">listen_port</span> <span class="syn-o">|</span> <span class="twoslash-hover"><span class="syn-f">default</span><span class="twoslash-popup"><span class="twoslash-popup-header"><span class="twoslash-popup-type">(filter) default(value, default_value=80, boolean=False)</span><span class="twoslash-popup-tag">Filter</span></span><span class="twoslash-popup-doc">If the value is undefined, returns the passed default value; otherwise returns the variable's value.</span></span></span>(<span class="syn-n">80</span>) <span class="syn-o">}}</span>;</div>
+              <div class="line">        <span class="syn-k">server_name</span> <span class="syn-o">{{</span> <span class="twoslash-hover"><span class="syn-p">inventory_hostname</span><span class="twoslash-popup"><span class="twoslash-popup-header"><span class="twoslash-popup-type">(magic var) inventory_hostname: str</span><span class="twoslash-popup-tag">Ansible Magic</span></span><span class="twoslash-popup-doc">The hostname/alias of the current host being evaluated in playbook loop.</span></span></span> <span class="syn-o">}}</span>;</div>
+              <div class="line">    }</div>
+              <div class="line">}</div>
+            </div>
+
+            <div class="preview-code preview-rendered shiki">
+              <div class="line"><span class="syn-c"># Live Rendered Output (Target: <span id="jinja-target-label">web-prod-01</span>)</span></div>
+              <div class="line"><span class="syn-k">worker_processes</span> <span class="syn-n" id="jinja-res-workers">8</span>;</div>
+              <div class="line"><span class="syn-k">events</span> {</div>
+              <div class="line">    <span class="syn-k">worker_connections</span> <span class="syn-n" id="jinja-res-conns">8192</span>;</div>
+              <div class="line">}</div>
+              <div class="line"><span class="syn-k">http</span> {</div>
+              <div class="line">    <span class="syn-k">server</span> {</div>
+              <div class="line">        <span class="syn-k">listen</span> <span class="syn-n" id="jinja-res-port">443</span>;</div>
+              <div class="line">        <span class="syn-k">server_name</span> <span class="syn-s" id="jinja-res-host">web-prod-01</span>;</div>
+              <div class="line">    }</div>
+              <div class="line">}</div>
+              
+              <!-- Twoslash Query Pin for Rendered -->
+              <div class="twoslash-query" style="margin-top: 1.25rem;">
+                <span class="twoslash-query-pin">^?</span>
+                <span class="twoslash-query-text">Live synchronized with active host context variables &amp; facts</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 5: NAVIGATION & MODULES -->
+        <div class="tab-panel" id="tab-navigation">
+          <div class="preview-bar">
+            <div class="bar-left">
+              <span class="file-tag">roles/app/tasks/service.yml</span>
+              <span class="divider">&bull;</span>
+              <span class="label">Actions:</span>
+              <span>Go to Definition (Ctrl+B) &bull; Module Specs</span>
+            </div>
+            <div class="bar-right">Module Intelligence & Navigation</div>
+          </div>
+          <div class="preview-grid">
+            <div class="preview-code shiki">
+              <div class="line"><span class="syn-c"># Jump to role declarations or registered return values (Ctrl+B)</span></div>
+              <div class="line"><span class="syn-k">- name:</span> <span class="syn-s">Ensure application service is active</span></div>
+              <div class="line">  <span class="twoslash-hover"><span class="syn-k">ansible.builtin.systemd_service</span><span class="twoslash-popup"><span class="twoslash-popup-header"><span class="twoslash-popup-type">(module) ansible.builtin.systemd_service</span><span class="twoslash-popup-tag">Core Module</span></span><span class="twoslash-popup-source">Collection: <strong>ansible.builtin</strong></span><span class="twoslash-popup-doc">Controls systemd units and services on remote Linux hosts. Supports state control, reload, enable, and mask operations.</span><span class="twoslash-popup-action">Ctrl+B: View module specification &amp; documentation</span></span></span>:</div>
+              <div class="line">    <span class="twoslash-hover"><span class="syn-p">name</span><span class="twoslash-popup"><span class="twoslash-popup-header"><span class="twoslash-popup-type">(option) name: str</span><span class="twoslash-popup-tag">Required</span></span><span class="twoslash-popup-doc">Name of the systemd unit / service to control.</span></span></span>: <span class="syn-s">"api-worker"</span></div>
+              <div class="line">    <span class="twoslash-hover"><span class="syn-p">state</span><span class="twoslash-popup"><span class="twoslash-popup-header"><span class="twoslash-popup-type">(option) state: "started" | "stopped" | "restarted" | "reloaded"</span><span class="twoslash-popup-tag">Optional Choice</span></span><span class="twoslash-popup-doc">Target running state for the specified service.</span></span></span>: <span class="syn-s">"started"</span></div>
+              <div class="line">    <span class="syn-p">enabled:</span> <span class="syn-n">true</span></div>
+              <div class="line">    <span class="twoslash-hover"><span class="syn-p">daemon_reload</span><span class="twoslash-popup"><span class="twoslash-popup-header"><span class="twoslash-popup-type">(option) daemon_reload: bool</span><span class="twoslash-popup-tag">Optional &bull; default: false</span></span><span class="twoslash-popup-doc">Run <code>systemctl daemon-reload</code> before applying unit state action.</span></span></span>: <span class="syn-n">true</span></div>
+              <div class="line">  <span class="syn-p">register:</span> <span class="twoslash-hover"><span class="syn-j nav-clickable" id="nav-reg-var" title="Ctrl+B / Cmd+B: Find all usages of app_service_result">app_service_result</span><span class="twoslash-popup"><span class="twoslash-popup-header"><span class="twoslash-popup-type">(registered var) app_service_result: RegisteredTaskResult</span><span class="twoslash-popup-tag">Task Return Struct</span></span><span class="twoslash-popup-source">Scope: <strong>playbook tasks</strong></span><span class="twoslash-popup-doc">Result dictionary containing: <code>changed: bool</code>, <code>status: dict</code>, <code>failed: bool</code>, <code>msg: str</code>. Autocomplete available on all fields.</span><span class="twoslash-popup-action">Alt+F7: Find all usages of app_service_result</span></span></span></div>
+              
+              <!-- Twoslash Query Pin for Return Struct -->
+              <div class="twoslash-query">
+                <span class="twoslash-query-pin">^?</span>
+                <span class="twoslash-query-text">app_service_result: { changed: bool, status: dict, failed: bool }</span>
+                <span class="twoslash-query-source">(module return schema)</span>
+              </div>
+
+              <div class="line"></div>
+              <div class="line"><span class="syn-k">- name:</span> <span class="syn-s">Include helper tasks</span></div>
+              <div class="line">  <span class="twoslash-hover"><span class="syn-k">ansible.builtin.include_tasks</span><span class="twoslash-popup"><span class="twoslash-popup-header"><span class="twoslash-popup-type">(action) ansible.builtin.include_tasks</span><span class="twoslash-popup-tag">Core Action</span></span><span class="twoslash-popup-doc">Dynamically includes a file with a list of tasks. Allows direct navigation into included task lists.</span></span></span>:</div>
+              <div class="line">    <span class="syn-p">file:</span> <span class="twoslash-hover"><span class="syn-s nav-clickable" id="nav-file-link" title="Ctrl+B: Jump directly to handlers/notify.yml">"handlers/notify.yml"</span><span class="twoslash-popup"><span class="twoslash-popup-header"><span class="twoslash-popup-type">(task include) handlers/notify.yml</span><span class="twoslash-popup-tag">File Reference</span></span><span class="twoslash-popup-doc">Target task file in repository. Click or press Ctrl+B to navigate directly into the file.</span><span class="twoslash-popup-action">Ctrl+B: Jump to handlers/notify.yml</span></span></span></div>
+            </div>
+
+            <div class="preview-aside">
+              <div class="aside-title">Navigation & Return Inspection</div>
+              <div class="nav-info-box">
+                <div class="nav-item">
+                  <strong>Go to Declaration (Ctrl+B):</strong> Jump straight into included tasks, playbooks, and role definitions across your repository.
+                </div>
+                <div class="nav-item">
+                  <strong>Registered Return Struct:</strong> <code>app_service_result</code> automatically receives autocomplete fields: <code>.changed</code>, <code>.status</code>, <code>.failed</code>.
+                </div>
+                <div class="nav-item">
+                  <strong>Module Option Validation:</strong> Static checks (<code>ANS-M001</code>, <code>ANS-M002</code>) detect invalid or missing module options instantly.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Features Grid (All 9 Core Capabilities) -->
+  <section id="features" class="section">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title">Core Capabilities</h2>
+        <p class="section-subtitle">Engineered around authentic <code>ansible-core</code> evaluation semantics, built in pure Kotlin for the IntelliJ Platform.</p>
+      </div>
+
+      <div class="features-grid">
+        <div class="feature-item">
+          <h3>1. Host Awareness & Context Switching</h3>
+          <p>Switch target host context directly from the status bar widget or quick switcher to evaluate variables and tasks in their exact host environment.</p>
+          <ul>
+            <li>Full inventory & group hierarchy resolution</li>
+            <li>Per-file scope inference for plays, roles, and group_vars</li>
+            <li>Molecule scenario & standalone role support</li>
+          </ul>
+        </div>
+
+        <div class="feature-item">
+          <h3>2. Variable Resolution & "Explain Precedence"</h3>
+          <p>Computes effective variable values adhering to Ansible's full 22-step precedence order, with interactive breakdown cards and override tracing.</p>
+          <ul>
+            <li>Hover inspection cards showing origin and data type</li>
+            <li>"Explain precedence" drill-down showing winning & overridden layers</li>
+            <li>Witness host analysis for conditionally undefined variables</li>
+          </ul>
+        </div>
+
+        <div class="feature-item">
+          <h3>3. Comprehensive Ansible Vault Integration</h3>
+          <p>Transparent secret editing without leaving the IDE, designed with disk-protection safeguards preventing unencrypted files from hitting disk.</p>
+          <ul>
+            <li>Inline vault reveal popup, rekey, and in-place edit</li>
+            <li>Whole-file vault tabs with automatic background sync protection</li>
+            <li>Static envelope linting (ANS-V101..ANS-V103) without requiring passwords</li>
+          </ul>
+        </div>
+
+        <div class="feature-item">
+          <h3>4. Role Argument Specs & Strict Type Checking</h3>
+          <p>First-class support for <code>meta/argument_specs.yml</code> providing documentation hover cards, auto-completion, and static type checking.</p>
+          <ul>
+            <li>Type validation for <code>str</code>, <code>int</code>, <code>bool</code>, <code>list</code>, <code>dict</code>, and <code>path</code></li>
+            <li>Missing required sub-options detection (ANS-T002 / ANS-T003)</li>
+            <li>Choices mismatch inspection (ANS-T004) and undeclared input checks (ANS-S002)</li>
+          </ul>
+        </div>
+
+        <div class="feature-item">
+          <h3>5. Jinja2 Intelligence & YAML Language Injection</h3>
+          <p>Dedicated file type for templates plus automatic Jinja2 expression injection into YAML template values and conditional directives.</p>
+          <ul>
+            <li>Dedicated <code>AnsibleJinja</code> file type and syntax highlighting</li>
+            <li>YAML injection in <code>when:</code>, <code>changed_when:</code>, <code>failed_when:</code>, <code>until:</code></li>
+            <li>Smart completion for variables, <code>ansible_facts</code>, <code>item</code>, filters, and tests</li>
+          </ul>
+        </div>
+
+        <div class="feature-item">
+          <h3>6. Live Template Split Preview</h3>
+          <p>Live rendered split preview for Jinja2 templates (<code>*.j2</code>) rendered against the active host and playbook context.</p>
+          <ul>
+            <li>In-editor split preview window updating as you type</li>
+            <li>Evaluates live against the active host's resolved facts and variables</li>
+            <li>Instant feedback for template loops and conditionals</li>
+          </ul>
+        </div>
+
+        <div class="feature-item">
+          <h3>7. Ansible Modules, Options & Keywords</h3>
+          <p>Comprehensive module intelligence with built-in parameter specs, documentation tooltips, and static validation.</p>
+          <ul>
+            <li>Hover tooltips for modules and playbook/task keywords</li>
+            <li>Smart completion for module parameters, choices, and boolean values</li>
+            <li>Module inspections for unknown options (ANS-M001) and missing options (ANS-M002)</li>
+          </ul>
+        </div>
+
+        <div class="feature-item">
+          <h3>8. Navigation, Find Usages & Refactoring</h3>
+          <p>Full IDE navigation and refactoring tools tailored specifically to Ansible repository architecture.</p>
+          <ul>
+            <li>Go to Definition (Ctrl+B) for variables, roles, task includes, and playbooks</li>
+            <li>Find Usages (Alt+F7) categorized into Read, Set, and Spec definitions</li>
+            <li>Safe rename refactoring across multi-role projects with reference updates</li>
+          </ul>
+        </div>
+
+        <div class="feature-item">
+          <h3>9. Dedicated Ansible Tool Window & Workspace Scopes</h3>
+          <p>Structured repository tree explorer and live variable inspection window.</p>
+          <ul>
+            <li>Explore environments, groups, hosts, playbooks, roles, and vars files</li>
+            <li>Effective variables table inspector for any selected host</li>
+            <li>Custom workspace scopes to filter inspections and views</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Precedence Breakdown -->
+  <section id="precedence" class="section">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title">Variable Precedence Engine</h2>
+        <p class="section-subtitle">Ansible defines 22 levels of variable precedence. Ansibility implements the complete resolution graph in memory.</p>
+      </div>
+
+      <div class="split-section">
+        <div class="doc-block">
+          <h4>Precedence Resolution Hierarchy</h4>
+          <p>When inspecting variables or rendering templates, Ansibility computes the exact winning definition among all active layers:</p>
+          <div class="precedence-table" style="margin-top: 1rem;">
+            <div class="prec-row"><span class="prec-level">22</span><div class="prec-details"><span class="prec-source">extra vars (<code>-e</code> / CLI)</span></div></div>
+            <div class="prec-row"><span class="prec-level">18</span><div class="prec-details"><span class="prec-source">block vars (tasks in block)</span></div></div>
+            <div class="prec-row"><span class="prec-level">15</span><div class="prec-details"><span class="prec-source">play vars / vars_files</span></div></div>
+            <div class="prec-row"><span class="prec-level">12</span><div class="prec-details"><span class="prec-source">inventory host_vars</span></div></div>
+            <div class="prec-row"><span class="prec-level">07</span><div class="prec-details"><span class="prec-source">inventory group_vars</span></div></div>
+            <div class="prec-row"><span class="prec-level">04</span><div class="prec-details"><span class="prec-source">role defaults (<code>defaults/main.yml</code>)</span></div></div>
+          </div>
+        </div>
+
+        <div class="doc-block">
+          <h4>Host Scope Inference</h4>
+          <p>Ansibility automatically infers which hosts each file applies to:</p>
+          <ul style="list-style: none; font-size: 0.875rem; color: var(--text-secondary); display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.75rem;">
+            <li><strong style="color: var(--text-primary);">Playbooks:</strong> Inferred from <code>hosts:</code> declaration and inventory group membership.</li>
+            <li><strong style="color: var(--text-primary);">Roles:</strong> Resolved through role dependencies (<code>meta/main.yml</code>) and playbook invocations.</li>
+            <li><strong style="color: var(--text-primary);">group_vars / host_vars:</strong> Automatically mapped by filename and inventory tree structure.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Vault Deep Dive -->
+  <section id="vault" class="section">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title">Ansible Vault Security</h2>
+        <p class="section-subtitle">Designed for safe everyday developer workflows with zero plaintext leaks.</p>
+      </div>
+
+      <div class="split-section">
+        <div class="doc-block">
+          <h4>Inline Vault Operations</h4>
+          <p>Encrypted YAML values (<code>!vault |</code>) feature gutter lock icons for quick actions:</p>
+          <ul style="list-style: none; font-size: 0.85rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.5rem;">
+            <li>• <strong>Timed Reveal:</strong> Peek plaintext with automatic masking after 10s.</li>
+            <li>• <strong>In-Place Edit:</strong> Modify secret in a popup dialog and re-encrypt automatically.</li>
+            <li>• <strong>Rekey & Vault ID:</strong> Switch encryption keys without leaving the editor.</li>
+          </ul>
+        </div>
+
+        <div class="doc-block">
+          <h4>Safe Whole-File Vault Tabs</h4>
+          <p>Open whole-file encrypted secrets directly in dedicated editor tabs. Background sync protection prevents unencrypted temporary files from being written to disk.</p>
+          <p style="margin-top: 0.5rem;">Static envelope linting verifies header formatting and block structure without requiring vault passwords.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Argument Specs & Inspections -->
+  <section id="specs" class="section">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title">Role Argument Specs & Diagnostics</h2>
+        <p class="section-subtitle">Static analysis enforcing Ansible <code>meta/argument_specs.yml</code> contracts.</p>
+      </div>
+
+      <div class="diag-grid">
+        <div class="diag-card">
+          <div class="diag-code" style="color: var(--accent-rose);">ANS-T001</div>
+          <p><strong>Value Rejected by Spec:</strong> Flags parameter values that violate documented types or fail type coercion.</p>
+        </div>
+        <div class="diag-card">
+          <div class="diag-code" style="color: var(--accent-amber);">ANS-T002 / ANS-T003</div>
+          <p><strong>Sub-option Validation:</strong> Detects missing required keys or undeclared options in dictionary specs.</p>
+        </div>
+        <div class="diag-card">
+          <div class="diag-code" style="color: var(--accent-cyan);">ANS-T004</div>
+          <p><strong>Choice Mismatch:</strong> Validates values against declared <code>choices: [...]</code> lists with completion.</p>
+        </div>
+        <div class="diag-card">
+          <div class="diag-code" style="color: var(--accent-light);">ANS-V003</div>
+          <p><strong>Witness Host Analysis:</strong> Identifies variables that are undefined on specific target hosts in the inventory.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Compatibility -->
+  <section id="compatibility" class="section">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title">IDE Compatibility</h2>
+        <p class="section-subtitle">Ansibility is verified against JetBrains 2026.2+ IDE builds (build 262+).</p>
+      </div>
+
+      <div class="compat-grid">
+        <div class="compat-card">
+          <div class="compat-name">PyCharm</div>
+          <div class="compat-detail">Professional & Community</div>
+        </div>
+        <div class="compat-card">
+          <div class="compat-name">IntelliJ IDEA</div>
+          <div class="compat-detail">Ultimate & Community</div>
+        </div>
+        <div class="compat-card">
+          <div class="compat-name">WebStorm</div>
+          <div class="compat-detail">Complete Platform Support</div>
+        </div>
+        <div class="compat-card">
+          <div class="compat-name">PhpStorm</div>
+          <div class="compat-detail">Complete Platform Support</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Install & Build -->
+  <section id="install" class="section">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title">Building from Source</h2>
+        <p class="section-subtitle">Ansibility is written in Kotlin and built with Gradle.</p>
+      </div>
+
+      <div class="code-card">
+        <div class="code-header">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span>bash — clone, build &amp; run</span>
+            <span class="badge-twoslash">Shiki Highlighted</span>
+          </div>
+          <button class="code-copy-btn" data-target="build-snippet">Copy</button>
+        </div>
+        <pre class="code-body shiki" id="build-snippet"><code><span class="syn-c"># Clone repository</span>
+<span class="syn-k">git</span> <span class="syn-s">clone</span> <span class="syn-s">https://github.com/danielterletzkiy/ansibility.git</span>
+<span class="syn-k">cd</span> <span class="syn-s">ansibility</span>
+
+<span class="syn-c"># Build plugin ZIP distribution (plugin/build/distributions/)</span>
+<span class="syn-k">./gradlew</span> <span class="syn-f">assemble</span>
+
+<span class="syn-c"># Launch sandbox IDE with Ansibility pre-installed</span>
+<span class="syn-k">./gradlew</span> <span class="syn-f">runIde</span></code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-content">
+        <div class="footer-brand">
+          <div class="brand">
+            <img src="assets/logo.svg" alt="Ansibility">
+            <span>Ansibility</span>
+          </div>
+          <p>Native Ansible Intelligence for JetBrains IDEs.</p>
+        </div>
+
+        <ul class="footer-links">
+          <li><a href="https://github.com/danielterletzkiy/ansibility" target="_blank" rel="noopener noreferrer">GitHub</a></li>
+          <li><a href="https://github.com/danielterletzkiy/ansibility/issues" target="_blank" rel="noopener noreferrer">Issues</a></li>
+          <li><a href="https://ansibility.terletzkiy.de" target="_blank" rel="noopener noreferrer">Website</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-disclaimer">
+        <p>&copy; 2026 Daniel Terletzkiy. Licensed under GNU General Public License v3.0 (GPL-3.0).</p>
+        <p style="margin-top: 0.35rem;">Ansible is a registered trademark of Red Hat, Inc. Ansibility is an independent open-source project and is not affiliated with, sponsored by, or endorsed by Red Hat, Inc.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

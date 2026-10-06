@@ -23,7 +23,6 @@ local.properties
 # TODO: commit after cleanup
 /tools/fixtures/
 /tools/vault/
-/docs/
 /semantics/src/test/resources/render-oracle/01_user_example_fileglob/expected/common/host-a/etc/alloy/base.alloy
 /semantics/src/test/resources/render-oracle/01_user_example_fileglob/expected/common/host-a/etc/alloy/journal.alloy
 /semantics/src/test/resources/render-oracle/01_user_example_fileglob/expected/common/host-a/etc/alloy/node-exporter.alloy
