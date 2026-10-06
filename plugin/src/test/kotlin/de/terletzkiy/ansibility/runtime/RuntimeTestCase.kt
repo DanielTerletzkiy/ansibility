@@ -1,7 +1,7 @@
 package de.terletzkiy.ansibility.runtime
 
 import com.intellij.openapi.util.io.FileUtil
-import com.intellij.util.io.NioFiles
+import com.intellij.openapi.util.io.NioFiles
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.terletzkiy.ansibility.api.AnsibleRoot
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
