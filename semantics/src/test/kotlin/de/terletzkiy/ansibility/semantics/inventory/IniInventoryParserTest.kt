@@ -366,7 +366,7 @@ class IniInventoryParserTest {
             val x = graph.host("h")!!.vars["x"] as YScalar
             assertEquals(ScalarStyle.DOUBLE_QUOTED, x.style)
             assertEquals("\"a b\"", x.sourceText)
-            assertEquals("\"a b\"", text.substring(x.range!!.start, x.range!!.end))
+            assertEquals("\"a b\"", text.substring(x.range!!.start, x.range.end))
             val n = graph.host("h")!!.vars["n"] as YScalar
             assertEquals("16", n.text)
             assertEquals("0x10", n.sourceText)
@@ -411,7 +411,7 @@ class IniInventoryParserTest {
         fun `definitions, key ranges and line numbers point into the file`() {
             val text = "[web]\nweb1 http_port=8080\n[web:vars]\ntier = frontend\n[dc1:children]\nweb\n"
             val graph = parse(text)
-            fun at(location: InventoryLocation) = text.substring(location.range!!.start, location.range!!.end)
+            fun at(location: InventoryLocation) = text.substring(location.range!!.start, location.range.end)
             val web = graph.group("web")!!
             assertEquals(listOf("web", "web", "web"), web.definitions.map(::at))
             assertEquals(listOf(1, 3, 6), web.definitions.map { IniInventoryParser.lineOf(text, it.range!!.start) })

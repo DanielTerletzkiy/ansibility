@@ -122,7 +122,7 @@ internal object SeenDefinitions {
                     .thenBy { it.winner!!.file.path }
                     .thenBy { it.winner!!.offset },
             )
-            .distinctBy { it.winner!!.file to it.winner!!.offset }
+            .distinctBy { it.winner!!.file to it.winner.offset }
             .mapNotNull { group ->
                 ProgressManager.checkCanceled()
                 val ref = group.winner!!

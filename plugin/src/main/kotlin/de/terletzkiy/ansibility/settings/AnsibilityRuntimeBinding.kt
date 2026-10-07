@@ -96,6 +96,7 @@ class AnsibilityRuntimeBinding {
                 AnsibleTool.ANSIBLE -> executables.pathFor(executables.ansible)
                 AnsibleTool.ANSIBLE_DOC -> executables.pathFor(executables.ansibleDoc)
                 AnsibleTool.ANSIBLE_INVENTORY -> executables.pathFor(executables.ansibleInventory)
+                AnsibleTool.ANSIBLE_PLAYBOOK -> executables.pathFor(executables.ansible)
             }
         }
     }

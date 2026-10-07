@@ -218,7 +218,7 @@ internal object TextJinjaUses {
                 } else {
                     val name = tokens.getOrNull(k - 1)
                     val plain = name?.type == T.FILTER_NAME && tokens.getOrNull(k - 2)?.type == T.PIPE
-                    if (plain && text(text, name!!) in GuardRules.DEFAULT_FILTERS) return true
+                    if (plain && text(text, name) in GuardRules.DEFAULT_FILTERS) return true
                 }
             }
             k--

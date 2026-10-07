@@ -24,7 +24,10 @@ import de.terletzkiy.ansibility.render.service.TemplatePreviewService
 import java.awt.datatransfer.StringSelection
 import javax.swing.JComponent
 
-/** The context picker `[falcon · ops › ops-ops1 ▾]`: the root's Ansible context, shared with every other feature (D77). */
+/**
+ * The context picker `[falcon · ops › ops-ops1 ▾]`: the root's Ansible context, shared with every other feature (D77).
+ * Its Environment and Host submenus offer only the hosts that render the template.
+ */
 internal class RenderContextAction(private val file: VirtualFile) : ComboBoxAction(), DumbAware {
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
 
@@ -38,7 +41,7 @@ internal class RenderContextAction(private val file: VirtualFile) : ComboBoxActi
     override fun createPopupActionGroup(button: JComponent, dataContext: DataContext): DefaultActionGroup {
         val project = CommonDataKeys.PROJECT.getData(dataContext) ?: return DefaultActionGroup()
         val root = AnsibleWorkspace.getInstance(project).rootFor(file) ?: return DefaultActionGroup()
-        return DefaultActionGroup(ContextPopupGroup(root, file))
+        return DefaultActionGroup(ContextPopupGroup(root, file, only = { TemplatePreviewService.getInstance(it).renderingHosts(file) }))
     }
 }
 

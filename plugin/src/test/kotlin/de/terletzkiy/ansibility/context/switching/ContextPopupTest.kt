@@ -3,6 +3,7 @@ package de.terletzkiy.ansibility.context.switching
 import com.intellij.openapi.actionSystem.ActionGroup
 import com.intellij.openapi.actionSystem.Separator
 import com.intellij.testFramework.DumbModeTestUtils
+import de.terletzkiy.ansibility.api.HostKey
 import de.terletzkiy.ansibility.api.WidgetSegment
 import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.settings.AnsibilityWorkspaceState
@@ -115,6 +116,28 @@ class ContextPopupTest : ContextSwitchingTestCase() {
         perform(child(submenu("repos/falcon/ansible", "Play"), "Auto"))
         assertEquals("choosing a play again clears the problem", RootContext(EnvironmentChoice.Named("prod"), "prod-prod1"), context.selection(falcon))
         assertFalse(texts(children(popup())).any { it.startsWith("⚠") })
+    }
+
+    /** The template preview passes the hosts that render the template: only those are offered. */
+    fun testOnlyNarrowsEnvironmentsAndHosts() {
+        val falcon = root("repos/falcon/ansible")
+        val only = listOf(HostKey("repos/falcon/ansible", "prod", "prod-prod2"), HostKey("repos/falcon/ansible", "test", "test-test1"))
+        fun narrowed(prefix: String) = children(ContextPopupGroup(falcon, null, emptyList(), only = { only }))
+            .filterIsInstance<ActionGroup>().single { updated(it).presentation.text.startsWith(prefix) }
+
+        assertEquals(listOf("[x] All environments | 2 hosts", "prod | 1 host", "test | 1 host"), texts(children(narrowed("Environment"))))
+        assertEquals(
+            listOf("[x] All hosts", "prod › prod-prod2 | 192.0.2.30", "test › test-test1 | 1 of 7 names on 192.0.2.43"),
+            texts(children(narrowed("Host"))),
+        )
+        context.setSelection(falcon, RootContext(EnvironmentChoice.Named("prod")))
+        assertEquals(listOf("[x] All hosts", "prod-prod2 | 192.0.2.30"), texts(children(narrowed("Host"))))
+        context.setSelection(falcon, RootContext(EnvironmentChoice.Named("ops")))
+        assertEquals(
+            "an environment without them offers them from every environment",
+            listOf("[x] All hosts", "prod › prod-prod2 | 192.0.2.30", "test › test-test1 | 1 of 7 names on 192.0.2.43"),
+            texts(children(narrowed("Host"))),
+        )
     }
 
     fun testSegmentActionsAreListedUnderTheSegmentText() {

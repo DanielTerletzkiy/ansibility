@@ -43,7 +43,7 @@ class JinjaBody(node: ASTNode) : JinjaPsiElement(node) {
         get() {
             var previous = prevSibling
             while (previous != null && previous !is JinjaTag) previous = previous.prevSibling
-            return previous as? JinjaTag
+            return previous
         }
 
     override fun accept(visitor: JinjaElementVisitor) {

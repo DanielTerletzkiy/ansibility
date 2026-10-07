@@ -38,7 +38,7 @@ class AnsibleDocServiceTest : RuntimeTestCase() {
         assertTrue(doc.isDeprecated)
         assertNull(doc.tombstone)
         assertEquals("the doc is the canonical module's, named as requested", "community.mysql.mysql_user", doc.doc!!.fqcn)
-        assertEquals("ansible.mysql.mysql_user", doc.doc!!.canonicalFqcn)
+        assertEquals("ansible.mysql.mysql_user", doc.doc.canonicalFqcn)
         assertEquals("https://docs.ansible.com/ansible/11/collections/ansible/mysql/mysql_user_module.html", doc.docsUrl)
         val source = doc.source!!
         assertEquals(DocSourceKind.BUNDLED, source.kind)
@@ -81,7 +81,7 @@ class AnsibleDocServiceTest : RuntimeTestCase() {
         assertEquals("2.25", latest.deprecation!!.removedIn)
         assertEquals("ansible.builtin.deb822_repository", latest.deprecation!!.alternative)
         assertEquals("ansible-core 2.21.4 bundled + latest collections", latest.source!!.label)
-        assertTrue(latest.source!!.matchesTarget)
+        assertTrue(latest.source.matchesTarget)
         assertEquals("https://docs.ansible.com/ansible/14/collections/ansible/builtin/apt_repository_module.html", latest.docsUrl)
     }
 
@@ -108,8 +108,8 @@ class AnsibleDocServiceTest : RuntimeTestCase() {
         val doc = service.moduleDoc(root, "community.general.appimage")!!
         assertNotNull(doc.doc)
         assertEquals(DocSourceKind.BUNDLED, doc.source!!.kind)
-        assertEquals(CoreVersion(2, 21, 4), doc.source!!.core)
-        assertFalse(doc.source!!.matchesTarget)
+        assertEquals(CoreVersion(2, 21, 4), doc.source.core)
+        assertFalse(doc.source.matchesTarget)
     }
 
     fun testKeywords() {

@@ -36,6 +36,7 @@ enum class AnsibleTool(val executableName: String) {
     ANSIBLE("ansible"),
     ANSIBLE_DOC("ansible-doc"),
     ANSIBLE_INVENTORY("ansible-inventory"),
+    ANSIBLE_PLAYBOOK("ansible-playbook"),
 }
 
 /**

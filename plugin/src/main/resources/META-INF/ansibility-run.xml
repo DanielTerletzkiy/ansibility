@@ -1,0 +1,28 @@
+<!-- Area fragment: running playbooks (plan amendment R12: runner settings, become passwords, play and role runs). Included from plugin.xml. -->
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+        <configurationType implementation="de.terletzkiy.ansibility.run.AnsiblePlaybookConfigurationType"/>
+        <runLineMarkerContributor language="yaml" implementationClass="de.terletzkiy.ansibility.run.PlaybookRunLineMarkerContributor"/>
+        <!-- Settings › Ansibility › Runner: per root connection, become password, checks and variables (personal). -->
+        <projectConfigurable parentId="de.terletzkiy.ansibility.settings"
+                             instance="de.terletzkiy.ansibility.run.settings.RunnerConfigurable"
+                             id="de.terletzkiy.ansibility.settings.runner"
+                             bundle="messages.AnsibilityRunBundle"
+                             key="settings.runner.name"
+                             nonDefaultProject="true"/>
+        <applicationService serviceInterface="de.terletzkiy.ansibility.run.become.BecomePrompter"
+                            serviceImplementation="de.terletzkiy.ansibility.run.become.BecomeDialogPrompter"/>
+    </extensions>
+
+    <actions resource-bundle="messages.AnsibilityRunBundle">
+        <action id="Ansibility.RunPlaybook" class="de.terletzkiy.ansibility.run.RunPlaybookAction" icon="AllIcons.Actions.Execute">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <add-to-group group-id="ProjectViewPopupMenuRunGroup" anchor="last"/>
+            <add-to-group group-id="Ansibility.ToolWindow.Popup" anchor="first"/>
+            <add-to-group group-id="Ansibility.ToolWindow.Toolbar.Extra" anchor="last"/>
+        </action>
+        <action id="Ansibility.RerunPlaybook" class="de.terletzkiy.ansibility.run.RerunPlaybookAction" icon="AllIcons.Actions.Rerun">
+            <add-to-group group-id="Ansibility.ToolWindow.Popup" anchor="after" relative-to-action="Ansibility.RunPlaybook"/>
+        </action>
+    </actions>
+</idea-plugin>

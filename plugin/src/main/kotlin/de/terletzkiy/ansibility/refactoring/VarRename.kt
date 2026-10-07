@@ -3,6 +3,7 @@ package de.terletzkiy.ansibility.refactoring
 import com.intellij.ide.TitledHandler
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.actionSystem.DataContext
+import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.editor.Editor
@@ -110,7 +111,7 @@ class VarRenameHandler : RenameHandler, TitledHandler {
         val editor = CommonDataKeys.EDITOR.getData(dataContext) ?: return false
         val file = CommonDataKeys.PSI_FILE.getData(dataContext) ?: return false
         if (DumbService.isDumb(file.project)) return false
-        return ReadAction.compute<Boolean, RuntimeException> { file.isValid && VarRenamer.symbolAt(file, editor.caretModel.offset) != null }
+        return runReadActionBlocking { file.isValid && VarRenamer.symbolAt(file, editor.caretModel.offset) != null }
     }
 
     override fun invoke(project: Project, editor: Editor, file: PsiFile, dataContext: DataContext) {

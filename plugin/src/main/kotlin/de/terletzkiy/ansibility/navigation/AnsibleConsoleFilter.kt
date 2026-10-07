@@ -3,7 +3,7 @@ package de.terletzkiy.ansibility.navigation
 import com.intellij.execution.filters.ConsoleFilterProvider
 import com.intellij.execution.filters.Filter
 import com.intellij.execution.filters.OpenFileHyperlinkInfo
-import com.intellij.openapi.application.runReadAction
+import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project
@@ -49,7 +49,7 @@ class AnsibleConsoleFilter(private val project: Project) : Filter, DumbAware {
     fun resolvePath(path: String): VirtualFile? {
         LocalFileSystem.getInstance().findFileByPath(path)?.takeIf { !it.isDirectory }?.let { return it }
         val segments = path.trimStart('/').split('/')
-        val roots = runReadAction { AnsibleWorkspace.getInstance(project).roots().filter { !it.detached } }
+        val roots = runReadActionBlocking { AnsibleWorkspace.getInstance(project).roots().filter { !it.detached } }
         for (drop in segments.indices) {
             val relative = segments.drop(drop).joinToString("/")
             if (relative.isEmpty()) break
@@ -62,7 +62,7 @@ class AnsibleConsoleFilter(private val project: Project) : Filter, DumbAware {
     }
 
     /** The task named [name] in role [role]'s task files, as (file, 0-based line). */
-    fun findTask(role: String, name: String): Pair<VirtualFile, Int>? = runReadAction {
+    fun findTask(role: String, name: String): Pair<VirtualFile, Int>? = runReadActionBlocking {
         val workspace = AnsibleWorkspace.getInstance(project)
         val registry = RoleRegistry.getInstance(project)
         for (root in workspace.roots().filter { !it.detached }.sortedBy { it.kind == RootKind.ROLE_LIBRARY }) {
@@ -71,7 +71,7 @@ class AnsibleConsoleFilter(private val project: Project) : Filter, DumbAware {
                 val text = FileDocumentManager.getInstance().getDocument(file)?.text ?: runCatching { VfsUtilCore.loadText(file) }.getOrNull() ?: continue
                 text.lineSequence().forEachIndexed { index, content ->
                     val task = NAME_LINE.find(content)?.groupValues?.get(1)?.trim()?.removeSurrounding("\"")?.removeSurrounding("'")
-                    if (task == name) return@runReadAction file to index
+                    if (task == name) return@runReadActionBlocking file to index
                 }
             }
         }

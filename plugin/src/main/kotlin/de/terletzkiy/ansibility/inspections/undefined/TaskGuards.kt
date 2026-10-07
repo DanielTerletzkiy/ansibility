@@ -140,7 +140,7 @@ internal class TaskGuards(private val project: Project, private val rules: Guard
         for (application in applied) {
             ProgressManager.checkCanceled()
             val own = applications.getOrPut(play to application) { applicationGate(play, application) }
-            val chained = if (underTasks) includeGate(roleDir, application.entryPoint, taskFile!!) else Gate.OPEN
+            val chained = if (underTasks) includeGate(roleDir, application.entryPoint, taskFile) else Gate.OPEN
             val gate = own + chained
             result = result?.or(gate) ?: gate
         }

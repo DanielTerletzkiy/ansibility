@@ -146,6 +146,13 @@ class TemplatePreviewServiceTest : HostContextTestCase() {
         assertFalse(PreviewSecretsFilter().shouldHighlight(psi))
     }
 
+    /** The context picker offers the hosts that render the template, whatever the selection. */
+    fun testRenderingHostsAreTheHostsOfThePlaysThatApplyTheRole() {
+        context.setSelection(root(FALCON), RootContext(EnvironmentChoice.Named("test"), "test-test1"))
+        val hosts = runReadActionBlocking { TemplatePreviewService.getInstance(project).renderingHosts(vf(TEMPLATE)) }
+        assertEquals(listOf("prod/prod-prod1", "prod/prod-prod2"), hosts?.map { "${it.environment}/${it.host}" })
+    }
+
     fun testFollowsUnsavedTemplateText() {
         val report = render(TEMPLATE, host = "prod-prod1", source = "p={{ keepalived_priority + 1 }}")
         assertEquals("p=151", report.text.trimEnd())

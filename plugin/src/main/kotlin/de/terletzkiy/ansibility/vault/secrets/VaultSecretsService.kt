@@ -16,6 +16,7 @@ import de.terletzkiy.ansibility.api.VaultLockState
 import de.terletzkiy.ansibility.api.VaultStatusListener
 import de.terletzkiy.ansibility.api.VaultUnlockResult
 import de.terletzkiy.ansibility.context.AnsibleStructureListener
+import de.terletzkiy.ansibility.run.become.BecomePasswords
 import de.terletzkiy.ansibility.semantics.vault.LabelledSecret
 import de.terletzkiy.ansibility.semantics.vault.SecretBytes
 import de.terletzkiy.ansibility.semantics.vault.SecretLoad
@@ -703,6 +704,8 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
         val removed = synchronized(lock) { secrets.values.toList().also { secrets.clear() } }
         removed.forEach { slots -> slots.values.forEach { it.secret.zero() } }
         managers.forgetUnlocks()
+        // Become passwords remembered "for this session only" follow the vault's lock (plan amendment R12, D86).
+        project.serviceIfCreated<BecomePasswords>()?.forgetSession()
         cryptoIfCreated()?.clearAll()
         stopTicker()
         VaultLog.event(

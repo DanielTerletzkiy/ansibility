@@ -20,6 +20,7 @@ import com.intellij.openapi.vfs.VirtualFile
 import de.terletzkiy.ansibility.api.AnsibleContextService
 import de.terletzkiy.ansibility.api.AnsibleRoot
 import de.terletzkiy.ansibility.api.ContextWidgetSegment
+import de.terletzkiy.ansibility.api.HostKey
 import de.terletzkiy.ansibility.api.WidgetSegment
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
 import de.terletzkiy.ansibility.settings.RootContext
@@ -37,20 +38,23 @@ const val SWITCH_CONTEXT_ACTION_ID: String = "Ansibility.SwitchContext"
 /**
  * The context popup of one root (the status-bar widget, the tool-window button): the Environment, Host and Play
  * submenus, the stored selection's problem, the Follow-editor toggle, each widget segment's popup actions under the
- * segment's text, then [extra] actions and Switch Context. [segments] null computes them for [file].
+ * segment's text, then [extra] actions and Switch Context. [segments] null computes them for [file]. [only], when it
+ * gives hosts, narrows the Environment and Host submenus to them (the template preview offers the hosts that render it).
  */
 class ContextPopupGroup(
     private val root: AnsibleRoot,
     private val file: VirtualFile?,
     private val segments: List<WidgetSegment>? = null,
     private val extra: List<AnAction> = emptyList(),
+    private val only: ((Project) -> Collection<HostKey>?)? = null,
 ) : ActionGroup(), DumbAware {
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
 
     override fun getChildren(e: AnActionEvent?): Array<AnAction> {
         val project = e?.project ?: return EMPTY_ARRAY
         val children = ArrayList<AnAction>()
-        children += selectionActions(project, root)
+        val hosts = only?.takeUnless { DumbService.isDumb(project) }?.let { readLocked { it(project) } }
+        children += selectionActions(project, root, hosts)
         children += Separator.create()
         children += FollowEditorAction()
         val shown = segments ?: file?.let { file -> readLocked { ContextWidgetSegment.segments(project, file) } }.orEmpty()
@@ -68,9 +72,9 @@ class ContextPopupGroup(
     companion object {
         /**
          * The Environment, Host and Play submenus of [root] and the stored selection's problem, or one info line when
-         * the root has no inventory or the IDE is indexing.
+         * the root has no inventory or the IDE is indexing. [only] narrows the Environment and Host submenus.
          */
-        fun selectionActions(project: Project, root: AnsibleRoot): List<AnAction> {
+        fun selectionActions(project: Project, root: AnsibleRoot, only: Collection<HostKey>? = null): List<AnAction> {
             if (DumbService.isDumb(project)) return listOf(InfoAction(ContextTexts.message("popup.indexing")))
             val choices = ContextChoices(project)
             if (choices.environments(root).isEmpty()) {
@@ -80,8 +84,8 @@ class ContextPopupGroup(
             val environment = (selection.environment as? EnvironmentChoice.Named)?.name
             val play = selection.play?.let { choices.playLabel(root, it) ?: it } ?: ContextTexts.message("popup.play.auto")
             val actions = mutableListOf<AnAction>(
-                EnvironmentGroup(root, ContextTexts.message("popup.environment", environment ?: ContextTexts.message("selection.all.environments"))),
-                HostGroup(root, ContextTexts.message("popup.host", selection.host ?: ContextTexts.message("popup.host.all"))),
+                EnvironmentGroup(root, ContextTexts.message("popup.environment", environment ?: ContextTexts.message("selection.all.environments")), only),
+                HostGroup(root, ContextTexts.message("popup.host", selection.host ?: ContextTexts.message("popup.host.all")), only),
                 PlayGroup(root, ContextTexts.message("popup.play", play)),
             )
             choices.problem(root)?.let { actions += InfoAction(ContextTexts.message("popup.problem", it)) }
@@ -90,8 +94,15 @@ class ContextPopupGroup(
     }
 }
 
-/** The Environment submenu: All environments, then each environment with its host count. */
-class EnvironmentGroup(private val root: AnsibleRoot, @NlsActions.ActionText text: String) : ActionGroup(), DumbAware {
+/**
+ * The Environment submenu: All environments, then each environment with its host count. With [only], just the
+ * environments holding one of those hosts, counting those hosts (every environment when none of them is in the inventory).
+ */
+class EnvironmentGroup(
+    private val root: AnsibleRoot,
+    @NlsActions.ActionText text: String,
+    private val only: Collection<HostKey>? = null,
+) : ActionGroup(), DumbAware {
     init {
         plainText(text)
         isPopup = true
@@ -104,7 +115,9 @@ class EnvironmentGroup(private val root: AnsibleRoot, @NlsActions.ActionText tex
         val choices = ContextChoices(project)
         val selection = AnsibleContextService.getInstance(project).selection(root)
         val selected = (selection.environment as? EnvironmentChoice.Named)?.name
-        val environments = choices.environments(root)
+        val known = choices.environments(root)
+        val counts = only?.groupingBy { it.environment }?.eachCount()
+        val environments = counts?.let { count -> known.mapNotNull { env -> count[env.name]?.let { env.copy(hostCount = it) } } }?.ifEmpty { null } ?: known
         val all = ChoiceAction(
             ContextTexts.message("selection.all.environments"),
             ContextTexts.hostCount(environments.sumOf { it.hostCount }),
@@ -121,9 +134,14 @@ class EnvironmentGroup(private val root: AnsibleRoot, @NlsActions.ActionText tex
 
 /**
  * The Host submenu: All hosts, then the hosts of the selected environment (of every environment, qualified with it,
- * under All) with their address and the shared-address badge (`1 of 7 names on 192.0.2.43`).
+ * under All) with their address and the shared-address badge (`1 of 7 names on 192.0.2.43`). With [only], just those
+ * hosts; when the selected environment holds none of them, those of every environment, qualified with theirs.
  */
-class HostGroup(private val root: AnsibleRoot, @NlsActions.ActionText text: String) : ActionGroup(), DumbAware {
+class HostGroup(
+    private val root: AnsibleRoot,
+    @NlsActions.ActionText text: String,
+    private val only: Collection<HostKey>? = null,
+) : ActionGroup(), DumbAware {
     init {
         plainText(text)
         isPopup = true
@@ -138,13 +156,22 @@ class HostGroup(private val root: AnsibleRoot, @NlsActions.ActionText text: Stri
         val all = ChoiceAction(ContextTexts.message("popup.host.all"), null, selection.host == null) {
             ContextSwitcher.selectEnvironment(it, root, environment)
         }
-        val hosts = ContextChoices(project).hosts(root, environment).map { option ->
-            val text = if (environment == null) "${option.environment}${ContextTexts.CHAIN}${option.host}" else option.host
+        val hosts = offered(ContextChoices(project), environment).map { option ->
+            val text = if (option.environment != environment) "${option.environment}${ContextTexts.CHAIN}${option.host}" else option.host
             ChoiceAction(text, hostBadge(option), option.environment == environment && option.host == selection.host) {
                 ContextSwitcher.selectHost(it, root, option.environment, option.host)
             }
         }
         return (listOf(all) + hosts).toTypedArray()
+    }
+
+    private fun offered(choices: ContextChoices, environment: String?): List<HostOption> {
+        val hosts = choices.hosts(root, environment)
+        val wanted = only?.mapTo(HashSet()) { it.environment to it.host } ?: return hosts
+        fun List<HostOption>.wanted() = filter { (it.environment to it.host) in wanted }
+        return hosts.wanted().ifEmpty { null }
+            ?: environment?.let { choices.hosts(root, null).wanted().ifEmpty { null } }
+            ?: hosts
     }
 }
 

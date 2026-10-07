@@ -12,7 +12,9 @@ import de.terletzkiy.ansibility.api.AnsibleRoot
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.EvalTarget
 import de.terletzkiy.ansibility.api.FileKind
+import de.terletzkiy.ansibility.api.HostKey
 import de.terletzkiy.ansibility.api.HostScope
+import de.terletzkiy.ansibility.api.HostScopeOrigin
 import de.terletzkiy.ansibility.api.HostValueService
 import de.terletzkiy.ansibility.api.RenderContext
 import de.terletzkiy.ansibility.api.RoleRegistry
@@ -169,6 +171,21 @@ class TemplatePreviewService(private val project: Project) {
             rendered.text, rendered, choices, chosen, headline(p.target, p.context, p.items, item, core, rendered), null,
             p.binder.secretSources.toMap(), p.binder.secretsShown,
         )
+    }
+
+    /**
+     * The hosts that render [template], for the preview's context picker: every host of each rendering task's scope
+     * before the selection narrows it (the plays that run the task, the plays that apply the role). Null when nothing
+     * narrows the template to a set of hosts (a root-wide scope, or no host at all). Read action, smart mode.
+     */
+    fun renderingHosts(template: VirtualFile): List<HostKey>? {
+        if (AnsibleWorkspace.getInstance(project).contextOf(template) == null) return null
+        val contextService = AnsibleContextService.getInstance(project)
+        val contexts = TemplateContextService.getInstance(project).renderContexts(template).take(MAX_CONTEXTS)
+        val scopes = if (contexts.isEmpty()) listOf(contextService.hostScope(template))
+        else contexts.map { contextService.hostScope(it.taskSite.file, it.taskSite.offset) }
+        if (scopes.any { it.origin is HostScopeOrigin.RootWide || it.origin is HostScopeOrigin.Selection }) return null
+        return scopes.flatMap { it.fileHosts }.distinct().ifEmpty { null }
     }
 
     /**

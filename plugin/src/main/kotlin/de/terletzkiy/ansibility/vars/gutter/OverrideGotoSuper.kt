@@ -2,7 +2,7 @@ package de.terletzkiy.ansibility.vars.gutter
 
 import com.intellij.codeInsight.navigation.PsiTargetNavigator
 import com.intellij.lang.LanguageCodeInsightActionHandler
-import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
@@ -21,7 +21,7 @@ class OverrideGotoSuper : LanguageCodeInsightActionHandler {
     override fun isValidFor(editor: Editor, file: PsiFile): Boolean = !DumbService.isDumb(file.project) && keyAt(editor, file) != null
 
     override fun invoke(project: Project, editor: Editor, file: PsiFile) {
-        val targets = ReadAction.compute<List<PsiElement>, RuntimeException> { targets(editor, file) }
+        val targets = runReadActionBlocking { targets(editor, file) }
         when (targets.size) {
             0 -> return
             1 -> (targets.single() as? Navigatable)?.navigate(true)

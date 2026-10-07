@@ -1,6 +1,6 @@
 package de.terletzkiy.ansibility.vault.ui.settings
 
-import com.intellij.openapi.Disposable
+import com.intellij.openapi.util.CheckedDisposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.application.ReadAction
@@ -11,9 +11,9 @@ import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.ui.DialogPanel
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.vfs.toNioPathOrNull
-import com.intellij.ui.SimpleListCellRenderer
 import com.intellij.ui.ToolbarDecorator
 import com.intellij.ui.components.JBLabel
+import com.intellij.ui.dsl.listCellRenderer.textListCellRenderer
 import com.intellij.ui.dsl.builder.Align
 import com.intellij.ui.dsl.builder.panel
 import com.intellij.ui.table.TableView
@@ -69,11 +69,11 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
     private val forgotten = LinkedHashMap<String, MutableSet<String>>()
     private var rootEntries: List<RootEntry> = emptyList()
     private var current: RootEntry? = null
-    private var uiDisposable: Disposable? = null
+    private var uiDisposable: CheckedDisposable? = null
     private var loading = false
 
     private val rootCombo = ComboBox<RootEntry>().apply {
-        renderer = SimpleListCellRenderer.create("") { it.name }
+        renderer = textListCellRenderer("") { it.name }
         addActionListener { if (!loading) select(selectedItem as? RootEntry) }
     }
     private val idModel = ListTableModel<IdRow>(
@@ -109,7 +109,7 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
 
     override fun createPanel(): DialogPanel {
         uiDisposable?.let(Disposer::dispose)
-        val disposable = Disposer.newDisposable("VaultConfigurable")
+        val disposable = Disposer.newCheckedDisposable("VaultConfigurable")
         uiDisposable = disposable
         val ids = ToolbarDecorator.createDecorator(idTable)
             .setAddAction { edit(null) }
@@ -143,7 +143,7 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
     }
 
     /** Finds the CLIs off the EDT (the login shell's `PATH` may still be loading). */
-    private fun detectManagers(disposable: Disposable) {
+    private fun detectManagers(disposable: CheckedDisposable) {
         managerLabels.values.forEach { it.text = message("settings.vault.manager.searching") }
         ApplicationManager.getApplication().executeOnPooledThread {
             val found = PasswordManager.entries.associateWith { manager ->
@@ -159,11 +159,11 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
                         else -> message("settings.vault.manager.found", manager.displayName, path.first.toString())
                     }
                 }
-            }, ModalityState.any()) { Disposer.isDisposed(disposable) }
+            }, ModalityState.any()) { disposable.isDisposed }
         }
     }
 
-    private fun loadRoots(disposable: Disposable) {
+    private fun loadRoots(disposable: CheckedDisposable) {
         loading = true
         ReadAction.nonBlocking<List<RootEntry>> { entries() }
             .inSmartMode(project)
@@ -180,7 +180,7 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
     }
 
     /** Which password-store entries exist; read in the background, since the Keychain may block. */
-    private fun loadStored(entries: List<RootEntry>, disposable: Disposable) {
+    private fun loadStored(entries: List<RootEntry>, disposable: CheckedDisposable) {
         val secrets = VaultSecretsService.getInstance(project)
         ApplicationManager.getApplication().executeOnPooledThread {
             val withStored = entries.map { entry ->
@@ -189,7 +189,7 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
                 entry.copy(stored = labels.filterTo(HashSet()) { secrets.hasStoredPassword(root, it) })
             }
             ApplicationManager.getApplication().invokeLater({
-                if (Disposer.isDisposed(disposable)) return@invokeLater
+                if (disposable.isDisposed) return@invokeLater
                 rootEntries = withStored
                 val key = current?.key
                 current = withStored.firstOrNull { it.key == key }

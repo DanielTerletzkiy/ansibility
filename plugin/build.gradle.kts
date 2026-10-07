@@ -1,7 +1,9 @@
 import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
+import org.jetbrains.intellij.platform.gradle.tasks.VerifyPluginTask.FailureLevel
 import org.gradle.api.tasks.PathSensitivity
 import org.jetbrains.kotlin.gradle.dsl.JvmDefaultMode
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.util.Properties
 
 plugins {
@@ -69,6 +71,17 @@ intellijPlatform {
     }
 
     pluginVerification {
+        // Experimental API stays allowed: the completion-popup documentation and ModCommand file creation have no stable alternative yet.
+        failureLevel = listOf(
+            FailureLevel.COMPATIBILITY_PROBLEMS,
+            FailureLevel.INVALID_PLUGIN,
+            FailureLevel.MISSING_DEPENDENCIES,
+            FailureLevel.DEPRECATED_API_USAGES,
+            FailureLevel.SCHEDULED_FOR_REMOVAL_API_USAGES,
+            FailureLevel.INTERNAL_API_USAGES,
+            FailureLevel.OVERRIDE_ONLY_API_USAGES,
+            FailureLevel.NON_EXTENDABLE_API_USAGES,
+        )
         ides {
             create(IntelliJPlatformType.PyCharm, "2026.2.3")
             create(IntelliJPlatformType.WebStorm, "2026.2.3")
@@ -76,6 +89,11 @@ intellijPlatform {
             create(IntelliJPlatformType.IntellijIdea, "2026.2.3")
         }
     }
+}
+
+// Production code compiles without warnings, so a newly deprecated platform API fails the build instead of piling up.
+tasks.named<KotlinCompile>("compileKotlin") {
+    compilerOptions.allWarningsAsErrors.set(true)
 }
 
 tasks.test {

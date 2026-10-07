@@ -12,10 +12,10 @@ import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.ui.DialogPanel
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.vfs.VfsUtilCore
-import com.intellij.ui.SimpleListCellRenderer
 import com.intellij.ui.ToolbarDecorator
 import com.intellij.ui.components.JBCheckBox
 import com.intellij.ui.components.JBRadioButton
+import com.intellij.ui.dsl.listCellRenderer.textListCellRenderer
 import com.intellij.ui.dsl.builder.Align
 import com.intellij.ui.dsl.builder.panel
 import com.intellij.ui.table.TableView
@@ -54,7 +54,7 @@ class LayoutConfigurable(private val project: Project) : BoundSearchableConfigur
     private var loading = false
 
     private val rootCombo = ComboBox<RootEntry>().apply {
-        renderer = SimpleListCellRenderer.create("") { it.name }
+        renderer = textListCellRenderer("") { it.name }
         addActionListener { if (!loading) select(selectedItem as? RootEntry) }
     }
     private val projectStorage = JBRadioButton(message("settings.layout.storage.project"))
@@ -72,7 +72,7 @@ class LayoutConfigurable(private val project: Project) : BoundSearchableConfigur
         object : ColumnInfo<Row, Boolean>(message("settings.layout.column.default")) {
             override fun valueOf(item: Row): Boolean = item.isDefault
             override fun isCellEditable(item: Row): Boolean = true
-            override fun getColumnClass(): Class<*> = java.lang.Boolean::class.java
+            override fun getColumnClass(): Class<*> = Boolean::class.javaObjectType
             override fun setValue(item: Row, value: Boolean) {
                 if (value) model().items.forEach { it.isDefault = false }
                 item.isDefault = value

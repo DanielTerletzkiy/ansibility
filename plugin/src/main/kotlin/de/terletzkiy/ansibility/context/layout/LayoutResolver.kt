@@ -140,7 +140,7 @@ class LayoutResolver(
         val convention = found.indices.filter { found[it].isConvention || found[it].source.origin == LayoutOrigin.CONVENTION }
         val inside = convention.firstOrNull { i ->
             val envDir = found[i].sources.first().varsDir ?: return@firstOrNull false
-            sources.all { s -> s.file != null && VfsUtilCore.isAncestor(envDir, s.file!!, false) }
+            sources.all { s -> s.file != null && VfsUtilCore.isAncestor(envDir, s.file, false) }
         }
         if (inside != null) {
             defaults += inside

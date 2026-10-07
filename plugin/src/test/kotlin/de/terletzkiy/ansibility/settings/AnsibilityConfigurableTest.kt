@@ -29,7 +29,7 @@ class AnsibilityConfigurableTest : BasePlatformTestCase() {
         ContextTestTree.create(myFixture)
         AnsibleWorkspaceImpl.getInstance(project)!!.structureChanged()
         configurable = AnsibilityConfigurable(project)
-        component = configurable.createComponent()!!
+        component = configurable.createComponent()
         configurable.reset()
         PlatformTestUtil.waitForPromise(configurable.rootsLoading!!)
         PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()

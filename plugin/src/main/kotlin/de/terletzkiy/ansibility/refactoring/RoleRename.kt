@@ -3,6 +3,7 @@ package de.terletzkiy.ansibility.refactoring
 import com.intellij.ide.TitledHandler
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.actionSystem.DataContext
+import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.editor.Editor
@@ -166,7 +167,7 @@ class RoleRenameHandler : RenameHandler, TitledHandler {
     private fun roleDir(dataContext: DataContext): VirtualFile? {
         val project = CommonDataKeys.PROJECT.getData(dataContext) ?: return null
         if (DumbService.isDumb(project)) return null
-        return ReadAction.compute<VirtualFile?, RuntimeException> {
+        return runReadActionBlocking {
             val editor = CommonDataKeys.EDITOR.getData(dataContext)
             val file = CommonDataKeys.PSI_FILE.getData(dataContext)
             val dir = if (editor != null && file != null) {
@@ -185,7 +186,7 @@ class RoleRenameHandler : RenameHandler, TitledHandler {
         val (newName, withVariables) = if (ApplicationManager.getApplication().isUnitTestMode) {
             (PsiElementRenameHandler.DEFAULT_NAME.getData(dataContext) ?: return) to (WITH_VARIABLES.getData(dataContext) ?: true)
         } else {
-            val prefixed = ReadAction.compute<Int, RuntimeException> { RoleRenamer.prefixedVariables(project, dir).size }
+            val prefixed = runReadActionBlocking { RoleRenamer.prefixedVariables(project, dir).size }
             val option = if (prefixed > 0) AnsibilityRefactoringBundle.message("rename.role.variables", old, prefixed) else null
             val dialog = RenameDialog(project, title, AnsibilityRefactoringBundle.message("rename.role.label", old), old, option) {
                 RoleRenamer.invalidName(dir, it)
