@@ -11,13 +11,15 @@
         <ul>
             <li><b>Host Awareness & Context Switching:</b> Full understanding of inventories, environments, group hierarchies, and <code>group_vars</code>/<code>host_vars</code> inheritance. Switch active host context via the status bar widget or quick actions.</li>
             <li><b>Variable Precedence & Deep Inspection:</b> Variable cards with interactive <i>"Explain Precedence"</i> view showing values across all inventory, playbook, and role layers.</li>
-            <li><b>Seamless Ansible Vault Integration:</b> In-editor inline vault reveal/edit/encrypt/decrypt/rekey, whole-file vault tabs with safe synchronization protection, lock gutter icons, and structural envelope inspections.</li>
+            <li><b>Seamless Ansible Vault Integration:</b> In-editor inline vault reveal/edit/encrypt/decrypt/rekey, whole-file vault tabs with safe synchronization protection, lock gutter icons, and structural envelope inspections. Vault and become passwords can come from the 1Password, Bitwarden, KeePassXC or Proton Pass CLIs.</li>
             <li><b>Role Argument Specs & Strict Type Checking:</b> JSDoc-like documentation from <code>meta/argument_specs.yml</code>, hover cards, auto-completion, and static type checking against ansible-core's type rules.</li>
             <li><b>Jinja2 & YAML Language Injection:</b> Full Jinja2 syntax support for <code>*.j2</code> and automatic injection into YAML expressions (<code>when:</code>, <code>changed_when:</code>, templates) with smart variable, fact, and filter completion.</li>
             <li><b>Live Template Split Preview:</b> Preview rendered Jinja2 templates directly in a split editor for the active host/play context.</li>
             <li><b>Module & Keyword Intelligence:</b> Built-in documentation hover, auto-completion, and inspections for Ansible modules, options, and play/task keywords with direct links to official docs.</li>
             <li><b>Navigation, Find Usages & Refactoring:</b> Go to Definition (Ctrl+B), Find Usages (Alt+F7), Highlight Usages (Ctrl+Shift+F7), and safe renaming for variables and roles.</li>
-            <li><b>Ansible Tool Window & Workspace Scopes:</b> Dedicated tool window for exploring environments, groups, hosts, playbooks, roles, effective variables table, and workspace scopes filtering.</li>
+            <li><b>Ansible Tool Window & Workspace Scopes:</b> Dedicated tool window for exploring environments, groups, hosts, playbooks, roles, effective variables table, and workspace scopes filtering. Look up a variable across all repositories and create new roles from File | New.</li>
+            <li><b>Running Playbooks:</b> Run a playbook, a single play, or a single role from the gutter, locally or in a Docker Compose service. Choose environment, limit, tags, extra vars, check mode and diff; set the SSH jump host and become passwords per root. Branch freshness and production checks before the run, and a structured view of plays, tasks and hosts with recap, diffs and "Rerun Failed Hosts".</li>
+            <li><b>Molecule Testing:</b> Run Molecule test, converge, verify, idempotence or destroy for a scenario from the gutter, with automatic cleanup of test instances.</li>
         </ul>
 
         <p><small>Ansibility is an independent project by Daniel Terletzkiy (<a href="https://ansibility.terletzkiy.de">ansibility.terletzkiy.de</a>).

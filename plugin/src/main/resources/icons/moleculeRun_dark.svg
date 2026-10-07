@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
+  <mask id="moleculeRunCutDark" maskUnits="userSpaceOnUse" x="0" y="0" width="16" height="16">
+    <rect width="16" height="16" fill="white"/>
+    <path d="M15.8 11.3C16.6 11.8 16.6 13 15.8 13.5L10.3 16.7C9.5 17.2 8 16.6 8 15.6V9.2C8 8.2 9.5 7.6 10.3 8.1L15.8 11.3Z" fill="black"/>
+  </mask>
+  <g mask="url(#moleculeRunCutDark)" transform="translate(-0.4 0) scale(0.82)">
+    <path d="M5.5 1.5H10.5" stroke="#CED0D6" stroke-width="1.22" stroke-linecap="round"/>
+    <path d="M6.5 1.5V6L2.6 12.6C2.1 13.5 2.7 14.5 3.7 14.5H12.3C13.3 14.5 13.9 13.5 13.4 12.6L9.5 6V1.5" stroke="#CED0D6" stroke-width="1.22" stroke-linejoin="round"/>
+    <path d="M4.6 10H11.4L12.5 11.9C12.8 12.5 12.4 13.2 11.7 13.2H4.3C3.6 13.2 3.2 12.5 3.5 11.9L4.6 10Z" fill="#57965C"/>
+  </g>
+  <path d="M14.6 11.63C15.13 11.94 15.13 12.7 14.6 13.01L10.2 15.55C9.67 15.86 9 15.47 9 14.86V9.78C9 9.17 9.67 8.78 10.2 9.09L14.6 11.63Z" fill="#253627" stroke="#57965C"/>
+</svg>

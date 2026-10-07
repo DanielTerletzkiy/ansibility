@@ -1,6 +1,7 @@
 package de.terletzkiy.ansibility.run
 
 import com.intellij.openapi.util.io.NioFiles
+import de.terletzkiy.ansibility.run.events.RunCallback
 import de.terletzkiy.ansibility.semantics.vault.LabelledSecret
 import java.io.IOException
 import java.nio.file.Files
@@ -26,10 +27,14 @@ class RunSecrets private constructor(
     val hasBecomePassword: Boolean,
     val environment: Map<String, String>,
     private val hasPlaceholder: Boolean = false,
+    private val hasCallback: Boolean = false,
 ) : AutoCloseable {
     val vaultClient: Path? get() = dir?.takeIf { vaultLabels.isNotEmpty() }?.resolve(VAULT_CLIENT)
     val becomeScript: Path? get() = dir?.takeIf { hasBecomePassword }?.resolve(BECOME_SCRIPT)
     val vaultPlaceholder: Path? get() = dir?.takeIf { hasPlaceholder && vaultLabels.isEmpty() }?.resolve(VAULT_PLACEHOLDER)
+
+    /** The directory holding the Ansibility events callback, when the run reports its events. */
+    val callbackDir: Path? get() = dir?.takeIf { hasCallback }?.resolve(CALLBACKS)
 
     override fun close() {
         val dir = dir ?: return
@@ -46,6 +51,7 @@ class RunSecrets private constructor(
         const val VAULT_CLIENT = "ansibility-vault-client"
         const val BECOME_SCRIPT = "ansibility-become-pass"
         const val VAULT_PLACEHOLDER = "ansibility-no-vault"
+        const val CALLBACKS = "callbacks"
         const val FALLBACK_VARIABLE = "ANSIBILITY_VAULT_FALLBACK"
         const val BECOME_VARIABLE = "ANSIBILITY_BECOME_PASSWORD"
         private const val VAULT_PREFIX = "ANSIBILITY_VAULT_"
@@ -62,9 +68,16 @@ class RunSecrets private constructor(
          * into a fresh directory under [base], and removes directories of earlier runs that were not cleaned up.
          * [NONE] when there is nothing to pass.
          */
-        fun create(base: Path, secrets: List<LabelledSecret>, becomePassword: CharArray?, vaultPlaceholder: Boolean = false): RunSecrets {
+        fun create(
+            base: Path,
+            secrets: List<LabelledSecret>,
+            becomePassword: CharArray?,
+            vaultPlaceholder: Boolean = false,
+            /** The source of the events callback to add (`callbacks/<RunCallback.FILE>`), or null. */
+            callback: String? = null,
+        ): RunSecrets {
             val placeholder = vaultPlaceholder && secrets.isEmpty()
-            if (secrets.isEmpty() && becomePassword == null && !placeholder) return NONE
+            if (secrets.isEmpty() && becomePassword == null && !placeholder && callback == null) return NONE
             Files.createDirectories(base)
             removeStale(base)
             val dir = Files.createTempDirectory(base, "run-", PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------")))
@@ -80,7 +93,11 @@ class RunSecrets private constructor(
                 script(dir.resolve(BECOME_SCRIPT), becomeScript())
             }
             if (placeholder) script(dir.resolve(VAULT_PLACEHOLDER), placeholderScript())
-            return RunSecrets(dir, secrets.map { it.label }.distinct(), becomePassword != null, environment, placeholder)
+            if (callback != null) {
+                val callbacks = Files.createDirectory(dir.resolve(CALLBACKS))
+                callbacks.resolve(RunCallback.FILE).writeText(callback)
+            }
+            return RunSecrets(dir, secrets.map { it.label }.distinct(), becomePassword != null, environment, placeholder, callback != null)
         }
 
         /** Stands in for a mounted vault password file when no vault id is unlocked. */

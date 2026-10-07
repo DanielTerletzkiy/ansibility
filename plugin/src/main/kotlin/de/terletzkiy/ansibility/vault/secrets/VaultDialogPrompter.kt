@@ -2,6 +2,7 @@ package de.terletzkiy.ansibility.vault.secrets
 
 import com.intellij.openapi.observable.properties.AtomicBooleanProperty
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.DialogPanel
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.openapi.ui.ValidationInfo
 import com.intellij.ui.components.JBCheckBox
@@ -14,7 +15,6 @@ import com.intellij.util.ui.NamedColorUtil
 import de.terletzkiy.ansibility.vault.AnsibilityVaultBundle.message
 import java.awt.event.ActionEvent
 import javax.swing.Action
-import javax.swing.ButtonGroup
 import javax.swing.JComponent
 
 /**
@@ -165,21 +165,22 @@ internal class VaultPasswordDialog(project: Project, private val request: VaultP
 
     init {
         title = message("password.title")
-        ButtonGroup().apply {
-            add(keychain)
-            add(session)
-            add(none)
-        }
         init()
     }
 
-    override fun createCenterPanel(): JComponent = panel {
+    override fun createCenterPanel(): JComponent = centerPanel()
+
+    /** The dialog's content (tests build it: a headless dialog shows none). */
+    internal fun centerPanel(): DialogPanel = panel {
         row { label(message("password.prompt", request.label, request.rootDisplayName)) }
         row { cell(field).align(AlignX.FILL) }
         request.error?.let { error -> row { label(error).applyToComponent { foreground = NamedColorUtil.getErrorForeground() } } }
-        row { cell(keychain) }
-        row { cell(session) }
-        row { cell(none) }
+        // The UI DSL groups radio buttons itself (262 refuses one outside a buttons group).
+        buttonsGroup {
+            row { cell(keychain) }
+            row { cell(session) }
+            row { cell(none) }
+        }
     }
 
     override fun getPreferredFocusedComponent(): JComponent = field

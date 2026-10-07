@@ -1,0 +1,15 @@
+---
+- ansible.builtin.import_playbook: first.yml
+- name: Nothing matches
+  hosts: nomatch
+  gather_facts: false
+  tasks:
+    - name: Never runs
+      ansible.builtin.debug: {msg: never}
+- name: One host at a time
+  hosts: db
+  gather_facts: false
+  serial: 1
+  tasks:
+    - name: Serial step
+      ansible.builtin.debug: {msg: "{{ inventory_hostname }}"}

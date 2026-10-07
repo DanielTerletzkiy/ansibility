@@ -14,6 +14,7 @@ import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.vfs.toNioPathOrNull
 import com.intellij.ui.DoubleClickListener
 import com.intellij.ui.ToolbarDecorator
+import com.intellij.ui.JBIntSpinner
 import com.intellij.ui.components.ActionLink
 import com.intellij.ui.components.JBCheckBox
 import com.intellij.ui.components.JBLabel
@@ -123,6 +124,8 @@ class RunnerConfigurable(private val project: Project, private val preselectedRo
     private val checkFreshness = JBCheckBox(message("settings.runner.freshness")).apply { addActionListener { updateEnabled() } }
     private val freshnessBranch = JBTextField(20).apply { emptyText.text = message("settings.runner.freshness.default") }
     private val runMetadata = JBCheckBox(message("settings.runner.metadata"))
+    private val runView = JBCheckBox(message("settings.runner.view"))
+    private val moleculeDestroyMinutes = JBIntSpinner(RunnerRootSettings.DEFAULT_MOLECULE_DESTROY_MINUTES, 0, RunnerRootSettings.MAX_MOLECULE_DESTROY_MINUTES)
     private val environmentVariables = JBTextArea(3, 40)
     private val composeVariables = JBTextArea(3, 40)
     private val composeHint = JBLabel()
@@ -212,6 +215,13 @@ class RunnerConfigurable(private val project: Project, private val preselectedRo
                     cell(freshnessBranch)
                 }
                 row { cell(runMetadata).comment(message("settings.runner.metadata.comment")) }
+                row { cell(runView).comment(message("settings.runner.view.comment")) }
+            }
+            group(message("settings.runner.molecule")) {
+                row(message("settings.runner.molecule.destroy")) {
+                    cell(moleculeDestroyMinutes)
+                    label(message("settings.runner.molecule.minutes"))
+                }.rowComment(message("settings.runner.molecule.destroy.comment"))
             }
             group(message("settings.runner.variables")) {
                 row(message("settings.runner.variables.process")) {
@@ -357,6 +367,8 @@ class RunnerConfigurable(private val project: Project, private val preselectedRo
             checkFreshness.isSelected = settings.checkFreshness
             freshnessBranch.text = settings.freshnessBranch
             runMetadata.isSelected = settings.runMetadata
+            runView.isSelected = settings.runView
+            moleculeDestroyMinutes.number = settings.moleculeDestroyMinutes
             environmentVariables.text = lines(settings.environmentVariables)
             composeVariables.text = lines(settings.composeVariables)
             rows.firstOrNull { it.isAll }?.let(::showAll)
@@ -400,6 +412,8 @@ class RunnerConfigurable(private val project: Project, private val preselectedRo
         checkFreshness = checkFreshness.isSelected,
         freshnessBranch = freshnessBranch.text.trim(),
         runMetadata = runMetadata.isSelected,
+        runView = runView.isSelected,
+        moleculeDestroyMinutes = moleculeDestroyMinutes.number,
     )
 
     /** Reads the form into the edits of the shown root (the inline become fields into its row for all environments). */

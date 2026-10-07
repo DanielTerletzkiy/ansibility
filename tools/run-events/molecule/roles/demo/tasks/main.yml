@@ -1,0 +1,2 @@
+- name: Write the marker
+  ansible.builtin.copy: {content: "demo\n", dest: "/tmp/ansibility-molecule-{{ marker | default('demo') }}", mode: "0644"}

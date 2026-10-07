@@ -31,6 +31,9 @@ jobs:
       - name: Fixture tool tests
         run: python3 -m unittest discover -s tools/fixtures -p 'test_*.py'
 
+      - name: Run events callback tests
+        run: python3 -m unittest discover -s tools/run-events -p 'test_*.py'
+
       - name: Test
         run: ./gradlew check
 
@@ -41,5 +44,6 @@ jobs:
           name: test-reports
           path: |
             */build/reports/tests/
+            */build/reports/kover/
             */build/test-results/
           retention-days: 14

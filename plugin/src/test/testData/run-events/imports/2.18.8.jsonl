@@ -1,0 +1,18 @@
+{"ansible": "2.18.8", "check": false, "diff": false, "e": "start", "forks": 5, "limit": null, "playbook": "site.yml", "skip_tags": [], "t": 0, "tags": ["all"], "v": 1, "verbosity": 0}
+{"e": "play", "hosts": ["db"], "id": "id-1", "name": "Imported play", "path": "<case>/first.yml:1", "serial": [], "strategy": "linear", "t": 0, "v": 1}
+{"action": "ansible.builtin.debug", "cleanup": false, "e": "task", "handler": false, "id": "id-2", "loop": false, "name": "Imported task", "path": "<case>/first.yml:5", "play": "id-1", "role": null, "t": 0, "tags": [], "v": 1}
+{"e": "host_start", "host": "d1", "t": 0, "task": "id-2", "v": 1}
+{"e": "host_start", "host": "d2", "t": 0, "task": "id-2", "v": 1}
+{"changed": false, "duration": 0.5, "e": "result", "host": "d1", "msg": "imported", "result": {"changed": false, "msg": "imported"}, "status": "ok", "t": 0, "task": "id-2", "v": 1}
+{"changed": false, "duration": 0.5, "e": "result", "host": "d2", "msg": "imported", "result": {"changed": false, "msg": "imported"}, "status": "ok", "t": 0, "task": "id-2", "v": 1}
+{"e": "play", "hosts": ["nomatch"], "id": "id-3", "name": "Nothing matches", "path": "<case>/site.yml:3", "serial": [], "strategy": "linear", "t": 0, "v": 1}
+{"e": "no_hosts", "play": "id-3", "t": 0, "v": 1}
+{"e": "play", "hosts": ["db"], "id": "id-4", "name": "One host at a time", "path": "<case>/site.yml:9", "serial": [1], "strategy": "linear", "t": 0, "v": 1}
+{"action": "ansible.builtin.debug", "cleanup": false, "e": "task", "handler": false, "id": "id-5", "loop": false, "name": "Serial step", "path": "<case>/site.yml:14", "play": "id-4", "role": null, "t": 0, "tags": [], "v": 1}
+{"e": "host_start", "host": "d1", "t": 0, "task": "id-5", "v": 1}
+{"changed": false, "duration": 0.5, "e": "result", "host": "d1", "msg": "d1", "result": {"changed": false, "msg": "d1"}, "status": "ok", "t": 0, "task": "id-5", "v": 1}
+{"e": "play", "hosts": ["db"], "id": "id-4", "name": "One host at a time", "path": "<case>/site.yml:9", "serial": [1], "strategy": "linear", "t": 0, "v": 1}
+{"action": "ansible.builtin.debug", "cleanup": false, "e": "task", "handler": false, "id": "id-5", "loop": false, "name": "Serial step", "path": "<case>/site.yml:14", "play": "id-4", "role": null, "t": 0, "tags": [], "v": 1}
+{"e": "host_start", "host": "d2", "t": 0, "task": "id-5", "v": 1}
+{"changed": false, "duration": 0.5, "e": "result", "host": "d2", "msg": "d2", "result": {"changed": false, "msg": "d2"}, "status": "ok", "t": 0, "task": "id-5", "v": 1}
+{"e": "stats", "hosts": {"d1": {"changed": 0, "failures": 0, "ignored": 0, "ok": 2, "rescued": 0, "skipped": 0, "unreachable": 0}, "d2": {"changed": 0, "failures": 0, "ignored": 0, "ok": 2, "rescued": 0, "skipped": 0, "unreachable": 0}}, "t": 0, "v": 1}

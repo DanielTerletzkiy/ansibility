@@ -1,8 +1,10 @@
 package de.terletzkiy.ansibility.toolwindow
 
+import com.intellij.execution.runners.ExecutionUtil
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.util.IconLoader
 import de.terletzkiy.ansibility.toolwindow.model.NodeIcon
+import de.terletzkiy.ansibility.toolwindow.model.NodeMarker
 import javax.swing.Icon
 
 /**
@@ -25,6 +27,18 @@ object AnsibilityToolWindowIcons {
 
     @JvmField
     val Host: Icon = load("/icons/ansibleHost.svg")
+
+    /** A role's Molecule tests (the flask of the run area's Molecule icons). */
+    @JvmField
+    val Molecule: Icon = load("/icons/molecule.svg")
+
+    /** The icon of a test [marker] after a node's own: the flask, with a live dot while it runs, or the last result. */
+    fun of(marker: NodeMarker): Icon = when (marker) {
+        NodeMarker.TESTS -> Molecule
+        NodeMarker.TESTS_RUNNING -> ExecutionUtil.getLiveIndicator(Molecule)
+        NodeMarker.TESTS_PASSED -> AllIcons.RunConfigurations.TestPassed
+        NodeMarker.TESTS_FAILED -> AllIcons.RunConfigurations.TestFailed
+    }
 
     /** The Swing icon of a model [NodeIcon]. */
     fun of(icon: NodeIcon): Icon = when (icon) {

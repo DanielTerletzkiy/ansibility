@@ -2,6 +2,7 @@ package de.terletzkiy.ansibility.run.become
 
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.DialogPanel
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.openapi.ui.ValidationInfo
 import com.intellij.ui.components.JBCheckBox
@@ -9,11 +10,10 @@ import com.intellij.ui.components.JBPasswordField
 import com.intellij.ui.components.JBRadioButton
 import com.intellij.ui.dsl.builder.AlignX
 import com.intellij.ui.dsl.builder.panel
-import com.intellij.util.ui.NamedColorUtil
 import com.intellij.util.concurrency.ThreadingAssertions
+import com.intellij.util.ui.NamedColorUtil
 import de.terletzkiy.ansibility.run.AnsibilityRunBundle.message
 import de.terletzkiy.ansibility.vault.secrets.RememberChoice
-import javax.swing.ButtonGroup
 import javax.swing.JComponent
 
 /** A become password prompt for one run of a root, for [environment] when the root has environments. */
@@ -72,16 +72,14 @@ internal class BecomePasswordDialog(project: Project, private val request: Becom
 
     init {
         title = message("become.title")
-        ButtonGroup().apply {
-            add(keychain)
-            add(session)
-            add(none)
-        }
         none.addChangeListener { onlyEnvironment.isEnabled = !none.isSelected }
         init()
     }
 
-    override fun createCenterPanel(): JComponent = panel {
+    override fun createCenterPanel(): JComponent = centerPanel()
+
+    /** The dialog's content (tests build it: a headless dialog shows none). */
+    internal fun centerPanel(): DialogPanel = panel {
         row {
             label(
                 if (request.environment == null) message("become.prompt", request.rootDisplayName)
@@ -90,9 +88,12 @@ internal class BecomePasswordDialog(project: Project, private val request: Becom
         }
         row { cell(field).align(AlignX.FILL) }
         request.error?.let { error -> row { label(error).applyToComponent { foreground = NamedColorUtil.getErrorForeground() } } }
-        row { cell(keychain) }
-        row { cell(session) }
-        row { cell(none) }
+        // The UI DSL groups radio buttons itself (262 refuses one outside a buttons group).
+        buttonsGroup {
+            row { cell(keychain) }
+            row { cell(session) }
+            row { cell(none) }
+        }
         if (request.environment != null) row { cell(onlyEnvironment) }
         row { comment(message("become.comment")) }
     }

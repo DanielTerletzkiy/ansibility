@@ -37,6 +37,7 @@ import com.intellij.util.ui.tree.TreeModelAdapter
 import com.intellij.util.ui.tree.TreeUtil
 import de.terletzkiy.ansibility.api.HostKey
 import de.terletzkiy.ansibility.api.PlayGraph
+import de.terletzkiy.ansibility.api.RoleTests
 import de.terletzkiy.ansibility.settings.AnsibilitySettingsListener
 import de.terletzkiy.ansibility.settings.WorkspaceState
 import de.terletzkiy.ansibility.toolwindow.host.EffectivePlayChoices
@@ -118,7 +119,8 @@ class AnsibleToolWindowPanel(private val project: Project, val view: TreeView = 
         tree.isRootVisible = false
         tree.showsRootHandles = true
         tree.cellRenderer = NodeRenderer()
-        tree.selectionModel.selectionMode = TreeSelectionModel.SINGLE_TREE_SELECTION
+        // Several rows at once (Cmd/Shift-click): the Molecule tests of the selected roles (R16); the details show one node.
+        tree.selectionModel.selectionMode = TreeSelectionModel.DISCONTIGUOUS_TREE_SELECTION
         tree.emptyText.text = AnsibilityToolWindowBundle.message("toolwindow.loading")
         // Double-click is handled below: navigable nodes open their target, containers toggle.
         tree.toggleClickCount = 0
@@ -152,6 +154,8 @@ class AnsibleToolWindowPanel(private val project: Project, val view: TreeView = 
                 }
             },
         )
+        // R16: a role's Molecule tests started or ended: its marker changes.
+        connection.subscribe(RoleTests.TOPIC, RoleTests.Listener { scheduleRerender() })
         // Runtime markers (variable index) and var-file effects (the background summary) wait for the indexes.
         connection.subscribe(
             DumbService.DUMB_MODE,
@@ -195,8 +199,11 @@ class AnsibleToolWindowPanel(private val project: Project, val view: TreeView = 
         return done
     }
 
-    /** The node of the selected row, or null. */
+    /** The node of the selected row, or null (also when several rows are selected). */
     fun selectedNode(): AnsibleTreeNode? = nodeOf(TreeUtil.getSelectedPathIfOne(tree))
+
+    /** The nodes of the selected rows, in tree order. */
+    fun selectedNodes(): List<AnsibleTreeNode> = tree.selectionPaths.orEmpty().sortedBy { tree.getRowForPath(it) }.mapNotNull(::nodeOf)
 
     /** Opens [node]'s target; false when it has none or it is gone. */
     fun navigate(node: AnsibleTreeNode): Boolean = node.target?.let(::navigate) == true

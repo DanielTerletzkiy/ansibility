@@ -1,0 +1,163 @@
+INFO     [default > prerun] Performing prerun with role_name_check=0...
+INFO     [default > converge] Executing
+golden {"ansible": "2.18.8", "check": false, "diff": false, "e": "start", "forks": 50, "limit": null, "playbook": "<case>/molecule/default/converge.yml", "skip_tags": ["notest", "molecule-notest"], "t": 0, "tags": ["all"], "v": 1, "verbosity": 0}
+
+PLAY [Converge] ****************************************************************
+golden {"e": "play", "hosts": ["all"], "id": "id-1", "name": "Converge", "path": "<case>/molecule/default/converge.yml:1", "serial": [], "strategy": "linear", "t": 0, "v": 1}
+
+TASK [Include the role] ********************************************************
+golden {"action": "ansible.builtin.include_role", "cleanup": false, "e": "task", "handler": false, "id": "id-2", "loop": false, "name": "Include the role", "path": "<case>/molecule/default/converge.yml:5", "play": "id-1", "role": null, "t": 0, "tags": [], "v": 1}
+golden {"e": "host_start", "host": "instance", "t": 0, "task": "id-2", "v": 1}
+golden {"changed": false, "duration": 0.5, "e": "result", "host": "instance", "result": {"changed": false, "include_args": {"name": "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"}}, "status": "ok", "t": 0, "task": "id-2", "v": 1}
+included: demo for instance
+golden {"e": "include", "file": "demo", "hosts": ["instance"], "t": 0, "task": "id-2", "v": 1}
+
+TASK [demo : Write the marker] *************************************************
+golden {"action": "ansible.builtin.copy", "cleanup": false, "e": "task", "handler": false, "id": "id-3", "loop": false, "name": "demo : Write the marker", "path": "<case>/tasks/main.yml:1", "play": "id-1", "role": "demo", "t": 0, "tags": [], "v": 1}
+golden {"e": "host_start", "host": "instance", "t": 0, "task": "id-3", "v": 1}
+changed: [instance]
+golden {"changed": true, "duration": 0.5, "e": "result", "host": "instance", "result": {"ansible_facts": {"discovered_interpreter_python": "<python>"}, "changed": true, "checksum": "9ad4cf12ea8c7c42000a7af92864e80e807a0718", "dest": "/tmp/ansibility-molecule-default", "gid": "<gid>", "group": "<group>", "invocation": "<invocation>", "md5sum": "8aae25baff2ef9e3da0ac9ff82467823", "mode": "0644", "owner": "<owner>", "size": 5, "src": "<src>", "state": "file", "uid": "<uid>"}, "status": "changed", "t": 0, "task": "id-3", "v": 1}
+
+PLAY RECAP *********************************************************************
+instance                   : ok=2    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+
+golden {"e": "stats", "hosts": {"instance": {"changed": 1, "failures": 0, "ignored": 0, "ok": 2, "rescued": 0, "skipped": 0, "unreachable": 0}}, "t": 0, "v": 1}
+INFO     [default > converge] Executed: Successful
+INFO     [default > idempotence] Executing
+golden {"ansible": "2.18.8", "check": false, "diff": false, "e": "start", "forks": 50, "limit": null, "playbook": "<case>/molecule/default/converge.yml", "skip_tags": ["molecule-idempotence-notest", "molecule-notest", "notest"], "t": 0, "tags": ["all"], "v": 1, "verbosity": 0}
+
+PLAY [Converge] ****************************************************************
+golden {"e": "play", "hosts": ["all"], "id": "id-4", "name": "Converge", "path": "<case>/molecule/default/converge.yml:1", "serial": [], "strategy": "linear", "t": 0, "v": 1}
+
+TASK [Include the role] ********************************************************
+golden {"action": "ansible.builtin.include_role", "cleanup": false, "e": "task", "handler": false, "id": "id-5", "loop": false, "name": "Include the role", "path": "<case>/molecule/default/converge.yml:5", "play": "id-4", "role": null, "t": 0, "tags": [], "v": 1}
+golden {"e": "host_start", "host": "instance", "t": 0, "task": "id-5", "v": 1}
+golden {"changed": false, "duration": 0.5, "e": "result", "host": "instance", "result": {"changed": false, "include_args": {"name": "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"}}, "status": "ok", "t": 0, "task": "id-5", "v": 1}
+included: demo for instance
+golden {"e": "include", "file": "demo", "hosts": ["instance"], "t": 0, "task": "id-5", "v": 1}
+
+TASK [demo : Write the marker] *************************************************
+golden {"action": "ansible.builtin.copy", "cleanup": false, "e": "task", "handler": false, "id": "id-6", "loop": false, "name": "demo : Write the marker", "path": "<case>/tasks/main.yml:1", "play": "id-4", "role": "demo", "t": 0, "tags": [], "v": 1}
+golden {"e": "host_start", "host": "instance", "t": 0, "task": "id-6", "v": 1}
+ok: [instance]
+golden {"changed": false, "diff": [{"after": {"path": "/tmp/ansibility-molecule-default"}, "before": {"path": "/tmp/ansibility-molecule-default"}}], "duration": 0.5, "e": "result", "host": "instance", "result": {"ansible_facts": {"discovered_interpreter_python": "<python>"}, "changed": false, "checksum": "9ad4cf12ea8c7c42000a7af92864e80e807a0718", "dest": "/tmp/ansibility-molecule-default", "gid": "<gid>", "group": "<group>", "invocation": "<invocation>", "mode": "0644", "owner": "<owner>", "path": "/tmp/ansibility-molecule-default", "size": 5, "state": "file", "uid": "<uid>"}, "status": "ok", "t": 0, "task": "id-6", "v": 1}
+
+PLAY RECAP *********************************************************************
+instance                   : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+
+golden {"e": "stats", "hosts": {"instance": {"changed": 0, "failures": 0, "ignored": 0, "ok": 2, "rescued": 0, "skipped": 0, "unreachable": 0}}, "t": 0, "v": 1}
+INFO     [default > idempotence] Executed: Successful
+INFO     [default > verify] Executing
+golden {"ansible": "2.18.8", "check": false, "diff": false, "e": "start", "forks": 50, "limit": null, "playbook": "<case>/molecule/default/verify.yml", "skip_tags": ["molecule-notest", "notest"], "t": 0, "tags": ["all"], "v": 1, "verbosity": 0}
+
+PLAY [Verify] ******************************************************************
+golden {"e": "play", "hosts": ["all"], "id": "id-7", "name": "Verify", "path": "<case>/molecule/default/verify.yml:1", "serial": [], "strategy": "linear", "t": 0, "v": 1}
+
+TASK [Read the marker] *********************************************************
+golden {"action": "ansible.builtin.stat", "cleanup": false, "e": "task", "handler": false, "id": "id-8", "loop": false, "name": "Read the marker", "path": "<case>/molecule/default/verify.yml:5", "play": "id-7", "role": null, "t": 0, "tags": [], "v": 1}
+golden {"e": "host_start", "host": "instance", "t": 0, "task": "id-8", "v": 1}
+ok: [instance]
+golden {"changed": false, "duration": 0.5, "e": "result", "host": "instance", "result": {"ansible_facts": {"discovered_interpreter_python": "<python>"}, "changed": false, "invocation": "<invocation>", "stat": {"atime": 1791379889.2117753, "attr_flags": "", "attributes": [], "block_size": 4096, "blocks": 8, "charset": "unknown", "checksum": "9ad4cf12ea8c7c42000a7af92864e80e807a0718", "ctime": 1791379888.3577712, "dev": 1048642, "device_type": 0, "executable": false, "exists": true, "gid": "<gid>", "gr_name": "root", "inode": 22472637, "isblk": false, "ischr": false, "isdir": false, "isfifo": false, "isgid": false, "islnk": false, "isreg": true, "issock": false, "isuid": false, "mimetype": "unknown", "mode": "0644", "mtime": 1791379888.1658814, "nlink": 1, "path": "/tmp/ansibility-molecule-default", "pw_name": "root", "readable": true, "rgrp": true, "roth": true, "rusr": true, "size": 5, "uid": "<uid>", "version": null, "wgrp": false, "woth": false, "writeable": true, "wusr": true, "xgrp": false, "xoth": false, "xusr": false}}, "status": "ok", "t": 0, "task": "id-8", "v": 1}
+
+TASK [The marker exists] *******************************************************
+golden {"action": "ansible.builtin.assert", "cleanup": false, "e": "task", "handler": false, "id": "id-9", "loop": false, "name": "The marker exists", "path": "<case>/molecule/default/verify.yml:8", "play": "id-7", "role": null, "t": 0, "tags": [], "v": 1}
+golden {"e": "host_start", "host": "instance", "t": 0, "task": "id-9", "v": 1}
+ok: [instance] => {
+    "changed": false,
+    "msg": "All assertions passed"
+}
+golden {"changed": false, "duration": 0.5, "e": "result", "host": "instance", "msg": "All assertions passed", "result": {"changed": false, "msg": "All assertions passed"}, "status": "ok", "t": 0, "task": "id-9", "v": 1}
+
+PLAY RECAP *********************************************************************
+instance                   : ok=2    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+
+golden {"e": "stats", "hosts": {"instance": {"changed": 0, "failures": 0, "ignored": 0, "ok": 2, "rescued": 0, "skipped": 0, "unreachable": 0}}, "t": 0, "v": 1}
+INFO     [default > verify] Executed: Successful
+INFO     [volatile > prerun] Performing prerun with role_name_check=0...
+INFO     [volatile > converge] Executing
+golden {"ansible": "2.18.8", "check": false, "diff": false, "e": "start", "forks": 50, "limit": null, "playbook": "<case>/molecule/volatile/converge.yml", "skip_tags": ["molecule-notest", "notest"], "t": 0, "tags": ["all"], "v": 1, "verbosity": 0}
+
+PLAY [Converge] ****************************************************************
+golden {"e": "play", "hosts": ["all"], "id": "id-10", "name": "Converge", "path": "<case>/molecule/volatile/converge.yml:1", "serial": [], "strategy": "linear", "t": 0, "v": 1}
+
+TASK [Include the role] ********************************************************
+golden {"action": "ansible.builtin.include_role", "cleanup": false, "e": "task", "handler": false, "id": "id-11", "loop": false, "name": "Include the role", "path": "<case>/molecule/volatile/converge.yml:5", "play": "id-10", "role": null, "t": 0, "tags": [], "v": 1}
+golden {"e": "host_start", "host": "instance", "t": 0, "task": "id-11", "v": 1}
+golden {"changed": false, "duration": 0.5, "e": "result", "host": "instance", "result": {"changed": false, "include_args": {"name": "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"}}, "status": "ok", "t": 0, "task": "id-11", "v": 1}
+included: demo for instance
+golden {"e": "include", "file": "demo", "hosts": ["instance"], "t": 0, "task": "id-11", "v": 1}
+
+TASK [demo : Write the marker] *************************************************
+golden {"action": "ansible.builtin.copy", "cleanup": false, "e": "task", "handler": false, "id": "id-12", "loop": false, "name": "demo : Write the marker", "path": "<case>/tasks/main.yml:1", "play": "id-10", "role": "demo", "t": 0, "tags": [], "v": 1}
+golden {"e": "host_start", "host": "instance", "t": 0, "task": "id-12", "v": 1}
+changed: [instance]
+golden {"changed": true, "duration": 0.5, "e": "result", "host": "instance", "result": {"ansible_facts": {"discovered_interpreter_python": "<python>"}, "changed": true, "checksum": "9ad4cf12ea8c7c42000a7af92864e80e807a0718", "dest": "/tmp/ansibility-molecule-volatile", "gid": "<gid>", "group": "<group>", "invocation": "<invocation>", "md5sum": "8aae25baff2ef9e3da0ac9ff82467823", "mode": "0644", "owner": "<owner>", "size": 5, "src": "<src>", "state": "file", "uid": "<uid>"}, "status": "changed", "t": 0, "task": "id-12", "v": 1}
+
+TASK [Always changes] **********************************************************
+golden {"action": "ansible.builtin.command", "cleanup": false, "e": "task", "handler": false, "id": "id-13", "loop": false, "name": "Always changes", "path": "<case>/molecule/volatile/converge.yml:9", "play": "id-10", "role": null, "t": 0, "tags": [], "v": 1}
+golden {"e": "host_start", "host": "instance", "t": 0, "task": "id-13", "v": 1}
+changed: [instance]
+golden {"changed": true, "duration": 0.5, "e": "result", "host": "instance", "msg": "", "result": {"changed": true, "cmd": ["true"], "delta": "<delta>", "end": "<end>", "invocation": "<invocation>", "msg": "", "rc": 0, "start": "<start>", "stderr": "", "stdout": ""}, "status": "changed", "t": 0, "task": "id-13", "v": 1}
+
+PLAY RECAP *********************************************************************
+instance                   : ok=3    changed=2    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+
+golden {"e": "stats", "hosts": {"instance": {"changed": 2, "failures": 0, "ignored": 0, "ok": 3, "rescued": 0, "skipped": 0, "unreachable": 0}}, "t": 0, "v": 1}
+INFO     [volatile > converge] Executed: Successful
+INFO     [volatile > idempotence] Executing
+golden {"ansible": "2.18.8", "check": false, "diff": false, "e": "start", "forks": 50, "limit": null, "playbook": "<case>/molecule/volatile/converge.yml", "skip_tags": ["notest", "molecule-idempotence-notest", "molecule-notest"], "t": 0, "tags": ["all"], "v": 1, "verbosity": 0}
+
+PLAY [Converge] ****************************************************************
+golden {"e": "play", "hosts": ["all"], "id": "id-14", "name": "Converge", "path": "<case>/molecule/volatile/converge.yml:1", "serial": [], "strategy": "linear", "t": 0, "v": 1}
+
+TASK [Include the role] ********************************************************
+golden {"action": "ansible.builtin.include_role", "cleanup": false, "e": "task", "handler": false, "id": "id-15", "loop": false, "name": "Include the role", "path": "<case>/molecule/volatile/converge.yml:5", "play": "id-14", "role": null, "t": 0, "tags": [], "v": 1}
+golden {"e": "host_start", "host": "instance", "t": 0, "task": "id-15", "v": 1}
+golden {"changed": false, "duration": 0.5, "e": "result", "host": "instance", "result": {"changed": false, "include_args": {"name": "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"}}, "status": "ok", "t": 0, "task": "id-15", "v": 1}
+included: demo for instance
+golden {"e": "include", "file": "demo", "hosts": ["instance"], "t": 0, "task": "id-15", "v": 1}
+
+TASK [demo : Write the marker] *************************************************
+golden {"action": "ansible.builtin.copy", "cleanup": false, "e": "task", "handler": false, "id": "id-16", "loop": false, "name": "demo : Write the marker", "path": "<case>/tasks/main.yml:1", "play": "id-14", "role": "demo", "t": 0, "tags": [], "v": 1}
+golden {"e": "host_start", "host": "instance", "t": 0, "task": "id-16", "v": 1}
+ok: [instance]
+golden {"changed": false, "diff": [{"after": {"path": "/tmp/ansibility-molecule-volatile"}, "before": {"path": "/tmp/ansibility-molecule-volatile"}}], "duration": 0.5, "e": "result", "host": "instance", "result": {"ansible_facts": {"discovered_interpreter_python": "<python>"}, "changed": false, "checksum": "9ad4cf12ea8c7c42000a7af92864e80e807a0718", "dest": "/tmp/ansibility-molecule-volatile", "gid": "<gid>", "group": "<group>", "invocation": "<invocation>", "mode": "0644", "owner": "<owner>", "path": "/tmp/ansibility-molecule-volatile", "size": 5, "state": "file", "uid": "<uid>"}, "status": "ok", "t": 0, "task": "id-16", "v": 1}
+
+TASK [Always changes] **********************************************************
+golden {"action": "ansible.builtin.command", "cleanup": false, "e": "task", "handler": false, "id": "id-17", "loop": false, "name": "Always changes", "path": "<case>/molecule/volatile/converge.yml:9", "play": "id-14", "role": null, "t": 0, "tags": [], "v": 1}
+golden {"e": "host_start", "host": "instance", "t": 0, "task": "id-17", "v": 1}
+changed: [instance]
+golden {"changed": true, "duration": 0.5, "e": "result", "host": "instance", "msg": "", "result": {"changed": true, "cmd": ["true"], "delta": "<delta>", "end": "<end>", "invocation": "<invocation>", "msg": "", "rc": 0, "start": "<start>", "stderr": "", "stdout": ""}, "status": "changed", "t": 0, "task": "id-17", "v": 1}
+
+PLAY RECAP *********************************************************************
+instance                   : ok=3    changed=1    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0
+
+golden {"e": "stats", "hosts": {"instance": {"changed": 1, "failures": 0, "ignored": 0, "ok": 3, "rescued": 0, "skipped": 0, "unreachable": 0}}, "t": 0, "v": 1}
+CRITICAL Idempotence test failed because of the following tasks:
+*  => Always changes
+ERROR    [volatile > idempotence] [31mExecuted: Failed[0m
+WARNING  [volatile > idempotence] An error occurred during the test sequence action: 'idempotence'. Cleaning up.
+INFO     [volatile > cleanup] Executing
+WARNING  [volatile > cleanup] Executed: Missing playbook (Remove from test_sequence to suppress)
+INFO     [volatile > destroy] Executing
+WARNING  [volatile > destroy] Executed: Missing playbook (Remove from test_sequence to suppress)
+INFO     [volatile > scenario] Pruning extra files from scenario ephemeral directory
+ERROR    Idempotence test failed because of the following tasks:
+*  => Always changes
+WARNING  Molecule executed 2 scenarios (1 missing files and 1 successful)
+
+DETAILS                                                                        
+default > converge: Executed: Successful
+default > idempotence: Executed: Successful
+default > verify: Executed: Successful
+
+volatile > converge: Executed: Successful
+volatile > idempotence: Executed: Successful
+volatile > cleanup: Executed: Missing playbook (Remove from test_sequence to suppress)
+volatile > destroy: Executed: Missing playbook (Remove from test_sequence to suppress)
+
+SCENARIO RECAP                                                                 
+default                   : actions=3  successful=3  disabled=0  skipped=0  missing=0  failed=0
+volatile                  : actions=4  successful=2  disabled=0  skipped=0  missing=2  failed=0
+
+

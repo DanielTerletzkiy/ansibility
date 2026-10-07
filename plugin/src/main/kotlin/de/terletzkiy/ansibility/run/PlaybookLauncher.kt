@@ -83,6 +83,17 @@ object PlaybookLauncher {
     }
 
     /**
+     * Runs [spec] once, through a configuration that is not added to the run configurations (a rerun of failed hosts,
+     * a start at a task): the playbook's own configurations keep their settings.
+     */
+    fun runOnce(project: Project, spec: PlaybookRunSpec, name: String) {
+        val settings = RunManager.getInstance(project).createConfiguration(name, AnsiblePlaybookConfigurationType.getInstance().factory)
+        (settings.configuration as AnsiblePlaybookConfiguration).spec = spec
+        settings.isTemporary = true
+        ProgramRunnerUtil.executeConfiguration(settings, DefaultRunExecutor.getRunExecutorInstance())
+    }
+
+    /**
      * Runs [spec]: a configuration of the playbook for the same target and environment is updated (a temporary one of
      * the target otherwise), else a new one is added, temporary unless [save].
      */

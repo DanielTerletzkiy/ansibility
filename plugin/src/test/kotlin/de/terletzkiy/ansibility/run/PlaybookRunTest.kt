@@ -211,4 +211,41 @@ class PlaybookRunTest : VaultTestCase() {
         val element = org.jdom.Element("configuration").also(configuration::writeExternal)
         assertEquals(false, read(com.intellij.openapi.util.JDOMUtil.write(element)).spec.become)
     }
+
+    fun testARunReportsItsEventsBesideTheConfiguredCallbacks() {
+        val root = root(falcon)
+        write("$falcon/ansible.cfg", "[defaults]\ncallback_plugins = ./team/cb\n")
+        PlaybookPreparation.dockerForTests = { Path.of("/usr/local/bin/docker") }
+        PlaybookPreparation.gitForTests = { null }
+        val docker = await { PlaybookPreparation.prepare(project, PlaybookRunSpec(playbook = vf(playbook).path, environment = "dev", executor = PlaybookExecutor.DOCKER)) }!!
+        try {
+            val events = docker.events!!
+            assertEquals(32, events.token.length)
+            assertEquals(events.token, docker.process.environment["ANSIBILITY_EVENTS_TOKEN"])
+            assertEquals("./team/cb:/ansibility-run/callbacks", docker.process.environment["ANSIBLE_CALLBACK_PLUGINS"])
+            assertTrue(docker.process.command.containsAll(listOf("-e", "ANSIBILITY_EVENTS_TOKEN", "ANSIBLE_CALLBACK_PLUGINS")))
+            assertTrue(Files.readString(docker.secrets.callbackDir!!.resolve("ansibility_events.py")).contains("ansibility_events"))
+            assertEquals(base.resolve("$falcon/roles/web/tasks/main.yml"), events.hostPath("/ansible/ansible/roles/web/tasks/main.yml"))
+            assertNull(events.hostPath("/elsewhere/x.yml"))
+        } finally {
+            docker.close()
+        }
+
+        PlaybookPreparation.dockerForTests = null
+        val native = await {
+            PlaybookPreparation.configuredCallbackPlugins(PlaybookRunContext.collect(project, vf(playbook))!!, local = true)
+        }
+        assertEquals("relative paths of ansible.cfg resolve against its directory for a local run", base.resolve("$falcon/team/cb").toString(), native)
+
+        RunnerSettings.getInstance(project).update(RootKeys.keyOf(project, root.dir)) { RunnerRootSettings(runView = false) }
+        PlaybookPreparation.dockerForTests = { Path.of("/usr/local/bin/docker") }
+        val plain = await { PlaybookPreparation.prepare(project, PlaybookRunSpec(playbook = vf(playbook).path, environment = "dev", executor = PlaybookExecutor.DOCKER)) }!!
+        try {
+            assertNull(plain.events)
+            assertNull(plain.process.environment["ANSIBILITY_EVENTS_TOKEN"])
+            assertNull(plain.secrets.callbackDir)
+        } finally {
+            plain.close()
+        }
+    }
 }

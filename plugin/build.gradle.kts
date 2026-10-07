@@ -4,11 +4,13 @@ import org.jetbrains.intellij.platform.gradle.tasks.VerifyPluginTask.FailureLeve
 import org.gradle.api.tasks.PathSensitivity
 import org.jetbrains.kotlin.gradle.dsl.JvmDefaultMode
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import java.util.Locale
 import java.util.Properties
 
 plugins {
     id("org.jetbrains.kotlin.jvm")
     id("org.jetbrains.intellij.platform")
+    id("org.jetbrains.kotlinx.kover")
 }
 
 repositories {
@@ -109,6 +111,53 @@ tasks.test {
         systemProperty("idea.test.execution.policy", "de.terletzkiy.ansibility.fixtures.InfraFixturePolicy")
     }
 }
+
+// Coverage (plan amendment R13): Kover measures the run area (`run.*`) during the plugin's tests, and
+// `checkRunCoverage` (part of `check`) holds the run events and run view packages to their minimum line coverage.
+// Only the run area is instrumented: instrumenting the whole plugin slows the timing-budget tests past their budgets.
+kover {
+    currentProject {
+        instrumentation {
+            includedClasses.add("de.terletzkiy.ansibility.run.*")
+        }
+    }
+    reports {
+        filters {
+            includes { packages("de.terletzkiy.ansibility.run") }
+        }
+    }
+}
+
+val runCoverageMinimums = mapOf(
+    "de/terletzkiy/ansibility/run/events" to 85.0,
+    "de/terletzkiy/ansibility/run/view" to 60.0,
+    "de/terletzkiy/ansibility/run/molecule" to 60.0,
+)
+
+val checkRunCoverage = tasks.register("checkRunCoverage") {
+    group = "verification"
+    description = "Fails when the run events and run view packages fall below their minimum line coverage."
+    dependsOn("koverXmlReport")
+    val report = layout.buildDirectory.file("reports/kover/report.xml")
+    inputs.file(report)
+    doLast {
+        val xml = report.get().asFile.readText()
+        val failures = runCoverageMinimums.mapNotNull { (pkg, minimum) ->
+            val block = Regex("""<package name="$pkg">(.*?)</package>""", RegexOption.DOT_MATCHES_ALL).find(xml)?.groupValues?.get(1)
+                ?: return@mapNotNull "$pkg: not in the coverage report"
+            val line = Regex("""<counter type="LINE" missed="(\d+)" covered="(\d+)"/>""").findAll(block).lastOrNull()
+                ?: return@mapNotNull "$pkg: no line counter"
+            val missed = line.groupValues[1].toDouble()
+            val covered = line.groupValues[2].toDouble()
+            val percent = 100.0 * covered / (covered + missed)
+            logger.lifecycle("line coverage of ${pkg.replace('/', '.')}: %.1f%% (minimum %.0f%%)".format(Locale.ROOT, percent, minimum))
+            if (percent < minimum) "${pkg.replace('/', '.')}: %.1f%% < %.0f%%".format(Locale.ROOT, percent, minimum) else null
+        }
+        if (failures.isNotEmpty()) throw GradleException("Coverage below the minimum: " + failures.joinToString("; "))
+    }
+}
+
+tasks.named("check") { dependsOn(checkRunCoverage) }
 
 // Run the plugin in the locally installed (Toolbox) IDEs. Their paths are machine-specific: a Gradle property
 // (~/.gradle/gradle.properties) or the git-ignored local.properties in the project root.

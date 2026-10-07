@@ -22,7 +22,20 @@ import com.intellij.execution.runners.ExecutionEnvironment
 import com.intellij.openapi.components.BaseState
 import com.intellij.openapi.options.SettingsEditor
 import com.intellij.openapi.project.Project
+import com.intellij.execution.DefaultExecutionResult
+import com.intellij.execution.ExecutionResult
+import com.intellij.execution.runners.ProgramRunner
+import com.intellij.execution.ui.ConsoleView
+import com.intellij.execution.ui.ExecutionConsole
+import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.NotNullLazyValue
+import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.util.execution.ParametersListUtil
+import de.terletzkiy.ansibility.run.view.AnsibleRunConsole
+import de.terletzkiy.ansibility.run.view.AnsibleRunView
+import de.terletzkiy.ansibility.run.view.RunEventCollector
+import de.terletzkiy.ansibility.run.view.RunEventsProcessHandler
+import de.terletzkiy.ansibility.run.view.RunViewActions
 import de.terletzkiy.ansibility.toolwindow.AnsibilityToolWindowIcons
 import java.nio.file.Path
 import kotlin.io.path.name
@@ -147,8 +160,9 @@ class AnsiblePlaybookConfiguration(project: Project, factory: ConfigurationFacto
 
     /** Null when the user cancels a prompt (environment, become password, production confirmation). */
     override fun getState(executor: Executor, environment: ExecutionEnvironment): RunProfileState? {
+        val spec = spec
         val prepared = PlaybookPreparation.prepare(project, spec) ?: return null
-        return PlaybookRunState(environment, prepared)
+        return PlaybookRunState(environment, prepared, spec)
     }
 
     companion object {
@@ -166,32 +180,26 @@ class AnsiblePlaybookConfiguration(project: Project, factory: ConfigurationFacto
     }
 }
 
-/** Starts the prepared process in the Run console and deletes the run's secret scripts and temporary playbook when it ends. */
-class PlaybookRunState(environment: ExecutionEnvironment, private val prepared: PreparedRun) : CommandLineState(environment) {
-    override fun startProcess(): ProcessHandler {
-        val process = prepared.process
-        val commandLine = GeneralCommandLine(process.command)
-            .withWorkingDirectory(process.workDir)
-            .withEnvironment(process.environment)
-            .withParentEnvironmentType(GeneralCommandLine.ParentEnvironmentType.CONSOLE)
-            .withCharset(Charsets.UTF_8)
-        val handler = try {
-            KillableColoredProcessHandler(commandLine)
-        } catch (e: ExecutionException) {
-            prepared.close()
-            throw e
+/** A playbook run: the shared [AnsibleRunState], with reruns of hosts, starts at a task and runs of a play or role. */
+class PlaybookRunState(environment: ExecutionEnvironment, prepared: PreparedRun, private val spec: PlaybookRunSpec) :
+    AnsibleRunState(environment, prepared) {
+    /** The run view's actions: one-off runs of the same configuration, and the run dialog of a play or role. */
+    override fun actions(project: Project): RunViewActions = object : RunViewActions {
+        override fun rerunHosts(hosts: List<String>) {
+            if (hosts.isEmpty()) return
+            val limit = hosts.joinToString(",")
+            PlaybookLauncher.runOnce(project, spec.copy(limit = limit), AnsibilityRunBundle.message("run.view.once.hosts", AnsiblePlaybookConfiguration.nameFor(spec), limit))
         }
-        handler.addProcessListener(object : ProcessListener {
-            override fun startNotified(event: ProcessEvent) {
-                prepared.header.forEach { handler.notifyTextAvailable("$it\n", ProcessOutputTypes.SYSTEM) }
-                handler.notifyTextAvailable("${commandLine.commandLineString}\n\n", ProcessOutputTypes.SYSTEM)
-            }
 
-            override fun processTerminated(event: ProcessEvent) {
-                prepared.close()
-            }
-        })
-        ProcessTerminatedListener.attach(handler)
-        return handler
+        override fun startAt(task: String) {
+            val args = (spec.additionalArgs + " " + ParametersListUtil.join("--start-at-task", task)).trim()
+            PlaybookLauncher.runOnce(project, spec.copy(additionalArgs = args), AnsibilityRunBundle.message("run.view.once.start", AnsiblePlaybookConfiguration.nameFor(spec), task))
+        }
+
+        override fun runPart(play: String, role: String?) {
+            val file = LocalFileSystem.getInstance().findFileByPath(spec.playbook) ?: return
+            val target = if (role == null) PlaybookTarget.play(-1, play) else PlaybookTarget.role(-1, play, -1, role)
+            PlaybookLauncher.openDialog(project, file, target)
+        }
     }
 }

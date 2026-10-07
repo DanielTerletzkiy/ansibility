@@ -56,6 +56,10 @@ data class RunnerRootSettings(
     val freshnessBranch: String = "",
     /** Pass `GIT_URL`, `GIT_COMMIT`, `GIT_BRANCH` and `PROVISION_USER` to the run (report callbacks read them). */
     val runMetadata: Boolean = true,
+    /** Show runs as plays, tasks and hosts: adds Ansibility's events callback to the run (the console stays as it is). */
+    val runView: Boolean = true,
+    /** Destroy the instances a Molecule converge, verify or idempotence run leaves after this many minutes; 0: keep them. */
+    val moleculeDestroyMinutes: Int = DEFAULT_MOLECULE_DESTROY_MINUTES,
 ) {
     /** The source for [environment]: its own, else the one for all environments; null when none is configured. */
     fun becomeSource(environment: String?): BecomeSource? = environment?.let { become[it] } ?: become[ALL_ENVIRONMENTS]
@@ -69,6 +73,8 @@ data class RunnerRootSettings(
 
     companion object {
         const val ALL_ENVIRONMENTS: String = "*"
+        const val DEFAULT_MOLECULE_DESTROY_MINUTES: Int = 2
+        const val MAX_MOLECULE_DESTROY_MINUTES: Int = 240
         val DEFAULT = RunnerRootSettings()
     }
 }
@@ -128,6 +134,8 @@ class RunnerSettings : PersistentStateComponent<RunnerSettings.StateBean> {
         @get:Attribute("checkFreshness") var checkFreshness: Boolean = true
         @get:Attribute("freshnessBranch") var freshnessBranch: String? = null
         @get:Attribute("runMetadata") var runMetadata: Boolean = true
+        @get:Attribute("runView") var runView: Boolean = true
+        @get:Attribute("moleculeDestroyMinutes") var moleculeDestroyMinutes: Int = RunnerRootSettings.DEFAULT_MOLECULE_DESTROY_MINUTES
 
         @get:XCollection(propertyElementName = "become", elementName = "source")
         var become: MutableList<BecomeBean> = ArrayList()
@@ -145,6 +153,8 @@ class RunnerSettings : PersistentStateComponent<RunnerSettings.StateBean> {
             checkFreshness = checkFreshness,
             freshnessBranch = freshnessBranch.orEmpty(),
             runMetadata = runMetadata,
+            runView = runView,
+            moleculeDestroyMinutes = moleculeDestroyMinutes.coerceIn(0, RunnerRootSettings.MAX_MOLECULE_DESTROY_MINUTES),
         )
 
         companion object {
@@ -161,6 +171,8 @@ class RunnerSettings : PersistentStateComponent<RunnerSettings.StateBean> {
                 checkFreshness = settings.checkFreshness
                 freshnessBranch = settings.freshnessBranch.ifEmpty { null }
                 runMetadata = settings.runMetadata
+                runView = settings.runView
+                moleculeDestroyMinutes = settings.moleculeDestroyMinutes
                 become = settings.become.map { (environment, source) -> BecomeBean.of(environment, source) }.toMutableList()
                 variables = (settings.composeVariables.map { VariableBean.of(COMPOSE, it.key, it.value) } +
                     settings.environmentVariables.map { VariableBean.of(PROCESS, it.key, it.value) }).toMutableList()

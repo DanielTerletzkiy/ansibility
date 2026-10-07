@@ -1,0 +1,10 @@
+- name: Converge
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Include the role
+      ansible.builtin.include_role:
+        name: "{{ lookup('env', 'MOLECULE_PROJECT_DIRECTORY') | basename }}"
+      vars: {marker: "{{ lookup('env', 'MOLECULE_SCENARIO_NAME') }}"}
+    - name: Always changes
+      ansible.builtin.command: "true"

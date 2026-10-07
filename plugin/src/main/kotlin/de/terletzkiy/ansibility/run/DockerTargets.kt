@@ -28,6 +28,8 @@ data class DockerTarget(
     val sshSocketVariable: String? = null,
     val rank: Int = DockerTargets.rank(service),
     val variables: List<VolumeVariable> = emptyList(),
+    /** The service's own `ANSIBLE_CALLBACK_PLUGINS`, which a run keeps in front of Ansibility's callback. */
+    val callbackPlugins: String? = null,
 ) {
     data class Mount(val host: Path, val container: String)
 
@@ -43,6 +45,14 @@ data class DockerTarget(
     }
 
     fun presentable(): String = "$service (${composeFile.fileName})"
+
+    /** The host path of [container] through the deepest mount holding it; null outside the mounts. */
+    fun hostPath(container: String): Path? {
+        val mount = mounts.filter { container == it.container || container.startsWith(it.container.trimEnd('/') + "/") }
+            .maxByOrNull { it.container.length } ?: return null
+        val rest = container.removePrefix(mount.container).trimStart('/')
+        return if (rest.isEmpty()) mount.host else mount.host.resolve(rest).normalize()
+    }
 }
 
 /** Finds the [DockerTarget]s of a root in the Compose files of its directory and of its ancestors up to the content root. */
@@ -75,6 +85,7 @@ object DockerTargets {
                 mounts = mounts,
                 vaultFileVariable = variableMountedAt(service, "ANSIBLE_VAULT_PASSWORD_FILE"),
                 sshSocketVariable = variableMountedAt(service, "SSH_AUTH_SOCK"),
+                callbackPlugins = service.environment["ANSIBLE_CALLBACK_PLUGINS"],
                 variables = service.volumes.mapNotNull { volume ->
                     VARIABLE.find(volume.host)?.groupValues?.get(1)?.let { DockerTarget.VolumeVariable(it, volume.container, DEFAULTED.containsMatchIn(volume.host)) }
                 },

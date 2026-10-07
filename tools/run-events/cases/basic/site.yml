@@ -1,0 +1,52 @@
+---
+- name: Web
+  hosts: web
+  gather_facts: false
+  vars:
+    work_dir: "{{ playbook_dir }}/out/{{ inventory_hostname }}"
+  roles:
+    - { role: web, tags: ['web'] }
+  tasks:
+    - name: Skipped on purpose
+      ansible.builtin.debug: {msg: never}
+      when: false
+    - name: Fails but is ignored
+      ansible.builtin.fail: {msg: "expected failure"}
+      ignore_errors: true
+    - name: Retries until the second attempt
+      ansible.builtin.shell: "echo x >> {{ work_dir }}/attempts; test $(wc -l < {{ work_dir }}/attempts) -ge 2"
+      register: retried
+      until: retried.rc == 0
+      retries: 3
+      delay: 0
+      changed_when: false
+    - name: Runs a little while
+      ansible.builtin.command: sleep 3
+      async: 10
+      poll: 1
+      changed_when: false
+    - name: Runs on the first host for everyone
+      ansible.builtin.command: "echo delegated for {{ inventory_hostname }}"
+      delegate_to: h1
+      changed_when: false
+    - name: Loop with skipped and failed items
+      ansible.builtin.command: "{{ 'false' if item == 'bad' else 'true' }}"
+      loop: [good, skip, bad]
+      when: item != 'skip'
+      ignore_errors: true
+      changed_when: false
+    - name: A very large result
+      ansible.builtin.set_fact:
+        large: "{{ dict(range(20) | map('string') | zip(['x' * 70000] * 20)) }}"
+    - name: Rescued block
+      block:
+        - name: Breaks
+          ansible.builtin.command: "false"
+      rescue:
+        - name: Recovers
+          ansible.builtin.debug: {msg: recovered}
+    - name: Includes more tasks
+      ansible.builtin.include_tasks: tasks/more.yml
+    - name: Prints a long output
+      ansible.builtin.command: "python3 -c \"print('x' * 70000)\""
+      changed_when: false

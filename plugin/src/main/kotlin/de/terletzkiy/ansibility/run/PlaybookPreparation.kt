@@ -16,6 +16,8 @@ import de.terletzkiy.ansibility.api.VaultFailure
 import de.terletzkiy.ansibility.api.VaultOperations
 import de.terletzkiy.ansibility.api.VaultUnlockResult
 import de.terletzkiy.ansibility.run.become.BecomePasswords
+import de.terletzkiy.ansibility.run.events.RunCallback
+import de.terletzkiy.ansibility.semantics.layout.CfgSyntax
 import de.terletzkiy.ansibility.run.become.BecomeResult
 import de.terletzkiy.ansibility.run.settings.RunnerRootSettings
 import de.terletzkiy.ansibility.vault.identity.VaultIdentityRegistry
@@ -31,10 +33,23 @@ import kotlin.io.path.isExecutable
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.readText
 
-/** A run ready to start: the process, the lines printed before the command, and the secrets [close] deletes when it ends. */
-class PreparedRun(val process: PlaybookProcess, val secrets: RunSecrets, val header: List<String>) : AutoCloseable {
+/**
+ * A run ready to start: the process, the lines printed before the command, the secrets [close] deletes when it ends,
+ * and, when the run reports its events, their [events] setup.
+ */
+class PreparedRun(
+    val process: PlaybookProcess,
+    val secrets: RunSecrets,
+    val header: List<String>,
+    val events: RunEventsSetup? = null,
+    /** The runner settings of the root the run was prepared with. */
+    val runner: RunnerRootSettings = RunnerRootSettings.DEFAULT,
+) : AutoCloseable {
     override fun close() = secrets.close()
 }
+
+/** How a run reports its events: the [token] of its frames, and the host file of a path Ansible reports (null: unknown). */
+class RunEventsSetup(val token: String, val hostPath: (String) -> Path?)
 
 /**
  * Turns a [PlaybookRunSpec] into a [PreparedRun]: asks for the environment when the root has several and none is
@@ -118,39 +133,66 @@ object PlaybookPreparation {
         } else {
             null
         }
+        val token = if (runner.runView) RunCallback.newToken() else null
         val secrets = try {
-            when (val unlock = VaultOperations.getInstance(project).unlock(context.root)) {
-                is VaultUnlockResult.Unlocked ->
-                    if (unlock.identities.isNotEmpty()) header += AnsibilityRunBundle.message("run.header.vault", unlock.identities.joinToString())
-                is VaultUnlockResult.Failed ->
-                    if (unlock.failure != VaultFailure.NO_IDENTITY) header += AnsibilityRunBundle.message("run.header.vault.failed", unlock.failure.name.lowercase())
-            }
-            val discovery = VaultIdentityRegistry.getInstance(project).discovery(context.root)
-            withContext(Dispatchers.IO) {
-                VaultSecretsService.getInstance(project).lease(discovery).use { lease ->
-                    RunSecrets.create(secretsBase(), lease.secrets, become, vaultPlaceholder = dockerTarget?.vaultFileVariable != null)
-                }
-            }
-        } catch (e: IOException) {
-            throw ExecutionException(AnsibilityRunBundle.message("run.error.secrets", e.message.orEmpty()), e)
+            secretsFor(project, context.root, header, become, vaultPlaceholder = dockerTarget?.vaultFileVariable != null, callback = token != null)
         } finally {
             become?.fill('\u0000')
         }
 
         try {
             val playbook = context.playbookPath
-            val additions = additions(context, runner, header)
+            val additions = additions(context, runner, header).let { base ->
+                if (token == null) base else base.copy(environment = base.environment + callbackEnvironment(context, runner, dockerTarget, secrets, token))
+            }
             val inventories = environment?.inventories.orEmpty()
             val process = if (dockerTarget != null) {
                 docker(context, dockerTarget, spec, playbook, inventories, secrets, additions, header)
             } else {
                 native(project, context, spec, playbook, inventories, secrets, additions, header)
             }
-            return PreparedRun(process, secrets, header)
+            val events = token?.let {
+                RunEventsSetup(it) { path -> if (dockerTarget != null) dockerTarget.hostPath(path) else runCatching { Path.of(path) }.getOrNull() }
+            }
+            return PreparedRun(process, secrets, header, events)
         } catch (e: Throwable) {
             secrets.close()
             throw e
         }
+    }
+
+    /**
+     * Unlocks [root]'s vault ids (a header line names them, or why they stayed locked) and writes the run's secrets:
+     * the vault client, the [become] password script, the vault [vaultPlaceholder] and the events [callback].
+     */
+    internal suspend fun secretsFor(
+        project: Project,
+        root: de.terletzkiy.ansibility.api.AnsibleRoot,
+        header: MutableList<String>,
+        become: CharArray?,
+        vaultPlaceholder: Boolean,
+        callback: Boolean,
+        /** False: unlock only what needs no question (files, password managers, remembered passwords), skip the rest. */
+        askForVault: Boolean = true,
+    ): RunSecrets = try {
+        val unlock = if (askForVault) VaultOperations.getInstance(project).unlock(root)
+        else VaultSecretsService.getInstance(project).unlock(root, interactive = false)
+        when (unlock) {
+            is VaultUnlockResult.Unlocked ->
+                if (unlock.identities.isNotEmpty()) header += AnsibilityRunBundle.message("run.header.vault", unlock.identities.joinToString())
+            is VaultUnlockResult.Failed -> if (unlock.failure != VaultFailure.NO_IDENTITY) {
+                header += if (askForVault) AnsibilityRunBundle.message("run.header.vault.failed", unlock.failure.name.lowercase())
+                else AnsibilityRunBundle.message("run.header.vault.unasked")
+            }
+        }
+        val discovery = VaultIdentityRegistry.getInstance(project).discovery(root)
+        withContext(Dispatchers.IO) {
+            VaultSecretsService.getInstance(project).lease(discovery).use { lease ->
+                RunSecrets.create(secretsBase(), lease.secrets, become, vaultPlaceholder, if (callback) RunCallback.source() else null)
+            }
+        }
+    } catch (e: IOException) {
+        throw ExecutionException(AnsibilityRunBundle.message("run.error.secrets", e.message.orEmpty()), e)
     }
 
     /** False when the checkout is behind (or could not be compared) and the user does not want to run anyway. */
@@ -207,6 +249,44 @@ object PlaybookPreparation {
         environment += runner.environmentVariables
         describeConnection(runner)?.let { header += AnsibilityRunBundle.message("run.header.connection", it) }
         return RunAdditions(RunConnection.extraVarsArgument(runner), environment, runner.composeVariables)
+    }
+
+    /**
+     * The token of the run's events and `ANSIBLE_CALLBACK_PLUGINS` with the callback's directory added to the configured
+     * paths: the runner's environment variable, else the Compose service's (in a container) or the IDE's, else
+     * `ansible.cfg`'s `callback_plugins` (`ANSIBLE_CONFIG`'s file for a local run, else the root's).
+     */
+    internal suspend fun callbackEnvironment(
+        context: PlaybookRunContext,
+        runner: RunnerRootSettings,
+        target: DockerTarget?,
+        secrets: RunSecrets,
+        token: String,
+    ): Map<String, String> {
+        val ours = if (target != null) "${PlaybookCommand.CONTAINER_SECRETS}/${RunSecrets.CALLBACKS}" else secrets.callbackDir?.toString() ?: return emptyMap()
+        val environment = runner.environmentVariables[RunCallback.PLUGINS_VARIABLE]
+            ?: if (target != null) target.callbackPlugins else EnvironmentUtil.getValue(RunCallback.PLUGINS_VARIABLE)
+        val config = withContext(Dispatchers.IO) { configuredCallbackPlugins(context, local = target == null) }
+        return mapOf(RunCallback.TOKEN_VARIABLE to token, RunCallback.PLUGINS_VARIABLE to RunCallback.pluginPath(environment, config, ours))
+    }
+
+    /**
+     * `callback_plugins` of the `ansible.cfg` the run reads. Relative paths resolve against the file's directory: a
+     * local run gets them absolute; in a container the run's working directory is the root, which holds the file.
+     */
+    internal fun configuredCallbackPlugins(context: PlaybookRunContext, local: Boolean): String? {
+        val custom = if (local) EnvironmentUtil.getValue("ANSIBLE_CONFIG")?.let { runCatching { Path.of(it) }.getOrNull() }?.takeIf { it.isRegularFile() } else null
+        val file = custom ?: context.rootPath.resolve("ansible.cfg").takeIf { it.isRegularFile() } ?: return null
+        val value = try {
+            CfgSyntax.read(file.readText()).document.value("defaults", "callback_plugins")
+        } catch (_: IOException) {
+            null
+        } ?: return null
+        if (!local) return value
+        val dir = file.parent ?: return value
+        return value.split(':').map { it.trim() }.filter { it.isNotEmpty() }.joinToString(":") { path ->
+            if (path.startsWith("/") || path.startsWith("~") || path.startsWith("$")) path else dir.resolve(path).normalize().toString()
+        }
     }
 
     /** "as jane, via jump host jane@proxy:2222, without host key checks"; null when the settings change nothing. */
@@ -290,7 +370,7 @@ object PlaybookPreparation {
             .firstOrNull { it.isExecutable() }
     }
 
-    private fun secretsBase(): Path = PathManager.getSystemDir().resolve("ansibility").resolve("run")
+    internal fun secretsBase(): Path = PathManager.getSystemDir().resolve("ansibility").resolve("run")
 
     private suspend fun <T> onEdt(block: () -> T): T = withContext(Dispatchers.EDT + ModalityState.any().asContextElement()) { block() }
 }

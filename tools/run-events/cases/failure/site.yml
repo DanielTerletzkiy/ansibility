@@ -1,0 +1,24 @@
+---
+- name: Breaks one host
+  hosts: app
+  gather_facts: false
+  tasks:
+    - name: Fails on a2 only
+      ansible.builtin.command: "{{ 'false' if inventory_hostname == 'a2' else 'true' }}"
+      changed_when: false
+    - name: Only the healthy host gets here
+      ansible.builtin.debug: {msg: "still running on {{ inventory_hostname }}"}
+- name: Second play
+  hosts: app
+  gather_facts: false
+  tasks:
+    - name: Runs on the rest
+      ansible.builtin.debug: {msg: second}
+- name: Breaks the rest
+  hosts: app
+  gather_facts: false
+  tasks:
+    - name: Fails everywhere
+      ansible.builtin.command: "false"
+    - name: Never reached
+      ansible.builtin.debug: {msg: never}

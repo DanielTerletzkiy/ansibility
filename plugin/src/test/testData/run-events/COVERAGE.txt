@@ -1,0 +1,2 @@
+ansibility_events.py line coverage: 91.5% from the playbook runs, 99.4% (176/177 lines) with test_callback.py
+not run: [208]

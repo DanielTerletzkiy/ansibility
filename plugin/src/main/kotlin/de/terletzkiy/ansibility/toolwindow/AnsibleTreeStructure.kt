@@ -6,6 +6,7 @@ import com.intellij.ide.util.treeView.NodeDescriptor
 import com.intellij.ide.util.treeView.PresentableNodeDescriptor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.text.HtmlBuilder
+import com.intellij.ui.RowIcon
 import com.intellij.ui.SimpleTextAttributes
 import com.intellij.ui.tree.LeafState
 import de.terletzkiy.ansibility.toolwindow.model.AnsibleTreeNode
@@ -80,7 +81,8 @@ class AnsibleNodeDescriptor(
     override fun update(presentation: PresentationData) {
         val model = node.presentation()
         name = model.name
-        presentation.setIcon(AnsibilityToolWindowIcons.of(model.icon))
+        val icon = AnsibilityToolWindowIcons.of(model.icon)
+        presentation.setIcon(model.marker?.let { RowIcon(icon, AnsibilityToolWindowIcons.of(it)) } ?: icon)
         presentation.presentableText = model.name
         presentation.addText(model.name, nameAttributes(model.style))
         model.badge?.takeIf { it.isNotEmpty() }?.let { presentation.addText("  $it", SimpleTextAttributes.REGULAR_ATTRIBUTES) }

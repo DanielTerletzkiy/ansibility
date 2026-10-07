@@ -1,5 +1,6 @@
 package de.terletzkiy.ansibility.toolwindow.model
 
+import de.terletzkiy.ansibility.api.RoleTestState
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
@@ -28,6 +29,22 @@ enum class NodeIcon {
     FILE,
 }
 
+/** A marker after a node's icon (plan amendment R16): a role's Molecule tests, running, or how their last run went. */
+enum class NodeMarker {
+    TESTS, TESTS_RUNNING, TESTS_PASSED, TESTS_FAILED;
+
+    companion object {
+        /** The marker of [state]; null for a role without tests. */
+        fun of(state: RoleTestState): NodeMarker? = when (state) {
+            RoleTestState.NONE -> null
+            RoleTestState.NOT_RUN -> TESTS
+            RoleTestState.RUNNING -> TESTS_RUNNING
+            RoleTestState.PASSED -> TESTS_PASSED
+            RoleTestState.FAILED -> TESTS_FAILED
+        }
+    }
+}
+
 /** How the name of a node is drawn: regular, bold (the selected environment of a play), struck through (a shadowed definition). */
 enum class NodeStyle { NORMAL, EMPHASIZED, STRUCK }
 
@@ -42,6 +59,7 @@ data class NodePresentation(
     val icon: NodeIcon,
     val style: NodeStyle = NodeStyle.NORMAL,
     @Nls val badge: String? = null,
+    val marker: NodeMarker? = null,
 ) {
     /** The row as one string (name, badge and extra separated by two spaces), for speed search and tests. */
     val text: String get() = listOfNotNull(name, badge?.takeIf { it.isNotEmpty() }, extra?.takeIf { it.isNotEmpty() }).joinToString("  ")

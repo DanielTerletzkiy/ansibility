@@ -1,0 +1,14 @@
+- name: Work directory
+  ansible.builtin.file: {path: "{{ work_dir }}", state: directory, mode: "0755"}
+- name: Write the site file
+  ansible.builtin.copy: {content: "hello {{ inventory_hostname }}\n", dest: "{{ work_dir }}/site.txt", mode: "0644"}
+  notify: Reload site
+- name: Loop over packages
+  ansible.builtin.debug: {msg: "package {{ item }}"}
+  loop: [nginx, certbot]
+- name: Secret output
+  ansible.builtin.debug: {msg: "s3cret-value"}
+  no_log: true
+- name: Credentials in a result
+  ansible.builtin.set_fact:
+    service_account: {user: deploy, password: hunter2, api_token: abc123}

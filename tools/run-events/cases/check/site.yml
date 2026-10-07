@@ -1,0 +1,9 @@
+---
+- name: Check mode
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Would write a file
+      ansible.builtin.copy: {content: "new content\n", dest: "{{ playbook_dir }}/config.txt", mode: "0644"}
+    - name: Would change a line
+      ansible.builtin.lineinfile: {path: "{{ playbook_dir }}/existing.txt", regexp: "^port=", line: "port=8080"}

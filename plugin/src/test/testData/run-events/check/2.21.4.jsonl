@@ -1,0 +1,9 @@
+{"ansible": "2.21.4", "check": true, "diff": true, "e": "start", "forks": 5, "limit": null, "playbook": "site.yml", "skip_tags": [], "t": 0, "tags": ["all"], "v": 1, "verbosity": 0}
+{"e": "play", "hosts": ["all"], "id": "id-1", "name": "Check mode", "path": "<case>/site.yml:2", "serial": [], "strategy": "linear", "t": 0, "v": 1}
+{"action": "ansible.builtin.copy", "cleanup": false, "e": "task", "handler": false, "id": "id-2", "loop": false, "name": "Would write a file", "path": "<case>/site.yml:6", "play": "id-1", "role": null, "t": 0, "tags": [], "v": 1}
+{"e": "host_start", "host": "c1", "t": 0, "task": "id-2", "v": 1}
+{"changed": true, "diff": [{"after": "new content\n", "after_header": "<case>/config.txt", "before": ""}], "duration": 0.5, "e": "result", "host": "c1", "result": {"changed": true}, "status": "changed", "t": 0, "task": "id-2", "v": 1}
+{"action": "ansible.builtin.lineinfile", "cleanup": false, "e": "task", "handler": false, "id": "id-3", "loop": false, "name": "Would change a line", "path": "<case>/site.yml:8", "play": "id-1", "role": null, "t": 0, "tags": [], "v": 1}
+{"e": "host_start", "host": "c1", "t": 0, "task": "id-3", "v": 1}
+{"changed": true, "diff": [{"after": "port=8080\nhost=example.test\n", "after_header": "<case>/existing.txt (content)", "before": "port=80\nhost=example.test\n", "before_header": "<case>/existing.txt (content)"}, {"after_header": "<case>/existing.txt (file attributes)", "before_header": "<case>/existing.txt (file attributes)"}], "duration": 0.5, "e": "result", "host": "c1", "msg": "line replaced", "result": {"ansible_facts": {"discovered_interpreter_python": "<python>"}, "backup": "", "changed": true, "msg": "line replaced"}, "status": "changed", "t": 0, "task": "id-3", "v": 1}
+{"e": "stats", "hosts": {"c1": {"changed": 2, "failures": 0, "ignored": 0, "ok": 2, "rescued": 0, "skipped": 0, "unreachable": 0}}, "t": 0, "v": 1}

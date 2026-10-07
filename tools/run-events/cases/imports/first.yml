@@ -1,0 +1,6 @@
+- name: Imported play
+  hosts: db
+  gather_facts: false
+  tasks:
+    - name: Imported task
+      ansible.builtin.debug: {msg: imported}

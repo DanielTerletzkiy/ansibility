@@ -3,6 +3,12 @@
     <extensions defaultExtensionNs="com.intellij">
         <configurationType implementation="de.terletzkiy.ansibility.run.AnsiblePlaybookConfigurationType"/>
         <runLineMarkerContributor language="yaml" implementationClass="de.terletzkiy.ansibility.run.PlaybookRunLineMarkerContributor"/>
+        <!-- R14: Molecule scenarios -->
+        <configurationType implementation="de.terletzkiy.ansibility.run.molecule.MoleculeConfigurationType"/>
+        <runLineMarkerContributor language="yaml" implementationClass="de.terletzkiy.ansibility.run.molecule.MoleculeRunLineMarkerContributor"/>
+        <!-- R16: the last Molecule results of roles and scenarios (gutter, Roles tab) -->
+        <projectService serviceInterface="de.terletzkiy.ansibility.api.RoleTests"
+                        serviceImplementation="de.terletzkiy.ansibility.run.molecule.MoleculeResults"/>
         <!-- Settings › Ansibility › Runner: per root connection, become password, checks and variables (personal). -->
         <projectConfigurable parentId="de.terletzkiy.ansibility.settings"
                              instance="de.terletzkiy.ansibility.run.settings.RunnerConfigurable"
@@ -19,6 +25,13 @@
             <add-to-group group-id="EditorPopupMenu" anchor="last"/>
             <add-to-group group-id="ProjectViewPopupMenuRunGroup" anchor="last"/>
             <add-to-group group-id="Ansibility.ToolWindow.Popup" anchor="first"/>
+            <add-to-group group-id="Ansibility.ToolWindow.Toolbar.Extra" anchor="last"/>
+        </action>
+        <action id="Ansibility.RunMoleculeTest" class="de.terletzkiy.ansibility.run.molecule.RunMoleculeTestAction" icon="de.terletzkiy.ansibility.run.molecule.MoleculeIcons.RunMolecule">
+            <add-to-group group-id="ProjectViewPopupMenuRunGroup" anchor="last"/>
+            <add-to-group group-id="Ansibility.ToolWindow.Popup" anchor="after" relative-to-action="Ansibility.RunPlaybook"/>
+        </action>
+        <action id="Ansibility.RunMoleculeTests" class="de.terletzkiy.ansibility.run.molecule.RunMoleculeTestsAction" icon="de.terletzkiy.ansibility.run.molecule.MoleculeIcons.RunMolecule">
             <add-to-group group-id="Ansibility.ToolWindow.Toolbar.Extra" anchor="last"/>
         </action>
         <action id="Ansibility.RerunPlaybook" class="de.terletzkiy.ansibility.run.RerunPlaybookAction" icon="AllIcons.Actions.Rerun">

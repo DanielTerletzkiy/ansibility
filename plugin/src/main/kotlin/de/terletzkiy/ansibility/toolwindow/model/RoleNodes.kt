@@ -5,6 +5,8 @@ import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.vfs.VirtualFile
 import de.terletzkiy.ansibility.api.PlayGraph
 import de.terletzkiy.ansibility.api.RoleRef
+import de.terletzkiy.ansibility.api.RoleTestState
+import de.terletzkiy.ansibility.api.RoleTests
 import de.terletzkiy.ansibility.api.RootKind
 import de.terletzkiy.ansibility.context.AnsibleLayout
 import de.terletzkiy.ansibility.model.role.RoleLayout
@@ -47,7 +49,11 @@ class RoleNode(parent: AnsibleTreeNode, val root: RootSnapshot, val role: RoleRe
     AnsibleTreeNode(parent, "role:${role.dir.path}") {
     override fun presentation(): NodePresentation {
         val path = root.relativePath(role.dir)
-        return NodePresentation(label ?: role.name, listOfNotNull(if (label != null) path else null, applied).joinToString(" · ").ifEmpty { null }, listOf(role.dir.presentableUrl), NodeIcon.ROLE)
+        val marker = project?.let { NodeMarker.of(RoleTests.getInstance(it).stateOf(role.dir)) }
+        return NodePresentation(
+            label ?: role.name, listOfNotNull(if (label != null) path else null, applied).joinToString(" · ").ifEmpty { null }, listOf(role.dir.presentableUrl),
+            NodeIcon.ROLE, marker = marker,
+        )
     }
 
     override val target: NavigationTarget get() = roleTarget(role)
@@ -91,7 +97,15 @@ class RoleFileNode(parent: AnsibleTreeNode, val file: VirtualFile) : AnsibleTree
 class RoleNameNode(parent: AnsibleTreeNode, val name: String, val copies: List<Pair<RootSnapshot, RoleRef>>) : AnsibleTreeNode(parent, "role-name:$name") {
     override fun presentation(): NodePresentation {
         val roots = copies.map { it.first.root.displayName }.distinct()
-        return NodePresentation(name, message("role.copies", copies.size, ToolWindowTexts.joinCapped(roots, MAX_ROOTS)), icon = NodeIcon.ROLE)
+        return NodePresentation(name, message("role.copies", copies.size, ToolWindowTexts.joinCapped(roots, MAX_ROOTS)), icon = NodeIcon.ROLE, marker = marker())
+    }
+
+    /** The tests of the copies (what a test run of this row runs): running before failed before passed before never run. */
+    private fun marker(): NodeMarker? {
+        val project = project ?: return null
+        val states = copies.map { (_, role) -> RoleTests.getInstance(project).stateOf(role.dir) }
+        val state = listOf(RoleTestState.RUNNING, RoleTestState.FAILED, RoleTestState.PASSED, RoleTestState.NOT_RUN).firstOrNull { it in states } ?: return null
+        return NodeMarker.of(state)
     }
 
     override fun children(context: TreeContext): List<AnsibleTreeNode> =
