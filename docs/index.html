@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ansibility — Ansible Plugin for JetBrains IDEs</title>
-  <meta name="description" content="Ansibility brings deep, native Ansible support to JetBrains IDEs. Host awareness, 22-step variable precedence, vault security, Jinja2 preview, and role argument specs.">
+  <meta name="description" content="Ansibility brings deep, native Ansible support to JetBrains IDEs. Host awareness, 22-step variable precedence, vault security, Jinja2 preview, role argument specs, and playbook and Molecule runs.">
   <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -30,6 +30,7 @@
           <li><a href="#features">Features</a></li>
           <li><a href="#precedence">Inventory</a></li>
           <li><a href="#vault">Vault</a></li>
+          <li><a href="#runs">Runs</a></li>
           <li><a href="#compatibility">Compatibility</a></li>
           <li><a href="#install">Build</a></li>
         </ul>
@@ -53,7 +54,7 @@
         <p class="hero-kicker">Ansible development, inside your IDE</p>
         <h1 class="hero-title">Ansible intelligence for JetBrains IDEs.</h1>
         <p class="hero-description">
-          Ansibility brings deep semantic support for Ansible to PyCharm, IntelliJ IDEA, WebStorm, and PhpStorm. Instead of generic YAML highlighting, it models your entire Ansible project: multi-environment inventories, 22-step variable precedence, transparent vault editing, role argument specs, and live Jinja2 previews.
+          Ansibility brings deep semantic support for Ansible to PyCharm, IntelliJ IDEA, WebStorm, and PhpStorm. Instead of generic YAML highlighting, it models your entire Ansible project: multi-environment inventories, 22-step variable precedence, transparent vault editing, role argument specs, and live Jinja2 previews. It also runs your playbooks and Molecule scenarios and shows every play, task and host in a structured run view.
         </p>
 
         <div class="hero-actions">
@@ -432,7 +433,7 @@
     </div>
   </section>
 
-  <!-- Features Grid (All 9 Core Capabilities) -->
+  <!-- Features Grid (All 12 Core Capabilities) -->
   <section id="features" class="section">
     <div class="container">
       <div class="section-header">
@@ -467,6 +468,7 @@
           <ul>
             <li>Inline vault reveal popup, rekey, and in-place edit</li>
             <li>Whole-file vault tabs with automatic background sync protection</li>
+            <li>Passwords from 1Password, Bitwarden, KeePassXC or Proton Pass CLIs</li>
             <li>Static envelope linting (ANS-V101..ANS-V103) without requiring passwords</li>
           </ul>
         </div>
@@ -528,6 +530,37 @@
             <li>Explore environments, groups, hosts, playbooks, roles, and vars files</li>
             <li>Effective variables table inspector for any selected host</li>
             <li>Custom workspace scopes to filter inspections and views</li>
+            <li>Multi-repo workspaces: look up a variable in all repos at once</li>
+          </ul>
+        </div>
+
+        <div class="feature-item">
+          <h3>10. Running Playbooks</h3>
+          <p>Run a whole playbook, a single play, or a single role straight from the editor gutter, locally or inside a Docker Compose service.</p>
+          <ul>
+            <li>Environment, limit, tags, extra vars, check mode, diff and become password in one dialog</li>
+            <li>Branch freshness and production checks before every run</li>
+            <li>Per-root runner settings: remote user, SSH jump host, become passwords</li>
+          </ul>
+        </div>
+
+        <div class="feature-item">
+          <h3>11. Structured Run View</h3>
+          <p>Every run gets a "Plays" tab next to the console, showing plays, tasks and hosts with live status.</p>
+          <ul>
+            <li>Recap table, result details and before/after diffs</li>
+            <li>Rerun failed hosts, rerun on one host, or start at a task</li>
+            <li>Jump from any task in the run straight to its source</li>
+          </ul>
+        </div>
+
+        <div class="feature-item">
+          <h3>12. Molecule Testing</h3>
+          <p>Gutter icons on every Molecule scenario run the test cycle for one scenario or for all of them.</p>
+          <ul>
+            <li><code>test</code>, <code>converge</code>, <code>verify</code>, <code>idempotence</code> and <code>destroy</code></li>
+            <li>Local <code>molecule</code> or a Docker Compose service</li>
+            <li>Automatic instance cleanup with a "keep them" countdown banner</li>
           </ul>
         </div>
       </div>
@@ -592,6 +625,37 @@
           <h4>Safe Whole-File Vault Tabs</h4>
           <p>Open whole-file encrypted secrets directly in dedicated editor tabs. Background sync protection prevents unencrypted temporary files from being written to disk.</p>
           <p style="margin-top: 0.5rem;">Static envelope linting verifies header formatting and block structure without requiring vault passwords.</p>
+          <h4 style="margin-top: 1rem;">Password Manager CLIs</h4>
+          <p>Vault and become passwords can be read directly from <strong>1Password</strong> (<code>op</code>), <strong>Bitwarden</strong> (<code>bw</code>), <strong>KeePassXC</strong> (<code>keepassxc-cli</code>) or <strong>Proton Pass</strong> (<code>pass-cli</code>). You can also use the IDE password store, a password file, an environment variable, a script or a prompt, and test each source from Settings.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Playbook & Molecule Runs -->
+  <section id="runs" class="section">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title">Playbook &amp; Molecule Runs</h2>
+        <p class="section-subtitle">Run exactly the part of a playbook you are working on, and see what happened on every host.</p>
+      </div>
+
+      <div class="split-section">
+        <div class="doc-block">
+          <h4>Run What You're Editing</h4>
+          <p>Gutter icons on playbooks, plays and roles open a run dialog that is already filled in:</p>
+          <ul style="list-style: none; font-size: 0.85rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.5rem;">
+            <li>• <strong>Targeted Runs:</strong> Runs a single play or role through <code>--tags</code>, and offers to add any missing tags to the playbook.</li>
+            <li>• <strong>Local or Docker Compose:</strong> Uses the local <code>ansible-playbook</code>, or finds the Compose service that mounts your project.</li>
+            <li>• <strong>Safe by Default:</strong> Warns when your branch is behind its upstream, and asks for confirmation before running against production without check mode.</li>
+            <li>• <strong>Secrets Handled:</strong> Vault IDs are unlocked automatically, and become passwords come from 1Password, Bitwarden, KeePassXC, Proton Pass or the IDE password store.</li>
+          </ul>
+        </div>
+
+        <div class="doc-block">
+          <h4>Structured Results &amp; Molecule</h4>
+          <p>A bundled callback plugin streams events into a "Plays" tree with live status per host, a recap table, result details and before/after diffs. From any node you can rerun failed hosts, rerun on a single host, start at that task, or jump to its source.</p>
+          <p style="margin-top: 0.5rem;">Molecule scenarios get their own gutter icons for <code>test</code>, <code>converge</code>, <code>verify</code>, <code>idempotence</code> and <code>destroy</code>. Test instances are cleaned up after a configurable countdown.</p>
         </div>
       </div>
     </div>

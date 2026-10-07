@@ -11,7 +11,7 @@
 
 **Ansibility** brings deep, native Ansible support to JetBrains IDEs (**PyCharm**, **IntelliJ IDEA**, **WebStorm**, and **PhpStorm**).
 
-Instead of treating Ansible as plain YAML, Ansibility understands your entire Ansible ecosystem: inventories, host and group hierarchies, variable precedence, playbooks, role reaches, Jinja2 templates, Ansible Vault secrets, and `meta/argument_specs.yml` definitions.
+Instead of treating Ansible as plain YAML, Ansibility understands your entire Ansible ecosystem: inventories, host and group hierarchies, variable precedence, playbooks, role reaches, Jinja2 templates, Ansible Vault secrets, and `meta/argument_specs.yml` definitions. It also runs your playbooks and Molecule scenarios, and shows the results as a structured tree of plays, tasks and hosts.
 
 ---
 
@@ -22,6 +22,7 @@ Instead of treating Ansible as plain YAML, Ansibility understands your entire An
 * **Status-Bar Context Switcher:** Switch the active host/environment context directly from the status bar widget or quick action to immediately inspect how variables evaluate for a specific target host.
 * **Per-File Scope Inference:** Automatically infers which hosts and plays a file applies to (e.g. playbook-level vs environment-level vars, role tasks, or Molecule scenarios).
 * **Molecule & Golden Role Support:** Understands Molecule scenario directories and pseudo-inventories when developing standalone roles.
+* **Layout Detection:** Recognizes your project layout (environments, inventories, `ansible.cfg`), flags layout problems in an editor banner, and shows what it detected via Tools | Ansibility: Show Detected Layout.
 
 ### 2. Variable Resolution & "Explain Precedence"
 * **Effective Variables:** Computes exact variable values according to Ansible’s 22-step precedence order.
@@ -35,6 +36,7 @@ Instead of treating Ansible as plain YAML, Ansibility understands your entire An
   * In-place edit, copy plaintext, encrypt, decrypt, rekey, and change Vault ID.
   * Automatic folding for `!vault |` YAML blocks.
 * **Whole-File Vault Editing:** Seamlessly open and edit whole-file encrypted vaults in dedicated, color-coded editor tabs with automatic background sync protection (vetoing accidental plaintext writes to disk).
+* **Password Manager CLIs:** Read vault passwords straight from **1Password** (`op`), **Bitwarden** (`bw`), **KeePassXC** (`keepassxc-cli`) or **Proton Pass** (`pass-cli`). Other sources: the IDE password store, a password file, an environment variable, a script, or a prompt. Each source can be tested from Settings.
 * **Password-Free Envelope Linting:** Static inspections detecting malformed vault envelopes (ANS-V101), folded values (ANS-V102), and trailing whitespace (ANS-V103) without requiring vault passwords.
 * **Safe Coexistence:** Gracefully integrates alongside existing plugins like `ansible-vault-editor-idea-plugin`.
 
@@ -70,11 +72,29 @@ Instead of treating Ansible as plain YAML, Ansibility understands your entire An
 * **Find Usages (Alt+F7):** Search for variable usages across your entire repository, categorized into Read, Set, and Spec definitions.
 * **Safe Rename Refactoring (Shift+F6):** Rename variables and roles with automatic, project-wide reference updates.
 * **Registered Variables (`register:`):** Type-aware completion and documentation for task return objects and facts.
+* **Override Gutter Markers:** See where a variable overrides or is overridden by another definition, and jump between them.
+* **Structure & Search:** Breadcrumbs, tag completion, Ansible symbols in Go to Symbol, and clickable file paths in console output.
 
 ### 9. Dedicated Ansible Tool Window & Workspace Scopes
 * **Ansible Tool Window:** Browse your project's Ansible structure in a tree hierarchy (roots, environments, groups, hosts, playbooks, roles, and vars files).
 * **Effective Variables Inspector:** Inspect the complete effective variable table for any selected host with play-level filtering.
 * **Workspace Scopes:** Filter tool window views and inspections using custom named workspace scopes.
+* **Multi-Repo Workspaces:** Look up a variable across all repositories ("Variable in All Repos") and switch the environment in every root at once.
+* **New Ansible Role:** File | New | Ansible Role creates a role with tasks, handlers, defaults, meta and an argument spec.
+
+### 10. Running Playbooks
+* **Run Configurations & Gutter Icons:** Run a whole playbook, a single play, or a single role straight from the editor gutter, or rerun the last run with its settings.
+* **Run Dialog:** Pick the environment, limit, tags, skip-tags, extra vars, check mode, diff, verbosity and become password. When a play or role can't be selected by tags, Ansibility offers to add the missing tags for you.
+* **Local or Docker Compose:** Runs the local `ansible-playbook`, or automatically finds a Docker Compose service that mounts your project and runs inside it.
+* **Safety Checks:** Warns when your branch is behind its upstream, and asks for confirmation before running against production without check mode.
+* **Runner Settings per Root:** Remote user, SSH jump host, host-key checking, and become passwords per environment (from 1Password, Bitwarden, KeePassXC, Proton Pass, or the IDE's secure password storage). Settings can be imported from `.env.local`.
+* **Vault Passwords:** Vault IDs are unlocked for the run automatically.
+* **Structured Run View:** A "Plays" tab shows plays, tasks and hosts with live status, a recap table, result details and before/after diffs. Rerun failed hosts, rerun on a single host, start at a task, or jump to the task's source.
+
+### 11. Molecule Testing
+* **Molecule Run Configurations:** Gutter icons on each scenario run `test`, `test` (keep instances), `converge`, `verify`, `idempotence` or `destroy` for one scenario or all of them.
+* **Local or Docker Compose:** Runs the local `molecule`, or a Docker Compose service that has Molecule installed.
+* **Automatic Cleanup:** Test instances are destroyed after a configurable delay. A banner counts down and lets you keep them.
 
 ---
 
