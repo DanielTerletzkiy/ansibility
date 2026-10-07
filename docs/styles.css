@@ -843,6 +843,111 @@ code, pre {
 #specs .section-header::before { content: "STATIC ANALYSIS"; }
 #compatibility .section-header::before { content: "SUPPORTED IDEs"; }
 #install .section-header::before { content: "FROM SOURCE"; }
+#install .section-header-marketplace::before { content: "QUICK INSTALL"; }
+
+.marketplace-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 4rem;
+  padding: 1.5rem 1.75rem;
+  background:
+    radial-gradient(120% 140% at 100% 0%, rgba(139, 130, 246, 0.14), transparent 55%),
+    var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+}
+
+.marketplace-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.marketplace-logo {
+  width: 44px;
+  height: 44px;
+}
+
+.marketplace-name {
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--text-primary);
+}
+
+.marketplace-hint {
+  margin-top: 0.2rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.btn-marketplace {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.8rem 1.4rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #ffffff;
+  text-decoration: none;
+  background: linear-gradient(135deg, #6259cf 0%, #8b82f6 55%, #b36bf2 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  box-shadow:
+    0 0 0 1px rgba(139, 130, 246, 0.25),
+    0 8px 24px -6px rgba(139, 130, 246, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  overflow: hidden;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.btn-marketplace::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.22) 50%, transparent 70%);
+  transform: translateX(-120%);
+  transition: transform 0.6s ease;
+}
+
+.btn-marketplace:hover {
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 0 1px rgba(170, 163, 255, 0.45),
+    0 12px 32px -6px rgba(139, 130, 246, 0.75),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.btn-marketplace:hover::after {
+  transform: translateX(120%);
+}
+
+.btn-marketplace:active {
+  transform: translateY(0);
+}
+
+.btn-marketplace:focus-visible {
+  outline: 2px solid var(--accent-light);
+  outline-offset: 3px;
+}
+
+.btn-marketplace-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.btn-marketplace-arrow {
+  transition: transform 0.15s ease;
+}
+
+.btn-marketplace:hover .btn-marketplace-arrow {
+  transform: translateX(3px);
+}
 
 .section-title {
   font-size: clamp(1.8rem, 3vw, 2.25rem);
