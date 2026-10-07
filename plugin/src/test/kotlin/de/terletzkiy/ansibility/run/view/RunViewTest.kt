@@ -300,9 +300,15 @@ class RunViewTest : BasePlatformTestCase() {
         layout(view.component)
         layout(view.component)
         val scroll = view.stripScrollForTests()
+        val chips = view.strip.preferredSize.height
         assertTrue("30 chips overflow 400 px", scroll.horizontalScrollBar.isVisible)
-        assertTrue("the chips keep their height", scroll.viewport.height >= view.strip.preferredSize.height)
-        assertTrue("the scroll bar is below them", scroll.horizontalScrollBar.y >= scroll.viewport.y + scroll.viewport.height)
+        assertTrue("the chips keep their height", scroll.viewport.height >= chips)
+        // Below the chips' row: in a row of its own, or (where the platform draws scroll bars over the content, as on
+        // Linux or macOS with automatic scroll bars) over the room the strip keeps for it.
+        assertTrue(
+            "the scroll bar is below the chips: bar at ${scroll.horizontalScrollBar.y}, chips end at ${scroll.viewport.y + chips}",
+            scroll.horizontalScrollBar.y >= scroll.viewport.y + chips,
+        )
 
         view.component.setSize(100_000, 300)
         layout(view.component)
