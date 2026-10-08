@@ -1,5 +1,7 @@
 # Ansibility Changelog
 
+## Unreleased
+
 ## 0.0.3 - 2026-10-09
 
 ### Added
