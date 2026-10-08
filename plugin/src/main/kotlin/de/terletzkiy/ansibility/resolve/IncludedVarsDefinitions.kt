@@ -15,6 +15,8 @@ import de.terletzkiy.ansibility.api.SourceLocation
 import de.terletzkiy.ansibility.api.VarDefKind
 import de.terletzkiy.ansibility.api.VarDefinition
 import de.terletzkiy.ansibility.api.VarsLayer
+import de.terletzkiy.ansibility.context.MoleculeView
+import de.terletzkiy.ansibility.context.MoleculeVisibility
 import de.terletzkiy.ansibility.index.JinjaBearing
 import de.terletzkiy.ansibility.index.TaskKeywords
 import de.terletzkiy.ansibility.index.ValueSummary
@@ -40,30 +42,58 @@ import java.util.concurrent.ConcurrentHashMap
  *   from the role's `vars/` dir, the role, the playbook's `vars/` dir, the playbook dir or the task file's dir;
  * - the `vars:` keys of an `import_playbook` entry, which apply to every play it imports.
  * Files already indexed as vars files are deduplicated by location by the caller. Cached until any PSI changes.
+ *
+ * Each loaded file also remembers its cause (plan amendment R20, D157): a file that only Molecule playbooks load
+ * ([loadedOnlyByMolecule]) gives Molecule definitions, wherever the file lies. With [MoleculeView.EXCLUDE] ([of],
+ * [names]) those are left out, judged by that cause, together with the `vars:` of `import_playbook` entries of Molecule
+ * playbooks (D153).
  */
 internal object IncludedVarsDefinitions {
-    private val CACHE = Key.create<CachedValue<ConcurrentHashMap<String, Map<String, List<VarDefinition>>>>>("ansibility.includedVars")
+    private val CACHE = Key.create<CachedValue<ConcurrentHashMap<String, Computed>>>("ansibility.includedVars")
     private val INCLUDE_VARS = setOf("include_vars", "ansible.builtin.include_vars", "ansible.legacy.include_vars")
 
-    fun of(project: Project, root: AnsibleRoot, name: String): List<VarDefinition> = all(project, root)[name].orEmpty()
+    /** The definitions of one root by name, and the loaded files no production task or playbook loads. */
+    private class Computed(val byName: Map<String, List<VarDefinition>>, val moleculeOnly: Set<VirtualFile>, private val project: Project) {
+        /** [byName] without what Molecule playbooks contribute ([MoleculeView.EXCLUDE]), computed on first use. */
+        val production: Map<String, List<VarDefinition>> by lazy(LazyThreadSafetyMode.PUBLICATION) {
+            byName.mapValues { (_, definitions) -> definitions.filter { !isMolecule(it) } }.filterValues { it.isNotEmpty() }
+        }
 
-    fun names(project: Project, root: AnsibleRoot): Set<String> = all(project, root).keys
+        private fun isMolecule(definition: VarDefinition): Boolean {
+            ProgressManager.checkCanceled()
+            val file = definition.location.file
+            return definition.kind == VarDefKind.INCLUDE_VARS && file in moleculeOnly || MoleculeVisibility.isMoleculeFile(project, file)
+        }
+
+        fun byName(view: MoleculeView): Map<String, List<VarDefinition>> = if (view.includesMolecule) byName else production
+    }
+
+    fun of(project: Project, root: AnsibleRoot, name: String, view: MoleculeView = MoleculeView.INCLUDE): List<VarDefinition> =
+        all(project, root).byName(view)[name].orEmpty()
+
+    fun names(project: Project, root: AnsibleRoot, view: MoleculeView = MoleculeView.INCLUDE): Set<String> = all(project, root).byName(view).keys
 
     fun inFile(project: Project, root: AnsibleRoot, file: VirtualFile): List<VarDefinition> =
-        all(project, root).values.flatten().filter { it.location.file == file }
+        all(project, root).byName.values.flatten().filter { it.location.file == file }
 
-    private fun all(project: Project, root: AnsibleRoot): Map<String, List<VarDefinition>> {
+    /** Whether only `include_vars` tasks of Molecule playbooks of [root] load [file] (none of a role or a playbook). */
+    fun loadedOnlyByMolecule(project: Project, root: AnsibleRoot, file: VirtualFile): Boolean = file in all(project, root).moleculeOnly
+
+    private fun all(project: Project, root: AnsibleRoot): Computed {
         val cache = CachedValuesManager.getManager(project).getCachedValue(project, CACHE, {
             CachedValueProvider.Result.create(ConcurrentHashMap(), PsiModificationTracker.getInstance(project))
         }, false)
         return cache.getOrPut(root.dir.path) { compute(project, root) }
     }
 
-    private fun compute(project: Project, root: AnsibleRoot): Map<String, List<VarDefinition>> {
+    private fun compute(project: Project, root: AnsibleRoot): Computed {
         val out = LinkedHashMap<String, MutableList<VarDefinition>>()
         val loaded = HashSet<VirtualFile>()
+        val fromProduction = HashSet<VirtualFile>()
+        val fromMolecule = HashSet<VirtualFile>()
 
-        fun addKeys(target: VirtualFile, roleName: String?) {
+        fun addKeys(target: VirtualFile, roleName: String?, molecule: Boolean) {
+            (if (molecule) fromMolecule else fromProduction) += target
             if (!loaded.add(target)) return
             val map = VarsDocuments.load(project, target) as? YMap ?: return
             for (entry in map.entries) {
@@ -72,7 +102,7 @@ internal object IncludedVarsDefinitions {
             }
         }
 
-        fun scan(taskFile: VirtualFile, tasks: List<TaskNode>, searchDirs: List<VirtualFile>, roleName: String?) {
+        fun scan(taskFile: VirtualFile, tasks: List<TaskNode>, searchDirs: List<VirtualFile>, roleName: String?, molecule: Boolean) {
             for (task in tasks) {
                 ProgressManager.checkCanceled()
                 val call = task.module ?: continue
@@ -81,7 +111,7 @@ internal object IncludedVarsDefinitions {
                 val path = (call.args.option("file") as? YScalar)?.text ?: call.args.rawParams?.trim() ?: continue
                 if (path.isEmpty() || JinjaBearing.hasTemplateMarkers(path)) continue
                 val target = (searchDirs + taskFile.parent).firstNotNullOfOrNull { it.findFileByRelativePath(path)?.takeIf { f -> !f.isDirectory } } ?: continue
-                addKeys(target, roleName)
+                addKeys(target, roleName, molecule)
             }
         }
 
@@ -90,12 +120,13 @@ internal object IncludedVarsDefinitions {
             val searchDirs = listOfNotNull(dir.findChild(RoleLayout.VARS), dir)
             for (file in RoleLayout.taskFiles(dir) + RoleLayout.handlerFiles(dir)) {
                 val yaml = YamlFiles.yamlFile(project, file) ?: continue
-                scan(file, TaskFileModels.of(yaml, TaskFileKind.TASKS).tasks(), searchDirs, role.name)
+                scan(file, TaskFileModels.of(yaml, TaskFileKind.TASKS).tasks(), searchDirs, role.name, molecule = false)
             }
         }
         for (playbook in PlayGraph.getInstance(project).playbooks(root)) {
             ProgressManager.checkCanceled()
             val yaml = YamlFiles.yamlFile(project, playbook) ?: continue
+            val molecule = MoleculeVisibility.isMoleculeFile(project, playbook)
             val dir = playbook.parent
             val searchDirs = listOfNotNull(dir.findChild(RoleLayout.VARS), dir)
             for (play in TaskFileModels.of(yaml, TaskFileKind.PLAYBOOK).plays) {
@@ -111,7 +142,7 @@ internal object IncludedVarsDefinitions {
                     }
                 }
                 play.sections().forEach(::visit)
-                scan(playbook, tasks, searchDirs, null)
+                scan(playbook, tasks, searchDirs, null, molecule)
             }
             val document = PsiYValueAdapter.documentValue(yaml) as? YSeq ?: continue
             for (entry in document.items) {
@@ -125,7 +156,7 @@ internal object IncludedVarsDefinitions {
                 }
             }
         }
-        return out
+        return Computed(out, fromMolecule - fromProduction, project)
     }
 
     private fun definition(name: String, value: YValue, file: VirtualFile, offset: Int, kind: VarDefKind, layer: VarsLayer, roleName: String?) = VarDefinition(

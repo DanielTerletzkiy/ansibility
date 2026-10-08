@@ -1,0 +1,46 @@
+<html>
+<body>
+<p>Reports private keys stored in plaintext (ANS-V108). Ansible copies such files to hosts as they are and warns about
+  nothing; whoever has the repository has the key. Checked in every text file of a project with an Ansible root,
+  inside or outside the roots, also inside YAML and JSON values, flattened onto one line, or base64-encoded as a whole
+  (a Kubernetes Secret's <code>data</code> value):</p>
+<ul>
+  <li><b>Error:</b> a complete unencrypted private key: PEM (RSA, EC, DSA, PKCS#8), OpenSSH without a cipher, PuTTY
+    without encryption, an OpenPGP private key block; also the key after the certificates of a combined
+    <code>.pem</code> file. A vault password file of a root that is committed or staged: it unlocks every vault of
+    the root (a password script or client script, <code>.env.local</code> itself and a vaulted password file are no
+    finding).</li>
+  <li><b>Warning:</b> a passphrase-protected key (encrypted PKCS#8, a PEM key with an encryption header, OpenSSH or
+    PuTTY with a cipher; the passphrase can be attacked offline); a plaintext file named like a secret without a key
+    Ansibility can read (<code>*.key</code> below <code>files/ssl</code> or <code>files/ssh</code>,
+    <code>*.password</code> below <code>files</code>), unless it holds only password hashes (see below); any of these
+    in a file that is not committed yet.</li>
+</ul>
+<p>A key-like file that holds only password hashes is no plaintext secret and is not reported: one hash per line,
+  alone or as <code>name:hash</code> (htpasswd) or a shadow line (a crypt hash may carry the <code>!</code> of a locked
+  account), ignoring blank lines, in a file of at most 64 lines and 16 KiB. Recognised: crypt hashes (<code>$1$</code>,
+  <code>$apr1$</code>, <code>$5$</code>, <code>$6$</code>, bcrypt <code>$2a$</code>/<code>$2b$</code>/<code>$2x$</code>/
+  <code>$2y$</code>, yescrypt <code>$y$</code>, <code>$gy$</code>, scrypt <code>$7$</code>, <code>$sha1$</code>, Sun
+  <code>$md5</code>), argon2, PBKDF2 (passlib and Django), passlib <code>$bcrypt-sha256$</code>, Django bcrypt and
+  argon2, MySQL (<code>*</code> and 40 hex digits, <code>caching_sha2_password</code> <code>$A$005$</code> also in hex),
+  PostgreSQL <code>SCRAM-SHA-256</code>, LDAP and Dovecot schemes (<code>{SSHA}</code>, <code>{SHA}</code>,
+  <code>{SSHA256}</code>, <code>{SSHA512}</code>, <code>{MD5}</code>, <code>{SMD5}</code>, <code>{CRYPT}</code> and
+  <code>{SHA512-CRYPT}</code>, <code>{BLF-CRYPT}</code> &hellip; with a crypt hash, <code>{ARGON2ID}</code>). Still
+  reported, because a plaintext secret looks the same: a bare hex string (<code>openssl rand -hex</code> writes
+  passwords like that), PostgreSQL <code>md5</code> hashes (they log in without the password), traditional DES crypt,
+  and any <code>#</code> comment or other line next to the hashes.</p>
+<p>Certificates, public keys, certificate requests, parameters and truncated examples are never reported. Files
+  ignored by the VCS (<code>.gitignore</code>), whole-file vaults, decrypted vault tabs, Ansibility's ignored paths and
+  the allowlist of Settings | Languages &amp; Frameworks | Ansibility | Vault (Molecule's test folders by default) are
+  not checked. A file outside version control (or any file, in an IDE without VCS support) is reported like a committed
+  one, except a vault password file, which is reported only inside a VCS root: committed or staged (error), or neither
+  committed nor ignored (warning).</p>
+<p>Quick fixes: <b>Encrypt file</b> encrypts the file in place with Ansibility Vault (Ansible's <code>copy</code>,
+  <code>template</code> and <code>lookup('file')</code> decrypt it); <b>Encrypt value</b> turns a key held in a YAML
+  value into a <code>!vault |</code> value. A committed vault password file has no fix: remove it from git, add it to
+  <code>.gitignore</code> and rekey the vaults. Encrypting does not remove the plaintext from git history: rotate a key
+  that was ever committed. Outside every Ansible root Ansibility Vault cannot encrypt a file, so there the message says
+  to keep the file out of version control instead. Messages name the kind of key, never its content.</p>
+<!-- tooltip end -->
+</body>
+</html>

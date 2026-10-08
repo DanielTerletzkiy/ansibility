@@ -17,6 +17,7 @@ import de.terletzkiy.ansibility.settings.AnsibilitySettingsBundle.message
 import de.terletzkiy.ansibility.settings.ui.AnsibilityConfigurable
 import de.terletzkiy.ansibility.settings.ui.RootsTable
 import javax.swing.JComponent
+import javax.swing.JEditorPane
 import javax.swing.JTable
 
 /** The settings page, created headlessly: apply, reset and the roots table. */
@@ -105,15 +106,52 @@ class AnsibilityConfigurableTest : BasePlatformTestCase() {
     }
 
     fun testProjectPathsAreApplied() {
-        checkBox("paths.molecule").doClick()
+        checkBox("paths.detached").doClick()
         val ignored = UIUtil.findComponentsOfType(component, JBTextArea::class.java).single()
         assertEquals("**/.ansible/**\npatches/**", ignored.text)
         ignored.text = "patches/**\n\n  vendor/**  \n"
         assertTrue(configurable.isModified)
         configurable.apply()
         val paths = AnsibilityProjectSettings.getInstance(project).settings.paths
-        assertFalse(paths.moleculeSupport)
+        assertFalse(paths.detachedRule)
         assertEquals(listOf("patches/**", "vendor/**"), paths.extraIgnoredPaths)
+    }
+
+    fun testTheMoleculeGroupHasTwoIndependentSwitches() {
+        // Plan amendment R20, D150: "Molecule support" is gone; two switches replace it, with their comments.
+        val texts = UIUtil.findComponentsOfType(component, JBCheckBox::class.java).map { it.text }
+        assertFalse("no Molecule support checkbox any more", texts.any { it.contains("Molecule support") })
+        val tests = checkBox("molecule.tests")
+        val navigation = checkBox("molecule.navigation")
+        assertTrue("tests run by default", tests.isSelected)
+        assertFalse("Molecule stays out of navigation by default", navigation.isSelected)
+        assertTrue("both are enabled", tests.isEnabled && navigation.isEnabled)
+        val comments = UIUtil.findComponentsOfType(component, JEditorPane::class.java).joinToString("\n") { it.text }
+        assertTrue("the page says how to ignore Molecule folders: $comments", comments.contains("**/molecule/**"))
+        // Ignored paths never hide the run UI (MoleculeScenarios reads the VFS), so the page must not promise "completely".
+        val plain = com.intellij.openapi.util.text.StringUtil.removeHtmlTags(comments).replace(Regex("\\s+"), " ")
+        assertTrue("the ignore comment says runs follow the switch: $plain", plain.contains("Molecule test runs follow Run Molecule tests only"))
+        assertFalse(plain, plain.contains("ignore molecule folders completely"))
+
+        tests.doClick()
+        assertTrue(configurable.isModified)
+        configurable.apply()
+        assertEquals(MoleculeSettings(runTests = false, showInNavigation = false), AnsibilityProjectSettings.getInstance(project).settings.molecule)
+
+        navigation.doClick()
+        configurable.apply()
+        assertEquals(MoleculeSettings(runTests = false, showInNavigation = true), AnsibilityProjectSettings.getInstance(project).settings.molecule)
+
+        tests.doClick()
+        configurable.apply()
+        assertEquals(MoleculeSettings(runTests = true, showInNavigation = true), AnsibilityProjectSettings.getInstance(project).settings.molecule)
+        assertFalse(configurable.isModified)
+
+        AnsibilityProjectSettings.getInstance(project).update { it.copy(molecule = MoleculeSettings()) }
+        configurable.reset()
+        assertTrue(checkBox("molecule.tests").isSelected)
+        assertFalse(checkBox("molecule.navigation").isSelected)
+        assertFalse(configurable.isModified)
     }
 
     fun testShareCheckboxTogglesTeamSharing() {

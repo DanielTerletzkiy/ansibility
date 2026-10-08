@@ -18,14 +18,20 @@ import de.terletzkiy.ansibility.semantics.yaml.YVault
 
 /** [HostValueService] over the host area's evaluator; it reads HA2's cached views and keeps no cache of its own. */
 internal class HostValueServiceImpl(private val project: Project) : HostValueService {
-    override fun values(target: EvalTarget, runningRole: String?, siteVars: Map<String, YValue>): HostValues? {
+    override fun values(target: EvalTarget, runningRole: String?, siteVars: Map<String, YValue>): HostValues? =
+        values(target, runningRole, siteVars, emptyMap())
+
+    /**
+     * [values] with [includeParams] too: the `vars:` of the dynamic includes (`include_tasks`, `include_role`) that run
+     * the site's file, which ansible-core merges after role params ("include params") and before extra vars; they go
+     * into the engine as the last role-params source.
+     */
+    fun values(target: EvalTarget, runningRole: String?, siteVars: Map<String, YValue>, includeParams: Map<String, YValue>): HostValues? {
         val context = AnsibleContextService.getInstance(project) as? AnsibleContextServiceImpl ?: return null
         val evaluation = context.evaluator.evaluation(target, runningRole) ?: return null
-        val sources = if (siteVars.isEmpty()) {
-            evaluation.inputs.sources
-        } else {
-            evaluation.inputs.sources + VarSource(VarLayer.BLOCK_TASK_VARS, VarOwner.All, SITE_ORIGIN, Int.MAX_VALUE, siteVars)
-        }
+        var sources = evaluation.inputs.sources
+        if (siteVars.isNotEmpty()) sources = sources + VarSource(VarLayer.BLOCK_TASK_VARS, VarOwner.All, SITE_ORIGIN, Int.MAX_VALUE, siteVars)
+        if (includeParams.isNotEmpty()) sources = sources + VarSource(VarLayer.ROLE_PARAMS, VarOwner.All, INCLUDE_ORIGIN, Int.MAX_VALUE, includeParams)
         return Values(project, evaluation, sources, withMarkers = target.play != null || runningRole != null)
     }
 
@@ -45,7 +51,7 @@ internal class HostValueServiceImpl(private val project: Project) : HostValueSer
             val markers = if (withMarkers) ExecutionSources.getInstance(project).runtimeMarkers(evaluation.root, evaluation.inputs, name) else emptyList()
             when {
                 effective != null -> {
-                    val ref = if (effective.winner.source.originId == SITE_ORIGIN) null else evaluation.ref(effective)
+                    val ref = if (effective.winner.source.originId in LOCAL_ORIGINS) null else evaluation.ref(effective)
                     HostValue(effective.value, ref, effective.value is YVault || ref?.isVault == true, markers)
                 }
                 markers.isNotEmpty() -> HostValue(null, null, false, markers)
@@ -56,5 +62,7 @@ internal class HostValueServiceImpl(private val project: Project) : HostValueSer
 
     private companion object {
         const val SITE_ORIGIN = "ansibility:render-site"
+        const val INCLUDE_ORIGIN = "ansibility:render-include-params"
+        val LOCAL_ORIGINS = setOf(SITE_ORIGIN, INCLUDE_ORIGIN)
     }
 }

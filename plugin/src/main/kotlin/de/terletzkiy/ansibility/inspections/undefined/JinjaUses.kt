@@ -5,7 +5,7 @@ import de.terletzkiy.ansibility.semantics.CoreVersion
 
 /**
  * The ansible-core rules a use is judged by, from the root's target version (verified on 2.18.8 and 2.21.4, see
- * `docs/research/host-awareness.md`, "V003 guard semantics").
+ * `plan/research/host-awareness.md`, "V003 guard semantics").
  */
 data class GuardRules(
     /**

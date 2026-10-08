@@ -15,6 +15,11 @@
              facts only (never plaintext, never the payload); queries in index.vault.VaultIndexQueries. -->
         <fileBasedIndex implementation="de.terletzkiy.ansibility.index.vault.VaultIndex"/>
         <!-- /v2b -->
+        <!-- d164: `ansibility.secrets` (plan amendment R21): kind -> verdicts of envelopes Ansible does not see (ANS-V107),
+             private keys, keystores and key-like names (ANS-V108); kinds, lines and protection only, never content.
+             Queried by vault.monitor.SecretHealthService. -->
+        <fileBasedIndex implementation="de.terletzkiy.ansibility.index.secrets.SecretIndex"/>
+        <!-- /d164 -->
 
         <!-- WU1.6: variable definitions and spec bindings per root (plan A.8). -->
         <projectService serviceInterface="de.terletzkiy.ansibility.api.VarService"

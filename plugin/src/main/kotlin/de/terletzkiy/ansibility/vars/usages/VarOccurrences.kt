@@ -19,6 +19,7 @@ import de.terletzkiy.ansibility.api.TemplateContextService
 import de.terletzkiy.ansibility.api.VarDefKind
 import de.terletzkiy.ansibility.api.VarDefinition
 import de.terletzkiy.ansibility.api.VarService
+import de.terletzkiy.ansibility.context.MoleculeView
 import de.terletzkiy.ansibility.index.RootFamily
 import de.terletzkiy.ansibility.lang.jinja.refs.JinjaIndirection
 import de.terletzkiy.ansibility.lang.jinja.refs.JinjaLocal
@@ -30,9 +31,12 @@ import de.terletzkiy.ansibility.resolve.InlineInventoryDefinitions
 import de.terletzkiy.ansibility.resolve.VarDefinitions
 import de.terletzkiy.ansibility.resolve.VarUsage
 import de.terletzkiy.ansibility.resolve.VarUsageQuery
+import de.terletzkiy.ansibility.resolve.VarViews
+import de.terletzkiy.ansibility.resolve.include.IncludeBindings
 import de.terletzkiy.ansibility.resolve.loop.LoopItemTyper
 import de.terletzkiy.ansibility.resolve.loop.TaskChains
 import de.terletzkiy.ansibility.vars.JinjaTextSites
+import de.terletzkiy.ansibility.vars.LoopItems
 import de.terletzkiy.ansibility.vars.VarLocations
 import org.jetbrains.yaml.psi.YAMLFile
 import org.jetbrains.yaml.psi.YAMLMapping
@@ -58,10 +62,16 @@ internal class VarOccurrence(
  *   playbook roots that share those inventories (`danger_zone/database`); reads by name (`hostvars[h].x`, `vars['x']`)
  *   included, in groups of their own;
  * - **loop variables**: uses inside the looping tasks (not in their own loop expression) and in the templates those
- *   tasks render, plus every use in [VarScope.Loop.file] (the template the search started in, whoever renders it, or
- *   the file of an `item` no loop binds), never a `hostvars[h]` member; the write is the `loop_var`/`index_var`
- *   value, or the loop keyword for `item` and `ansible_loop`;
+ *   tasks render; for an include task's loop (`include_tasks`, `include_role`) also the uses in the files it runs
+ *   (transitively) and in the templates rendered there, each one confirmed by [LoopItems.bindingAt] (so an inner loop
+ *   with the same `loop_var` keeps its own uses); plus every use in [VarScope.Loop.file] (the file of an `item` no loop
+ *   binds), never a `hostvars[h]` member; the write is the `loop_var`/`index_var` value, or the loop keyword for
+ *   `item` and `ansible_loop`;
  * - **Jinja locals**: the binding and the references that resolve to it, in its file only (no index).
+ *
+ * Root variables and members are searched in a [MoleculeView] (plan amendment R20, D153): the symbol's own
+ * ([VarSymbolElement.view]) for Find Usages, Show Usages and the caret highlighting, [MoleculeView.INCLUDE] for rename,
+ * which must keep editing Molecule occurrences (D155).
  *
  * Call in a read action in smart mode.
  */
@@ -69,11 +79,14 @@ internal object VarOccurrences {
     /** Definition kinds an inventory under `environments/` writes. */
     private val INVENTORY_KINDS = setOf(VarDefKind.GROUP_VARS, VarDefKind.HOST_VARS, VarDefKind.INVENTORY_INLINE)
 
-    /** Every occurrence of [symbol] inside [scope] (null: the whole scope of the symbol), in file and offset order. */
-    fun of(project: Project, symbol: VarSymbolElement, scope: GlobalSearchScope?): List<VarOccurrence> {
+    /**
+     * Every occurrence of [symbol] inside [scope] (null: the whole scope of the symbol), in file and offset order, as
+     * [view] sees them (the symbol's own view by default; rename passes [MoleculeView.INCLUDE]).
+     */
+    fun of(project: Project, symbol: VarSymbolElement, scope: GlobalSearchScope?, view: MoleculeView = symbol.view): List<VarOccurrence> {
         val found = when (val symbolScope = symbol.scope) {
-            is VarScope.Root -> root(project, symbol.root, symbol.name, scope)
-            is VarScope.Member -> member(project, symbol.root, symbol.name, symbolScope.path, scope, null)
+            is VarScope.Root -> root(project, symbol.root, symbol.name, scope, view)
+            is VarScope.Member -> member(project, symbol.root, symbol.name, symbolScope.path, scope, null, view)
             is VarScope.Loop -> loop(project, symbol.root, symbol.name, symbolScope, scope, null)
             is VarScope.Local -> if (scope == null || scope.contains(symbolScope.file)) local(project, symbolScope, symbol.name) else emptyList()
         }
@@ -86,8 +99,9 @@ internal object VarOccurrences {
      */
     fun inFile(project: Project, symbol: VarSymbolElement, file: VirtualFile): List<VarOccurrence> {
         val found = when (val symbolScope = symbol.scope) {
-            is VarScope.Root -> definitionsIn(project, symbol.root, file, symbol.name) + fileUses(project, symbol.root, file, symbol.name).mapNotNull(::read)
-            is VarScope.Member -> member(project, symbol.root, symbol.name, symbolScope.path, null, file)
+            is VarScope.Root -> definitionsIn(project, symbol.root, file, symbol.name, symbol.view) +
+                fileUses(project, symbol.root, file, symbol.name, symbol.view).mapNotNull(::read)
+            is VarScope.Member -> member(project, symbol.root, symbol.name, symbolScope.path, null, file, symbol.view)
             is VarScope.Loop -> loop(project, symbol.root, symbol.name, symbolScope, null, file)
             is VarScope.Local -> if (symbolScope.file == file) local(project, symbolScope, symbol.name) else emptyList()
         }
@@ -101,7 +115,7 @@ internal object VarOccurrences {
      */
     fun primaryDeclaration(project: Project, symbol: VarSymbolElement): SourceLocation? = when (val scope = symbol.scope) {
         is VarScope.Root -> {
-            val definitions = VarService.getInstance(project).symbol(symbol.root, symbol.name).definitions.filter { it.kind != VarDefKind.JINJA_LOCAL }
+            val definitions = VarViews.symbol(project, symbol.root, symbol.name, symbol.view).definitions.filter { it.kind != VarDefKind.JINJA_LOCAL }
             val ownRole = scope.home?.let { AnsibleWorkspace.getInstance(project).contextOf(it)?.roleName }
             val ranked = definitions.sortedBy { definition ->
                 val declaration = when (definition.kind) {
@@ -116,7 +130,7 @@ internal object VarOccurrences {
         is VarScope.Loop -> scope.tasks.firstNotNullOfOrNull { location ->
             loopTask(project, location)?.let { loopWrite(it, symbol.name) }?.let { SourceLocation(it.file, it.range.startOffset) }
         } ?: scope.file?.let { file -> loopReads(VarUsageQuery.getInstance(project).usagesIn(symbol.root, file, symbol.name)).firstOrNull()?.location }
-        is VarScope.Member -> memberKeys(project, symbol.root, symbol.name, scope.path, null, null).firstOrNull()?.let { SourceLocation(it.file, it.range.startOffset) }
+        is VarScope.Member -> memberKeys(project, symbol.root, symbol.name, scope.path, null, null, symbol.view).firstOrNull()?.let { SourceLocation(it.file, it.range.startOffset) }
         is VarScope.Local -> SourceLocation(scope.file, scope.binding)
     }
 
@@ -127,15 +141,23 @@ internal object VarOccurrences {
      * constant accessors start with [path] (direct reads only; by-name reads have no member path). [file] limits the
      * search to one file (caret highlighting).
      */
-    private fun member(project: Project, root: AnsibleRoot, name: String, path: List<String>, scope: GlobalSearchScope?, file: VirtualFile?): List<VarOccurrence> {
-        val result = ArrayList(memberKeys(project, root, name, path, scope, file))
+    private fun member(
+        project: Project,
+        root: AnsibleRoot,
+        name: String,
+        path: List<String>,
+        scope: GlobalSearchScope?,
+        file: VirtualFile?,
+        view: MoleculeView,
+    ): List<VarOccurrence> {
+        val result = ArrayList(memberKeys(project, root, name, path, scope, file, view))
         val uses = if (file != null) {
-            fileUses(project, root, file, name)
+            fileUses(project, root, file, name, view)
         } else {
             val query = VarUsageQuery.getInstance(project)
             val found = ArrayList<VarUsage>()
-            val definitions = VarService.getInstance(project).symbol(root, name).definitions
-            for (member in listOf(root) + reach(project, root, definitions)) query.process(member, name, scope) { found += it; true }
+            val definitions = VarViews.symbol(project, root, name, view).definitions
+            for (member in listOf(root) + reach(project, root, definitions)) query.process(member, name, scope, view) { found += it; true }
             found
         }
         for (use in uses) {
@@ -148,9 +170,17 @@ internal object VarOccurrences {
     }
 
     /** The keys of member [path] in the definitions of [name] (in [file] only when it is set). */
-    private fun memberKeys(project: Project, root: AnsibleRoot, name: String, path: List<String>, scope: GlobalSearchScope?, file: VirtualFile?): List<VarOccurrence> {
+    private fun memberKeys(
+        project: Project,
+        root: AnsibleRoot,
+        name: String,
+        path: List<String>,
+        scope: GlobalSearchScope?,
+        file: VirtualFile?,
+        view: MoleculeView,
+    ): List<VarOccurrence> {
         val result = ArrayList<VarOccurrence>()
-        for (definition in VarService.getInstance(project).symbol(root, name).definitions) {
+        for (definition in VarViews.symbol(project, root, name, view).definitions) {
             ProgressManager.checkCanceled()
             val location = definition.location
             if (file != null && location.file != file || scope != null && !scope.contains(location.file)) continue
@@ -184,9 +214,9 @@ internal object VarOccurrences {
 
     // -------------------------------------------------------------------------------------------- root variables
 
-    private fun root(project: Project, root: AnsibleRoot, name: String, scope: GlobalSearchScope?): List<VarOccurrence> {
+    private fun root(project: Project, root: AnsibleRoot, name: String, scope: GlobalSearchScope?, view: MoleculeView): List<VarOccurrence> {
         val result = ArrayList<VarOccurrence>()
-        val definitions = VarService.getInstance(project).symbol(root, name).definitions
+        val definitions = VarViews.symbol(project, root, name, view).definitions
         for (definition in definitions) {
             ProgressManager.checkCanceled()
             if (definition.kind == VarDefKind.JINJA_LOCAL) continue
@@ -197,8 +227,8 @@ internal object VarOccurrences {
         }
         val query = VarUsageQuery.getInstance(project)
         val uses = ArrayList<VarUsage>()
-        query.process(root, name, scope) { uses += it; true }
-        for (nested in reach(project, root, definitions)) query.process(nested, name, scope) { uses += it; true }
+        query.process(root, name, scope, view) { uses += it; true }
+        for (nested in reach(project, root, definitions)) query.process(nested, name, scope, view) { uses += it; true }
         uses.mapNotNullTo(result, ::read)
         return result
     }
@@ -223,10 +253,10 @@ internal object VarOccurrences {
     }
 
     /** The definitions of [name] written in [file], from the file's own `ansible.var.def` entries ([OpenFileIndexData]). */
-    private fun definitionsIn(project: Project, root: AnsibleRoot, file: VirtualFile, name: String): List<VarOccurrence> {
+    private fun definitionsIn(project: Project, root: AnsibleRoot, file: VirtualFile, name: String, view: MoleculeView): List<VarOccurrence> {
         val workspace = AnsibleWorkspace.getInstance(project)
         val context = workspace.contextOf(file) ?: return emptyList()
-        if (!RootFamily.of(project, root, workspace).admits(file, context)) return emptyList()
+        if (!RootFamily.of(project, root, workspace, view).admits(file, context)) return emptyList()
         if (context.kind == FileKind.INVENTORY_INI) {
             return InlineInventoryDefinitions.of(project, root, name).filter { it.location.file == file }.mapNotNull { definition ->
                 definitionRange(project, definition.location, name)?.let { VarOccurrence(file, it, write = true) }
@@ -241,9 +271,9 @@ internal object VarOccurrences {
         }
     }
 
-    /** The uses of [name] in [file] from the file's own `ansible.var.use` entries ([OpenFileIndexData]). */
-    fun fileUses(project: Project, root: AnsibleRoot, file: VirtualFile, name: String): List<VarUsage> =
-        VarUsageQuery.getInstance(project).usagesIn(root, file, name, OpenFileIndexData.of(project, file).uses[name].orEmpty())
+    /** The uses of [name] in [file] from the file's own `ansible.var.use` entries ([OpenFileIndexData]), as [view] sees them. */
+    fun fileUses(project: Project, root: AnsibleRoot, file: VirtualFile, name: String, view: MoleculeView = MoleculeView.INCLUDE): List<VarUsage> =
+        VarUsageQuery.getInstance(project).usagesIn(root, file, name, OpenFileIndexData.of(project, file).uses[name].orEmpty(), view)
 
     /**
      * The read [usage] is, or null for a called global (`lookup(…)`). A read by name (FU2) has its own group whatever
@@ -316,14 +346,48 @@ internal object VarOccurrences {
             loopWrite(task, name)?.let(result::add)
         }
         val uses = if (onlyIn != null) fileUses(project, root, onlyIn, name) else ArrayList<VarUsage>().also { list -> query.process(root, name, searchScope) { list += it; true } }
-        val rendered = HashMap<VirtualFile, Boolean>()
+        val reach = LoopReach(project, name, tasks)
         for (use in loopReads(uses)) {
             ProgressManager.checkCanceled()
-            val inLoop = use.location.file == scope.file || tasks.any { it.bodyContains(use.location) } ||
-                rendered.getOrPut(use.location.file) { rendersWithLoop(project, use.location.file, tasks, name) }
+            val inLoop = use.location.file == scope.file || tasks.any { it.bodyContains(use.location) } || reach.covers(use.location)
             if (inLoop) read(use)?.let(result::add)
         }
         return result
+    }
+
+    /**
+     * Whether a use outside the looping [tasks]' bodies still reads their loop variable [name]: in a template one of
+     * the tasks renders with that loop, or, for include tasks' loops, in a file they run (transitively) or a template
+     * rendered there, where [LoopItems.bindingAt] finds one of [tasks] (an inner loop binding the same name shadows
+     * them). Per-file answers are memoised; [LoopItems.bindingAt] runs only for uses in files the includes reach.
+     *
+     * The includes are followed as [MoleculeView.INCLUDE] sees them: [tasks] are fixed, so a converge task's loop (a
+     * search started in Molecule, D154; rename, D155) reaches the production files it runs, while a production loop
+     * still finds itself among the bindings there.
+     */
+    private class LoopReach(private val project: Project, private val name: String, private val tasks: List<LoopTask>) {
+        private val starts: Set<SourceLocation> = tasks.mapTo(HashSet()) { SourceLocation(it.file, it.task.range.startOffset) }
+        private val includes = tasks.any { it.task.taskInclude != null || it.task.roleInclude != null }
+        private val templates = HashMap<VirtualFile, Boolean>()
+        private val reached = HashMap<VirtualFile, Boolean>()
+
+        fun covers(location: SourceLocation): Boolean {
+            val file = location.file
+            val context = AnsibleWorkspace.getInstance(project).contextOf(file) ?: return false
+            if (JinjaTextSites.isTemplateFile(file, context)) {
+                return templates.getOrPut(file) { rendersWithLoop(project, file, tasks, name) || includes && binds(file, 0) }
+            }
+            if (!includes || context.kind != FileKind.ROLE_TASKS) return false
+            if (!reached.getOrPut(file) { isReached(file) }) return false
+            return binds(file, location.offset)
+        }
+
+        /** Whether one of the include [tasks] runs [file], directly or through other includes. */
+        private fun isReached(file: VirtualFile): Boolean =
+            IncludeBindings.includers(project, file, MoleculeView.INCLUDE).any { it.location in starts }
+
+        private fun binds(file: VirtualFile, offset: Int): Boolean =
+            LoopItems.bindingAt(project, file, offset, name, MoleculeView.INCLUDE)?.tasks?.any { it.task in starts } == true
     }
 
     private fun loopTask(project: Project, location: SourceLocation): LoopTask? {

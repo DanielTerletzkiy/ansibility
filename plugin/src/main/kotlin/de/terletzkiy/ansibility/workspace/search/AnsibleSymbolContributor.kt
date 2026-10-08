@@ -20,10 +20,11 @@ import de.terletzkiy.ansibility.api.RoleRegistry
 import de.terletzkiy.ansibility.api.RootKind
 import de.terletzkiy.ansibility.api.SourceLocation
 import de.terletzkiy.ansibility.api.VarDefKind
-import de.terletzkiy.ansibility.api.VarService
+import de.terletzkiy.ansibility.context.MoleculeView
 import de.terletzkiy.ansibility.context.host.symbols.HostSymbols
 import de.terletzkiy.ansibility.dispatch.SitePresentation
 import de.terletzkiy.ansibility.model.role.RoleLayout
+import de.terletzkiy.ansibility.resolve.VarViews
 import de.terletzkiy.ansibility.workspace.AnsibilityScopeBundle.message
 import javax.swing.Icon
 
@@ -31,16 +32,20 @@ import javax.swing.Icon
  * Roles, variables, inventory groups and hosts in Search Everywhere › Symbols and Navigate › Symbol (plan amendment
  * R9, F9.9). The tab's own scope chooser filters them through [FindSymbolParameters.getSearchScope]; every item
  * names its root (`postfix_relayhost · falcon · group_vars/all/vars.yml:156`). Runs in smart mode only.
+ *
+ * Variables follow "Show Molecule in navigation and search" (plan amendment R20, D153): the search starts in no file,
+ * so with the setting off neither names nor items come from Molecule scenarios ([MoleculeView.of] with no origin).
  */
 class AnsibleSymbolContributor : ChooseByNameContributorEx {
     override fun processNames(processor: Processor<in String>, scope: GlobalSearchScope, filter: IdFilter?) {
         val project = scope.project ?: return
         if (DumbService.isDumb(project)) return
         val seen = HashSet<String>()
+        val view = MoleculeView.of(project, null)
         for (root in roots(project)) {
             ProgressManager.checkCanceled()
             if (!scope.contains(root.dir) && root.dir.children.none { scope.contains(it) }) continue
-            for (name in names(project, root)) if (seen.add(name) && !processor.process(name)) return
+            for (name in names(project, root, view)) if (seen.add(name) && !processor.process(name)) return
         }
     }
 
@@ -57,10 +62,10 @@ class AnsibleSymbolContributor : ChooseByNameContributorEx {
 
     private fun roots(project: Project): List<AnsibleRoot> = AnsibleWorkspace.getInstance(project).roots().filter { !it.detached }
 
-    private fun names(project: Project, root: AnsibleRoot): Set<String> {
+    private fun names(project: Project, root: AnsibleRoot, view: MoleculeView): Set<String> {
         val names = LinkedHashSet<String>()
         RoleRegistry.getInstance(project).roles(root).mapTo(names) { it.name }
-        names += VarService.getInstance(project).allNames(root)
+        names += VarViews.allNames(project, root, view)
         if (root.kind != RootKind.ROLE_LIBRARY) {
             for (env in HostSymbols.environments(project, root)) {
                 names += env.graph.groups.keys
@@ -72,12 +77,13 @@ class AnsibleSymbolContributor : ChooseByNameContributorEx {
 
     private fun items(project: Project, name: String): List<AnsibleSymbolItem> {
         val items = ArrayList<AnsibleSymbolItem>()
+        val view = MoleculeView.of(project, null)
         for (root in roots(project)) {
             RoleRegistry.getInstance(project).roles(root).filter { it.name == name }.forEach { role ->
                 val entry = RoleLayout.specFile(role.dir) ?: RoleLayout.taskFiles(role.dir).firstOrNull { it.nameWithoutExtension == "main" }
                 items += AnsibleSymbolItem(project, name, SourceLocation(entry ?: role.dir, 0), root, message("symbol.kind.role"), AllIcons.Nodes.Module)
             }
-            for (definition in VarService.getInstance(project).symbol(root, name).definitions) {
+            for (definition in VarViews.symbol(project, root, name, view).definitions) {
                 if (definition.kind == VarDefKind.JINJA_LOCAL || definition.kind == VarDefKind.LOOP_VAR || definition.kind == VarDefKind.INDEX_VAR) continue
                 items += AnsibleSymbolItem(project, name, definition.location, root, SitePresentation.definitionKindName(definition.kind), AllIcons.Nodes.Variable)
             }

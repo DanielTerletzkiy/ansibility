@@ -132,7 +132,8 @@ class VarLoopItemTest : VarsTestCase() {
         assertTrue(card, card.startsWith("grafana_alerting.name : str"))
         assertTrue(card, "grafana_alert is one element of grafana_alerting" in card)
         assertEquals(listOf("$spec:255"), targets(alerting, 33, "grafana_alert.name", "grafana_alert.".length + 1))
-        assertEquals("the bare loop_var goes to the loop", listOf("$alerting:34"), targets(alerting, 33, "grafana_alert.name", 1))
+        // The bare loop_var goes to where the task names it: the loop_var value (line 36), no longer the loop keyword (34).
+        assertEquals("the bare loop_var goes to its loop_var value", listOf("$alerting:36"), targets(alerting, 33, "grafana_alert.name", 1))
     }
 
     fun testInsideTheLoopExpressionTheLoopVariableIsNotDefined() {
@@ -147,7 +148,7 @@ class VarLoopItemTest : VarsTestCase() {
         copyVarsData("site")
         val tasks = "site/roles/web/tasks/main.yml"
         val loop = text(html(hover(tasks, offsetAt(tasks, 12, "item", 1))))
-        assertTrue(loop, "loop variable of the task at roles/web/tasks/main.yml:10" in loop)
+        assertTrue(loop, "loop variable of 'Loop' (debug in roles/web/tasks/main.yml:10), iterates web_list" in loop)
         assertEquals("an untyped loop: Ctrl+B goes to the loop keyword", listOf("$tasks:13"), targets(tasks, 12, "item", 1))
 
         // A template rendered in a loop over a literal list: the note names the rendering task.
@@ -155,7 +156,8 @@ class VarLoopItemTest : VarsTestCase() {
         val page = "site/roles/web/templates/page.j2"
         createFile(page, "{{ item }}\n")
         val note = text(html(hover(page, offsetAt(page, 1, "item", 1))))
-        assertTrue(note, "loop variable of the task at roles/web/tasks/render.yml:1" in note)
+        assertTrue(note, "loop variable of the task at roles/web/tasks/render.yml:1 (template), iterates a list of 2 items" in note)
+        assertTrue(note, note.startsWith("item : str"))
         assertEquals(listOf("site/roles/web/tasks/render.yml:4"), targets(page, 1, "item", 1))
     }
 

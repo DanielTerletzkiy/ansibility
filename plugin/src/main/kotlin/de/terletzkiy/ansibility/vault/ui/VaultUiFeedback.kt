@@ -15,7 +15,8 @@ import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * Short results of vault actions: an editor hint next to the caret when the editor is showing, else a notification of
- * the `Ansibility` group. Texts are bundle messages and failure classes only, never values.
+ * the `Ansibility` group titled "Ansibility Vault" (plan amendment R19, D141). Texts are bundle messages and failure
+ * classes only, never values.
  */
 internal object VaultUiFeedback {
     private const val GROUP = "Ansibility"
@@ -37,7 +38,8 @@ internal object VaultUiFeedback {
             if (error) HintManager.getInstance().showErrorHint(editor, text) else HintManager.getInstance().showInformationHint(editor, text)
             return
         }
-        Notification(GROUP, text, if (error) NotificationType.ERROR else NotificationType.INFORMATION).notify(project)
+        val type = if (error) NotificationType.ERROR else NotificationType.INFORMATION
+        Notification(GROUP, AnsibilityVaultUiBundle.message("notification.title"), text, type).notify(project)
     }
 
     /** The texts reported since the last call, oldest first. */

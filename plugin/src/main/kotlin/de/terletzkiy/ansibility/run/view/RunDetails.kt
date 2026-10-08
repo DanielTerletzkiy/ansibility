@@ -1,6 +1,7 @@
 package de.terletzkiy.ansibility.run.view
 
 import com.intellij.diff.DiffContentFactory
+import com.intellij.icons.AllIcons
 import com.intellij.diff.DiffManager
 import com.intellij.diff.requests.SimpleDiffRequest
 import com.intellij.json.JsonFileType
@@ -180,6 +181,7 @@ class RunDetails(
         if (task.tags.isNotEmpty()) row(message("run.view.details.tags")) { label(task.tags.joinToString(", ")) }
         row(message("run.view.details.results")) { label(RunViewTexts.tally(task.counts).ifEmpty { "–" }) }
         task.ended?.let { row(message("run.view.details.duration")) { label(RunViewTexts.duration(it - task.started)) } }
+        if (task.missingVaultSecrets) noVaultSecretsHint()
         task.path?.let { source(it) }
         if (actions.playbookActions) row {
             if (!task.handler) button(message("run.view.action.start.at")) { actions.startAt(task.name) }
@@ -196,6 +198,7 @@ class RunDetails(
         if (host.polls > 0) row(message("run.view.details.polls")) { label(host.polls.toString()) }
         host.duration?.let { row(message("run.view.details.duration")) { label(RunViewTexts.duration(it)) } }
         messageRow(host.message)
+        if (host.missingVaultSecrets) noVaultSecretsHint()
         diffs(host.diff, host.host, task)
         if (host.truncated) row { comment(message("run.view.details.truncated")) }
         result(host.result)
@@ -207,6 +210,7 @@ class RunDetails(
         row(message("run.view.details.status")) { icon(RunViewTexts.icon(item.status)); label(RunViewTexts.status(item.status)) }
         host?.let { row(message("run.view.details.host")) { label(it.host) } }
         messageRow(item.message)
+        if (item.missingVaultSecrets) noVaultSecretsHint()
         diffs(item.diff, host?.host.orEmpty(), task)
         result(item.result)
     }
@@ -219,6 +223,15 @@ class RunDetails(
             override fun isCellEditable(row: Int, column: Int) = false
         })
         row { scrollCell(table).align(Align.FILL) }.resizableRow()
+    }
+
+    /**
+     * Why a Molecule run's task failed on a vaulted value (D137): Molecule runs pass no vault secrets (D136). A fixed
+     * text: Ansible's message stays in its own row. Playbook runs pass the unlocked ids, so they need no such hint.
+     */
+    private fun Panel.noVaultSecretsHint() {
+        if (model.stages.isEmpty() && model.units.isEmpty()) return
+        row { icon(AllIcons.General.Information); label(message("run.view.details.no.vault.molecule")) }
     }
 
     private fun Panel.messageRow(text: String?) {

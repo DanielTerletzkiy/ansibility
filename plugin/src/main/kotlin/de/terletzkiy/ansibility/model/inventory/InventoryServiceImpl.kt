@@ -20,8 +20,8 @@ import de.terletzkiy.ansibility.api.VarFile
  * - [playbookVarFiles]: `<root>/group_vars` and `<root>/host_vars`. A nested root only has its own, so plays
  *   defined there never load the parent's playbook group_vars.
  * - [moleculeInventories]: the molecule pseudo-inventories of the root's roles. Only scenarios whose `molecule.yml`
- *   the workspace classifies as [FileKind.MOLECULE_CONFIG] count, so molecule support switched off, ignored paths and
- *   ghost role directories hide them the same way they hide the files themselves.
+ *   the workspace classifies as [FileKind.MOLECULE_CONFIG] count, so ignored paths and ghost role directories hide
+ *   them the same way they hide the files themselves. The Molecule settings (plan amendment R20) do not change them.
  *
  * Every method may be called from any thread; it takes a read lock when the caller holds none.
  */

@@ -132,6 +132,8 @@ val runCoverageMinimums = mapOf(
     "de/terletzkiy/ansibility/run/events" to 85.0,
     "de/terletzkiy/ansibility/run/view" to 60.0,
     "de/terletzkiy/ansibility/run/molecule" to 60.0,
+    // Run-end notifications (plan amendment R19): pure outcome texts and the notifier.
+    "de/terletzkiy/ansibility/run/notify" to 85.0,
 )
 
 val checkRunCoverage = tasks.register("checkRunCoverage") {

@@ -8,7 +8,8 @@ import de.terletzkiy.ansibility.api.CardSection
 import de.terletzkiy.ansibility.api.CardSubject
 import de.terletzkiy.ansibility.api.RoleRegistry
 import de.terletzkiy.ansibility.api.VarDefKind
-import de.terletzkiy.ansibility.api.VarService
+import de.terletzkiy.ansibility.context.MoleculeView
+import de.terletzkiy.ansibility.resolve.VarViews
 import de.terletzkiy.ansibility.resolve.register.AnsibilityRegisteredBundle.message
 import de.terletzkiy.ansibility.resolve.register.RegisteredResult
 import de.terletzkiy.ansibility.resolve.register.RegisteredResults
@@ -52,14 +53,15 @@ class RegisteredCardSection : CardSection {
     private fun resultOf(variable: CardSubject.Variable, context: CardContext): RegisteredResult? {
         val project = context.project
         val results = RegisteredResults.getInstance(project)
+        val view = MoleculeView.of(project, context.file)
         variable.definition?.let { location ->
-            val own = VarService.getInstance(project).symbol(variable.root, variable.name).definitions
+            val own = VarViews.symbol(project, variable.root, variable.name, view).definitions
                 .filter { it.kind == VarDefKind.REGISTER && it.location == location }
             return results.of(variable.root, variable.name, own)
         }
-        if (context.offset >= 0) return results.at(context.file, context.offset, variable.name)
+        if (context.offset >= 0) return results.at(context.file, context.offset, variable.name, view)
         val roleDir = RoleRegistry.getInstance(project).roleOf(context.file)?.takeIf { it.ref.rootDir == variable.root.dir }?.ref?.dir
-        return results.inScope(variable.root, roleDir, variable.name)
+        return results.inScope(variable.root, roleDir, variable.name, view)
     }
 
     private fun taskLine(result: RegisteredResult, task: RegisteringTask): HtmlChunk {

@@ -111,6 +111,14 @@ class TemplateContextResolverTest : BasePlatformTestCase() {
         assertEquals(11, line(whole))
     }
 
+    fun testTheDocumentedSpecDefaultIsNoCandidateValue() {
+        // Plan amendment R23 (D175): ansible-core never applies an argument_specs `default:`, so it names no template.
+        create("site/roles/doc/meta/argument_specs.yml", "argument_specs:\n  main:\n    options:\n      doc_template: {type: str, default: templates/documented.j2}")
+        create("site/roles/doc/templates/documented.j2", "{{ item }}")
+        create("site/roles/doc/tasks/main.yml", "- name: Whole\n  ansible.builtin.template:\n    src: \"{{ doc_template }}\"\n    dest: /etc/doc")
+        assertEquals(emptyList<RenderContext>(), contexts("site/roles/doc/templates/documented.j2"))
+    }
+
     fun testDynamicPrefixWithoutChoicesUsesTheDirectoryListing() {
         for (name in listOf("one", "two")) {
             val context = contexts("site/roles/web/templates/sites/$name.conf.j2").single()

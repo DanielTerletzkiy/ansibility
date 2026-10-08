@@ -48,8 +48,13 @@ class ConsentRoot(
     /** The root's display name (`falcon`, `pelican › danger_zone/database`). */
     val displayName: String,
     val items: List<ConsentItem>,
+    /**
+     * The password managers (display names) whose ids a [VaultConsentDecision.NotNow] for this root leaves unread in
+     * this session too (D139): set for the root being unlocked, empty for the roots listed beside it.
+     */
+    val managers: List<String> = emptyList(),
 ) {
-    override fun toString(): String = "ConsentRoot($rootKey, $items)"
+    override fun toString(): String = "ConsentRoot($rootKey, $items${if (managers.isEmpty()) "" else ", managers=$managers"})"
 }
 
 /** A consent request: the requested root first, then every other root with discovered sources (D25). */
@@ -65,7 +70,10 @@ sealed interface VaultConsentDecision {
     /** [Choose…]: only the roots in [rootKeys]. */
     data class Choose(val rootKeys: Set<String>) : VaultConsentDecision
 
-    /** [Not now] (or the dialog was closed): nothing is read in this session; unlock falls back to PasswordSafe and the prompt. */
+    /**
+     * [Not now] (or the dialog was closed): no listed file is read in this session, and the root being unlocked runs no
+     * password manager either; its unlock falls back to PasswordSafe and the prompt. An explicit Unlock… asks again.
+     */
     data object NotNow : VaultConsentDecision
 }
 

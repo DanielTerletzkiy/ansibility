@@ -11,6 +11,7 @@ import de.terletzkiy.ansibility.api.CardSection
 import de.terletzkiy.ansibility.api.CardSubject
 import de.terletzkiy.ansibility.context.host.card.SetInEffects
 import de.terletzkiy.ansibility.dochtml.MarkupHtml
+import de.terletzkiy.ansibility.vars.usages.UsagesCardLinks
 import de.terletzkiy.ansibility.semantics.schema.Choices
 import org.jetbrains.yaml.YAMLLanguage
 
@@ -34,9 +35,10 @@ internal class CardContributions(val top: List<HtmlChunk>, val section: List<Htm
 
 /**
  * Renders a [VarCard] as JSDoc-style quick documentation (plan F1.2): a definition line
- * `name : type  role · root · optional`, the description, then a sections table (Type, Required, Default (spec),
- * Runtime default, Choices, Aliases, Options, Declared by, Set in (ranked by effect for the card's hosts, [SetInEffects]),
- * This definition). Other areas' [CardSection] chunks ([CardContributions]) go after the definition line, after the
+ * `name : type  role · root · optional`, the description, then a sections table (Type, Required, Default (the role
+ * default Ansible uses), Documented (argument_specs) (only where it is not that default; plan amendment R23, D173),
+ * Choices, Aliases, Options, Declared by, Set in (ranked by effect for the card's hosts, [SetInEffects]), This
+ * definition). Other areas' [CardSection] chunks ([CardContributions]) go after the definition line, after the
  * built-in rows and after the table. Also renders the one-line Ctrl-hover hint, which never includes contributions. All
  * texts come from [AnsibilityVarsBundle] or from the files and are escaped; contributed chunks and the "Set in" effect
  * marks are HTML or texts built by their owners.
@@ -74,7 +76,11 @@ internal object VarCardHtml {
     fun hint(card: VarCard): String = buildString {
         append("<b>").append(esc(card.title)).append("</b>")
         card.typeText?.let { append(": ").append(esc(it)) }
-        hintValue(card)?.let { append(" = ").append(esc(it)) }
+        hintValue(card)?.let { value ->
+            // Another role's default than the documenting role's (D174): say whose, not to credit [VarCard.role] with it.
+            val shown = card.defaultRole?.let { message("hint.default.role", value, it) } ?: value
+            append(" = ").append(esc(shown))
+        }
         val role = card.role
         val option = card.option
         when {
@@ -88,18 +94,19 @@ internal object VarCardHtml {
                 append(SEPARATOR).append(esc(AnsibilityVarsBundle.message("hint.definitions", count, card.root.displayName)))
             }
         }
-        if (card.badges.isNotEmpty()) append(' ').append(WARNING)
+        if (card.warns) append(' ').append(WARNING)
     }
 
+    /**
+     * The hint's `= value`: the role default the card shows, never the argument_specs `default:` (plan amendment R23,
+     * D174: Ansible never applies it); nothing without a role default, `🔒` for a secret.
+     */
     private fun hintValue(card: VarCard): String? {
-        val runtime = card.runtimeDefault
-        if (runtime != null) {
-            if (runtime.secret != null) return "🔒"
-            val text = runtime.text ?: return null
-            val line = text.lineSequence().first()
-            return if (line.length <= MAX_HINT_VALUE && line.length == text.length) line else line.take(MAX_HINT_VALUE) + "…"
-        }
-        return card.option?.default?.let(ValueDisplay::dump)
+        val runtime = card.runtimeDefault ?: return null
+        if (runtime.secret != null) return "🔒"
+        val text = runtime.text ?: return null
+        val line = text.lineSequence().first()
+        return if (line.length <= MAX_HINT_VALUE && line.length == text.length) line else line.take(MAX_HINT_VALUE) + "…"
     }
 
     // ------------------------------------------------------------------------------------------------ header
@@ -108,8 +115,9 @@ internal object VarCardHtml {
         append(DocumentationMarkup.DEFINITION_START)
         append("<b>").append(esc(card.title)).append("</b>")
         card.typeText?.let { append(" : ").append(esc(it)) }
-        if (card.badges.isNotEmpty()) {
-            append(' ').append("<span title='").append(esc(AnsibilityVarsBundle.message("card.badge.title"))).append("'>").append(WARNING).append("</span>")
+        if (card.warns) {
+            val title = message(if (card.warnsNotApplied) "card.badge.title.not.applied" else "card.badge.title")
+            append(' ').append("<span title='").append(esc(title)).append("'>").append(WARNING).append("</span>")
         }
         val info = headerInfo(card)
         if (info.isNotEmpty()) {
@@ -131,6 +139,13 @@ internal object VarCardHtml {
                 parts.remove(card.root.displayName)
                 parts += AnsibilityVarsBundle.message("card.header.undefined", card.root.displayName)
             }
+            card.note is Note.MoleculeOnly -> {
+                parts.remove(card.root.displayName)
+                parts += AnsibilityVarsBundle.message("card.header.molecule.only", card.root.displayName)
+            }
+            // Include tasks that run the file give the name: no inventory variable there (a loop or include variable).
+            card.role == null && card.provision != null ->
+                parts += AnsibilityVarsBundle.message(if (card.provision.byLoop) "card.header.loop" else "card.header.include")
             card.role == null -> parts += AnsibilityVarsBundle.message("card.header.inventory")
         }
         return parts
@@ -159,8 +174,9 @@ internal object VarCardHtml {
         }
         when (note) {
             is Note.Local -> append("<p>").append(esc(AnsibilityVarsBundle.message("card.local.defined", note.kind, note.label))).append("</p>")
-            is Note.Loop -> append("<p>").append(esc(AnsibilityVarsBundle.message("card.loop.task", note.label))).append("</p>")
+            is Note.Loop -> note.lines.forEach { append("<p>").append(esc(it)).append("</p>") }
             is Note.Undefined -> append("<p>").append(esc(AnsibilityVarsBundle.message("card.undefined.note", note.rootName))).append("</p>")
+            is Note.MoleculeOnly -> append("<p>").append(esc(AnsibilityVarsBundle.message("card.molecule.only.note", note.rootName))).append("</p>")
             null -> Unit
         }
         append(DocumentationMarkup.CONTENT_END)
@@ -173,11 +189,9 @@ internal object VarCardHtml {
         if (option != null) {
             row(message("card.section.type"), code(VarCard.typeText(option)))
             row(message("card.section.required"), esc(message(if (option.required) "card.required.yes" else "card.required.no")))
-            option.default?.let {
-                row(message("card.section.default.spec"), code(ValueDisplay.dump(it)) + " " + grayed(message("card.default.spec.note")))
-            }
         }
-        runtimeDefault(project, card)?.let { row(message("card.section.default.runtime"), it) }
+        runtimeDefault(project, card)?.let { row(message("card.section.default"), it) }
+        card.documented?.let { row(message("card.section.documented"), documented(card, it)) }
         option?.choices?.let { row(message("card.section.choices"), choices(it)) }
         option?.aliases?.takeIf { it.isNotEmpty() }?.let { aliases -> row(message("card.section.aliases"), aliases.joinToString(", ") { code(it) }) }
         if (card.hasSubOptions) row(message("card.section.options"), options(card))
@@ -187,14 +201,36 @@ internal object VarCardHtml {
             row(header, setIn(project, card, subject, context))
         }
         card.thisDefinition?.let { row(message("card.section.this.definition"), thisDefinition(it)) }
+        card.loopUses?.let { row(message("card.section.used.in"), loopUses(card, it.value)) }
     }
 
+    /**
+     * A loop card's "Used in" row: `rules.yml 1 · ruleset.yml 4 · rules.j2 2 — Show usages`, the reads in the loop's
+     * scope per file; the link runs Find Usages from the card's position, which names the same loop. Without counts
+     * ([uses] null: `item`, `ansible_loop`) only the link.
+     */
+    private fun loopUses(card: VarCard, uses: List<LoopUse>?): String {
+        val link = link(UsagesCardLinks.show(card.subject.file, card.subject.offset, card.subject.name), message("card.loop.show.usages"))
+        val counts = when {
+            uses == null -> return link
+            uses.isEmpty() -> esc(message("card.loop.used.in.none"))
+            else -> esc(uses.joinToString(SEPARATOR) { message("card.loop.used.in.file", it.file, it.count) })
+        }
+        return "$counts \u2014 $link"
+    }
+
+    /**
+     * The "Default" row (plan amendment R23, D173): the role default Ansible uses, `1.2 · roles/web/defaults/main.yml:2`,
+     * the dependency that sets it, its `{{ name }}` chain, a later unreadable file that may override it, the lossy badges
+     * and the comment above the key; without one, why there is none.
+     */
     private fun runtimeDefault(project: Project, card: VarCard): String? {
         val runtime = card.runtimeDefault
         if (runtime == null) {
             return when (card.missingDefault) {
                 MissingDefault.DOCUMENTED -> esc(message("card.default.runtime.none.documented"))
                 MissingDefault.REQUIRED -> esc(message("card.default.runtime.none.required"))
+                MissingDefault.OPAQUE -> esc(message("card.default.runtime.none.opaque"))
                 MissingDefault.NONE -> esc(message("card.default.runtime.none"))
                 null -> null
             }
@@ -203,16 +239,20 @@ internal object VarCardHtml {
             val secret = runtime.secret
             if (secret != null) {
                 append(esc(secret))
+                runtime.dependency?.let { append(' ').append(grayed(message("card.default.dependency", it))) }
             } else {
                 append(value(project, runtime.text.orEmpty()))
                 if (runtime.isJinja) append(' ').append(grayed(message("card.default.runtime.jinja")))
-                append(SEPARATOR).append(link(VarLinks.definition(runtime.definition.location), runtime.label))
+                append(SEPARATOR).append(link(VarLinks.definition(runtime.location), runtime.label))
+                runtime.dependency?.let { append(' ').append(grayed(message("card.default.dependency", it))) }
                 runtime.chain?.let { chain ->
                     append("<br/>").append(
                         esc(message("card.default.runtime.chain", chain.typeName, chain.valueText, chain.via, chain.label)),
                     )
                 }
+                if (runtime.merged) append("<br/>").append(grayed(message("card.default.merged")))
             }
+            if (runtime.uncertain) append("<br/>").append(grayed(message("card.default.uncertain")))
             for (badge in card.badges) append("<br/>").append(WARNING).append(' ').append(esc(badge))
             runtime.comment?.let { comment ->
                 append("<br/>").append(DocumentationMarkup.GRAYED_START)
@@ -220,6 +260,29 @@ internal object VarCardHtml {
                     .append(DocumentationMarkup.GRAYED_END)
             }
         }
+    }
+
+    /**
+     * The "Documented (argument_specs)" row (plan amendment R23, D173), linked to the spec's `default:`: struck with
+     * ⚠ "never applied (ANS-S003)" when it differs from the role default, ⚠ grey "documented, never applied (ANS-S004)"
+     * when nothing sets the variable, else grey "documentation only" (or, where the card shows another role's default,
+     * whose documentation it is). A secret's value is never shown.
+     */
+    private fun documented(card: VarCard, documented: DocumentedDefault): String = buildString {
+        val value = documented.text?.let(::code) ?: esc(message("card.documented.hidden"))
+        val other = card.defaultRole
+        when (documented.state) {
+            DocumentedDefault.State.DIFFERS ->
+                append(WARNING).append(' ').append("<s>").append(value).append("</s> ").append(esc(message("card.documented.differs")))
+            DocumentedDefault.State.NOT_APPLIED ->
+                append(WARNING).append(' ').append(value).append(' ').append(grayed(message("card.documented.not.applied")))
+            DocumentedDefault.State.DOCUMENTED -> if (other != null && card.role != null) {
+                append(value).append(' ').append(grayed(message("card.documented.other.role", card.role, other)))
+            } else {
+                append(value).append(' ').append(grayed(message("card.documented.only")))
+            }
+        }
+        append(SEPARATOR).append(link(VarLinks.definition(documented.location), documented.label))
     }
 
     /** A value as written: YAML-highlighted inline code, or a code block for multi-line values (truncated). */

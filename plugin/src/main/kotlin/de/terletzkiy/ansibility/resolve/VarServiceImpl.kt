@@ -24,6 +24,8 @@ import de.terletzkiy.ansibility.api.SpecBinding
 import de.terletzkiy.ansibility.api.VarDefinition
 import de.terletzkiy.ansibility.api.VarService
 import de.terletzkiy.ansibility.api.VarSymbol
+import de.terletzkiy.ansibility.context.MoleculeView
+import de.terletzkiy.ansibility.context.MoleculeVisibility
 import de.terletzkiy.ansibility.index.RootFamily
 import de.terletzkiy.ansibility.index.VarDefIndex
 import de.terletzkiy.ansibility.model.inventory.VarsDocuments
@@ -43,14 +45,24 @@ import java.util.concurrent.ConcurrentHashMap
  *   (cached per spec file).
  * - **Inline inventory vars** of INI and other unindexed inventory sources come from the parsed inventory models
  *   ([InlineInventoryDefinitions]), deduplicated by location against the index entries.
- * - **Caching.** Symbols and name sets are cached per (root, name) until the `ansible.var.def` index stamp, the YAML
- *   PSI, the workspace structure or the project roots change.
+ * - **Caching.** Symbols and name sets are cached per (root, view, name) until the `ansible.var.def` index stamp, the
+ *   YAML PSI, the workspace structure or the project roots change.
+ * - **Molecule views** (plan amendment R20, D153): [symbol] and [allNames] with a [MoleculeView], so navigation and
+ *   search started outside Molecule never see Molecule definitions. A [MoleculeView.EXCLUDE] symbol is the cached full
+ *   symbol without what [MoleculeVisibility.isMolecule] calls Molecule (Molecule files, Molecule inventories and,
+ *   judged by cause, `include_vars` keys only Molecule playbooks load): no second index walk, and the one rule. The
+ *   [MoleculeView.EXCLUDE] name set walks a family that admits no Molecule file ([RootFamily.view]) and leaves out those
+ *   `include_vars` keys ([IncludedVarsDefinitions]). The [VarService] methods are [MoleculeView.INCLUDE]: the model,
+ *   rename and inspections see everything. Callers outside this class go through [VarViews].
  *
  * All methods take a read lock when the caller holds none. They need smart mode: index access throws
  * `IndexNotReadyException` while indexing, so callers are not `DumbAware`.
  */
 class VarServiceImpl(private val project: Project) : VarService {
-    private val caches = ConcurrentHashMap<VirtualFile, CachedValue<RootCache>>()
+    private val caches = ConcurrentHashMap<CacheKey, CachedValue<RootCache>>()
+
+    /** One cache per root directory and view. */
+    private data class CacheKey(val dir: VirtualFile, val view: MoleculeView)
 
     private val indexStamp = ModificationTracker { FileBasedIndex.getInstance().getIndexModificationStamp(VarDefIndex.NAME, project) }
 
@@ -66,14 +78,24 @@ class VarServiceImpl(private val project: Project) : VarService {
         var names: Set<String>? = null
     }
 
-    override fun symbol(root: AnsibleRoot, name: String): VarSymbol = readLocked {
-        val cache = cacheOf(root)
-        cache.symbols[name] ?: computeSymbol(root, name).also { cache.symbols.putIfAbsent(name, it) }
+    override fun symbol(root: AnsibleRoot, name: String): VarSymbol = symbol(root, name, MoleculeView.INCLUDE)
+
+    override fun allNames(root: AnsibleRoot): Collection<String> = allNames(root, MoleculeView.INCLUDE)
+
+    /** [symbol] as a request with [view] sees it: with [MoleculeView.EXCLUDE] without any Molecule definition. */
+    fun symbol(root: AnsibleRoot, name: String, view: MoleculeView): VarSymbol = readLocked {
+        val cache = cacheOf(root, view)
+        cache.symbols[name] ?: when (view) {
+            MoleculeView.INCLUDE -> computeSymbol(root, name)
+            // Both caches share their dependencies, so the production view never outlives the full symbol it came from.
+            MoleculeView.EXCLUDE -> MoleculeVisibility.withoutMolecule(project, root, symbol(root, name, MoleculeView.INCLUDE))
+        }.also { cache.symbols.putIfAbsent(name, it) }
     }
 
-    override fun allNames(root: AnsibleRoot): Collection<String> = readLocked {
-        val cache = cacheOf(root)
-        cache.names ?: computeNames(root).also { cache.names = it }
+    /** [allNames] as a request with [view] sees them: with [MoleculeView.EXCLUDE] the names some production file defines. */
+    fun allNames(root: AnsibleRoot, view: MoleculeView): Collection<String> = readLocked {
+        val cache = cacheOf(root, view)
+        cache.names ?: computeNames(root, view).also { cache.names = it }
     }
 
     private fun computeSymbol(root: AnsibleRoot, name: String): VarSymbol {
@@ -109,9 +131,9 @@ class VarServiceImpl(private val project: Project) : VarService {
      * Names with at least one counting definition. Reads each candidate file's index data once instead of probing
      * every key of the project-wide index.
      */
-    private fun computeNames(root: AnsibleRoot): Set<String> {
+    private fun computeNames(root: AnsibleRoot, view: MoleculeView): Set<String> {
         val workspace = AnsibleWorkspace.getInstance(project)
-        val family = RootFamily.of(project, root, workspace)
+        val family = RootFamily.of(project, root, workspace, view)
         val index = FileBasedIndex.getInstance()
         val names = HashSet<String>()
         val seen = HashSet<VirtualFile>()
@@ -133,16 +155,17 @@ class VarServiceImpl(private val project: Project) : VarService {
                 family.scope,
             )
         }
+        // Inline inventory variables come from the environments' inventories, never from Molecule scenarios.
         names += InlineInventoryDefinitions.names(project, root)
-        names += IncludedVarsDefinitions.names(project, root)
+        names += IncludedVarsDefinitions.names(project, root, view)
         return names
     }
 
     /** The file types `ansible.var.def` reads YAML from: YAML, and vars files typed as plain text or JSON. */
     private fun varsFileTypes(): List<FileType> = listOf(YAMLFileType.YML, PlainTextFileType.INSTANCE, JsonFileType.INSTANCE)
 
-    private fun cacheOf(root: AnsibleRoot): RootCache {
-        val value = caches.computeIfAbsent(root.dir) {
+    private fun cacheOf(root: AnsibleRoot, view: MoleculeView): RootCache {
+        val value = caches.computeIfAbsent(CacheKey(root.dir, view)) {
             CachedValuesManager.getManager(project).createCachedValue(
                 {
                     CachedValueProvider.Result.create(

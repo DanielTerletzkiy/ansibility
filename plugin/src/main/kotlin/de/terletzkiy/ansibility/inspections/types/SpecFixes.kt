@@ -12,6 +12,7 @@ import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.ValueShape
 import de.terletzkiy.ansibility.api.VarDefKind
 import de.terletzkiy.ansibility.api.VarService
+import de.terletzkiy.ansibility.context.MoleculeVisibility
 import de.terletzkiy.ansibility.semantics.yaml.YMap
 import de.terletzkiy.ansibility.semantics.yaml.YSeq
 import de.terletzkiy.ansibility.types.AnsibilityTypesBundle
@@ -48,10 +49,11 @@ class AddSubOptionFix(
 /**
  * 🟣 CLAUDE X79 "Update spec from usage" (ANS-T010): the spec documents `elements: str` but the values are mappings.
  * The option gets `elements: dict` and one sub-option per item key: the keys of every literal definition of the variable
- * in the root (inventory, playbooks, molecule …), typed by their values ([SpecEdits.join]), then the attributes the
- * looping tasks read ([usageAttributes]) that no value sets, typed `raw`. That clears the ANS-T010 findings of every
- * file of the root at once; definitions whose items are not mappings would then be rejected, which the role's spec
- * owner decides.
+ * in the root (inventory, playbooks …), typed by their values ([SpecEdits.join]), then the attributes the looping tasks
+ * read ([usageAttributes]) that no value sets, typed `raw`. That clears the ANS-T010 findings of every file of the root
+ * at once; definitions whose items are not mappings would then be rejected, which the role's spec owner decides.
+ * Molecule fixture values count only when the fix is applied in a Molecule file (plan amendment R20, D157, as the
+ * role-input fix): a converge play's test-only keys never become sub-options of the role's spec from production code.
  */
 class UpdateSpecFromUsageFix(
     private val roleName: String,
@@ -68,17 +70,21 @@ class UpdateSpecFromUsageFix(
     override fun perform(project: Project, descriptor: ProblemDescriptor): ModCommand {
         val spec = PsiManager.getInstance(project).findFile(specFile) as? YAMLFile ?: return ModCommand.nop()
         val option = SpecEdits.optionMapping(spec, entryPoint, listOf(variable)) ?: return ModCommand.nop()
-        val subOptions = inferSubOptions(project)
+        val subOptions = inferSubOptions(project, descriptor.psiElement?.containingFile?.originalFile?.virtualFile)
         if (subOptions.isEmpty()) return ModCommand.nop()
         return ModCommand.psiUpdate(option) { writable, _ -> SpecEdits.makeElementsDict(writable, subOptions) }
     }
 
-    /** Item key → `type` field, from the literal definitions of [variable] in the root, then the read attributes. */
-    private fun inferSubOptions(project: Project): Map<String, List<Pair<String, String>>> {
+    /**
+     * Item key → `type` field, from the literal definitions of [variable] in the root as analysis of [origin] (the file
+     * the fix was applied in) sees them ([MoleculeVisibility.forAnalysis]), then the read attributes.
+     */
+    private fun inferSubOptions(project: Project, origin: VirtualFile?): Map<String, List<Pair<String, String>>> {
         val root = AnsibleWorkspace.getInstance(project).roots().firstOrNull { it.dir == rootDir } ?: return emptyMap()
         val types = LinkedHashMap<String, MutableList<String?>>()
         val psiManager = PsiManager.getInstance(project)
-        for (definition in VarService.getInstance(project).symbol(root, variable).definitions) {
+        val symbol = MoleculeVisibility.forAnalysis(project, root, origin, VarService.getInstance(project).symbol(root, variable))
+        for (definition in symbol.definitions) {
             ProgressManager.checkCanceled()
             if (definition.kind == VarDefKind.SPEC_OPTION || definition.valueShape != ValueShape.CONTAINER) continue
             val file = psiManager.findFile(definition.location.file) as? YAMLFile ?: continue

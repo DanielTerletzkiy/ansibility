@@ -2,10 +2,8 @@ package de.terletzkiy.ansibility.inspections.undefined
 
 import com.intellij.codeInspection.LocalQuickFix
 import com.intellij.codeInspection.ProblemDescriptor
-import com.intellij.modcommand.FutureVirtualFile
 import com.intellij.modcommand.ModCommand
 import com.intellij.modcommand.ModCommandQuickFix
-import com.intellij.modcommand.ModCreateFile
 import com.intellij.modcommand.ModUpdateFileText
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.TextRange
@@ -19,12 +17,17 @@ import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.FileContext
 import de.terletzkiy.ansibility.api.FileKind
 import de.terletzkiy.ansibility.api.RoleInfo
+import de.terletzkiy.ansibility.inspections.spec.AddDocumentedDefaultToDefaultsFix
+import de.terletzkiy.ansibility.inspections.spec.SpecDefaultEdits
 import de.terletzkiy.ansibility.inspections.types.SpecEdits
+import de.terletzkiy.ansibility.model.role.RoleDefaults
 import de.terletzkiy.ansibility.model.role.RoleLayout
 import de.terletzkiy.ansibility.model.task.TaskFileModels
+import de.terletzkiy.ansibility.semantics.schema.ArgSpecParser
 import de.terletzkiy.ansibility.semantics.schema.OptionSpec
 import de.terletzkiy.ansibility.semantics.schema.OptionType
-import org.jetbrains.yaml.YAMLFileType
+import de.terletzkiy.ansibility.semantics.validate.SpecDefaults
+import de.terletzkiy.ansibility.yaml.PsiYValueAdapter
 import org.jetbrains.yaml.YAMLUtil
 import org.jetbrains.yaml.psi.YAMLFile
 import org.jetbrains.yaml.psi.YAMLKeyValue
@@ -38,8 +41,8 @@ import org.jetbrains.yaml.psi.YAMLSequence
  * - templates: [WrapInDefinedGuardFix] (`{% if x is defined and x %}…{% endif %}` around the statement's lines) and
  *   [AppendDefaultFix];
  * - YAML tasks: [AppendDefaultFix] and [AddWhenDefinedFix] (merged with an existing `when` as a list);
- * - a role of the same root: [AddRoleDefaultFix] (`defaults/main.yml`, plus `default:` in the argument spec when the
- *   spec declares the variable).
+ * - a role of the same root: [AddRoleDefaultFix] (the role's defaults file, plus `default:` in the argument spec when the
+ *   spec declares the variable without documenting one).
  *
  * Edits are computed from the current text when the fix runs (the file may have changed since highlighting) and
  * returned as [ModUpdateFileText], which keeps every untouched character, quotes and escapes included.
@@ -60,8 +63,11 @@ internal object UndefinedFixes {
         }
         val role = finding.roles.firstOrNull { it.ref.rootDir == context.root.dir && it.ref.dir.findChild(RoleLayout.DEFAULTS)?.isDirectory == true }
         if (role != null && AnsibleWorkspace.getInstance(file.project).rootFor(role.ref.dir) == context.root) {
-            val spec = role.argumentSpecs.values.any { finding.name in it.options }
-            fixes += AddRoleDefaultFix(finding.name, role.ref.name, role.ref.dir, spec, finding.spec)
+            // The spec gets `default:` where an entry point declares the variable without a `default` key.
+            val spec = role.argumentSpecs.values.any { entry -> entry.options[finding.name]?.let { it.default == null } == true }
+            // Not offered when every loaded defaults file is a vault, JSON or not a mapping: a YAML line would corrupt it.
+            val target = AddDocumentedDefaultToDefaultsFix.targetLabel(file.project, role.ref.dir)
+            if (target != null) fixes += AddRoleDefaultFix(finding.name, role.ref.name, role.ref.dir, spec, finding.spec, target)
         }
         return fixes.toTypedArray()
     }
@@ -202,11 +208,16 @@ class AddWhenDefinedFix(private val name: String, private val taskOffset: Int) :
 }
 
 /**
- * "Add `x` to `<role>/defaults/main.yml` and the argument spec" (a role of the analysed file's root): the key with an
- * empty value of the spec's type (`''` for strings, paths and untyped options, `[]` for lists, `{}` for dicts, `null`
- * otherwise) appended to `defaults/main.yml` (created when the role's `defaults/` directory has none), and the same value
- * as `default:` of each entry point's option that declares the variable without one, so the documentation and the
- * runtime default agree (ANS-S002).
+ * "Add `x` to `<role>/defaults/main.yml` and the argument spec" (a role of the analysed file's root). The value is the
+ * argument spec's documented default, copied as written, when an entry point of the role documents one (plan amendment
+ * R23, D175: Ansible never applies it, so the role default should be that value); otherwise an empty value of the
+ * spec's type (`''` for strings, paths and untyped options, `[]` for lists, `{}` for dicts, `null` otherwise); a
+ * documented default holding an alias or an anchor is not copied ([SpecDefaultEdits.isCopyable]). It goes to the file
+ * the role loads its defaults from ([RoleDefaults.appendTarget]: the main file, or the last file of a `defaults/main/`
+ * directory that a YAML line can be appended to, never a vault or JSON file and never a new `defaults/main.yml` that
+ * would hide that directory); `defaults/main.yml` is created only when the role loads none. [targetLabel] (the
+ * role-relative file, computed when the fix is offered) names it. Each entry point's option that declares the variable
+ * without a default gets the same value as `default:`, so the documentation and the role default agree (ANS-S003).
  */
 class AddRoleDefaultFix(
     private val variable: String,
@@ -214,46 +225,57 @@ class AddRoleDefaultFix(
     private val roleDir: VirtualFile,
     private val inSpec: Boolean,
     private val option: OptionSpec?,
+    private val targetLabel: String,
 ) : ModCommandQuickFix() {
+    /** `web/defaults/main.yml`, or `web/defaults/main/20-web.yml` for a `defaults/main/` directory. */
     override fun getName(): String =
-        AnsibilityUndefinedBundle.message(if (inSpec) "fix.add.role.default" else "fix.add.role.default.defaults.only", variable, roleName)
+        AnsibilityUndefinedBundle.message(if (inSpec) "fix.add.role.default" else "fix.add.role.default.defaults.only", variable, "$roleName/$targetLabel")
 
     override fun getFamilyName(): String = AnsibilityUndefinedBundle.message("fix.add.role.default.family")
 
     override fun perform(project: Project, descriptor: ProblemDescriptor): ModCommand {
-        val value = emptyValue(option)
-        val keyText = SpecEdits.keyText(variable)
-        val defaultsDir = roleDir.findChild(RoleLayout.DEFAULTS)?.takeIf { it.isDirectory } ?: return ModCommand.nop()
-        val defaults = RoleLayout.defaultsFiles(roleDir).firstOrNull { it.parent == defaultsDir && it.nameWithoutExtension == RoleLayout.MAIN }
-        var command: ModCommand = if (defaults == null) {
-            // FutureVirtualFile is @ApiStatus.Experimental (262): the only way a ModCommand names a file it creates
-            ModCreateFile(FutureVirtualFile(defaultsDir, DEFAULTS_FILE, YAMLFileType.YML), ModCreateFile.Text("---\n$keyText: $value\n"))
-        } else {
-            val text = PsiManager.getInstance(project).findFile(defaults)?.viewProvider?.contents ?: return ModCommand.nop()
-            val separator = if (text.isEmpty() || text.endsWith("\n")) "" else "\n"
-            UndefinedFixes.update(project, defaults, listOf(UndefinedFixes.Edit(text.length, text.length, "$separator$keyText: $value\n")))
-        }
-        if (inSpec) command = command.andThen(specEdit(project, value))
+        if (roleDir.findChild(RoleLayout.DEFAULTS)?.isDirectory != true) return ModCommand.nop()
+        val documented = documentedDefault(project)
+        val empty = emptyValue(option)
+        val line = documented?.let { SpecDefaultEdits.topLevelLine(variable, it) } ?: "${SpecEdits.keyText(variable)}: $empty"
+        var command = AddDocumentedDefaultToDefaultsFix.appendDefault(project, roleDir, line)
+        if (inSpec) command = command.andThen(specEdit(project, documented, empty))
         return command
     }
 
-    /** `default: <value>` added to every entry point's option of the variable that has none. */
-    private fun specEdit(project: Project, value: String): ModCommand {
+    /** The `default:` key-value of the first entry point (`main` first) that documents a default for the variable; never a secret's. */
+    private fun documentedDefault(project: Project): YAMLKeyValue? {
+        if (variable.startsWith(VAULT_PREFIX)) return null
+        val specFile = RoleLayout.specFile(roleDir) ?: RoleLayout.metaFile(roleDir) ?: return null
+        val spec = PsiManager.getInstance(project).findFile(specFile) as? YAMLFile ?: return null
+        val entries = ArgSpecParser.parse(PsiYValueAdapter.documentValue(spec), roleName).entryPoints.entries.sortedBy { if (it.key == MAIN) 0 else 1 }
+        for ((entryPoint, entry) in entries) {
+            val declared = entry.options[variable] ?: continue
+            val documented = SpecDefaults.documentedDefault(declared) ?: continue
+            if (SpecDefaults.hasNoLog(declared) || SpecDefaults.containsVault(documented)) return null
+            // An alias or anchor is not copied: the empty value is written instead.
+            return SpecEdits.optionMapping(spec, entryPoint, listOf(variable))?.getKeyValueByKey(DEFAULT)?.takeIf { SpecDefaultEdits.isCopyable(it.value) }
+        }
+        return null
+    }
+
+    /** `default:` added to every entry point's option of the variable that has none: [documented] as written, else [empty]. */
+    private fun specEdit(project: Project, documented: YAMLKeyValue?, empty: String): ModCommand {
         val specFile = RoleLayout.specFile(roleDir) ?: return ModCommand.nop()
         val spec = PsiManager.getInstance(project).findFile(specFile) as? YAMLFile ?: return ModCommand.nop()
         val entryPoints = (YAMLUtil.getQualifiedKeyInFile(spec, "argument_specs")?.value as? YAMLMapping)?.keyValues.orEmpty().map(YAMLKeyValue::getKeyText)
         val edits = entryPoints.mapNotNull { entryPoint ->
             val mapping = SpecEdits.optionMapping(spec, entryPoint, listOf(variable)) ?: return@mapNotNull null
             if (mapping.getKeyValueByKey(DEFAULT) != null) return@mapNotNull null
-            val end = mapping.textRange.endOffset
-            UndefinedFixes.Edit(end, end, "\n" + " ".repeat(YAMLUtil.getIndentToThisElement(mapping)) + "$DEFAULT: $value")
+            if (documented != null) SpecDefaultEdits.addDefault(mapping, documented) else SpecDefaultEdits.addDefaultText(mapping, empty)
         }
         return if (edits.isEmpty()) ModCommand.nop() else UndefinedFixes.update(project, specFile, edits)
     }
 
     private companion object {
         const val DEFAULT = "default"
-        const val DEFAULTS_FILE = "main.yml"
+        const val MAIN = "main"
+        const val VAULT_PREFIX = "vault_"
 
         fun emptyValue(option: OptionSpec?): String = when (option?.type) {
             null, OptionType.Str, OptionType.Path, OptionType.Raw -> "''"

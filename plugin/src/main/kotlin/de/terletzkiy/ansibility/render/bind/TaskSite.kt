@@ -13,14 +13,21 @@ import de.terletzkiy.ansibility.semantics.yaml.YScalar
 import de.terletzkiy.ansibility.semantics.yaml.YValue
 
 /**
- * The task that renders a template, as the binder needs it: its block and task `vars:` (level 15, inner wins), its
- * loop and the template module's options. Read from the task model, so unsaved edits of the task file count.
+ * The task that renders a template, as the binder needs it: its block and task `vars:` (level 15, inner wins; with
+ * [withInclude] over those of the imports that run its file), the include params of the dynamic includes that run
+ * its file ([includeParams]), its loop and the template module's options. Read from the task model, so unsaved edits
+ * of the task file count.
  */
 internal class TaskSite(
     /** The render context the site was found for; null for a site found at a caret ([at]). */
     val context: RenderContext?,
     val task: TaskNode,
     val siteVars: Map<String, YValue>,
+    /**
+     * The `vars:` of the dynamic includes (`include_tasks`, `include_role`) that run the task's file, outer to inner:
+     * ansible-core's include params, above [siteVars], `include_vars`, `set_fact` and role params.
+     */
+    val includeParams: Map<String, YValue> = emptyMap(),
 ) {
     val loop: LoopInfo? get() = task.loop
     val loopControl: LoopControlInfo? get() = task.loopControl
@@ -34,6 +41,21 @@ internal class TaskSite(
         "true", "yes", "on" -> true
         "false", "no", "off" -> false
         else -> null
+    }
+
+    /**
+     * This site as [variant] runs it: the `vars:` of its imports ([IncludeRuns.Variant.vars], outer to inner)
+     * underneath its own (the task's and its blocks' `vars:` win over them, both are level 15), and the include params of
+     * its dynamic includes ([IncludeRuns.Variant.params]) above everything but extra vars.
+     */
+    fun withInclude(variant: IncludeRuns.Variant?): TaskSite {
+        if (variant == null || variant.vars.isEmpty() && variant.params.isEmpty()) return this
+        val merged = LinkedHashMap(variant.vars)
+        for ((name, value) in siteVars) {
+            merged.remove(name)
+            merged[name] = value
+        }
+        return TaskSite(context, task, merged, variant.params)
     }
 
     /** True for `template:` tasks (the module that writes the file); lookups and includes have no `src` of their own. */

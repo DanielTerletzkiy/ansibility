@@ -8,16 +8,23 @@ import de.terletzkiy.ansibility.completion.jinja.JinjaNames.Companion.part
 import de.terletzkiy.ansibility.completion.jinja.JinjaNames.Companion.typeText
 import de.terletzkiy.ansibility.facts.FactSpec
 import de.terletzkiy.ansibility.facts.FactsCatalog
+import de.terletzkiy.ansibility.index.JinjaBearing
 import de.terletzkiy.ansibility.index.ValueSummary
 import de.terletzkiy.ansibility.lang.jinja.refs.JinjaLocal
 import de.terletzkiy.ansibility.lang.jinja.refs.JinjaLocalKind
+import de.terletzkiy.ansibility.model.role.RoleDefaults
 import de.terletzkiy.ansibility.model.task.TaskNode
+import de.terletzkiy.ansibility.resolve.VarViews
 import de.terletzkiy.ansibility.resolve.loop.LoopItemTyper
 import de.terletzkiy.ansibility.resolve.register.RegisteredDocs
 import de.terletzkiy.ansibility.resolve.register.RegisteredResult
 import de.terletzkiy.ansibility.resolve.register.RegisteredResults
 import de.terletzkiy.ansibility.semantics.schema.OptionSpec
 import de.terletzkiy.ansibility.semantics.schema.OptionType
+import de.terletzkiy.ansibility.semantics.yaml.YMap
+import de.terletzkiy.ansibility.semantics.yaml.YScalar
+import de.terletzkiy.ansibility.semantics.yaml.YValue
+import de.terletzkiy.ansibility.semantics.yaml.YVault
 import de.terletzkiy.ansibility.vars.registered.RegisteredSites
 
 /**
@@ -46,7 +53,8 @@ internal class RegisteredChain(val result: RegisteredResult, val path: List<Stri
  *   card; a loop or `for` over `x.results` types its items the same way;
  * - `ansible_facts` and the injected `ansible_*` facts from [FactsCatalog], dict-valued special variables;
  * - `groups` (group names), `hostvars` (host names, then per host the inventory names and connection variables),
- *   from every inventory of the root and its molecule scenarios;
+ *   from every inventory of the root and, when the caret sees Molecule ([JinjaCompletionScope.moleculeView]), its
+ *   molecule scenarios;
  * - any other variable through the root's spec bindings (own role first), nested `options` down to [MAX_DEPTH],
  *   else the shape of a literal value.
  *
@@ -90,7 +98,7 @@ internal class JinjaMembers(private val scope: JinjaCompletionScope) {
             val chain = RegisteredChain(registered, path).takeIf { registered.member(path) != null } ?: return null
             return registered.option(path)?.let { TypedChain(it, null, chain) }
         }
-        val option = LoopItemTyper.variableType(scope.project, scope.fileContext, scope.chain, root, path) ?: return null
+        val option = LoopItemTyper.variableType(scope.project, scope.fileContext, scope.chain, root, path, scope.moleculeView) ?: return null
         return TypedChain(option, CandidateDoc.Variable(root, path))
     }
 
@@ -238,7 +246,9 @@ internal class JinjaMembers(private val scope: JinjaCompletionScope) {
                 environments += inventory.environment
             }
         }
-        for (molecule in service.moleculeInventories(scope.root)) {
+        // Molecule groups only where the caret sees Molecule (plan amendment R20, D153).
+        val molecules = if (scope.moleculeView.includesMolecule) service.moleculeInventories(scope.root) else emptyList()
+        for (molecule in molecules) {
             for ((name, group) in molecule.inventory.groups) {
                 val (hosts, environments) = byName.getOrPut(name) { LinkedHashSet<String>() to LinkedHashSet() }
                 hosts += group.hosts
@@ -289,8 +299,11 @@ internal class JinjaMembers(private val scope: JinjaCompletionScope) {
         val option = typed.option
         if (option.type == OptionType.List) return emptyList()
         val options = option.options ?: return emptyList()
+        val roleDefault = typed.doc?.let { roleDefaultOf(it) }
         return options.values.withIndex().filter { (_, it) -> accept(it.name) && (keys || isIdentifier(it.name)) }.map { (index, sub) ->
-            val default = sub.default?.takeUnless { ValueSummary.isSecret(sub.name, it) }?.let(ValueSummary::render)
+            // Only the role default's value at the path: the spec's sub-option `default:` is never applied (R23, D174).
+            // A `no_log` sub-option's value is never shown.
+            val default = roleDefault?.takeUnless { sub.noLog }?.let { member(it, sub.name) }?.let(ValueSummary::render)
             val tail = buildString {
                 default?.let { append(message("tail.default", JinjaNames.shorten(it))) }
                 if (sub.required) append(part(message("part.required")))
@@ -300,9 +313,45 @@ internal class JinjaMembers(private val scope: JinjaCompletionScope) {
             JinjaCandidate(
                 sub.name, Tier.MEMBER, (if (sub.required) 500 else 0) + (options.size - index).coerceAtMost(499),
                 typeText(sub), tail, AllIcons.Nodes.Property, doc,
-                bold = sub.required && sub.default == null, deprecated = sub.deprecated != null,
+                bold = sub.required && default == null, deprecated = sub.deprecated != null,
             )
         }
+    }
+
+    /**
+     * The role default's value at the chain [doc] names (`web_db` in `web_db.`): the own role's default first, then that of
+     * a role whose spec declares the variable; null through a list element, a secret (also a `no_log` option on the
+     * path in any spec that declares the variable), a template or a missing key.
+     */
+    private fun roleDefaultOf(doc: CandidateDoc.Variable): YValue? {
+        if (doc.path.any { it.toIntOrNull() != null } || doc.name.startsWith(VAULT_PREFIX)) return null
+        val bindings = VarViews.symbol(scope.project, scope.root, doc.name, scope.moleculeView).specBindings
+        val options = scope.roles.flatMap { role -> role.info.argumentSpecs.values.mapNotNull { it.options[doc.name] } } + bindings.map { it.option }
+        if (options.any { noLogAlong(it, doc.path) }) return null
+        val roleDirs = scope.roles.map { it.info.ref.dir } + bindings.map { it.role.dir }
+        val default = roleDirs.distinct().firstNotNullOfOrNull { RoleDefaults.of(scope.project, it, doc.name) } ?: return null
+        if (default.isSecret || default.merged) return null
+        var value: YValue = default.value
+        for (segment in doc.path) value = member(value, segment) ?: return null
+        return value
+    }
+
+    /** Whether [option] or an option along [path] below it is `no_log`. */
+    private fun noLogAlong(option: OptionSpec, path: List<String>): Boolean {
+        var current = option
+        if (current.noLog) return true
+        for (segment in path) {
+            current = current.options?.get(segment) ?: return false
+            if (current.noLog) return true
+        }
+        return false
+    }
+
+    /** The value of key [name] in [value] when it is a literal mapping; never a `vault_*` key's or a template. */
+    private fun member(value: YValue, name: String): YValue? {
+        if (name.startsWith(VAULT_PREFIX)) return null
+        val entry = (value as? YMap)?.entries?.lastOrNull { it.key.text == name } ?: return null
+        return entry.value.takeUnless { it is YVault || it is YScalar && JinjaBearing.hasTemplateMarkers(it.text) }
     }
 
     /**
@@ -333,6 +382,7 @@ internal class JinjaMembers(private val scope: JinjaCompletionScope) {
         const val HOSTVARS: String = "hostvars"
 
         private const val RECURSIVE = "recursive"
+        private const val VAULT_PREFIX = "vault_"
         private val FOR_ITERABLE = Regex("""^\s*in\s+(.+?)\s*$""", RegexOption.DOT_MATCHES_ALL)
         private val IDENTIFIER = Regex("[A-Za-z_][A-Za-z0-9_]*")
         private val HOST_MAGIC = setOf("ansible_facts", "group_names", "inventory_hostname", "inventory_hostname_short", "inventory_dir", "inventory_file")

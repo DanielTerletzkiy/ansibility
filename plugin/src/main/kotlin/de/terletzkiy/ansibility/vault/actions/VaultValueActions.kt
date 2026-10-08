@@ -113,10 +113,12 @@ class VaultValueActions(private val project: Project, private val scope: Corouti
 
     /**
      * X93's Unlock vault ids…: unlocks the ids of the value's root through [VaultOperations.unlock] (consent before the
-     * first read, then the password sources and prompts) and decrypts nothing.
+     * first read, then the password sources and prompts) and decrypts nothing. Being explicit, it asks again for a
+     * root declined with Not now earlier in the session ([VaultSecretsService.forgetDeclined]).
      */
     internal fun unlock(ref: VaultValueRef, editor: Editor?) {
         launch(message("progress.unlock"), ref, editor) {
+            VaultSecretsService.getInstance(project).forgetDeclined(ref.root)
             when (val result = VaultOperations.getInstance(project).unlock(ref.root)) {
                 is VaultUnlockResult.Unlocked -> onEdt { VaultUiFeedback.info(project, editor, message("action.unlocked", result.identities.joinToString(", "))) }
                 is VaultUnlockResult.Failed -> if (result.failure != VaultFailure.CANCELLED) onEdt { VaultUiFeedback.failure(project, editor, result.failure) }

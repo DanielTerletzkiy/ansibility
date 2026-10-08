@@ -15,6 +15,7 @@ import de.terletzkiy.ansibility.semantics.vault.VaultAes256
 import de.terletzkiy.ansibility.semantics.vault.VaultEnvelope
 import de.terletzkiy.ansibility.vault.VaultTestCase
 import de.terletzkiy.ansibility.vault.VaultVectors
+import de.terletzkiy.ansibility.vault.actions.FileOperation
 import de.terletzkiy.ansibility.vault.actions.VaultActionPrompts
 import de.terletzkiy.ansibility.vault.actions.VaultDecryptRequest
 import de.terletzkiy.ansibility.vault.actions.VaultEncryptRequest
@@ -72,6 +73,47 @@ class FakePrompts : VaultActionPrompts {
         rekeyForChangeId.also { rekeyQuestions += target to decryptsWith }
 
     override fun confirmDiscard(project: Project): Boolean = discard.also { discardQuestions++ }
+
+    /** Every file confirmation: the operation and the file names it listed. */
+    val fileRequests = CopyOnWriteArrayList<Pair<FileOperation, List<String>>>()
+
+    /** The directories New › Ansibility Vault File asked a name for, and the validation errors its answers got. */
+    val nameRequests = CopyOnWriteArrayList<String>()
+    val nameErrors = CopyOnWriteArrayList<String>()
+
+    var filesAnswer: Boolean = true
+
+    /** The answer to the name question; null cancels, an invalid name is recorded in [nameErrors] and cancels. */
+    var vaultFileName: String? = "secrets.yml"
+
+    override fun confirmFiles(project: Project, operation: FileOperation, names: List<String>): Boolean =
+        filesAnswer.also { fileRequests += operation to names }
+
+    /** The roots the file actions' change id questions named, in order (their ids go to [rekeyQuestions]). */
+    val rekeyRoots = CopyOnWriteArrayList<String>()
+
+    /** The answer to the file actions' change id question, by root: [rekeyForChangeId] unless a test says otherwise. */
+    var rekeyFilesForChangeId: (String) -> Boolean = { rekeyForChangeId }
+
+    /** Runs on the EDT when the file actions ask a change id question, before it is answered. */
+    var onRekeyFilesQuestion: () -> Unit = {}
+
+    override fun confirmRekeyFilesForChangeId(project: Project, root: String, target: String, decryptsWith: String): Boolean {
+        onRekeyFilesQuestion()
+        rekeyQuestions += target to decryptsWith
+        rekeyRoots += root
+        return rekeyFilesForChangeId(root)
+    }
+
+    override fun askVaultFileName(project: Project, directory: String, validate: (String) -> String?): String? {
+        nameRequests += directory
+        val name = vaultFileName ?: return null
+        validate(name)?.let { error ->
+            nameErrors += error
+            return null
+        }
+        return name
+    }
 }
 
 /**

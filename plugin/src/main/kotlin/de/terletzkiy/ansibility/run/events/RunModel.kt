@@ -18,7 +18,10 @@ data class StatusCounts(val counts: Map<HostStatus, Int> = emptyMap()) {
 }
 
 /** One loop item of a host's task result. */
-class ItemRun(val label: String, val status: HostStatus, val message: String?, val diff: List<FileDiff>, val result: Map<String, Any?>?)
+class ItemRun(val label: String, val status: HostStatus, val message: String?, val diff: List<FileDiff>, val result: Map<String, Any?>?) {
+    /** It failed because the run passed no vault secret ([RunModel.isMissingVaultSecrets]). */
+    val missingVaultSecrets: Boolean get() = status.isFailure && RunModel.isMissingVaultSecrets(message)
+}
 
 /** One host's run of one task: running until its result arrives. */
 class HostRun(val host: String, val started: Double?) {
@@ -42,6 +45,10 @@ class HostRun(val host: String, val started: Double?) {
     var polls: Int = 0
         internal set
     val items: MutableList<ItemRun> = ArrayList()
+
+    /** It (or one of its items) failed because the run passed no vault secret ([RunModel.isMissingVaultSecrets]). */
+    val missingVaultSecrets: Boolean
+        get() = (status.isFailure && RunModel.isMissingVaultSecrets(message)) || items.any { it.missingVaultSecrets }
 }
 
 /** One task (or handler) of a play, with the hosts that ran it in the order they started or reported. */
@@ -68,6 +75,9 @@ class TaskRun(
 
     /** The task's name without the `role : ` prefix Ansible gives tasks of roles. */
     val shortName: String get() = if (role != null && name.startsWith("$role : ")) name.removePrefix("$role : ") else name
+
+    /** A host failed it because the run passed no vault secret ([RunModel.isMissingVaultSecrets]). */
+    val missingVaultSecrets: Boolean get() = hosts.values.any { it.missingVaultSecrets }
 }
 
 /** One play of the run; a `serial` play reports each batch again under the same id and is kept as one. */
@@ -91,6 +101,9 @@ class PlayRun(val id: String, val name: String, val hosts: List<String>, val pat
 
     /** Seconds from the play's start to its end (or [now] while it runs). */
     fun duration(now: Double): Double = (ended ?: now) - started
+
+    /** A host failed one of its tasks because the run passed no vault secret ([RunModel.isMissingVaultSecrets]). */
+    val missingVaultSecrets: Boolean get() = tasks.any { it.missingVaultSecrets }
 }
 
 /**
@@ -129,6 +142,9 @@ class StageRun(val scenario: String, val action: String, val started: Double) {
 
     /** The tasks that changed: on `idempotence`, the ones that made the stage fail. */
     val changedTasks: List<TaskRun> get() = plays.flatMap { play -> play.tasks.filter { task -> task.hosts.values.any { it.status == HostStatus.CHANGED } } }
+
+    /** A task of the stage failed because the run passed no vault secret ([RunModel.isMissingVaultSecrets]). */
+    val missingVaultSecrets: Boolean get() = plays.any { it.missingVaultSecrets }
 }
 
 /**
@@ -149,6 +165,10 @@ class UnitRun(val key: String, val name: String, val label: String) {
     var problem: String? = null
         internal set
 
+    /** What its preparation does now, while it prepares (null before, once its process started, and after). */
+    var preparing: String? = null
+        internal set
+
     /** Stopped by the user while it ran (its status is failed; it does not count among the failures). */
     val stopped: Boolean get() = exitCode == RunModel.STOPPED
 
@@ -161,6 +181,9 @@ class UnitRun(val key: String, val name: String, val label: String) {
     }
 
     val counts: StatusCounts get() = (stages.flatMap { it.plays } + plays).fold(StatusCounts()) { sum, play -> sum + play.counts }
+
+    /** A task of the unit failed because its run passed no vault secret ([RunModel.isMissingVaultSecrets]). */
+    val missingVaultSecrets: Boolean get() = stages.any { it.missingVaultSecrets } || plays.any { it.missingVaultSecrets }
 }
 
 /**
@@ -202,8 +225,22 @@ class RunModel {
     private var currentPlay: PlayRun? = null
     private var currentTask: TaskRun? = null
 
-    /** Whether any event arrived: without one the view falls back to the console. */
+    /** What the run's preparation does now (plan amendment R19, D144), or null: not preparing (any more). */
+    var preparing: String? = null
+        private set
+
+    /** Why the run never started its process (the text shown: the reason, "cancelled"), or null. */
+    var notStarted: String? = null
+        private set
+
+    /** Whether any event of the process arrived (the preparation's do not count): without one the view falls back to the console. */
     val hasEvents: Boolean get() = start != null || plays.isNotEmpty() || stages.isNotEmpty() || units.isNotEmpty()
+
+    /**
+     * Whether a host failed a task because the run passed no vault secret (D137): Molecule runs pass none (D136), so a
+     * vaulted value the test reads fails with Ansible's fixed error. Says so without showing the message.
+     */
+    val missingVaultSecrets: Boolean get() = plays.any { it.missingVaultSecrets }
 
     fun unit(key: String): UnitRun? = units.firstOrNull { it.key == key }
 
@@ -290,11 +327,20 @@ class RunModel {
                 currentUnit = unit
                 runStage = null
             }
+            is RunEvent.Preparing -> {
+                val unit = currentUnit
+                if (unit != null) unit.preparing = event.phase else preparing = event.phase
+            }
+            is RunEvent.NotStarted -> {
+                preparing = null
+                notStarted = event.reason
+            }
             is RunEvent.UnitEnd -> {
                 val unit = unit(event.key) ?: return
                 unit.ended = event.time
                 unit.exitCode = event.exitCode
                 unit.problem = event.problem
+                unit.preparing = null
                 unit.stages.lastOrNull()?.let { if (it.ended == null) it.ended = event.time }
                 endCurrentTask(event.time)
                 currentPlay?.let { if (it.ended == null) it.ended = event.time }
@@ -309,6 +355,7 @@ class RunModel {
     fun finish(code: Int?) {
         finished = true
         exitCode = code
+        preparing = null
         endCurrentTask(lastEvent)
         if (currentPlay?.ended == null) currentPlay?.ended = lastEvent
         stages.lastOrNull()?.takeIf { it.ended == null }?.let { stage ->
@@ -320,6 +367,7 @@ class RunModel {
         currentUnit?.let { unit ->
             unit.ended = lastEvent
             unit.exitCode = code?.takeIf { it != 0 } ?: STOPPED
+            unit.preparing = null
             currentUnit = null
         }
         modificationCount++
@@ -365,8 +413,14 @@ class RunModel {
         /** The exit code of a unit the batch stopped. */
         const val STOPPED: Int = -1
 
-        /** The exit code of a unit that could not start (not prepared, no process). */
+        /** The exit code of a run or unit that could not start (not prepared, no process). */
         const val NOT_STARTED: Int = -2
+
+        /** The part of ansible-core's error "Attempting to decrypt but no vault secrets found" this matches. */
+        private const val NO_VAULT_SECRETS = "no vault secrets"
+
+        /** Whether [message] is Ansible's error for a vaulted value without any vault secret (case-insensitive). */
+        fun isMissingVaultSecrets(message: String?): Boolean = message?.contains(NO_VAULT_SECRETS, ignoreCase = true) == true
 
         private val SEVERITY = listOf(
             HostStatus.RUNNING, HostStatus.FAILED, HostStatus.UNREACHABLE, HostStatus.CHANGED, HostStatus.OK, HostStatus.IGNORED, HostStatus.SKIPPED,

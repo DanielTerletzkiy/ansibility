@@ -3,9 +3,9 @@ package de.terletzkiy.ansibility.refactoring
 import com.intellij.ide.TitledHandler
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.actionSystem.DataContext
-import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.progress.ProgressManager
@@ -28,6 +28,7 @@ import com.intellij.refactoring.util.CommonRefactoringUtil
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.VarDefKind
 import de.terletzkiy.ansibility.api.VarService
+import de.terletzkiy.ansibility.context.MoleculeView
 import de.terletzkiy.ansibility.model.role.RoleLayout
 import de.terletzkiy.ansibility.navigation.RefKind
 import de.terletzkiy.ansibility.navigation.RefOccurrence
@@ -37,10 +38,10 @@ import de.terletzkiy.ansibility.navigation.RoleLocator
 import de.terletzkiy.ansibility.navigation.RoleSite
 import de.terletzkiy.ansibility.vars.usages.VarScope
 import de.terletzkiy.ansibility.vars.usages.VarSymbolElement
-import java.util.concurrent.Callable
 import org.jetbrains.yaml.YAMLUtil
 import org.jetbrains.yaml.psi.YAMLFile
 import org.jetbrains.yaml.psi.YAMLScalar
+import java.util.concurrent.Callable
 
 /**
  * Rename of a role: its directory, every reference that resolves to it the way ansible-core looks roles up (a play's
@@ -121,7 +122,7 @@ internal object RoleRenamer {
             val root = workspace.rootFor(roleDir)
             if (root != null) {
                 for (name in prefixedVariables(project, roleDir)) {
-                    val symbol = VarSymbolElement(psiManager.findDirectory(roleDir) ?: continue, root, name, VarScope.Root(null))
+                    val symbol = VarSymbolElement(psiManager.findDirectory(roleDir) ?: continue, root, name, VarScope.Root(null, MoleculeView.INCLUDE))
                     val renamed = newName + name.removePrefix(old)
                     val variable = VarRenamer.plan(project, symbol, renamed)
                     edits += variable.edits

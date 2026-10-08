@@ -13,6 +13,7 @@ import com.intellij.util.xmlb.annotations.MapAnnotation
 import com.intellij.util.xmlb.annotations.Tag
 import com.intellij.util.xmlb.annotations.XCollection
 import de.terletzkiy.ansibility.api.VaultSourceKind
+import de.terletzkiy.ansibility.settings.PathGlob
 
 /**
  * One vault id configured explicitly for a root (step 1 of the discovery chain, F7.9): a label and where its secret
@@ -94,6 +95,37 @@ class VaultProjectSettings : PersistentStateComponent<VaultProjectSettings.State
             tracker.incModificationCount()
         }
 
+    /**
+     * ANS-V108's allowlist (plan amendment R21, D162): path globs relative to the project directory
+     * (`settings.PathGlob` syntax; a file outside it is matched by its absolute path) whose files never get a
+     * plaintext-key finding. Shared with the project: a repository can only silence ANS-V108 this way, it never
+     * authorises anything (DEV.md rule 12 does not apply). Defaults to Molecule's test folders ([DEFAULT_KEY_ALLOWLIST]).
+     */
+    @Volatile
+    var plaintextKeyAllowlist: List<String> = DEFAULT_KEY_ALLOWLIST
+        set(value) {
+            val normalized = normalizeGlobs(value)
+            if (field == normalized) return
+            field = normalized
+            tracker.incModificationCount()
+        }
+
+    @Volatile
+    private var compiledAllowlist: Pair<List<String>, List<PathGlob>> = emptyList<String>() to emptyList()
+
+    /**
+     * The compiled [plaintextKeyAllowlist], without globs that match every path ([isTooBroad], such as `**`): one
+     * such line, pulled with the project, would silence ANS-V108, the Vault tab and the commit check everywhere. Any
+     * thread.
+     */
+    fun plaintextKeyAllowlistGlobs(): List<PathGlob> {
+        val patterns = plaintextKeyAllowlist
+        compiledAllowlist.takeIf { it.first === patterns }?.let { return it.second }
+        val globs = patterns.mapNotNull(PathGlob::compile).filterNot(::isTooBroad)
+        compiledAllowlist = patterns to globs
+        return globs
+    }
+
     /** The settings of the root stored under [rootKey], or the defaults. */
     fun rootSettings(rootKey: String): VaultRootSettings = roots[rootKey] ?: VaultRootSettings.DEFAULT
 
@@ -113,12 +145,14 @@ class VaultProjectSettings : PersistentStateComponent<VaultProjectSettings.State
 
     override fun getState(): StateBean = StateBean().apply {
         encryptOnlyOnExplicitSave = this@VaultProjectSettings.encryptOnlyOnExplicitSave
+        plaintextKeyAllowlist = ArrayList(this@VaultProjectSettings.plaintextKeyAllowlist)
         roots = this@VaultProjectSettings.roots.entries.sortedBy { it.key }.map { (key, settings) -> RootBean.of(key, settings) }.toMutableList()
     }
 
     override fun loadState(state: StateBean) {
         roots = state.roots.mapNotNull { bean -> bean.key?.let { it to bean.toSettings() } }.toMap()
         encryptOnlyOnExplicitSave = state.encryptOnlyOnExplicitSave
+        plaintextKeyAllowlist = state.plaintextKeyAllowlist
         tracker.incModificationCount()
     }
 
@@ -129,6 +163,10 @@ class VaultProjectSettings : PersistentStateComponent<VaultProjectSettings.State
 
         @get:XCollection(propertyElementName = "roots", elementName = "root")
         var roots: MutableList<RootBean> = ArrayList()
+
+        /** ANS-V108's allowlist (R21, D162); written only when it differs from the default. */
+        @get:XCollection(propertyElementName = "plaintextKeyAllowlist", elementName = "glob", valueAttributeName = "pattern")
+        var plaintextKeyAllowlist: MutableList<String> = ArrayList(DEFAULT_KEY_ALLOWLIST)
     }
 
     /** XML form of one root's [VaultRootSettings]. */
@@ -190,6 +228,21 @@ class VaultProjectSettings : PersistentStateComponent<VaultProjectSettings.State
     }
 
     companion object {
+        /** The default allowlist of ANS-V108: Molecule's scenario folders, whose keys are throwaway test keys. */
+        val DEFAULT_KEY_ALLOWLIST: List<String> = listOf("**/molecule/**")
+
         fun getInstance(project: Project): VaultProjectSettings = project.service()
+
+        /** [globs] trimmed, without blank lines and duplicates, in their order. */
+        /** Paths of every shape: a glob that matches all of them matches every path of the project. */
+        private val EVERY_PATH = listOf("a", "a.key", "a/b.pem", "a/b/c/d.key", "Users/falcon/certs/web.pem")
+
+        /**
+         * True when [glob] matches every path, so it would turn ANS-V108 off for the whole project: such an allowlist
+         * entry is ignored (and refused by Exclude Path…).
+         */
+        fun isTooBroad(glob: PathGlob): Boolean = EVERY_PATH.all(glob::matches)
+
+        fun normalizeGlobs(globs: List<String>): List<String> = globs.map(String::trim).filter(String::isNotEmpty).distinct()
     }
 }

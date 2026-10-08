@@ -108,7 +108,7 @@ abstract class VarsTestCase : BasePlatformTestCase() {
     companion object {
         const val VARS_DATA = "vars"
         val SECTIONS = arrayOf(
-            "Type", "Required", "Default (spec)", "Runtime default", "Choices", "Aliases", "Options", "Declared by",
+            "Type", "Required", "Default", "Documented (argument_specs)", "Choices", "Aliases", "Options", "Declared by",
             "Set in", "This definition", "Used in",
             // Rows other areas contribute after the built-in ones (host awareness, F8.2).
             "Effect",

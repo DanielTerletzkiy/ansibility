@@ -1,6 +1,7 @@
 package de.terletzkiy.ansibility.run
 
 import com.intellij.util.EnvironmentUtil
+import de.terletzkiy.ansibility.runtime.ProcessTrees
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
@@ -29,7 +30,9 @@ sealed interface Freshness {
 /**
  * The git checks before a run, as the provisioning scripts do them: fetch the upstream branch, count the commits the
  * checkout is missing, and read the facts a report callback wants. Blocking (processes with timeouts, no prompts:
- * `GIT_TERMINAL_PROMPT=0`, stdin from the null device); call off the EDT.
+ * `GIT_TERMINAL_PROMPT=0`, stdin from the null device); call off the EDT. Interrupting the thread ends the git
+ * process it waits for and its children ([InterruptedException]), so a run stopped while it prepares does not wait
+ * for a fetch and leaves no `ssh` behind.
  */
 class GitChecks(private val git: Path, private val dir: Path, private val runner: Runner = ProcessRunner) {
     /** One git invocation; null when it could not start or timed out. */
@@ -105,7 +108,10 @@ class GitChecks(private val git: Path, private val dir: Path, private val runner
         }
     }
 
-    /** Runs git with the login shell's environment, without prompts. */
+    /**
+     * Runs git with the login shell's environment, without prompts; an interrupt or the timeout ends git and every
+     * process it started ([ProcessTrees.end]), and an interrupt is rethrown.
+     */
     object ProcessRunner : Runner {
         override fun run(command: List<String>, dir: Path, timeoutSeconds: Long): Output? {
             val process = try {
@@ -127,9 +133,16 @@ class GitChecks(private val git: Path, private val dir: Path, private val runner
                 Thread { runCatching { out.append(process.inputStream.bufferedReader().readText()) } },
                 Thread { runCatching { err.append(process.errorStream.bufferedReader().readText()) } },
             ).onEach { it.isDaemon = true; it.start() }
-            if (!process.waitFor(timeoutSeconds, TimeUnit.SECONDS)) {
-                process.destroyForcibly()
-                return null
+            try {
+                if (!process.waitFor(timeoutSeconds, TimeUnit.SECONDS)) {
+                    ProcessTrees.end(process)
+                    return null
+                }
+            } catch (e: InterruptedException) {
+                // The run was stopped while it prepared (runInterruptible): git goes with it, and so do the processes
+                // it started (ssh, git-remote-https, credential helpers), which may wait for an approval.
+                ProcessTrees.end(process)
+                throw e
             }
             readers.forEach { it.join(TimeUnit.SECONDS.toMillis(2)) }
             return Output(process.exitValue(), out.toString(), err.toString())

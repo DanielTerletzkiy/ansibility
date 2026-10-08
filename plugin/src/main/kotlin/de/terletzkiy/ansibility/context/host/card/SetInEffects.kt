@@ -18,7 +18,9 @@ import org.jetbrains.annotations.Nls
  * - in All mode a winner says "wins on 3 of 4 hosts" and a loser "shadowed on 2 of 4 hosts";
  * - in host mode (one host: a selected host, a `host_vars` file) the winner says "✓", a loser is struck through and every
  *   other definition says "not for prod-prod1";
- * - with an environment selected, the definitions of other environments collapse into one "Other environments" line.
+ * - with an environment selected, the definitions of other environments collapse into one "Other environments" line;
+ * - a definition an include task gives the card's file (its `vars:` key, its `loop_var`) says "applies through the
+ *   include" instead ([TaskVars.included]), after the winners.
  *
  * Built on the card's [CardView] (the same selection-aware scope and single-name evaluation as the Effective section, so
  * the card computes it once). One instance serves one rendering of "Set in" and is not thread-safe; call in the card's
@@ -26,12 +28,15 @@ import org.jetbrains.annotations.Nls
  */
 class SetInEffects private constructor(private val view: CardView, private val project: Project) {
     /** What one definition does for the card's hosts. */
-    enum class Kind { WINS, SHADOWED, NOT_FOR_HOST, OUT_OF_SCOPE }
+    enum class Kind { WINS, SHADOWED, NOT_FOR_HOST, OUT_OF_SCOPE, INCLUDED }
 
     /** The effect of one "Set in" definition: a short [text] after its value, and whether it is shown [struck] through. */
     class Effect(val kind: Kind, @Nls val text: String?, val struck: Boolean, internal val rank: Int)
 
     private val single: HostKey? = view.singleHost
+
+    /** The definitions the include tasks that run the card's file give the name with ([TaskVars.included]). */
+    private val included: Set<Location> = view.taskVars.included.mapTo(HashSet()) { Location.of(it) }
     private val inventoryHosts = view.hosts.filter { !it.isMolecule }
     private val moleculeHosts = view.hosts.filter { it.isMolecule }
 
@@ -64,6 +69,10 @@ class SetInEffects private constructor(private val view: CardView, private val p
     private fun compute(key: Location): Effect {
         val wins = view.winsOn[key].orEmpty()
         val shadowed = view.shadowedOn[key].orEmpty()
+        // An includer's `vars:` key or loop variable applies wherever that include runs the file: never "not for" a host.
+        if (key in included && wins.isEmpty() && shadowed.isEmpty()) {
+            return Effect(Kind.INCLUDED, message("card.set.in.included"), struck = false, rank = INCLUDED_RANK)
+        }
         if (single != null) {
             return when (single) {
                 in wins -> Effect(Kind.WINS, message("card.set.in.winner.host"), struck = false, rank = 0)
@@ -110,6 +119,7 @@ class SetInEffects private constructor(private val view: CardView, private val p
     private fun environmentOf(file: VirtualFile): String? = AnsibleWorkspace.getInstance(project).contextOf(file)?.environment
 
     companion object {
+        private const val INCLUDED_RANK = 50_000
         private const val SHADOWED_RANK = 100_000
         private const val OTHER_RANK = 200_000
 

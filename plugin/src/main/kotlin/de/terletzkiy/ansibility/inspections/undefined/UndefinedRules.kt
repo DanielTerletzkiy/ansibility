@@ -12,6 +12,7 @@ import de.terletzkiy.ansibility.api.RuntimeMarkerKind
 import de.terletzkiy.ansibility.api.VarDefKind
 import de.terletzkiy.ansibility.api.VarService
 import de.terletzkiy.ansibility.api.VarSymbol
+import de.terletzkiy.ansibility.context.MoleculeVisibility
 import de.terletzkiy.ansibility.facts.FactsCatalog
 import de.terletzkiy.ansibility.model.effective.ExecutionSources
 import de.terletzkiy.ansibility.semantics.schema.OptionSpec
@@ -29,13 +30,25 @@ import org.jetbrains.annotations.Nls
  * dependencies (transitively). The argument spec's `default:` does **not** count: ansible-core only documents and
  * validates with it and never sets the variable from it (the runtime default always comes from `defaults/`), which is
  * why the card shows "Runtime default" separately.
+ *
+ * **Molecule** (plan amendment R20, D157): every rule reads the definitions of [symbol], which leaves out Molecule
+ * definitions ([MoleculeVisibility.forAnalysis]) unless [origin], the analysed file, is a Molecule file itself: a
+ * converge play's `set_fact` or `vars:` never runs in a production play, so it defines nothing for one.
  */
-internal class UndefinedRules(private val project: Project, private val root: AnsibleRoot) {
+internal class UndefinedRules(
+    private val project: Project,
+    private val root: AnsibleRoot,
+    /** The analysed file (the inspected file, the card's file); null counts as a production file. */
+    private val origin: VirtualFile?,
+) {
     private val symbols = HashMap<String, VarSymbol>()
     private val closures = HashMap<String, List<RoleInfo>>()
     private val included = HashMap<Pair<String, String>, Boolean>()
 
-    fun symbol(name: String): VarSymbol = symbols.getOrPut(name) { VarService.getInstance(project).symbol(root, name) }
+    /** The definitions of [name] in [root] the analysis of [origin] counts (no Molecule ones for a production file). */
+    fun symbol(name: String): VarSymbol = symbols.getOrPut(name) {
+        MoleculeVisibility.forAnalysis(project, root, origin, VarService.getInstance(project).symbol(root, name))
+    }
 
     /** A loop or index variable of some task of the root (`loop_control.loop_var`, `index_var`): never reported. */
     fun isLoopVariable(name: String): Boolean = symbol(name).definitions.any { it.kind == VarDefKind.LOOP_VAR || it.kind == VarDefKind.INDEX_VAR }

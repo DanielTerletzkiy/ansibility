@@ -12,6 +12,7 @@ import de.terletzkiy.ansibility.api.AnsibleRoot
 import de.terletzkiy.ansibility.api.AnsibleSite
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.SiteNavigation
+import de.terletzkiy.ansibility.context.MoleculeView
 import org.jetbrains.yaml.psi.YAMLPsiElement
 
 /**
@@ -33,7 +34,8 @@ class RefsNavigation : SiteNavigation {
         val virtualFile = file.originalFile.viewProvider.virtualFile
         val context = AnsibleWorkspace.getInstance(project).contextOf(virtualFile) ?: return emptyList()
         val occurrence = RefSites.at(file, site.range.startOffset, context)?.takeIf { it.range == site.range } ?: return emptyList()
-        val resolution = RefResolver(file, context).resolve(occurrence)
+        // Outside Molecule, while Molecule is hidden, no Molecule play's handlers or playbook dir (plan amendment R20, D153).
+        val resolution = RefResolver(file, context, MoleculeView.of(project, virtualFile)).resolve(occurrence)
         return resolution.targets.mapNotNull { target ->
             ProgressManager.checkCanceled()
             element(project, target, context.root)

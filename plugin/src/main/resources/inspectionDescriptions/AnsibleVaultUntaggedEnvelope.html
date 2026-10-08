@@ -1,0 +1,10 @@
+<html>
+<body>
+<p>Reports YAML values that hold a vault envelope (<code>$ANSIBLE_VAULT;1.1;AES256</code> and its hex payload)
+  without the <code>!vault</code> tag (ANS-V114). Ansible decrypts only tagged values: an untagged envelope reaches the
+  task, the template or the host as the envelope text.</p>
+<p>Quick fix: <b>Add !vault tag</b> writes <code>!vault</code> before the value (<code>key: !vault |</code>). The value
+  itself is not changed; once tagged, the other vault checks judge its envelope. Nothing is decrypted.</p>
+<!-- tooltip end -->
+</body>
+</html>

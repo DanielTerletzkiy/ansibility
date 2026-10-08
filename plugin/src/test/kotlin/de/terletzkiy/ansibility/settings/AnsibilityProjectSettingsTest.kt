@@ -3,8 +3,10 @@ package de.terletzkiy.ansibility.settings
 import com.intellij.openapi.components.State
 import com.intellij.openapi.components.StoragePathMacros
 import com.intellij.openapi.components.service
+import com.intellij.openapi.util.JDOMUtil
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.intellij.util.xmlb.XmlSerializer
 import de.terletzkiy.ansibility.api.AnsibleRoot
 import de.terletzkiy.ansibility.context.AnsibleWorkspaceImpl
 import de.terletzkiy.ansibility.context.ContextTestTree
@@ -14,6 +16,7 @@ import de.terletzkiy.ansibility.context.ContextTestTree.GOLDEN
 import de.terletzkiy.ansibility.context.ContextTestTree.PELICAN
 import de.terletzkiy.ansibility.semantics.CoreVersion
 import de.terletzkiy.ansibility.semantics.diagnostics.Preset
+import org.jdom.Element
 
 class AnsibilityProjectSettingsTest : BasePlatformTestCase() {
     private lateinit var settings: AnsibilityProjectSettings
@@ -70,7 +73,8 @@ class AnsibilityProjectSettingsTest : BasePlatformTestCase() {
 
     private val customized = ProjectSettings(
         roots = mapOf(FALCON to customRoot, GOLDEN to RootSettings(preset = Preset.STRICT)),
-        paths = PathSettings(detachedRule = false, extraIgnoredPaths = listOf("vendor/**"), moleculeSupport = false, schemaStoreExclusion = false),
+        paths = PathSettings(detachedRule = false, extraIgnoredPaths = listOf("vendor/**"), schemaStoreExclusion = false),
+        molecule = MoleculeSettings(runTests = false, showInNavigation = true),
     )
 
     // ------------------------------------------------------------------ defaults
@@ -93,8 +97,16 @@ class AnsibilityProjectSettingsTest : BasePlatformTestCase() {
         val paths = ProjectSettings.DEFAULT.paths
         assertTrue(paths.detachedRule)
         assertEquals(listOf("**/.ansible/**", "patches/**"), paths.extraIgnoredPaths)
-        assertTrue(paths.moleculeSupport)
         assertTrue(paths.schemaStoreExclusion)
+    }
+
+    fun testMoleculeDefaultsAreExactlyThePlannedOnes() {
+        // Plan amendment R20, D151: tests run, Molecule stays out of navigation from other files.
+        val molecule = ProjectSettings.DEFAULT.molecule
+        assertTrue("Run Molecule tests is on", molecule.runTests)
+        assertFalse("Show Molecule in navigation and search is off", molecule.showInNavigation)
+        assertEquals(MoleculeSettings(), molecule)
+        assertEquals(MoleculeSettings.DEFAULT, ProjectSettingsBean().toSettings().molecule)
     }
 
     fun testFreshProjectHasDefaultsEverywhere() {
@@ -130,6 +142,55 @@ class AnsibilityProjectSettingsTest : BasePlatformTestCase() {
         assertEquals(customized, bean.toSettings())
         assertTrue(xml, xml.contains("path=\"$FALCON\""))
         assertTrue(xml, xml.contains("all_plugins_play, groups_plugins_play"))
+        assertTrue(xml, xml.contains("moleculeRunTests") && xml.contains("moleculeShowInNavigation"))
+    }
+
+    fun testEachMoleculeSwitchSurvivesTheRoundTripAlone() {
+        for (molecule in listOf(MoleculeSettings(runTests = false), MoleculeSettings(showInNavigation = true))) {
+            val (xml, bean) = SettingsTestSupport.xmlRoundTrip(ProjectSettingsBean().apply { fill(ProjectSettings(molecule = molecule)) }, ProjectSettingsBean())
+            assertEquals(xml, molecule, bean.toSettings().molecule)
+        }
+    }
+
+    // ------------------------------------------------------------------ migration of "Molecule support" (R20, D151)
+
+    /** The XML an earlier version wrote: "Molecule support" set to [support], next to another path option. */
+    private fun legacyXml(support: Boolean, shared: Boolean = false): Element = JDOMUtil.load(
+        "<component>" +
+            (if (shared) "<option name=\"shared\" value=\"true\" />" else "") +
+            "<option name=\"detachedRule\" value=\"false\" />" +
+            "<option name=\"moleculeSupport\" value=\"$support\" />" +
+            "</component>",
+    )
+
+    fun testAStoredMoleculeSupportLoadsAsTestsOnAndMoleculeHiddenFromTheWorkspaceFile() {
+        for (support in listOf(false, true)) {
+            settings.loadState(XmlSerializer.deserialize(legacyXml(support), ProjectSettingsBean::class.java))
+            assertEquals("moleculeSupport=$support", MoleculeSettings(runTests = true, showInNavigation = false), settings.settings.molecule)
+            assertFalse("the other options still load", settings.settings.paths.detachedRule)
+
+            val (xml, _) = SettingsTestSupport.xmlRoundTrip(settings.state, ProjectSettingsBean())
+            assertFalse("the old option is gone on the next save: $xml", xml.contains("moleculeSupport"))
+            assertFalse("the defaults are not written: $xml", xml.contains("molecule"))
+            assertTrue(xml, xml.contains("detachedRule"))
+            settings.loadState(ProjectSettingsBean())
+        }
+    }
+
+    fun testAStoredMoleculeSupportLoadsAsTestsOnAndMoleculeHiddenFromTheSharedFile() {
+        val shared = project.service<AnsibilitySharedProjectSettings>()
+        for (support in listOf(false, true)) {
+            shared.loadState(XmlSerializer.deserialize(legacyXml(support, shared = true), SharedProjectSettingsBean::class.java))
+            assertTrue(settings.isSharedWithTeam)
+            assertEquals("moleculeSupport=$support", MoleculeSettings(runTests = true, showInNavigation = false), settings.settings.molecule)
+            assertFalse(settings.settings.paths.detachedRule)
+
+            val (xml, _) = SettingsTestSupport.xmlRoundTrip(shared.state, SharedProjectSettingsBean())
+            assertFalse("the old option is gone on the next save: $xml", xml.contains("moleculeSupport"))
+            assertFalse("the defaults are not written: $xml", xml.contains("molecule"))
+            assertTrue(xml, xml.contains("shared"))
+            shared.loadState(SharedProjectSettingsBean())
+        }
     }
 
     fun testAnEmptyIgnoredPathListSurvivesTheRoundTrip() {

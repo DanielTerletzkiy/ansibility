@@ -35,11 +35,16 @@ object RunViewTexts {
         else -> icon(unit.status)
     }
 
-    /** "Waiting" (or "Not run" once the batch ended), "Stopped", "Exit code 2", else the status. */
+    /** Whether a unit's row says its [unitStatus] (not yet run, preparing, not passed) rather than only its counts. */
+    fun showsUnitStatus(unit: UnitRun): Boolean = unit.started == null || (unit.exitCode ?: 0) != 0 || (unit.ended == null && unit.preparing != null)
+
+    /** "Waiting" (or "Not run" once the batch ended), "Preparing: …", "Stopped", "Exit code 2", else the status. */
     fun unitStatus(unit: UnitRun, finished: Boolean): String {
         val exitCode = unit.exitCode
+        val preparing = unit.preparing
         return when {
             unit.started == null -> message(if (finished) "run.view.unit.not.run" else "run.view.unit.waiting")
+            preparing != null && unit.ended == null -> message("run.prepare.phase", preparing)
             exitCode == RunModel.STOPPED -> message("run.view.unit.stopped")
             exitCode == RunModel.NOT_STARTED -> unit.problem?.let { message("run.view.unit.not.started.why", firstLine(it)) } ?: message("run.view.unit.not.started")
             exitCode != null && exitCode != 0 -> message("run.view.unit.exit", exitCode)

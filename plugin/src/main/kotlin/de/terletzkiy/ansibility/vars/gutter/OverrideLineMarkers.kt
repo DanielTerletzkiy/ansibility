@@ -8,7 +8,6 @@ import com.intellij.openapi.editor.markup.GutterIconRenderer
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.util.NotNullLazyValue
-import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.elementType
 import com.intellij.openapi.project.Project
@@ -19,6 +18,7 @@ import de.terletzkiy.ansibility.api.VarDefKind
 import de.terletzkiy.ansibility.api.VarDefinition
 import de.terletzkiy.ansibility.api.VarService
 import de.terletzkiy.ansibility.api.VarsLayer
+import de.terletzkiy.ansibility.context.MoleculeVisibility
 import de.terletzkiy.ansibility.dispatch.SitePresentation
 import de.terletzkiy.ansibility.vars.AnsibilityVarsBundle.message
 import de.terletzkiy.ansibility.vars.VarLabels
@@ -33,8 +33,9 @@ import javax.swing.Icon
  * Override gutter icons in both directions (plan X42): on a role default or spec option "Overridden in 5 files", on a
  * vars-file key "Overrides role default of postfix". Precedence is by [VarsLayer.level]; a spec option ranks with the
  * role defaults. Role defaults and role vars only meet definitions of the same role or of no role; inventory-level
- * definitions only meet those that reach a common host of the same environment ([HostReach]); molecule files only
- * each other. Slow markers: they read the root's variable index.
+ * definitions only meet those that reach a common host of the same environment ([HostReach]); Molecule definitions
+ * ([MoleculeVisibility.isMolecule], whatever the navigation setting) only each other. Slow markers: they read the
+ * root's variable index.
  */
 class OverrideLineMarkers : LineMarkerProviderDescriptor() {
     override fun getName(): String = message("gutter.override.name")
@@ -96,12 +97,11 @@ class OverrideLineMarkers : LineMarkerProviderDescriptor() {
             val own = definitions.firstOrNull { it.location.file == file && it.location.offset in keyValue.textRange.startOffset..key.textRange.endOffset }
                 ?: return null
             val level = levelOf(own) ?: return null
-            val workspace = AnsibleWorkspace.getInstance(project)
-            val ownMolecule = isMolecule(workspace, context.root, own)
+            val ownMolecule = MoleculeVisibility.isMolecule(project, context.root, own)
             val reach = HostReach(project, context.root)
             val related = definitions.filter {
                 it !== own && it.location != own.location && sameRoleScope(own, it) &&
-                    (ownMolecule || !isMolecule(workspace, context.root, it)) && reach.overlaps(own, it)
+                    (ownMolecule || !MoleculeVisibility.isMolecule(project, context.root, it)) && reach.overlaps(own, it)
             }.let(::withoutDuplicateSpecs)
             val ordered = related.sortedWith(compareBy<VarDefinition> { levelOf(it) ?: -1 }.thenBy { it.location.file.path }.thenBy { it.location.offset })
             return Overrides(
@@ -143,17 +143,6 @@ class OverrideLineMarkers : LineMarkerProviderDescriptor() {
             val defaults = definitions.filter { it.kind == VarDefKind.ROLE_DEFAULT }.mapTo(HashSet()) { it.roleName }
             return definitions.filter { it.kind != VarDefKind.SPEC_OPTION || it.roleName !in defaults }
         }
-
-        /** A molecule pseudo-inventory or any definition in a file below a `molecule/` directory (converge, verify, scenario vars). */
-        private fun isMolecule(workspace: AnsibleWorkspace, root: AnsibleRoot, definition: VarDefinition): Boolean {
-            if (definition.kind == VarDefKind.MOLECULE_INVENTORY) return true
-            if (workspace.contextOf(definition.location.file)?.kind in MOLECULE_KINDS) return true
-            val relative = VfsUtilCore.getRelativePath(definition.location.file, root.dir) ?: return false
-            return MOLECULE_DIR in relative.split('/')
-        }
-
-        private const val MOLECULE_DIR = "molecule"
-        private val MOLECULE_KINDS = setOf(FileKind.MOLECULE_CONFIG, FileKind.MOLECULE_PLAYBOOK, FileKind.MOLECULE_TASKS, FileKind.MOLECULE_VARS)
 
         private fun sameRoleScope(own: VarDefinition, other: VarDefinition): Boolean {
             return own.kind !in ROLE_KINDS || other.kind !in ROLE_KINDS || own.roleName == other.roleName

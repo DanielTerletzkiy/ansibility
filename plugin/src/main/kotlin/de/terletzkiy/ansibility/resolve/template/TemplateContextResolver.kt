@@ -24,6 +24,8 @@ import de.terletzkiy.ansibility.api.SourceLocation
 import de.terletzkiy.ansibility.api.TemplateContextService
 import de.terletzkiy.ansibility.api.ValueShape
 import de.terletzkiy.ansibility.api.VarService
+import de.terletzkiy.ansibility.context.MoleculeView
+import de.terletzkiy.ansibility.context.MoleculeVisibility
 import de.terletzkiy.ansibility.index.AnsibleIndexQueries
 import de.terletzkiy.ansibility.index.PathFacts
 import de.terletzkiy.ansibility.index.RenderEntry
@@ -210,16 +212,20 @@ class TemplateContextResolver(private val project: Project) : TemplateContextSer
         /** The string choices of the first expression's variable path of a dynamic or whole-variable `src`. */
         private fun choicesOf(site: Site): List<String> = optionOf(site)?.choices?.values.orEmpty().mapNotNull { (it as? YScalar)?.text }
 
-        /** Choices, the spec default and the root's literal string values of a whole-variable `src`. */
+        /**
+         * Choices and the root's literal string values of a whole-variable `src`. Not the argument spec's `default:`:
+         * ansible-core never applies it (plan amendment R23, D175), so a role default or another definition is the value.
+         */
         private fun valuesOf(site: Site): List<String> {
             val option = optionOf(site)
             val values = LinkedHashSet<String>()
             option?.choices?.values?.forEach { (it as? YScalar)?.text?.let(values::add) }
-            (option?.default as? YScalar)?.text?.let(values::add)
             val path = site.entry.dynamicVarPath
             val name = path.firstOrNull() ?: return values.toList()
             if (path.size == 1 && name != site.entry.loopVar) {
-                for (definition in VarService.getInstance(project).symbol(root, name).definitions) {
+                // Analysis (plan amendment R20, D157): a converge play's value never picks a production task's template.
+                val symbol = MoleculeVisibility.forAnalysis(project, root, site.file, VarService.getInstance(project).symbol(root, name))
+                for (definition in symbol.definitions) {
                     ProgressManager.checkCanceled()
                     if (definition.valueShape != ValueShape.LITERAL || definition.literalType != "str") continue
                     if (VaultInfo.isSecret(name, definition.location.file)) continue
@@ -240,7 +246,7 @@ class TemplateContextResolver(private val project: Project) : TemplateContextSer
             if (name == site.entry.loopVar && node != null) {
                 return LoopItemTyper.typeOf(project, yaml, node, chain)?.typeOfPath(name, path.drop(1))
             }
-            return LoopItemTyper.variableType(project, site.context, chain, name, path.drop(1))
+            return LoopItemTyper.variableType(project, site.context, chain, name, path.drop(1), MoleculeView.forAnalysis(project, site.file))
         }
 
         // -------------------------------------------------------------------------------------------- contexts

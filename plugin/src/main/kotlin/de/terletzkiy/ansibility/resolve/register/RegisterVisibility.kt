@@ -14,10 +14,12 @@ import de.terletzkiy.ansibility.api.RoleRegistry
 import de.terletzkiy.ansibility.api.TemplateContextService
 import de.terletzkiy.ansibility.api.VarDefKind
 import de.terletzkiy.ansibility.api.VarDefinition
-import de.terletzkiy.ansibility.api.VarService
+import de.terletzkiy.ansibility.context.MoleculeView
+import de.terletzkiy.ansibility.context.MoleculeVisibility
 import de.terletzkiy.ansibility.model.task.TaskFileModel
 import de.terletzkiy.ansibility.model.task.TaskFileModels
 import de.terletzkiy.ansibility.model.task.YamlFiles
+import de.terletzkiy.ansibility.resolve.VarViews
 import de.terletzkiy.ansibility.resolve.loop.TaskChains
 import de.terletzkiy.ansibility.yaml.YamlPaths
 
@@ -34,7 +36,10 @@ import de.terletzkiy.ansibility.yaml.YamlPaths
  * - **Play scope**, only when the own scope has none: the registers of the other roles applied by the plays that apply
  *   the own role (or by the playbook play around the position); they run in the same play, in some order.
  *
- * Every lookup stays in the position's root ([VarService] scoping). Call in a read action in smart mode.
+ * Every lookup stays in the position's root (`VarService` scoping). With [MoleculeView.EXCLUDE] (navigation, cards
+ * and completion started outside Molecule while Molecule is hidden, plan amendment R20, D153) neither the registers
+ * of Molecule files nor the plays of Molecule playbooks count; analysis uses [MoleculeView.INCLUDE]. Call in a read
+ * action in smart mode.
  */
 internal object RegisterVisibility {
     /** Task keys evaluated after the module ran, where the task's own `register` result exists. */
@@ -64,23 +69,23 @@ internal object RegisterVisibility {
     }
 
     /**
-     * The `register:` definitions of [name] visible at [offset] of [file], in file order: the own scope's, else the play
-     * scope's; empty when none (or the file is in no root).
+     * The `register:` definitions of [name] visible at [offset] of [file] as [view] sees them, in file order: the own
+     * scope's, else the play scope's; empty when none (or the file is in no root).
      */
-    fun visible(project: Project, file: VirtualFile, offset: Int, name: String): List<VarDefinition> {
+    fun visible(project: Project, file: VirtualFile, offset: Int, name: String, view: MoleculeView = MoleculeView.INCLUDE): List<VarDefinition> {
         val context = AnsibleWorkspace.getInstance(project).contextOf(file) ?: return emptyList()
-        val registers = registersOf(project, context.root, name)
+        val registers = registersOf(project, context.root, name, view)
         if (registers.isEmpty()) return emptyList()
-        val scope = scopeAt(project, file, offset, context)
+        val scope = scopeAt(project, file, offset, context, view)
         val own = registers.filter(scope::sees)
         if (own.isNotEmpty()) return own
-        val others = playRoles(project, file, offset, context, scope)
+        val others = playRoles(project, file, offset, context, scope, view)
         return registers.filter { definition -> others.any { definition.location.file in it.taskFiles } }
     }
 
-    /** Every `register:` definition of [name] in [root], in file order. */
-    fun registersOf(project: Project, root: AnsibleRoot, name: String): List<VarDefinition> =
-        VarService.getInstance(project).symbol(root, name).definitions
+    /** Every `register:` definition of [name] in [root] as [view] sees them, in file order. */
+    fun registersOf(project: Project, root: AnsibleRoot, name: String, view: MoleculeView = MoleculeView.INCLUDE): List<VarDefinition> =
+        VarViews.symbol(project, root, name, view).definitions
             .filter { it.kind == VarDefKind.REGISTER }
             .sortedWith(compareBy({ it.location.file.path }, { it.location.offset }))
 
@@ -105,10 +110,10 @@ internal object RegisterVisibility {
         }
     }
 
-    private fun scopeAt(project: Project, file: VirtualFile, offset: Int, context: FileContext): Scope {
+    private fun scopeAt(project: Project, file: VirtualFile, offset: Int, context: FileContext, view: MoleculeView): Scope {
         val registry = RoleRegistry.getInstance(project)
         val ownRole = context.roleName?.let { registry.role(context.root, it) }
-        if (context.kind == FileKind.ROLE_TEMPLATE || file.name.endsWith(J2_SUFFIX)) return templateScope(project, file, context, ownRole)
+        if (context.kind == FileKind.ROLE_TEMPLATE || file.name.endsWith(J2_SUFFIX)) return templateScope(project, file, context, ownRole, view)
         val yaml = YamlFiles.yamlFile(project, file)
         val taskLike = yaml != null && YamlPaths.isTopLevelSequence(yaml) && TaskFileModels.kindFor(context.kind) != null
         if (yaml == null || !taskLike) return Scope(listOfNotNull(ownRole?.let { RoleScope(project, it, null) }), emptyList())
@@ -121,11 +126,12 @@ internal object RegisterVisibility {
 
     /**
      * A template sees the registers before each task that renders it: in that task's role, or in its playbook; its own
-     * role's registers all count when no task of that role renders it.
+     * role's registers all count when no task of that role renders it. Render contexts as [view] sees them
+     * ([MoleculeVisibility.contextsInView]).
      */
-    private fun templateScope(project: Project, file: VirtualFile, context: FileContext, ownRole: RoleInfo?): Scope {
+    private fun templateScope(project: Project, file: VirtualFile, context: FileContext, ownRole: RoleInfo?, view: MoleculeView): Scope {
         val registry = RoleRegistry.getInstance(project)
-        val contexts = TemplateContextService.getInstance(project).renderContexts(file)
+        val contexts = MoleculeVisibility.contextsInView(project, view, TemplateContextService.getInstance(project).renderContexts(file))
         val roles = LinkedHashMap<String, RoleScope>()
         val byRole = contexts.filter { it.role != null }.groupBy { it.role!!.name }
         ownRole?.let { role -> roles[role.ref.name] = RoleScope(project, role, byRole[role.ref.name]?.map { Cutoff(it.taskSite.file, it.taskSite.offset, null) }) }
@@ -142,10 +148,10 @@ internal object RegisterVisibility {
     // ------------------------------------------------------------------------------------------------ play scope
 
     /** The other roles of the plays that apply the own roles, or of the playbook play around the position. */
-    private fun playRoles(project: Project, file: VirtualFile, offset: Int, context: FileContext, scope: Scope): List<RoleInfo> {
+    private fun playRoles(project: Project, file: VirtualFile, offset: Int, context: FileContext, scope: Scope, view: MoleculeView): List<RoleInfo> {
         val graph = PlayGraph.getInstance(project)
         val own = scope.roles.mapTo(HashSet()) { it.info.ref.name }
-        val plays = own.flatMap { graph.playsApplying(context.root, it) }.toMutableSet()
+        val plays = own.flatMap { MoleculeVisibility.playsInView(project, view, graph.playsApplying(context.root, it)) }.toMutableSet()
         if (context.kind == FileKind.PLAYBOOK) {
             val yaml = YamlFiles.yamlFile(project, file)
             val play = yaml?.let { TaskFileModels.of(it).playAt(offset) }

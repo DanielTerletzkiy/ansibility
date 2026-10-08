@@ -10,6 +10,7 @@ import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.platform.ide.progress.runWithModalProgressBlocking
 import com.intellij.psi.PsiManager
+import org.jetbrains.annotations.TestOnly
 import org.jetbrains.yaml.psi.YAMLFile
 
 /**
@@ -87,11 +88,17 @@ object PlaybookLauncher {
      * a start at a task): the playbook's own configurations keep their settings.
      */
     fun runOnce(project: Project, spec: PlaybookRunSpec, name: String) {
+        runOnceForTests?.let { return it(spec, name) }
         val settings = RunManager.getInstance(project).createConfiguration(name, AnsiblePlaybookConfigurationType.getInstance().factory)
         (settings.configuration as AnsiblePlaybookConfiguration).spec = spec
         settings.isTemporary = true
         ProgramRunnerUtil.executeConfiguration(settings, DefaultRunExecutor.getRunExecutorInstance())
     }
+
+    /** Replaces [runOnce] (tests: what a rerun would run, without running it). */
+    @TestOnly
+    @Volatile
+    internal var runOnceForTests: ((PlaybookRunSpec, String) -> Unit)? = null
 
     /**
      * Runs [spec]: a configuration of the playbook for the same target and environment is updated (a temporary one of

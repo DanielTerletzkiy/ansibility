@@ -61,7 +61,8 @@ import de.terletzkiy.ansibility.vault.ui.AnsibilityVaultUiBundle.message as vaul
  * all environments right on the page, per environment in a table: the IDE password store, 1Password, Bitwarden,
  * KeePassXC, Proton Pass, a password file, an environment variable, or ask), the checks before a run, and the
  * environment and Compose variables. Stored per user ([RunnerSettings]); typed become passwords go to the IDE
- * password store on Apply.
+ * password store on Apply. The "Notifications (all roots)" group (R19, D147) holds the application-wide
+ * [RunNotificationSettings]: it is applied and reset on its own, whatever root is shown or fails to validate.
  */
 class RunnerConfigurable(private val project: Project, private val preselectedRootKey: String?) : SearchableConfigurable {
     /** The platform creates configurables through a `(Project)` constructor; a Kotlin default value does not make one. */
@@ -146,6 +147,13 @@ class RunnerConfigurable(private val project: Project, private val preselectedRo
     private var envRows: List<Row> = emptyList()
     private val managerLabels = PasswordManager.entries.associateWith { JBLabel() }
 
+    private val notificationSettings = RunNotificationSettings.getInstance()
+    private val notifyWhen = ComboBox(RunNotificationSettings.When.entries.toTypedArray()).apply {
+        renderer = textListCellRenderer("") { message("settings.runner.notifications.when.${it.name.lowercase()}") }
+        item = notificationSettings.whenToNotify
+    }
+    private val notifyPassed = JBCheckBox(message("settings.runner.notifications.passed"), notificationSettings.notifyPassed)
+
     override fun getId(): String = ID
 
     override fun getDisplayName(): String = message("settings.runner.name")
@@ -222,6 +230,7 @@ class RunnerConfigurable(private val project: Project, private val preselectedRo
                     cell(moleculeDestroyMinutes)
                     label(message("settings.runner.molecule.minutes"))
                 }.rowComment(message("settings.runner.molecule.destroy.comment"))
+                row { comment(message("settings.runner.molecule.switch")) }
             }
             group(message("settings.runner.variables")) {
                 row(message("settings.runner.variables.process")) {
@@ -229,6 +238,11 @@ class RunnerConfigurable(private val project: Project, private val preselectedRo
                 }
                 row(message("settings.runner.variables.compose")) { scrollCell(composeVariables).align(AlignX.FILL) }
                 row { cell(composeHint) }
+            }
+            group(message("settings.runner.notifications")) {
+                row(message("settings.runner.notifications.when")) { cell(notifyWhen) }
+                row { cell(notifyPassed) }
+                row { comment(message("settings.runner.notifications.comment")) }
             }
         }
         component = panel
@@ -509,13 +523,20 @@ class RunnerConfigurable(private val project: Project, private val preselectedRo
         }
     }
 
+    /** Whether the notification fields differ from the stored [RunNotificationSettings]. */
+    private fun notificationsModified(): Boolean =
+        notifyWhen.item != notificationSettings.whenToNotify || notifyPassed.isSelected != notificationSettings.notifyPassed
+
     override fun isModified(): Boolean {
         capture()
-        return forgotten.values.any { it.isNotEmpty() } || allSource.hasTypedPassword() ||
+        return notificationsModified() || forgotten.values.any { it.isNotEmpty() } || allSource.hasTypedPassword() ||
             edits.any { (key, edited) -> edited.settings != settings.rootSettings(key) || edited.become.any { it.password != null } || edited.badVariable != null }
     }
 
     override fun apply() {
+        // First and on their own: they hold for every root and cannot be invalid.
+        notificationSettings.whenToNotify = notifyWhen.item ?: RunNotificationSettings.When.NOT_IN_VIEW
+        notificationSettings.notifyPassed = notifyPassed.isSelected
         val shown = current
         if (shown != null) {
             allSource.validate(pendingPassword = edits[shown.key]?.all?.let { it.password != null || it.stored } == true)?.let {
@@ -602,6 +623,8 @@ class RunnerConfigurable(private val project: Project, private val preselectedRo
     }
 
     override fun reset() {
+        notifyWhen.item = notificationSettings.whenToNotify
+        notifyPassed.isSelected = notificationSettings.notifyPassed
         allSource.takePassword()?.fill('\u0000')
         edits.values.flatMap { it.become }.forEach { it.password?.fill('\u0000') }
         edits.clear()
@@ -647,6 +670,12 @@ class RunnerConfigurable(private val project: Project, private val preselectedRo
 
     @TestOnly
     internal fun becomeFieldsForTests(): SecretSourceFields = allSource
+
+    @TestOnly
+    internal fun notificationFieldsForTests(): Pair<ComboBox<RunNotificationSettings.When>, JBCheckBox> = notifyWhen to notifyPassed
+
+    @TestOnly
+    internal fun selectRootForTests(key: String) = select(entries.first { it.key == key })
 
     companion object {
         const val ID = "de.terletzkiy.ansibility.settings.runner"

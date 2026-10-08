@@ -16,6 +16,12 @@ interface RoleTests {
     /** The state of the role at [roleDir]. Cheap, any thread (reads the VFS). */
     fun stateOf(roleDir: VirtualFile): RoleTestState
 
+    /**
+     * Whether the role at [roleDir] has tests at all ([stateOf] is not [RoleTestState.NONE]), whatever their results.
+     * The tool window's snapshot records it per role (R19/D140). Cheap, any thread (reads the VFS).
+     */
+    fun hasTests(roleDir: VirtualFile): Boolean = stateOf(roleDir) != RoleTestState.NONE
+
     fun interface Listener {
         fun changed()
     }

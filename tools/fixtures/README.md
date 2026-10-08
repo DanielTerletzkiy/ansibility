@@ -137,7 +137,7 @@ The subset rules, the fixture and the tests use neutral aliases for the product 
 source repository. The real-name mapping lives only in `tools/fixtures/local/names.json` (git-ignored, see
 `names.py` for the format); pass it with `--names` so a sync reads the real paths and writes aliased paths and
 contents. Without `--names` every name maps to itself (the tools' own unit tests run that way). The fixture itself,
-`manifest.tsv`, `docs/local/` and `tools/fixtures/local/` are git-ignored.
+`manifest.tsv`, `plan/` (plans and local notes) and `tools/fixtures/local/` are git-ignored.
 
 ## Opt-in corpus tests
 

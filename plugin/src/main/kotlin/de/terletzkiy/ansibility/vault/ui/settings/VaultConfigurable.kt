@@ -15,6 +15,11 @@ import com.intellij.ui.ToolbarDecorator
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.dsl.listCellRenderer.textListCellRenderer
 import com.intellij.ui.dsl.builder.Align
+import com.intellij.ui.dsl.builder.AlignX
+import com.intellij.ui.dsl.builder.LabelPosition
+import com.intellij.ui.dsl.builder.bindSelected
+import com.intellij.ui.dsl.builder.bindText
+import com.intellij.ui.dsl.builder.rows
 import com.intellij.ui.dsl.builder.panel
 import com.intellij.ui.table.TableView
 import com.intellij.util.concurrency.AppExecutorUtil
@@ -33,14 +38,18 @@ import de.terletzkiy.ansibility.vault.identity.PasswordManagers
 import de.terletzkiy.ansibility.vault.identity.VaultIdentityRegistry
 import de.terletzkiy.ansibility.vault.identity.VaultProjectSettings
 import de.terletzkiy.ansibility.vault.identity.VaultRootSettings
+import de.terletzkiy.ansibility.vault.keys.PlaintextKeyExclusions
 import de.terletzkiy.ansibility.vault.secrets.VaultSecretsService
+import de.terletzkiy.ansibility.vault.secrets.VaultUserState
 import de.terletzkiy.ansibility.vault.ui.AnsibilityVaultUiBundle.message
 
 /**
  * Settings › Languages & Frameworks › Ansibility › Vault (plan amendment R7/R8, F7.9): per root, the vault ids and
  * where each secret comes from (the IDE password store, 1Password, a password file, an environment variable or a
  * prompt), and the environment → id mapping. Ids, kinds and locations go to the shared vault settings; typed
- * passwords go to the IDE password store only, written on Apply off the EDT and zeroed afterwards.
+ * passwords go to the IDE password store only, written on Apply off the EDT and zeroed afterwards. Also ANS-V108's
+ * allowlist (plan amendment R21, D162), one glob per line, shared with the project, and the commit check's switch
+ * (D167), stored per user (`VaultUserState`), so a repository cannot turn it off.
  */
 class VaultConfigurable(private val project: Project) : BoundSearchableConfigurable(message("settings.vault.name"), ID, ID) {
     internal data class RootEntry(
@@ -134,6 +143,30 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
                 for (manager in PasswordManager.entries) {
                     row { cell(managerLabels.getValue(manager)) }
                     row { comment(message("settings.vault.manager.comment.${manager.name.lowercase()}")) }
+                }
+            }
+            // ANS-V108 (plan amendment R21, D162): the shared allowlist; it can only silence the check.
+            group(message("settings.vault.keys")) {
+                row {
+                    textArea()
+                        .label(message("settings.vault.keys.allowlist"), LabelPosition.TOP)
+                        .rows(ALLOWLIST_ROWS)
+                        .align(AlignX.FILL)
+                        .bindText(
+                            { settings.plaintextKeyAllowlist.joinToString("\n") },
+                            { PlaintextKeyExclusions.setAllowlist(project, it.lines()) },
+                        )
+                        .comment(message("settings.vault.keys.allowlist.comment"))
+                        .applyToComponent { name = ALLOWLIST_COMPONENT }
+                }
+            }
+            // The commit check (plan amendment R21, D167): per user and for every project, never in project files.
+            group(message("settings.vault.commits")) {
+                row {
+                    checkBox(message("settings.vault.commits.check"))
+                        .bindSelected({ VaultUserState.getInstance().checkCommits }, { VaultUserState.getInstance().checkCommits = it })
+                        .comment(message("settings.vault.commits.check.comment"))
+                        .applyToComponent { name = COMMIT_CHECK_COMPONENT }
                 }
             }
         }
@@ -367,6 +400,14 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
 
     companion object {
         const val ID = "de.terletzkiy.ansibility.settings.vault"
+
+        /** The component name of ANS-V108's allowlist text area (tests find it by name). */
+        const val ALLOWLIST_COMPONENT = "ansibility.vault.plaintextKeyAllowlist"
+
+        /** The component name of the commit check's checkbox (tests find it by name). */
+        const val COMMIT_CHECK_COMPONENT = "ansibility.vault.checkCommits"
+
+        private const val ALLOWLIST_ROWS = 3
 
         /** The kinds the page offers, in the order of the source chooser. */
         val KINDS = listOf(

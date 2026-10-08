@@ -99,8 +99,6 @@ data class PathSettings(
     val detachedRule: Boolean = true,
     /** Globs relative to the project directory that Ansibility ignores at query time ([PathGlob] syntax). */
     val extraIgnoredPaths: List<String> = DEFAULT_IGNORED_PATHS,
-    /** Understand molecule scenarios (pseudo-inventories, converge/verify playbooks). */
-    val moleculeSupport: Boolean = true,
     /** Exclude the task, handler and playbook files Ansibility classifies from SchemaStore validation. */
     val schemaStoreExclusion: Boolean = true,
 ) {
@@ -115,13 +113,35 @@ data class PathSettings(
 }
 
 /**
+ * Molecule in the IDE (plan amendment R20, D150–D152). They replace the old "Molecule support" switch: code insight
+ * inside Molecule files is always on; an ignored-path glob for `molecule` folders makes Ansibility skip them altogether.
+ */
+data class MoleculeSettings(
+    /**
+     * Offer Molecule runs: the ▶ of scenario files, Run Molecule Test(s) in the Project view and the tool window, the
+     * Roles tab's test markers, bulk runs. Saved Molecule run configurations run either way (D152).
+     */
+    val runTests: Boolean = true,
+    /**
+     * Requests that start outside a `molecule` folder (Go to Declaration, Find Usages, Search Everywhere, completion,
+     * variable cards) also list Molecule variables, plays and hosts. Requests from a Molecule file always do (D153, D154).
+     */
+    val showInNavigation: Boolean = false,
+) {
+    companion object {
+        val DEFAULT = MoleculeSettings()
+    }
+}
+
+/**
  * The project's Ansibility settings: per-root [RootSettings] keyed by the root directory relative to the project
- * directory ([RootKeys]), plus the project-wide [PathSettings]. Immutable.
+ * directory ([RootKeys]), plus the project-wide [PathSettings] and [MoleculeSettings]. Immutable.
  */
 data class ProjectSettings(
     /** Only roots whose settings differ from [RootSettings.DEFAULT]. */
     val roots: Map<String, RootSettings> = emptyMap(),
     val paths: PathSettings = PathSettings(),
+    val molecule: MoleculeSettings = MoleculeSettings.DEFAULT,
 ) {
     /** The settings of the root stored under [key], or the defaults. */
     fun root(key: String): RootSettings = roots[key] ?: RootSettings.DEFAULT

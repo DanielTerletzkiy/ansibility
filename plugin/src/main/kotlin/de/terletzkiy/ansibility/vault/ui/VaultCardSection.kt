@@ -12,7 +12,6 @@ import de.terletzkiy.ansibility.api.CardSection
 import de.terletzkiy.ansibility.api.CardSubject
 import de.terletzkiy.ansibility.api.SourceLocation
 import de.terletzkiy.ansibility.api.ValueShape
-import de.terletzkiy.ansibility.api.VarService
 import de.terletzkiy.ansibility.api.VaultIdentity
 import de.terletzkiy.ansibility.api.VaultLockState
 import de.terletzkiy.ansibility.api.VaultSecretSource
@@ -20,6 +19,8 @@ import de.terletzkiy.ansibility.api.VaultSourceKind
 import de.terletzkiy.ansibility.api.VaultSourceOrigin
 import de.terletzkiy.ansibility.api.VaultStatus
 import de.terletzkiy.ansibility.api.VaultStatusService
+import de.terletzkiy.ansibility.context.MoleculeView
+import de.terletzkiy.ansibility.resolve.VarViews
 import de.terletzkiy.ansibility.vault.identity.PasswordManager
 
 /**
@@ -47,7 +48,7 @@ class VaultCardSection : CardSection {
             listOfNotNull(status.status(definition)?.let { Entry(definition, it) })
         } else {
             if (variable.path.isNotEmpty()) return null
-            val definitions = VarService.getInstance(context.project).symbol(variable.root, variable.name).definitions
+            val definitions = VarViews.symbol(context.project, variable.root, variable.name, MoleculeView.of(context.project, context.file)).definitions
             val found = ArrayList<Entry>()
             for (candidate in definitions) {
                 ProgressManager.checkCanceled()

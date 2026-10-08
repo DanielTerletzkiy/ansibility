@@ -18,6 +18,7 @@ import de.terletzkiy.ansibility.api.FileContext
 import de.terletzkiy.ansibility.api.RoleRegistry
 import de.terletzkiy.ansibility.api.VarService
 import de.terletzkiy.ansibility.context.AnsibleLayout
+import de.terletzkiy.ansibility.context.MoleculeView
 import de.terletzkiy.ansibility.model.container.ContainerPathMapper
 import de.terletzkiy.ansibility.model.container.MappingSource
 import de.terletzkiy.ansibility.semantics.schema.OptionSpec
@@ -59,7 +60,8 @@ class RefsCompletionSource : CompletionSource {
         if (occurrence.isDynamic || offset < occurrence.range.startOffset) return
         val text = copy.viewProvider.contents
         val prefix = text.subSequence(occurrence.range.startOffset, offset.coerceAtMost(text.length)).toString()
-        val items = Items(project, context, RefResolver(copy, context), prefix).of(occurrence)
+        val view = MoleculeView.of(project, hostOriginal.viewProvider.virtualFile)
+        val items = Items(project, context, RefResolver(copy, context, view), prefix).of(occurrence)
         if (items.isEmpty()) return
         val sink = result.withPrefixMatcher(prefix)
         items.forEach { ProgressManager.checkCanceled(); sink.addElement(it) }

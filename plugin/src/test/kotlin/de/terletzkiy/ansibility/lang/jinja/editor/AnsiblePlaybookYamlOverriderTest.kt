@@ -1,9 +1,6 @@
 package de.terletzkiy.ansibility.lang.jinja.editor
 
 import com.intellij.json.JsonFileType
-import com.intellij.openapi.application.WriteAction
-import com.intellij.openapi.fileTypes.FileType
-import com.intellij.openapi.fileTypes.FileTypeManager
 import de.terletzkiy.ansibility.lang.jinja.AnsibleJinjaFileType
 import de.terletzkiy.ansibility.lang.jinja.editor.coexist.AnsiblePlaybookYamlOverrider
 import de.terletzkiy.ansibility.lang.jinja.template.AnsibleJinjaTemplateTestCase
@@ -58,17 +55,5 @@ class AnsiblePlaybookYamlOverriderTest : AnsibleJinjaTemplateTestCase() {
         assertFalse(AnsiblePlaybookYamlOverrider.keepsYaml(compose, JinjaSettings()))
         createFile("repos/a/ansible/ansible.cfg", "[defaults]\n")
         assertTrue(AnsiblePlaybookYamlOverrider.keepsYaml(compose, JinjaSettings(deferToPyCharmJinja = true)))
-    }
-
-    /** Runs [action] with `*-playbook.yml` and `*-playbook.yaml` associated to [type], as PyCharm's Jinja2 does. */
-    private fun withPlaybookPatternsAs(type: FileType, action: () -> Unit) {
-        val manager = FileTypeManager.getInstance()
-        val patterns = listOf("*-playbook.yml", "*-playbook.yaml")
-        WriteAction.runAndWait<Throwable> { patterns.forEach { manager.associatePattern(type, it) } }
-        try {
-            action()
-        } finally {
-            WriteAction.runAndWait<Throwable> { patterns.forEach { manager.removeAssociation(type, FileTypeManager.parseFromString(it)) } }
-        }
     }
 }

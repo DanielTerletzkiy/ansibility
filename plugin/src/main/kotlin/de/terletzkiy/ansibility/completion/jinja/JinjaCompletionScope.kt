@@ -16,10 +16,14 @@ import de.terletzkiy.ansibility.api.RoleInfo
 import de.terletzkiy.ansibility.api.RoleRegistry
 import de.terletzkiy.ansibility.api.SourceLocation
 import de.terletzkiy.ansibility.api.TemplateContextService
+import de.terletzkiy.ansibility.context.MoleculeView
+import de.terletzkiy.ansibility.context.MoleculeVisibility
 import de.terletzkiy.ansibility.index.PlayEntry
 import de.terletzkiy.ansibility.index.PlayIndex
 import de.terletzkiy.ansibility.lang.jinja.refs.JinjaLocal
 import de.terletzkiy.ansibility.lang.jinja.refs.JinjaLocalKind
+import de.terletzkiy.ansibility.resolve.include.IncludeBindings
+import de.terletzkiy.ansibility.resolve.include.Includer
 import de.terletzkiy.ansibility.model.task.TaskFileModels
 import de.terletzkiy.ansibility.model.task.TaskItem
 import de.terletzkiy.ansibility.model.task.TaskNode
@@ -28,7 +32,6 @@ import de.terletzkiy.ansibility.resolve.loop.LiteralShapes
 import de.terletzkiy.ansibility.resolve.loop.LoopItemTyper
 import de.terletzkiy.ansibility.resolve.loop.TaskChains
 import de.terletzkiy.ansibility.resolve.register.Cutoff
-import de.terletzkiy.ansibility.resolve.register.IncludeSite
 import de.terletzkiy.ansibility.resolve.register.RegisterVisibility
 import de.terletzkiy.ansibility.resolve.register.RegisteredResult
 import de.terletzkiy.ansibility.resolve.register.RegisteredResults
@@ -50,8 +53,8 @@ internal class ScopeLoop(
 )
 
 /**
- * A tier-T2 name: a `vars:` key of the task, an enclosing block or an `include_tasks` that includes the file, or a
- * `template_vars` key of a lookup.
+ * A tier-T2 name: a `vars:` key of the task, an enclosing block or an include task that runs the file
+ * (`include_tasks`/`import_tasks`, `include_role`/`import_role`, and their blocks), or a `template_vars` key of a lookup.
  */
 internal class ScopeTaskVar(val name: String, val value: YValue?, val source: Source) {
     enum class Source { TASK, BLOCK, INCLUDE, TEMPLATE }
@@ -99,6 +102,14 @@ internal class JinjaCompletionScope private constructor(
 
     val catalog: RootNameCatalog by lazy(LazyThreadSafetyMode.NONE) { JinjaNameCatalogs.getInstance(project).catalog(root) }
 
+    /**
+     * What completion at this caret sees of Molecule content (plan amendment R20, D153/D154): everything inside a
+     * Molecule file or with "Show Molecule in navigation and search" on; otherwise no Molecule inventory, Molecule play,
+     * Molecule register, Molecule value typing a member, or converge/verify task rendering the template (its loops and
+     * task vars).
+     */
+    val moleculeView: MoleculeView by lazy(LazyThreadSafetyMode.NONE) { MoleculeView.of(project, file) }
+
     /** Jinja locals visible at the caret (tier T0), innermost first; namespace attributes are not bare names. */
     val locals: List<JinjaLocal> by lazy(LazyThreadSafetyMode.NONE) {
         analysis.result.localsVisibleAt(analysis.textOffset).filter { it.kind != JinjaLocalKind.NAMESPACE_ATTRIBUTE }.distinctBy { it.name }
@@ -120,7 +131,7 @@ internal class JinjaCompletionScope private constructor(
      * FU F1.12), memoised for this completion; null for every other name.
      */
     fun registered(name: String): RegisteredResult? = registered.getOrPut(name) {
-        Optional.ofNullable(RegisteredResults.getInstance(project).at(file, hostOffset, name))
+        Optional.ofNullable(RegisteredResults.getInstance(project).at(file, hostOffset, name, moleculeView))
     }.orElse(null)
 
     /** The own role's `register`/`set_fact` names visible at the caret, in role order. */
@@ -140,12 +151,12 @@ internal class JinjaCompletionScope private constructor(
             val ownRole = context.roleName?.let { registry.role(context.root, it) }
             val hostText = file.viewProvider.contents
             if (analysis.container == JinjaContainer.TEMPLATE_FILE) {
-                val contexts = TemplateContextService.getInstance(project).renderContexts(virtualFile)
+                // Plan amendment R20, D153: outside Molecule, while Molecule is hidden, converge and verify tasks are no renderers.
+                val view = MoleculeView.of(project, virtualFile)
+                val contexts = MoleculeVisibility.contextsInView(project, view, TemplateContextService.getInstance(project).renderContexts(virtualFile))
                 val roles = templateRoles(project, context, ownRole, contexts)
-                val includes = contexts.flatMap { rendering ->
-                    val role = roles.firstOrNull { it.info.ref.name == rendering.role?.name } ?: return@flatMap emptyList()
-                    RoleTaskOrder(project, role.info).enclosingIncludes(rendering.taskSite.file)
-                }.distinctBy { it.task.range.startOffset to it.file }
+                // The loops of the include tasks that run a rendering task's file reach the template too.
+                val includes = contexts.flatMap { rendering -> includersOf(project, rendering.taskSite.file) }.distinctBy { it.location }
                 val loops = shadowed(loopsOf(contexts) + includeLoops(project, includes))
                 return JinjaCompletionScope(
                     project, context.root, virtualFile, context, analysis, hostOffset, hostText, contexts,
@@ -164,13 +175,13 @@ internal class JinjaCompletionScope private constructor(
             val ownLoops = task?.takeUnless { inLoopValue(it, hostOffset) }
                 ?.let { LoopItemTyper.typeOf(project, yaml, it, chain) }
                 ?.let { listOf(ScopeLoop(it.loop, it.task, 1)) }.orEmpty()
-            // Loops and vars of the `include_tasks` that include this file (transitively) reach its tasks too.
-            val includes = ownRole?.let { RoleTaskOrder(project, it).enclosingIncludes(virtualFile) }.orEmpty()
+            // Loops and vars of the include tasks that run this file (transitively) reach its tasks too.
+            val includes = includersOf(project, virtualFile)
             val loops = shadowed(ownLoops + includeLoops(project, includes))
             val vars = (chain.flatMapIndexed { index, item ->
                 val source = if (index == chain.lastIndex && item is TaskNode) ScopeTaskVar.Source.TASK else ScopeTaskVar.Source.BLOCK
                 varsOf(item, source)
-            }.asReversed() + includes.flatMap { site -> site.chain.asReversed().flatMap { varsOf(it, ScopeTaskVar.Source.INCLUDE) } }).distinctBy { it.name }
+            }.asReversed() + includes.flatMap { includer -> includer.chain.asReversed().flatMap { varsOf(it, ScopeTaskVar.Source.INCLUDE) } }).distinctBy { it.name }
             val handlers = context.kind == FileKind.ROLE_HANDLERS
             // The task's own `register` is set only for its `until`/`changed_when`/`failed_when` expressions.
             val cutoff = RegisterVisibility.cutoffAt(virtualFile, model, hostOffset)
@@ -196,9 +207,20 @@ internal class JinjaCompletionScope private constructor(
             return item.vars.map { ScopeTaskVar(it.text, values?.get(it.text), source) }
         }
 
-        /** The typed loops of including tasks, nearest include first. */
-        private fun includeLoops(project: Project, includes: List<IncludeSite>): List<ScopeLoop> =
-            includes.mapNotNull { site -> LoopItemTyper.typeOf(project, site.yaml, site.task, site.chain)?.let { ScopeLoop(it.loop, it.task, 1) } }
+        /**
+         * The include tasks that run the task file [file], nearest first ([IncludeBindings], the rule hover, Ctrl+B and
+         * ANS-V003 use): `include_tasks`/`import_tasks` of the role and `include_role`/`import_role` with their entry
+         * file, transitively; an include task in a Molecule file reaches no production file ([MoleculeView.forAnalysis]).
+         */
+        private fun includersOf(project: Project, file: VirtualFile): List<Includer> =
+            IncludeBindings.includers(project, file, MoleculeView.forAnalysis(project, file))
+
+        /** The typed loops of including tasks, nearest include first; an import's loop binds nothing ([Includer.loops]). */
+        private fun includeLoops(project: Project, includes: List<Includer>): List<ScopeLoop> =
+            includes.filter { it.loops }.mapNotNull { includer ->
+                val yaml = YamlFiles.yamlFile(project, includer.file) ?: return@mapNotNull null
+                LoopItemTyper.typeOf(project, yaml, includer.task, includer.chain)?.let { ScopeLoop(it.loop, it.task, 1) }
+            }
 
         /** Loops whose variable an inner loop redefines are dropped (the inner one shadows it). */
         private fun shadowed(loops: List<ScopeLoop>): List<ScopeLoop> {

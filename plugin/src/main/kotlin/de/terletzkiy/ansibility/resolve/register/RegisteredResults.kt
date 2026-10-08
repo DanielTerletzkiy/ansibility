@@ -13,6 +13,7 @@ import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.SourceLocation
 import de.terletzkiy.ansibility.api.VarDefKind
 import de.terletzkiy.ansibility.api.VarDefinition
+import de.terletzkiy.ansibility.context.MoleculeView
 import de.terletzkiy.ansibility.model.inventory.ModelCache
 import de.terletzkiy.ansibility.model.inventory.ModelInputs
 import de.terletzkiy.ansibility.model.task.TaskFileModels
@@ -121,11 +122,12 @@ class RegisteredResults(private val project: Project) {
     /**
      * The result of [name] as the code at [offset] of [file] sees it; null when no visible `register:` defines it.
      * Inside the `until`/`changed_when`/`failed_when` of the registering task itself, that task contributes the result
-     * of the current run: one item's result for a looping task ([RegisteringTask.currentRun]).
+     * of the current run: one item's result for a looping task ([RegisteringTask.currentRun]). [view] is what the
+     * request sees of Molecule ([RegisterVisibility]; navigation, cards and completion pass their origin's).
      */
-    fun at(file: VirtualFile, offset: Int, name: String): RegisteredResult? {
+    fun at(file: VirtualFile, offset: Int, name: String, view: MoleculeView = MoleculeView.INCLUDE): RegisteredResult? {
         val root = AnsibleWorkspace.getInstance(project).contextOf(file)?.root ?: return null
-        val definitions = RegisterVisibility.visible(project, file, offset, name)
+        val definitions = RegisterVisibility.visible(project, file, offset, name, view)
         if (definitions.isEmpty()) return null
         val ownTask = RegisterVisibility.resultKeysTask(project, file, offset)
         val currentRun = if (ownTask == null) {
@@ -143,11 +145,12 @@ class RegisteredResults(private val project: Project) {
     fun optionAt(site: SourceLocation, name: String, path: List<String>): OptionSpec? = at(site.file, site.offset, name)?.option(path)
 
     /**
-     * The result of [name] for a position-free reader (ANS-T020 type flow): the union over every `register:` of the
-     * name in [root] inside [scopeDir] (a role directory), or in the whole root when [scopeDir] is null.
+     * The result of [name] for a position-free reader (ANS-T020 type flow, a card reached through a link): the union over
+     * every `register:` of the name in [root] inside [scopeDir] (a role directory), or in the whole root when [scopeDir]
+     * is null, as [view] sees them.
      */
-    fun inScope(root: AnsibleRoot, scopeDir: VirtualFile?, name: String): RegisteredResult? {
-        val registers = RegisterVisibility.registersOf(project, root, name)
+    fun inScope(root: AnsibleRoot, scopeDir: VirtualFile?, name: String, view: MoleculeView = MoleculeView.INCLUDE): RegisteredResult? {
+        val registers = RegisterVisibility.registersOf(project, root, name, view)
             .filter { scopeDir == null || VfsUtilCore.isAncestor(scopeDir, it.location.file, true) }
         return of(root, name, registers)
     }

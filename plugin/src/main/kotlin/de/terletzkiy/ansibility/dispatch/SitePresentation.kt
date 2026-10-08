@@ -7,6 +7,8 @@ import de.terletzkiy.ansibility.api.InventoryNameSite
 import de.terletzkiy.ansibility.api.JinjaBlockSite
 import de.terletzkiy.ansibility.api.JinjaContainer
 import de.terletzkiy.ansibility.api.KeywordLevel
+import de.terletzkiy.ansibility.api.LoopVarKind
+import de.terletzkiy.ansibility.api.LoopVarSite
 import de.terletzkiy.ansibility.api.RenderKind
 import de.terletzkiy.ansibility.api.TagSite
 import de.terletzkiy.ansibility.api.TemplatedValueSite
@@ -46,15 +48,18 @@ object SitePresentation {
         is TemplatedValueSite -> AnsibilityDispatchBundle.message("site.templated.value", containerName(site.container))
         is JinjaBlockSite -> AnsibilityDispatchBundle.message("site.jinja.block", site.keyword, containerName(site.container))
         is TagSite -> AnsibilityDispatchBundle.message("site.tag", site.name)
+        is LoopVarSite ->
+            AnsibilityDispatchBundle.message(if (site.kind == LoopVarKind.INDEX_VAR) "site.index.var" else "site.loop.var", site.name)
     }
 
     /**
      * The variable a site names, or null for other sites: a [AnsibleSite.VarRef]'s name; for a
      * [AnsibleSite.VarKey], the top-level key of a vars file, the option name after `options` in
-     * `argument_specs`, and otherwise the key after the last `vars` (play, block and task vars).
+     * `argument_specs`, and otherwise the key after the last `vars` (play, block and task vars); a [LoopVarSite]'s name.
      */
     fun variableName(site: AnsibleSite): String? = when (site) {
         is AnsibleSite.VarRef -> site.name
+        is LoopVarSite -> site.name
         is AnsibleSite.VarKey -> variableNameOf(site.keyPath, site.kind)
         else -> null
     }

@@ -11,7 +11,8 @@ import de.terletzkiy.ansibility.model.task.TaskFileModels
 import de.terletzkiy.ansibility.model.task.TaskItem
 import de.terletzkiy.ansibility.model.task.TaskNode
 import de.terletzkiy.ansibility.model.task.YamlFiles
-import de.terletzkiy.ansibility.resolve.loop.TaskChains
+import de.terletzkiy.ansibility.resolve.include.IncludeGraph
+import de.terletzkiy.ansibility.resolve.include.Includer
 import org.jetbrains.yaml.psi.YAMLFile
 
 /**
@@ -37,8 +38,12 @@ internal class RuntimeName(val name: String, val isRegister: Boolean, val locati
 internal class RoleTaskOrder(private val project: Project, private val role: RoleInfo) {
     private val keys: Map<VirtualFile, List<Int>> by lazy(LazyThreadSafetyMode.NONE) { computeKeys() }
 
-    /** Task file → the role's `include_tasks`/`import_tasks` tasks that include it statically. */
-    private val includers: Map<VirtualFile, List<IncludeSite>> by lazy(LazyThreadSafetyMode.NONE) { computeIncluders() }
+    /**
+     * Task file → the role's `include_tasks`/`import_tasks` tasks that include it statically, from the cached include
+     * graph ([IncludeGraph], per role until YAML or the structure changes), so callers on the caret path do not parse
+     * every task file of the role again.
+     */
+    private val includes: Map<VirtualFile, List<Includer>> by lazy(LazyThreadSafetyMode.NONE) { IncludeGraph.getInstance(project).taskIncludes(role) }
 
     /**
      * The include tasks whose included files lead to [file], nearest first (an include of an include is further
@@ -52,9 +57,10 @@ internal class RoleTaskOrder(private val project: Project, private val role: Rol
             ProgressManager.checkCanceled()
             val next = ArrayList<VirtualFile>()
             for (target in level) {
-                for (site in includers[target].orEmpty()) {
-                    result += site
-                    if (seen.add(site.file)) next += site.file
+                for (includer in includes[target].orEmpty()) {
+                    val yaml = YamlFiles.yamlFile(project, includer.file) ?: continue
+                    result += IncludeSite(includer.file, yaml, includer.task, includer.chain)
+                    if (seen.add(includer.file)) next += includer.file
                 }
             }
             level = next
@@ -82,39 +88,20 @@ internal class RoleTaskOrder(private val project: Project, private val role: Rol
         return false
     }
 
-    private fun computeIncluders(): Map<VirtualFile, List<IncludeSite>> {
-        val result = HashMap<VirtualFile, MutableList<IncludeSite>>()
-        for (file in role.taskFiles) {
-            ProgressManager.checkCanceled()
-            val yaml = YamlFiles.yamlFile(project, file) ?: continue
-            val model = TaskFileModels.of(yaml)
-            for (task in model.tasks()) {
-                val target = includeTarget(file, task) ?: continue
-                result.getOrPut(target) { ArrayList(1) } += IncludeSite(file, yaml, task, TaskChains.chainAt(model, task.range.startOffset))
-            }
-        }
-        return result
-    }
-
-    /** The task file a static `include_tasks`/`import_tasks` of [task] in [file] names, if it exists. */
-    private fun includeTarget(file: VirtualFile, task: TaskNode): VirtualFile? {
-        val include = task.taskInclude?.file?.text?.trim() ?: return null
-        if (include.contains("{{") || include.contains("{%")) return null
-        return file.parent?.findFileByRelativePath(include)?.takeIf { !it.isDirectory }
-            ?: role.ref.dir.findFileByRelativePath("$TASKS/$include")?.takeIf { !it.isDirectory }
-    }
-
     private fun computeKeys(): Map<VirtualFile, List<Int>> {
         val result = HashMap<VirtualFile, List<Int>>()
         val main = role.taskFiles.firstOrNull { it.nameWithoutExtension == MAIN && it.parent?.name == TASKS } ?: return result
+        // The include graph inverted: a file's include tasks (in file order) with the file each one names.
+        val forward = HashMap<VirtualFile, MutableList<Pair<Int, VirtualFile>>>()
+        for ((target, includers) in includes) {
+            for (includer in includers) forward.getOrPut(includer.file) { ArrayList() } += includer.task.range.startOffset to target
+        }
         fun visit(file: VirtualFile, key: List<Int>) {
             if (file in result || key.size > MAX_DEPTH) return
             result[file] = key
-            val yaml = YamlFiles.yamlFile(project, file) ?: return
-            for (task in TaskFileModels.of(yaml).tasks()) {
+            for ((offset, target) in forward[file].orEmpty().sortedBy { it.first }) {
                 ProgressManager.checkCanceled()
-                val target = includeTarget(file, task) ?: continue
-                visit(target, key + task.range.startOffset)
+                visit(target, key + offset)
             }
         }
         visit(main, emptyList())

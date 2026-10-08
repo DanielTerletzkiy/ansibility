@@ -11,6 +11,8 @@ import de.terletzkiy.ansibility.api.FileKind
 import de.terletzkiy.ansibility.api.PlayGraph
 import de.terletzkiy.ansibility.api.RoleRegistry
 import de.terletzkiy.ansibility.context.AnsibleLayout
+import de.terletzkiy.ansibility.context.MoleculeView
+import de.terletzkiy.ansibility.context.MoleculeVisibility
 import de.terletzkiy.ansibility.index.AnsibleIndexQueries
 import de.terletzkiy.ansibility.model.task.BlockNode
 import de.terletzkiy.ansibility.model.task.NameRef
@@ -70,9 +72,17 @@ internal class Resolution(
  * - `vars_files` and `import_playbook` relative to the playbook; template-name values through their [TemplateNameSlot];
  *   `{% include %}` relative to the role's `templates/`, the role and the template's directory.
  *
+ * [view] (plan amendment R20, D153): navigation and completion pass the [MoleculeView] of the file, so outside Molecule,
+ * while Molecule is hidden, the playbook dirs and handlers of Molecule playbooks that apply a role do not count; the
+ * inspection, rename and the secret-file checks keep the default [MoleculeView.INCLUDE] (D155).
+ *
  * Call inside a read action; loops check for cancellation.
  */
-internal class RefResolver(private val file: PsiFile, private val context: FileContext) {
+internal class RefResolver(
+    private val file: PsiFile,
+    private val context: FileContext,
+    private val view: MoleculeView = MoleculeView.INCLUDE,
+) {
     private val project = file.project
     private val root = context.root
     /** The file the references are written in (the original of a completion copy). */
@@ -91,7 +101,7 @@ internal class RefResolver(private val file: PsiFile, private val context: FileC
             FileKind.PLAYBOOK, FileKind.MOLECULE_PLAYBOOK -> listOfNotNull(fileDir)
             FileKind.MOLECULE_TASKS -> listOfNotNull(context.moleculeScenarioDir ?: fileDir)
             else -> context.roleDir?.let { dir ->
-                PlayGraph.getInstance(project).playsApplying(root, dir.name).map { it.playbookDir }.distinct()
+                MoleculeVisibility.playsInView(project, view, PlayGraph.getInstance(project).playsApplying(root, dir.name)).map { it.playbookDir }.distinct()
             }.orEmpty()
         }
     }
@@ -315,7 +325,7 @@ internal class RefResolver(private val file: PsiFile, private val context: FileC
     // ------------------------------------------------------------------------------------------------ handlers
 
     /** The handler scope of the play [playIndex] (or of the file's role). */
-    fun handlerScope(playIndex: Int?): HandlerScope = HandlerScope(project, root, virtualFile, context, playIndex)
+    fun handlerScope(playIndex: Int?): HandlerScope = HandlerScope(project, root, virtualFile, context, playIndex, view)
 
     private fun notify(occurrence: RefOccurrence): Resolution {
         val scope = handlerScope(occurrence.playIndex)

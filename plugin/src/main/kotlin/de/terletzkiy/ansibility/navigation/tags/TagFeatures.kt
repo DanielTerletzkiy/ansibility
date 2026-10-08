@@ -29,6 +29,7 @@ import de.terletzkiy.ansibility.api.SiteClassifier
 import de.terletzkiy.ansibility.api.SiteDocumentation
 import de.terletzkiy.ansibility.api.SiteNavigation
 import de.terletzkiy.ansibility.api.TagSite
+import de.terletzkiy.ansibility.context.MoleculeView
 import de.terletzkiy.ansibility.index.AnsibleIndexQueries
 import de.terletzkiy.ansibility.index.TagIndexer
 import de.terletzkiy.ansibility.navigation.AnsibilityNavigationBundle.message
@@ -85,7 +86,10 @@ class TagSiteClassifier : SiteClassifier {
     }
 }
 
-/** Tags written anywhere in the root, plus the special `always` and `never`; tags already in the list are left out. */
+/**
+ * Tags written anywhere in the root, plus the special `always` and `never`; tags already in the list are left out. Outside
+ * Molecule, while Molecule is hidden, tags only Molecule playbooks write are not offered (plan amendment R20, D153).
+ */
 class TagCompletion : CompletionSource {
     override fun complete(site: AnsibleSite?, parameters: CompletionParameters, result: CompletionResultSet) {
         if (site !is TagSite) return
@@ -94,7 +98,8 @@ class TagCompletion : CompletionSource {
         val prefix = parameters.editor.document.getText(TextRange(site.range.startOffset, parameters.offset.coerceAtLeast(site.range.startOffset)))
         val present = presentTags(file, parameters.offset) - site.name
         val set = result.withPrefixMatcher(prefix)
-        for (name in AnsibleIndexQueries.tagNames(file.project, root) - present) {
+        val view = MoleculeView.of(file.project, file.viewProvider.virtualFile)
+        for (name in AnsibleIndexQueries.tagNames(file.project, root, view) - present) {
             set.addElement(LookupElementBuilder.create(name).withIcon(AllIcons.Nodes.Tag))
         }
         for (special in SPECIAL - present) {
@@ -115,13 +120,16 @@ class TagCompletion : CompletionSource {
     }
 }
 
-/** Ctrl+B on a tag: every other place in the root that carries it, each row naming its play, role entry or task. */
+/**
+ * Ctrl+B on a tag: every other place in the root that carries it, each row naming its play, role entry or task; Molecule
+ * playbooks only from a Molecule file or with "Show Molecule in navigation and search" on (plan amendment R20, D153).
+ */
 class TagNavigation : SiteNavigation {
     override fun targets(site: AnsibleSite, file: PsiFile): List<PsiElement> {
         if (site !is TagSite || site.name.isEmpty()) return emptyList()
         val virtualFile = file.originalFile.viewProvider.virtualFile
         val root = TagOccurrences.rootOf(file.project, virtualFile) ?: return emptyList()
-        return TagOccurrences.of(file.project, root, site.name)
+        return TagOccurrences.of(file.project, root, site.name, MoleculeView.of(file.project, virtualFile))
             .filterNot { it.file == virtualFile && it.offset in TagOccurrences.scalarRange(file, site.range.startOffset) }
             .mapNotNull { it.element() }
     }
@@ -133,11 +141,16 @@ class TagDocumentation : SiteDocumentation {
         if (site !is TagSite || site.name.isEmpty()) return null
         val virtualFile = file.originalFile.viewProvider.virtualFile
         val root = TagOccurrences.rootOf(file.project, virtualFile) ?: return null
-        return TagDocumentationTarget(file.project, root, site.name)
+        return TagDocumentationTarget(file.project, root, site.name, MoleculeView.of(file.project, virtualFile))
     }
 }
 
-private class TagDocumentationTarget(private val project: Project, private val root: AnsibleRoot, private val tag: String) : DocumentationTarget {
+private class TagDocumentationTarget(
+    private val project: Project,
+    private val root: AnsibleRoot,
+    private val tag: String,
+    private val view: MoleculeView,
+) : DocumentationTarget {
     override fun createPointer(): Pointer<out DocumentationTarget> {
         val self = this
         return Pointer { self.takeIf { !project.isDisposed } }
@@ -145,10 +158,10 @@ private class TagDocumentationTarget(private val project: Project, private val r
 
     override fun computePresentation(): TargetPresentation = TargetPresentation.builder(tag).icon(AllIcons.Nodes.Tag).presentation()
 
-    override fun computeDocumentationHint(): String = esc(summary(TagOccurrences.of(project, root, tag)))
+    override fun computeDocumentationHint(): String = esc(summary(TagOccurrences.of(project, root, tag, view)))
 
     override fun computeDocumentation(): DocumentationResult {
-        val occurrences = TagOccurrences.of(project, root, tag)
+        val occurrences = TagOccurrences.of(project, root, tag, view)
         val html = buildString {
             append(DocumentationMarkup.DEFINITION_START).append("<b>").append(esc(message("tag.title", tag))).append("</b>").append(DocumentationMarkup.DEFINITION_END)
             append(DocumentationMarkup.CONTENT_START)
@@ -202,9 +215,13 @@ internal class TagOccurrence(
 internal object TagOccurrences {
     fun rootOf(project: Project, file: VirtualFile): AnsibleRoot? = AnsibleWorkspace.getInstance(project).contextOf(file)?.root
 
-    fun of(project: Project, root: AnsibleRoot, tag: String): List<TagOccurrence> {
+    /**
+     * The places in [root] that carry [tag], as a request with [view] sees them (plan amendment R20, D153: started
+     * outside Molecule while Molecule is hidden, no converge, verify or prepare playbook).
+     */
+    fun of(project: Project, root: AnsibleRoot, tag: String, view: MoleculeView): List<TagOccurrence> {
         val manager = PsiManager.getInstance(project)
-        return AnsibleIndexQueries.tagUses(project, root, tag).mapNotNull { hit ->
+        return AnsibleIndexQueries.tagUses(project, root, tag, view).mapNotNull { hit ->
             val yaml = manager.findFile(hit.file) as? YAMLFile ?: return@mapNotNull null
             val shape = AnsibleOutline.shape(yaml) ?: return@mapNotNull null
             val keyValue = PsiTreeUtil.getParentOfType(yaml.findElementAt(hit.value), YAMLKeyValue::class.java) ?: return@mapNotNull null

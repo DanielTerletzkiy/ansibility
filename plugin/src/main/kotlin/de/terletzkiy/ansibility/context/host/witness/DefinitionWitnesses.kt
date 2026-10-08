@@ -15,6 +15,7 @@ import de.terletzkiy.ansibility.api.HostKey
 import de.terletzkiy.ansibility.api.VarDefKind
 import de.terletzkiy.ansibility.api.VarService
 import de.terletzkiy.ansibility.api.VarsLayer
+import de.terletzkiy.ansibility.context.MoleculeVisibility
 import de.terletzkiy.ansibility.context.host.AnsibleContextServiceImpl
 import de.terletzkiy.ansibility.context.host.RootEffectiveSummaries
 import de.terletzkiy.ansibility.context.host.RootEffectiveSummary
@@ -103,10 +104,18 @@ class DefinitionWitnesses(private val project: Project) {
         private val dynamicIncludes = IdentityHashMap<ExecutionInputs, Boolean>()
         private val markers = HashMap<Pair<ExecutionInputs, String>, Boolean>()
 
+        /**
+         * Whether the contexts run Molecule scenarios (a scenario host or a Molecule play): only then do Molecule
+         * definitions take part (plan amendment R20, D157).
+         */
+        private val seesMolecule: Boolean by lazy {
+            targets.any { target -> target.host.isMolecule || target.play?.file?.let { MoleculeVisibility.isMoleculeFile(project, it) } == true }
+        }
+
         /** Where [name] has a value, has none, or may get one at runtime, over [targets]. */
         fun report(name: String): WitnessReport = readLocked {
             val winners = summaryScope?.winners(name) ?: emptyList()
-            val runtimeAnywhere = setAtRuntimeInRoot(root, name)
+            val runtimeAnywhere = setAtRuntimeInRoot(root, name, seesMolecule)
             val defined = ArrayList<EvalTarget>()
             val inventory = ArrayList<EvalTarget>()
             val inventoryOnly = ArrayList<EvalTarget>()
@@ -160,10 +169,13 @@ class DefinitionWitnesses(private val project: Project) {
     /**
      * Facts and registered results stay defined for a host for the rest of the run (also in later plays), so a
      * `set_fact`, `register` or `vars_prompt` of [name] anywhere in [root] may have set it before a context runs: static
-     * evaluation cannot claim a certain failure then.
+     * evaluation cannot claim a certain failure then. Molecule playbooks never run before a production play, so their
+     * tasks count only for contexts that run Molecule scenarios ([withMolecule], plan amendment R20, D157).
      */
-    private fun setAtRuntimeInRoot(root: AnsibleRoot, name: String): Boolean =
-        VarService.getInstance(project).symbol(root, name).definitions.any { it.kind in RUNTIME_KINDS }
+    private fun setAtRuntimeInRoot(root: AnsibleRoot, name: String, withMolecule: Boolean): Boolean =
+        VarService.getInstance(project).symbol(root, name).definitions.any {
+            it.kind in RUNTIME_KINDS && (withMolecule || !MoleculeVisibility.isMolecule(project, root, it))
+        }
 
     /** The `include_vars` tasks of the context whose source cannot be read statically. */
     private fun hasDynamicIncludeVars(inputs: ExecutionInputs): Boolean {

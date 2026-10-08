@@ -14,17 +14,21 @@ import de.terletzkiy.ansibility.api.CardSection
 import de.terletzkiy.ansibility.api.CardSubject
 import de.terletzkiy.ansibility.api.HostKey
 import de.terletzkiy.ansibility.api.HostScopeOrigin
-import de.terletzkiy.ansibility.api.VarDefKind
 import de.terletzkiy.ansibility.api.SourceLocation
-import de.terletzkiy.ansibility.api.VarService
+import de.terletzkiy.ansibility.api.VarDefKind
 import de.terletzkiy.ansibility.api.VarSourceRef
+import de.terletzkiy.ansibility.context.MoleculeView
 import de.terletzkiy.ansibility.context.host.AnsibleContextServiceImpl
+import de.terletzkiy.ansibility.context.host.Location
 import de.terletzkiy.ansibility.context.host.card.HostCardTexts.grayed
 import de.terletzkiy.ansibility.context.host.card.HostCardTexts.message
 import de.terletzkiy.ansibility.context.switching.ContextTexts
+import de.terletzkiy.ansibility.lang.jinja.refs.JinjaRefs
 import de.terletzkiy.ansibility.model.inventory.InventoryModels
 import de.terletzkiy.ansibility.render.service.TemplatePreviewService
+import de.terletzkiy.ansibility.resolve.VarViews
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
+import de.terletzkiy.ansibility.vars.NoLogVariables
 import de.terletzkiy.ansibility.vars.VarLocations
 import org.jetbrains.yaml.psi.YAMLScalar
 
@@ -52,9 +56,14 @@ import org.jetbrains.yaml.psi.YAMLScalar
  *   ([ValueChains]): "→ str 192.0.2.33 via system_ip_floating (prod-prod1, prod-prod2)".
  * - **Block and task vars** (level 15) that apply at the card's position ([TaskVars]): inside a task whose `vars:` set
  *   the name, that definition wins over every lower layer, so the outcomes say so; a template rendered with the name in
- *   some of its rendering tasks' `vars:` only names those tasks.
+ *   some of its rendering tasks' `vars:` only names those tasks. In a file that include tasks run, their `vars:` and
+ *   loop variables count too: hosts are not "not set" when every include path sets the name, and the definitions are
+ *   named ("set by the include tasks that run this file").
  * - **Vault:** previews follow the one vault-safe rule; a vault winner reads "🔒 vault-encrypted (AES256, 1.1)" with the
  *   vault area's Reveal link ([HostCardTexts.value]). Nothing is decrypted.
+ * - **no_log** (plan amendment R23): a variable a spec keeps secret ([NoLogVariables]) shows no value, no rendered value
+ *   and no chain; a chain through such a variable ends hidden, and a value that reads one (or leads to one) is not
+ *   rendered.
  *
  * No section for template locals and loop variables, for nested option paths (the card documents an option there), and
  * for names that no static layer of the root defines (magic variables, facts, `register`/`set_fact` results).
@@ -75,13 +84,22 @@ class EffectiveCardSection : CardSection {
     private class Renderer(private val project: Project, private val root: AnsibleRoot, private val view: CardView, private val file: VirtualFile) {
         private val scope = view.scope
         private val single: HostKey? = view.singleHost
+        private val moleculeView = MoleculeView.of(project, file)
+        private val noLog: (String) -> Boolean = { NoLogVariables.isNoLog(project, root, it, moleculeView) }
+
+        /** The card's variable is a secret by its spec: no value of it is shown. */
+        private val hidden = noLog(view.name)
 
         fun render(): HtmlChunk? {
             if (scope.targets.isEmpty()) {
                 val reason = scope.emptyReason ?: return null
                 return block(listOf(HtmlChunk.p().children(HtmlChunk.text(message("card.effective.empty")).bold(), HtmlChunk.text(" "), grayed(reason))))
             }
-            if (view.outcomes.isEmpty() && view.moleculeCompanions.isEmpty() && view.taskVars.partial.isEmpty() && !hasStaticDefinitions()) return null
+            if (view.outcomes.isEmpty() && view.moleculeCompanions.isEmpty() && view.taskVars.partial.isEmpty() && view.taskVars.included.isEmpty() &&
+                !hasStaticDefinitions()
+            ) {
+                return null
+            }
             val paragraphs = ArrayList<HtmlChunk>()
             paragraphs += header()
             // A value per host on a large inventory: the largest outcomes, then one line for the rest ("Set in" lists them all).
@@ -110,7 +128,7 @@ class EffectiveCardSection : CardSection {
 
         /** A name without any static definition has nothing the Effective section could say (magic variables, facts, register). */
         private fun hasStaticDefinitions(): Boolean =
-            VarService.getInstance(project).symbol(root, view.name).definitions.any { it.kind in STATIC_KINDS }
+            VarViews.symbol(project, root, view.name, MoleculeView.of(project, file)).definitions.any { it.kind in STATIC_KINDS }
 
         // -------------------------------------------------------------------------------------------- header
 
@@ -127,6 +145,8 @@ class EffectiveCardSection : CardSection {
             }
             val details = when {
                 single != null -> plays?.let { "($it)" }
+                // Only include tasks set it: the values are theirs (named below), not a count of static outcomes.
+                values == 0 && view.taskVars.included.isNotEmpty() -> plays?.let { "($it)" }
                 plays != null -> message("card.effective.header.details", plays, message("card.effective.values", values))
                 else -> message("card.effective.header.value", message("card.effective.values", values))
             }
@@ -154,7 +174,7 @@ class EffectiveCardSection : CardSection {
             heading?.let { lines += HtmlChunk.text(it) }
             val winner = outcome.group.winner ?: return HostCardTexts.lines(lines)
             val parts = mutableListOf<HtmlChunk>(
-                HtmlChunk.fragment(HtmlChunk.text("= "), HostCardTexts.value(project, winner)),
+                HtmlChunk.fragment(HtmlChunk.text("= "), HostCardTexts.value(project, winner, hidden)),
                 HostCardTexts.definitionLink(project, root, winner),
                 HtmlChunk.text(HostCardTexts.levelAndLayer(winner)),
             )
@@ -163,8 +183,11 @@ class EffectiveCardSection : CardSection {
                 parts += HtmlChunk.link(ExplainLinks.of(view.name, target, view.runningRole, view.taskVars.applied), text)
             }
             lines += indented(indent, HostCardTexts.joined(parts))
-            renderedLine(outcome, winner)?.let { lines += indented(indent + INDENT, it) }
-            for ((chain, hosts) in outcome.chains) lines += indented(indent + INDENT, chainLine(chain, hosts.takeIf { single == null }))
+            if (!hidden) {
+                // A hidden value has no rendering and no chain: both would tell what it says.
+                renderedLine(outcome, winner)?.let { lines += indented(indent + INDENT, it) }
+                for ((chain, hosts) in outcome.chains) lines += indented(indent + INDENT, chainLine(chain, hosts.takeIf { single == null }))
+            }
             shadowedLine(outcome)?.let { lines += indented(indent + INDENT, it) }
             return HostCardTexts.lines(lines)
         }
@@ -172,15 +195,21 @@ class EffectiveCardSection : CardSection {
         /**
          * `renders: https://mimir.example.de/api/v1/push (prod-prod1)` for a winner that carries Jinja: the value fully
          * templated on the outcome's first host, with placeholders where only the run knows (facts, vault, runtime results).
+         * A block, task or include var winner ([TaskVars.applied], which the model does not evaluate) renders its own
+         * value, a mapping or list as a whole.
          */
         private fun renderedLine(outcome: CardOutcome, winner: VarSourceRef): HtmlChunk? {
             if (winner.isVault) return null
             val preview = winner.preview ?: return null
             if ("{{" !in preview && "{%" !in preview) return null
             val target = outcome.explainTarget ?: return null
+            // The rendering would print the value of a variable a spec keeps secret that it reads (or leads to).
+            if (outcome.chains.any { (chain, _) -> chain.via.any(noLog) }) return null
             val rendered = try {
                 val scalar = VarLocations.keyValueAt(project, SourceLocation(winner.file, winner.offset))?.value as? YAMLScalar
-                TemplatePreviewService.getInstance(project).renderVariable(target, view.scope, view.name, view.runningRole, file, scalar?.textValue)
+                if (JinjaRefs.analyze(scalar?.textValue ?: preview).references.any { noLog(it.name) }) return null
+                val local = if (scalar == null && winner == view.taskVars.applied) TaskVars.valueOf(project, winner) else null
+                TemplatePreviewService.getInstance(project).renderVariable(target, view.scope, view.name, view.runningRole, file, scalar?.textValue, local)
             } catch (e: ProcessCanceledException) {
                 throw e
             } catch (_: RuntimeException) {
@@ -203,7 +232,7 @@ class EffectiveCardSection : CardSection {
 
         /** `→ str 192.0.2.33 via system_ip_floating · <link> (prod-prod1, prod-prod2)`. */
         private fun chainLine(chain: ResolvedChain, hosts: List<HostKey>?): HtmlChunk {
-            val line = HostCardTexts.chain(project, root, chain)
+            val line = HostCardTexts.chain(project, root, chain, noLog)
             if (hosts.isNullOrEmpty()) return line
             return HtmlChunk.fragment(line, HtmlChunk.text(" "), grayed(message("card.effective.chain.hosts", HostCardTexts.hostList(hosts))))
         }
@@ -243,7 +272,21 @@ class EffectiveCardSection : CardSection {
             notAppliedIn()?.let { lines += grayed(message("card.effective.not.applied", it)) }
             lines += sharedAddresses().map { grayed(it) }
             partialTaskVars()?.let { lines += it }
+            includedTaskVars()?.let { lines += it }
             return if (lines.isEmpty()) null else HostCardTexts.lines(lines)
+        }
+
+        /**
+         * `set by the include tasks that run this file: roles/x/tasks/rules.yml:12, …`: the definitions an include task
+         * gives the file ([TaskVars.included]) when the outcomes above do not already show one of them as the winner.
+         */
+        private fun includedTaskVars(): HtmlChunk? {
+            val taskVars = view.taskVars
+            val winners = (view.outcomes.mapNotNull { it.group.winner } + listOfNotNull(taskVars.applied)).mapTo(HashSet()) { Location.of(it) }
+            val included = taskVars.included.filter { Location.of(it) !in winners }.takeIf { it.isNotEmpty() } ?: return null
+            val links = included.map { HostCardTexts.definitionLink(project, root, it) }
+            val key = if (taskVars.includedEverywhere) "card.effective.included" else "card.effective.included.partial"
+            return HtmlChunk.fragment(grayed(message(key) + " "), HostCardTexts.joined(links))
         }
 
         /**
@@ -282,7 +325,7 @@ class EffectiveCardSection : CardSection {
                         HtmlChunk.fragment(
                             grayed(message("card.effective.molecule", scenarios.joinToString(", "))),
                             HtmlChunk.text(" = "),
-                            HostCardTexts.value(project, winner),
+                            HostCardTexts.value(project, winner, hidden),
                         ),
                         HostCardTexts.definitionLink(project, root, winner),
                         HtmlChunk.text(HostCardTexts.levelAndLayer(winner)),

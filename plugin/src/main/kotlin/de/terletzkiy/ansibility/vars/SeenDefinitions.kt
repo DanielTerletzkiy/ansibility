@@ -15,6 +15,7 @@ import de.terletzkiy.ansibility.api.SourceLocation
 import de.terletzkiy.ansibility.api.VarDefKind
 import de.terletzkiy.ansibility.api.VarDefinition
 import de.terletzkiy.ansibility.api.VarSymbol
+import de.terletzkiy.ansibility.context.host.AnsibleContextServiceImpl
 
 /**
  * Rule 0 of [VarNavigation]: a reference inside a file that itself defines variables goes to the definition the
@@ -104,7 +105,8 @@ internal object SeenDefinitions {
         if (DumbService.isDumb(project)) return emptyList()
         val groups = try {
             val service = AnsibleContextService.getInstance(project)
-            val breakdown = service.effective(service.hostScope(file, offset), name)
+            val scope = AnsibleContextServiceImpl.getInstance(project)?.cardScope(file, offset) ?: service.hostScope(file, offset)
+            val breakdown = service.effective(scope, name)
             (breakdown.groups + breakdown.molecule).filter { it.winner != null }
         } catch (e: ProcessCanceledException) {
             throw e

@@ -49,11 +49,14 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.jetbrains.annotations.TestOnly
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicReference
+import kotlin.coroutines.cancellation.CancellationException
 
 /** Why every id was locked. */
 enum class VaultLockReason {
@@ -85,10 +88,14 @@ class SecretLease internal constructor(val secrets: List<LabelledSecret>) : Auto
  * 1. **consent** (D25): if a file source of the root has no consent yet, one dialog lists every root with such
  *    sources and exactly what will be read ([Use for all listed] [Choose…] [Not now]). Nothing is read before the
  *    answer. Consents are stored per user at application level ([VaultUserState]), keyed by the source's real path,
- *    size and a salted fingerprint; a changed source, or a `.env.local` that names another file, asks again;
+ *    size and a salted fingerprint; a changed source, or a `.env.local` that names another file, asks again.
+ *    [Not now] declines the listed roots for the session: none of their files is read. The root being unlocked loses
+ *    its password managers too (D139; the dialog says so), so only PasswordSafe and the prompt remain for it; other
+ *    listed roots keep theirs. An explicit Unlock… of a root ([forgetDeclined]) asks again;
  * 2. **load**, in chain order on `Dispatchers.IO`: password files are read again on every unlock and never copied
  *    (Ansible's strip rules, a vaulted password file decrypted with the secrets before it); `.env.local` yields only
- *    its key; scripts never run here (M4.6, D28); PasswordSafe is read for labels remembered earlier;
+ *    its key; scripts never run here (M4.6, D28); PasswordSafe is read for labels remembered earlier; a password
+ *    manager's CLI runs interruptibly, so cancelling the unlock ends it;
  * 3. **prompt** (D26): an interactive id, or the root when nothing else gave a secret, asks for the password on the
  *    EDT, remembered in PasswordSafe, for this session only, or not at all.
  *
@@ -98,7 +105,8 @@ class SecretLease internal constructor(val secrets: List<LabelledSecret>) : Auto
  *
  * Secrets live only here, in [SecretBytes] (zeroed on lock; `toString()` is `***`), keyed by the root and the
  * identity's slot ([DiscoveredIdentity.slot]). The corpus guard ([VaultCorpusGuard]) makes [unlock] throw for roots
- * of the real infra repository in tests.
+ * of the real infra repository in tests. Every dialog shown and every password manager read is logged at INFO with
+ * names and labels only ([VaultLog]; the reads by [PasswordManagers] itself).
  */
 @Service(Service.Level.PROJECT)
 class VaultSecretsService(private val project: Project, private val scope: CoroutineScope) : Disposable {
@@ -125,7 +133,13 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
     private val lock = Any()
     private val tickerLock = Any()
     private val secrets = HashMap<String, LinkedHashMap<String, Unlocked>>()
+
+    /** Roots declined with [Not now] (or left out with [Choose…]) in this session: their files are not read. */
     private val declined = ConcurrentHashMap.newKeySet<String>()
+
+    /** Roots whose own unlock was answered with [Not now] in this session: their password managers are not run either. */
+    private val managersDeclined = ConcurrentHashMap.newKeySet<String>()
+
     private val tracker = SimpleModificationTracker()
     private val unlockMutex = Mutex()
 
@@ -218,6 +232,7 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
      * Unlocks [label] of [root] (every id of the root when null) as described in the class comment. [verify] is the
      * envelope the triggering action works on: a prompted password that cannot decrypt it is refused and asked again.
      * With [interactive] false nothing is asked: sources without consent are skipped and no prompt is shown.
+     * Cancelling the calling coroutine ends a password manager read that is still waiting.
      *
      * Never call it on the EDT or under a read lock; it switches to the EDT itself for dialogs.
      *
@@ -251,49 +266,54 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
         override fun toString(): String = "UnlockRun(${discovery.rootKey})"
 
         suspend fun unlock(pending: List<DiscoveredIdentity>, label: String?, verify: VaultEnvelope?): VaultUnlockResult {
-            if (interactive) askFirstUseConsent(pending)
-
             var changed = false
             var notTrusted = false
             var unavailable = false
-            for (identity in pending.filter { !it.isInteractive }) {
-                when (val load = load(identity)) {
-                    is Load.Loaded -> changed = store(discovery, identity.slot, identity.label, load.secret) || changed
-                    Load.NotTrusted -> notTrusted = true
-                    Load.Unavailable -> unavailable = true
-                    Load.Declined -> Unit
-                }
-            }
-
-            val interactiveLabels = pending.filter { it.isInteractive }.map { it.label }.distinct()
-            for (interactiveLabel in interactiveLabels) {
-                val configured = pending.any { it.label == interactiveLabel && it.plan is SecretPlan.PasswordSafeEntry }
-                fromPasswordSafe(discovery, interactiveLabel, configured)?.let {
-                    changed = store(discovery, interactiveSlot(interactiveLabel), interactiveLabel, it) || changed
-                }
-            }
-            val toPrompt = interactiveLabels.filter { !isUnlocked(discovery, interactiveSlot(it)) }.toMutableList()
-            val satisfied = if (label != null) label in unlockedLabels(discovery) else unlockedLabels(discovery).isNotEmpty()
-            if (toPrompt.isEmpty() && !satisfied) toPrompt += label ?: discovery.config.defaultIdentity
-
             var cancelled = false
             var wrong = false
-            if (interactive) {
-                for (promptLabel in toPrompt) {
-                    when (val prompted = prompt(discovery, promptLabel, verify)) {
-                        is PromptResult.Loaded -> changed = store(discovery, interactiveSlot(promptLabel), promptLabel, prompted.secret) || changed
-                        PromptResult.Cancelled -> cancelled = true
-                        PromptResult.Wrong -> wrong = true
-                    }
-                    if (cancelled) break
-                }
-            }
+            try {
+                if (interactive) askFirstUseConsent(pending)
 
-            if (changed) {
-                cryptoIfCreated()?.clearNegativeVerifications()
-                touch()
-                VaultLog.event(VaultLog.Operation.UNLOCK, VaultLog.Event.UNLOCKED, discovery.rootKey)
-                notifyChanged()
+                for (identity in pending.filter { !it.isInteractive }) {
+                    when (val load = load(identity)) {
+                        is Load.Loaded -> changed = store(discovery, identity.slot, identity.label, load.secret) || changed
+                        Load.NotTrusted -> notTrusted = true
+                        Load.Unavailable -> unavailable = true
+                        Load.Declined -> Unit
+                    }
+                }
+
+                val interactiveLabels = pending.filter { it.isInteractive }.map { it.label }.distinct()
+                for (interactiveLabel in interactiveLabels) {
+                    val configured = pending.any { it.label == interactiveLabel && it.plan is SecretPlan.PasswordSafeEntry }
+                    fromPasswordSafe(discovery, interactiveLabel, configured)?.let {
+                        changed = store(discovery, interactiveSlot(interactiveLabel), interactiveLabel, it) || changed
+                    }
+                }
+                val toPrompt = interactiveLabels.filter { !isUnlocked(discovery, interactiveSlot(it)) }.toMutableList()
+                val satisfied = if (label != null) label in unlockedLabels(discovery) else unlockedLabels(discovery).isNotEmpty()
+                if (toPrompt.isEmpty() && !satisfied) toPrompt += label ?: discovery.config.defaultIdentity
+
+                if (interactive) {
+                    for (promptLabel in toPrompt) {
+                        when (val prompted = prompt(discovery, promptLabel, verify)) {
+                            is PromptResult.Loaded -> changed = store(discovery, interactiveSlot(promptLabel), promptLabel, prompted.secret) || changed
+                            PromptResult.Cancelled -> cancelled = true
+                            PromptResult.Wrong -> wrong = true
+                        }
+                        if (cancelled) break
+                    }
+                }
+            } finally {
+                // Also when the unlock is cancelled midway (Stop, or Cancel while a password manager is read): the
+                // secrets stored by then are unlocked like any other, so the gutter and widgets learn of them and the
+                // idle lock covers them.
+                if (changed) {
+                    cryptoIfCreated()?.clearNegativeVerifications()
+                    touch()
+                    VaultLog.event(VaultLog.Operation.UNLOCK, VaultLog.Event.UNLOCKED, discovery.rootKey)
+                    notifyChanged()
+                }
             }
             val labels = unlockedLabels(discovery)
             val done = if (label != null) label in labels else labels.isNotEmpty()
@@ -322,7 +342,7 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
                 .mapNotNull { other -> listed(other, other.identities.filter { !isUnlocked(other, it.slot) }) }
             val all = listOf(requested) + others
             val request = VaultConsentRequest(ConsentReason.FIRST_USE, all.map { it.root })
-            VaultLog.event(VaultLog.Operation.CONSENT, VaultLog.Event.CONSENT_ASKED, discovery.rootKey)
+            for (listed in all) VaultLog.event(VaultLog.Operation.CONSENT, VaultLog.Event.CONSENT_ASKED, listed.root.rootKey)
             val decision = onEdt { VaultPrompter.getInstance().askConsent(project, request) }
             val chosen = when (decision) {
                 VaultConsentDecision.UseAll -> all.map { it.root.rootKey }.toSet()
@@ -332,7 +352,7 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
             withContext(Dispatchers.IO) {
                 for (listed in all) {
                     if (listed.root.rootKey !in chosen) {
-                        declined += listed.root.rootKey
+                        decline(listed.root.rootKey, ownUnlock = listed === requested)
                         VaultLog.event(VaultLog.Operation.CONSENT, VaultLog.Event.CONSENT_DECLINED, listed.root.rootKey)
                         continue
                     }
@@ -362,11 +382,18 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
                 item
             }.distinctBy { it.kind to it.display }
             if (items.isEmpty()) return null
-            return Listed(ConsentRoot(rootDiscovery.rootKey, rootDiscovery.root.displayName, items), targets.toList())
+            val managers = if (rootDiscovery.rootKey == discovery.rootKey) skippedManagers() else emptyList()
+            return Listed(ConsentRoot(rootDiscovery.rootKey, rootDiscovery.root.displayName, items, managers), targets.toList())
         }
 
+        /** The password managers of the root being unlocked that a [Not now] would leave unread (D139), for the dialog. */
+        private fun skippedManagers(): List<String> =
+            discovery.identities.filter { it.plan is SecretPlan.External && !isUnlocked(discovery, it.slot) }
+                .map { (it.plan as SecretPlan.External).manager.displayName }
+                .distinct()
+
         /** Loads one non-interactive source on `Dispatchers.IO`. */
-        private suspend fun load(identity: DiscoveredIdentity): Load = withContext(Dispatchers.IO) {
+        private suspend fun load(identity: DiscoveredIdentity): Load = onIo({ (it as? Load.Loaded)?.secret?.zero() }) {
             when (val plan = identity.plan) {
                 is SecretPlan.PasswordFile -> fromFile(identity, readConsented(plan.target, ConsentReason.CHANGED), plan.target.display)
                 is SecretPlan.Environment -> fromFile(identity, readConsented(plan.target, ConsentReason.CHANGED), plan.target.display)
@@ -376,16 +403,33 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
                     Load.NotTrusted
                 }
                 is SecretPlan.PasswordSafeEntry -> readPasswordSafe(plan.serviceName, identity.label)?.let { Load.Loaded(it) } ?: Load.Unavailable
-                is SecretPlan.External -> fromManager(plan, masterPasswordPrompt())
+                is SecretPlan.External -> fromManager(identity, plan)
                 SecretPlan.Prompt -> Load.Declined
             }
         }
 
-        /** Asks for a password manager's master password on the EDT, only in an interactive unlock that was not declined. */
+        /**
+         * [identity]'s secret from its password manager, unless the root's own unlock was answered with [Not now] in
+         * this session: that covers the root's password managers as well as its files (D139), so nothing runs a CLI
+         * that could show its own approval sheet (1Password's Touch ID, the OS asking for access to another app's data)
+         * right after you said no. Checked per source, so a [Not now] given during this unlock counts from then on.
+         */
+        private suspend fun fromManager(identity: DiscoveredIdentity, plan: SecretPlan.External): Load {
+            if (discovery.rootKey in managersDeclined) {
+                VaultLog.event(VaultLog.Operation.LOAD_SOURCE, VaultLog.Event.MANAGER_READ_SKIPPED, plan.manager.displayName, identity.label)
+                return Load.Declined
+            }
+            return readManager(identity.label, plan, masterPasswordPrompt())
+        }
+
+        /**
+         * Asks for a password manager's master password on the EDT, only in an interactive unlock of a root that was not
+         * declined (a root only listed beside a declined one still reads its managers, but asks nothing for them).
+         * [PasswordManagers] logs each dialog.
+         */
         private fun masterPasswordPrompt(): MasterPasswordPrompt =
-            if (!interactive) MasterPasswordPrompt.NONE
+            if (!interactive || discovery.rootKey in declined) MasterPasswordPrompt.NONE
             else MasterPasswordPrompt { manager, target, retry ->
-                if (discovery.rootKey in declined) return@MasterPasswordPrompt null
                 val request = MasterPasswordRequest(manager.displayName, target, retry)
                 runBlocking { onEdt { VaultPrompter.getInstance().askMasterPassword(project, request) } }
             }
@@ -432,19 +476,20 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
                     if (check.changed) VaultLog.event(VaultLog.Operation.CONSENT, VaultLog.Event.CONSENT_CHANGED, target.display)
                     val kind = if (target.environmentVariable != null) ConsentItem.Kind.ENVIRONMENT else ConsentItem.Kind.PASSWORD_FILE
                     val item = ConsentItem(identityLabelFor(target), kind, target.display, changed = check.changed)
+                    VaultLog.event(VaultLog.Operation.CONSENT, VaultLog.Event.CONSENT_ASKED, target.display, item.label)
                     val request = VaultConsentRequest(
                         if (check.changed) ConsentReason.CHANGED else reason,
-                        listOf(ConsentRoot(discovery.rootKey, discovery.root.displayName, listOf(item))),
+                        listOf(ConsentRoot(discovery.rootKey, discovery.root.displayName, listOf(item), skippedManagers())),
                     )
                     val decision = onEdt { VaultPrompter.getInstance().askConsent(project, request) }
                     val accepted = decision == VaultConsentDecision.UseAll ||
                         (decision is VaultConsentDecision.Choose && discovery.rootKey in decision.rootKeys)
                     if (!accepted) {
-                        declined += discovery.rootKey
+                        decline(discovery.rootKey, ownUnlock = true)
                         VaultLog.event(VaultLog.Operation.CONSENT, VaultLog.Event.CONSENT_DECLINED, target.display)
                         return Read.Declined
                     }
-                    return withContext(Dispatchers.IO) { consents.grant(target, environment) }?.let { Read.Content(it) } ?: Read.Unavailable
+                    return onIo({ it?.fill(0) }) { consents.grant(target, environment) }?.let { Read.Content(it) } ?: Read.Unavailable
                 }
             }
         }
@@ -504,15 +549,27 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
     private suspend fun fromPasswordSafe(discovery: VaultDiscovery, label: String, configured: Boolean): SecretBytes? {
         if (!configured && label !in VaultUserState.getInstance().rememberedLabels(discovery.canonicalRootPath)) return null
         val serviceName = VaultPasswordSafeKeys.serviceName(discovery.canonicalRootPath, label)
-        val secret = withContext(Dispatchers.IO) { readPasswordSafe(serviceName, label) }
+        val secret = onIo({ it?.zero() }) { readPasswordSafe(serviceName, label) }
         if (secret == null) VaultUserState.getInstance().forget(discovery.canonicalRootPath, label)
         return secret
     }
 
-    /** The password manager's read of the reference; the CLI output never leaves this method except as [SecretBytes]. */
-    private fun fromManager(plan: SecretPlan.External, prompt: MasterPasswordPrompt): Load {
+    /**
+     * The password manager's read of the reference for id [label]; the CLI output never leaves this method except as
+     * [SecretBytes]. The read is interruptible: cancelling the calling coroutine (Stop, Cancel) interrupts the wait,
+     * and the reader ends the CLI (D139). [PasswordManagers] logs its start and end at INFO with the time it took.
+     */
+    private suspend fun readManager(label: String, plan: SecretPlan.External, prompt: MasterPasswordPrompt): Load {
         val display = plan.manager.displayName
-        val bytes = managers.read(plan.manager, plan.reference, prompt) ?: run {
+        val answered = AtomicReference<ByteArray?>()
+        val read = try {
+            runInterruptible { managers.read(plan.manager, plan.reference, prompt, label).also(answered::set) }
+        } catch (e: CancellationException) {
+            // Cancelled just after the manager answered: nobody takes the answer, so it is zeroed here.
+            answered.getAndSet(null)?.fill(0)
+            throw e
+        }
+        val bytes = read ?: run {
             VaultLog.failure(VaultLog.Operation.LOAD_SOURCE, VaultFailure.SOURCE_UNAVAILABLE, display)
             return Load.Unavailable
         }
@@ -570,13 +627,19 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
                     error = message("password.empty")
                     return@repeat
                 }
-                if (verify != null && !withContext(Dispatchers.Default) { decrypts(discovery, verify, label, secret) }) {
+                try {
+                    if (verify != null && !withContext(Dispatchers.Default) { decrypts(discovery, verify, label, secret) }) {
+                        secret.zero()
+                        error = message("password.wrong", label)
+                        VaultLog.failure(VaultLog.Operation.PROMPT, VaultFailure.WRONG_SECRET, discovery.rootKey, label)
+                        return@repeat
+                    }
+                    withContext(Dispatchers.IO) { remember(discovery, label, chars, answer.remember) }
+                } catch (e: Throwable) {
+                    // Cancelled while checking or remembering it: the typed secret is nobody's now.
                     secret.zero()
-                    error = message("password.wrong", label)
-                    VaultLog.failure(VaultLog.Operation.PROMPT, VaultFailure.WRONG_SECRET, discovery.rootKey, label)
-                    return@repeat
+                    throw e
                 }
-                withContext(Dispatchers.IO) { remember(discovery, label, chars, answer.remember) }
                 return PromptResult.Loaded(secret)
             } finally {
                 chars.fill('\u0000')
@@ -735,6 +798,24 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
     /** Session decisions are forgotten: roots declined with [Not now] are asked again on their next unlock. */
     fun forgetDeclinedConsents() {
         declined.clear()
+        managersDeclined.clear()
+    }
+
+    /**
+     * Forgets the [Not now] of [root] (of its parent for a nested root) in this session: its next unlock asks for the
+     * consent again and runs its password managers. The explicit unlock actions (Unlock vault ids…, the banner's
+     * Unlock…) call it, so a [Not now] does not last until the project closes.
+     */
+    fun forgetDeclined(root: AnsibleRoot) {
+        val key = registry().rootKey(registry().vaultRoot(root))
+        declined -= key
+        managersDeclined -= key
+    }
+
+    /** Records a [Not now] for [rootKey]; for the root being unlocked ([ownUnlock]) it covers its password managers too. */
+    private fun decline(rootKey: String, ownUnlock: Boolean) {
+        declined += rootKey
+        if (ownUnlock) managersDeclined += rootKey
     }
 
     override fun dispose() {
@@ -764,6 +845,21 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
     private fun isGuarded(discovery: VaultDiscovery): Boolean = VaultCorpusGuard.isProtected(discovery.rootPath?.toString() ?: discovery.root.dir.path)
 
     private suspend fun <T> onEdt(block: () -> T): T = withContext(Dispatchers.EDT + ModalityState.any().asContextElement()) { block() }
+
+    /**
+     * [block] on `Dispatchers.IO`. A cancellation can end the switch back after [block] returned a secret, which then
+     * reaches nobody: [wipe] zeroes it.
+     */
+    private suspend fun <T> onIo(wipe: (T) -> Unit, block: suspend () -> T): T {
+        val made = AtomicReference<Any?>()
+        try {
+            return withContext(Dispatchers.IO) { block().also { made.set(it) } }
+        } catch (e: CancellationException) {
+            @Suppress("UNCHECKED_CAST")
+            (made.getAndSet(null) as T?)?.let(wipe)
+            throw e
+        }
+    }
 
     private fun registry(): VaultIdentityRegistry = VaultIdentityRegistry.getInstance(project)
 

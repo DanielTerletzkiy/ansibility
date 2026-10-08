@@ -3,6 +3,7 @@ package de.terletzkiy.ansibility.completion.jinja
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.util.text.StringUtil
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.util.indexing.FileBasedIndex
 import de.terletzkiy.ansibility.api.FileKind
 import de.terletzkiy.ansibility.api.RoleInfo
@@ -10,13 +11,14 @@ import de.terletzkiy.ansibility.api.RoleRegistry
 import de.terletzkiy.ansibility.api.ValueShape
 import de.terletzkiy.ansibility.completion.jinja.AnsibilityJinjaCompletionBundle.message
 import de.terletzkiy.ansibility.context.AnsibleWorkspaceImpl
+import de.terletzkiy.ansibility.context.MoleculeVisibility
 import de.terletzkiy.ansibility.facts.FactsCatalog
 import de.terletzkiy.ansibility.facts.MagicVar
 import de.terletzkiy.ansibility.index.AnsibleIndexQueries
 import de.terletzkiy.ansibility.index.LiteralType
-import de.terletzkiy.ansibility.index.ValueSummary
 import de.terletzkiy.ansibility.index.VarDefIndex
 import de.terletzkiy.ansibility.lang.jinja.refs.JinjaLocalKind
+import de.terletzkiy.ansibility.model.role.RoleDefaults
 import de.terletzkiy.ansibility.resolve.loop.LiteralShapes
 import de.terletzkiy.ansibility.resolve.loop.LoopItemTyper
 import de.terletzkiy.ansibility.resolve.register.RoleTaskOrder
@@ -35,13 +37,23 @@ import de.terletzkiy.ansibility.vars.VarCard
  * - T5 names only the inventory defines (grey); T6 special variables (template-only ones in templates), facts and
  *   their injected `ansible_*` names; last, the names other roles of the root declare.
  *
+ * Molecule scenarios (their inventories and the plays of Molecule playbooks) are offered only when the caret's
+ * [JinjaCompletionScope.moleculeView] includes them (plan amendment R20, D153/D154).
+ *
  * Presentation follows the plan: spec type text (`list[dict]`), tail ` = <default> · <role>` or
- * ` · required · <role>`, bold for required options without any default, struck out when deprecated. Values come only
- * from the index's vault-safe previews or spec defaults (never of a `vault_*` name).
+ * ` · required · <role>`, bold for required options without a role default, struck out when deprecated. The default is
+ * the role default Ansible uses ([RoleDefaults]), never the spec's documented `default:` (plan amendment R23, D174);
+ * values come only from the index's vault-safe previews (never of a `vault_*` name or a `!vault` value).
  */
 internal class JinjaNames(private val scope: JinjaCompletionScope, private val accept: (String) -> Boolean) {
     private val result = LinkedHashMap<String, JinjaCandidate>()
     private val project = scope.project
+
+    /** The defaults files each role loads ([RoleDefaults.loadedFiles]), read once per completion. */
+    private val loadedDefaults = HashMap<VirtualFile, List<VirtualFile>>()
+
+    /** The role directory of each `defaults/` file of a role outside the scope, looked up once per completion. */
+    private val defaultsRoles = HashMap<VirtualFile, VirtualFile?>()
 
     /** Molecule plays that test an own role (found by [playScope]); their vars are test values, offered with T5. */
     private val moleculePlays = ArrayList<ScopePlay>()
@@ -140,9 +152,10 @@ internal class JinjaNames(private val scope: JinjaCompletionScope, private val a
         for ((option, spec) in options) {
             ProgressManager.checkCanceled()
             if (!wanted(option)) continue
-            val runtime = entries[option]?.firstOrNull { it.site == CatalogSite.DEFAULTS }
-            val default = runtime?.let(::previewOf) ?: spec.default?.takeUnless { ValueSummary.isSecret(option, it) }?.let(ValueSummary::render)
-            val missing = runtime == null && spec.default == null
+            // Only the role default: ansible-core never applies the spec's `default:` (plan amendment R23, D174).
+            val runtime = roleDefault(role.ref.dir, entries[option])
+            val default = runtime?.let(::previewOf)
+            val missing = runtime == null
             val tail = buildString {
                 default?.let { append(message("tail.default", shorten(it))) }
                 if (default == null && spec.required) append(part(message("part.required")))
@@ -158,15 +171,35 @@ internal class JinjaNames(private val scope: JinjaCompletionScope, private val a
         for ((variable, list) in entries) {
             ProgressManager.checkCanceled()
             if (!wanted(variable)) continue
-            val entry = list.firstOrNull { it.site == CatalogSite.DEFAULTS } ?: list.firstOrNull { it.site == CatalogSite.VARS } ?: continue
+            val loaded = roleDefault(role.ref.dir, list)
+            val entry = loaded ?: list.firstOrNull { it.site == CatalogSite.DEFAULTS } ?: list.firstOrNull { it.site == CatalogSite.VARS } ?: continue
             val owner = if (entry.site == CatalogSite.VARS) message("part.vars", name) else name
             val tail = buildString {
-                previewOf(entry)?.let { append(message("tail.default", shorten(it))) }
+                // A key only a file ansible-core does not load sets (`defaults/<x>.yml`) has no value Ansible uses.
+                if (entry.site != CatalogSite.DEFAULTS || entry === loaded) previewOf(entry)?.let { append(message("tail.default", shorten(it))) }
                 append(part(owner))
             }
             val rank = if (entry.site == CatalogSite.DEFAULTS) 200 else 100
             add(JinjaCandidate(variable, tier, rank, literalTypeText(entry), tail, AllIcons.Nodes.Variable, CandidateDoc.Variable(variable, emptyList())))
         }
+    }
+
+    /**
+     * The `defaults/` entry of the role in [roleDir] Ansible uses ([RoleDefaults]): in the last loaded file that sets the
+     * name, its last key; null when only files ansible-core does not load (`defaults/<x>.yml`) or none set it.
+     */
+    private fun roleDefault(roleDir: VirtualFile, list: List<CatalogEntry>?): CatalogEntry? {
+        val defaults = list?.filter { it.site == CatalogSite.DEFAULTS }.orEmpty()
+        if (defaults.isEmpty()) return null
+        val loaded = loadedDefaults.getOrPut(roleDir) { RoleDefaults.loadedFiles(roleDir) }
+        return defaults.filter { it.location.file in loaded }.maxWithOrNull(compareBy({ loaded.indexOf(it.location.file) }, { it.location.offset }))
+    }
+
+    /** [roleDefault] of the role whose `defaults/` files hold [list]'s entries (a role outside the scope). */
+    private fun roleDefault(list: List<CatalogEntry>): CatalogEntry? {
+        val file = list.firstOrNull { it.site == CatalogSite.DEFAULTS }?.location?.file ?: return null
+        val roleDir = defaultsRoles.getOrPut(file) { RoleRegistry.getInstance(project).roleOf(file)?.ref?.dir } ?: return null
+        return roleDefault(roleDir, list)
     }
 
     /** `register` and `set_fact` names of an own role set before the caret. */
@@ -211,6 +244,7 @@ internal class JinjaNames(private val scope: JinjaCompletionScope, private val a
                 ProgressManager.checkCanceled()
                 val entry = hit.value
                 if (entry.importPlaybook != null || entry.roles.none { roleNameOf(it.name) in scope.roleNames }) continue
+                if (!scope.moleculeView.includesMolecule && MoleculeVisibility.isMoleculeFile(project, hit.file)) continue
                 when (hit.context.kind) {
                     FileKind.PLAYBOOK -> if (plays.size < MAX_PLAYS) plays += ScopePlay(hit.file, entry)
                     FileKind.MOLECULE_PLAYBOOK -> moleculePlays += ScopePlay(hit.file, entry)
@@ -262,7 +296,8 @@ internal class JinjaNames(private val scope: JinjaCompletionScope, private val a
     private fun inventory() {
         val catalog = scope.catalog
         val ownScenario = scope.fileContext.moleculeScenarioDir
-        for ((scenario, names) in catalog.molecule) {
+        val molecule = if (scope.moleculeView.includesMolecule) catalog.molecule else emptyMap()
+        for ((scenario, names) in molecule) {
             val own = scenario == ownScenario
             if (!own && names.values.none { list -> list.any { it.role in scope.roleNames } }) continue
             for ((name, entries) in names) {
@@ -326,24 +361,30 @@ internal class JinjaNames(private val scope: JinjaCompletionScope, private val a
         }
     }
 
-    /** Names other roles of the root declare (not in the own or play scope). */
+    /**
+     * Names other roles of the root declare (not in the own or play scope). The value tail is the role default Ansible
+     * uses (the last loaded `defaults/` file's), shown when one role declares the name.
+     */
     private fun rootWide() {
         val seen = scope.roleNames
         val owners = HashMap<String, MutableList<CatalogEntry>>()
+        val defaults = HashSet<CatalogEntry>()
         for ((role, entries) in scope.catalog.roles) {
             if (role in seen) continue
             for ((name, list) in entries) {
                 if (name in result || !accept(name)) continue
-                owners.getOrPut(name) { ArrayList(1) } += list.first()
+                ProgressManager.checkCanceled()
+                val loaded = roleDefault(list)?.also { defaults += it }
+                owners.getOrPut(name) { ArrayList(1) } += loaded ?: list.first()
             }
         }
         for ((name, list) in owners) {
             ProgressManager.checkCanceled()
             val roles = list.mapNotNull { it.role }.distinct().sorted()
-            val first = list.firstOrNull { it.site == CatalogSite.DEFAULTS } ?: list.first()
+            val first = list.firstOrNull { it in defaults } ?: list.firstOrNull { it.site == CatalogSite.DEFAULTS } ?: list.first()
             val owner = if (roles.size > 1) "${roles.first()} +${roles.size - 1}" else roles.firstOrNull().orEmpty()
             val tail = buildString {
-                if (roles.size == 1 && first.site == CatalogSite.DEFAULTS) previewOf(first)?.let { append(message("tail.default", shorten(it))) }
+                if (roles.size == 1 && first in defaults) previewOf(first)?.let { append(message("tail.default", shorten(it))) }
                 append(part(owner))
             }
             add(JinjaCandidate(name, Tier.ROOT, 0, literalTypeText(first), tail, AllIcons.Nodes.Variable, CandidateDoc.Variable(name, emptyList())))

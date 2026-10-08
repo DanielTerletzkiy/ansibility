@@ -28,6 +28,7 @@ import de.terletzkiy.ansibility.api.RootKind
 import de.terletzkiy.ansibility.api.VarDefKind
 import de.terletzkiy.ansibility.api.VarDefinition
 import de.terletzkiy.ansibility.api.VarSourceRef
+import de.terletzkiy.ansibility.context.MoleculeVisibility
 import de.terletzkiy.ansibility.context.TargetVersionDetector
 import de.terletzkiy.ansibility.model.inventory.ModelCache
 import de.terletzkiy.ansibility.model.inventory.ModelCacheKind
@@ -56,6 +57,10 @@ import org.jetbrains.annotations.Nls
  * - **Evaluation.** Single-name evaluation per target (`PrecedenceEngine.effectiveOf`) on the inventory view
  *   (`model.effective.HostViews`, `MoleculeViews`) and the execution inputs (`model.effective.ExecutionSources`) of
  *   the target's play and the scope's running role (the role of a role file or template, a molecule scenario's role).
+ * - **Molecule** (plan amendment R20, D153/D156): presentation ([hostScope], [effective], [definitionStatus]) follows
+ *   "Show Molecule in navigation and search": with it off a role scope gets no Molecule companions and a role library's
+ *   role without inventory falls back to "no inventory" instead of its scenarios' hosts. [allHostsScope] (inspections)
+ *   always keeps the scenarios; Molecule files always get their scenario's hosts.
  * - **Caching** (plan amendment R7/R8, A.9; WU HA2). File scopes, reach, play hits, addresses and definition statuses
  *   are [ModelCache] entries that depend only on what they were computed from (the inventory views per (root, env,
  *   playbook dir), the play graphs per playbook, the execution inputs per (play, running role), and the files read);
@@ -91,7 +96,8 @@ class AnsibleContextServiceImpl(private val project: Project) : AnsibleContextSe
     internal val evaluator = ContextEvaluator(project, model)
     private val facts = InventoryFactsBuilder(project, model, evaluator)
 
-    private data class FileScopeKey(val root: AnsibleRoot, val file: VirtualFile, val bucket: String)
+    /** [moleculeHosts]: a role library's role without inventory may use its Molecule scenarios as hosts ([FileScopes]). */
+    private data class FileScopeKey(val root: AnsibleRoot, val file: VirtualFile, val bucket: String, val moleculeHosts: Boolean)
 
     private data class HostScopeKey(
         val root: AnsibleRoot,
@@ -99,11 +105,13 @@ class AnsibleContextServiceImpl(private val project: Project) : AnsibleContextSe
         val bucket: String,
         val selection: RootContext,
         val followEditor: Boolean,
+        val moleculeHosts: Boolean,
     )
 
     private data class SelectionScopeKey(val root: AnsibleRoot, val selection: RootContext)
 
-    private data class StatusKey(val file: VirtualFile, val offset: Int, val name: String, val kind: VarDefKind)
+    /** [moleculeHosts]: "Show Molecule in navigation and search" (Molecule companions and role-library hosts). */
+    private data class StatusKey(val file: VirtualFile, val offset: Int, val name: String, val kind: VarDefKind, val moleculeHosts: Boolean)
 
     private val fileScopes = ModelCache<FileScopeKey, FileScope>(project, "context.fileScopes", maxSize = MAX_CACHED)
     private val hostScopes = ModelCache<HostScopeKey, HostScope>(project, "presentation.hostScopes", ModelCacheKind.PRESENTATION, MAX_CACHED)
@@ -191,13 +199,29 @@ class AnsibleContextServiceImpl(private val project: Project) : AnsibleContextSe
      */
     fun hostScope(file: VirtualFile, offset: Int, followEditor: Boolean): HostScope = readLocked {
         val (root, context) = locate(file)
-        scope(root, file, context, offset, selection(root), followEditor)
+        scope(root, file, context, offset, selection(root), followEditor, moleculeHosts = true)
+    }
+
+    /**
+     * [hostScope] for variable cards, the status-bar file segment and Ctrl+B's ranking by effect (plan amendment R20,
+     * D156): a role library's role without inventory uses its Molecule scenarios as its hosts only while "Show Molecule
+     * in navigation and search" is on, otherwise it falls back to "no inventory". Template Preview, value previews, the
+     * context banner, Show Ansible Context and Use as Ansible Context keep those hosts ([hostScope]).
+     */
+    fun cardScope(file: VirtualFile, offset: Int = -1): HostScope = readLocked {
+        val (root, context) = locate(file)
+        val followEditor = AnsibilityWorkspaceState.getInstance(project).snapshot.followEditor
+        scope(root, file, context, offset, selection(root), followEditor, presentationMoleculeHosts())
     }
 
     override fun allHostsScope(file: VirtualFile): HostScope = readLocked {
         val (root, context) = locate(file)
-        scope(root, file, context, -1, RootContext.DEFAULT, followEditor = true)
+        // Inspections never depend on the navigation setting (D155, D156).
+        scope(root, file, context, -1, RootContext.DEFAULT, followEditor = true, moleculeHosts = true)
     }
+
+    /** Whether presentation shows Molecule hosts outside Molecule files: "Show Molecule in navigation and search". */
+    private fun presentationMoleculeHosts(): Boolean = MoleculeVisibility.showInNavigation(project)
 
     override fun selectionScope(root: AnsibleRoot, context: RootContext): HostScope = readLocked {
         selectionScopes.get(SelectionScopeKey(root, context)) {
@@ -220,10 +244,11 @@ class AnsibleContextServiceImpl(private val project: Project) : AnsibleContextSe
         offset: Int,
         selection: RootContext,
         followEditor: Boolean,
+        moleculeHosts: Boolean,
     ): HostScope {
         val bucket = scopes.bucket(file, context, offset)
-        return hostScopes.get(HostScopeKey(root, file, bucket, selection, followEditor)) {
-            val scope = selections.intersect(root, fileScope(root, file, context, offset, bucket), selections.resolve(root, selection))
+        return hostScopes.get(HostScopeKey(root, file, bucket, selection, followEditor, moleculeHosts)) {
+            val scope = selections.intersect(root, fileScope(root, file, context, offset, bucket, moleculeHosts), selections.resolve(root, selection))
             if (followEditor || !scope.overriddenSelection) scope else notLoadedForSelection(scope)
         }
     }
@@ -246,10 +271,11 @@ class AnsibleContextServiceImpl(private val project: Project) : AnsibleContextSe
 
     /**
      * The selection-free scope of [file] at [offset] whose caret-dependent part is [bucket] ([FileScopes.bucket]); the
-     * offset only matters through the bucket, so every offset of one bucket shares the entry.
+     * offset only matters through the bucket, so every offset of one bucket shares the entry. [moleculeHosts] as in
+     * [FileScopes].
      */
-    internal fun fileScope(root: AnsibleRoot, file: VirtualFile, context: FileContext?, offset: Int, bucket: String): FileScope =
-        fileScopes.get(FileScopeKey(root, file, bucket)) { scopes.of(root, file, context, if (bucket.isEmpty()) -1 else offset) }
+    internal fun fileScope(root: AnsibleRoot, file: VirtualFile, context: FileContext?, offset: Int, bucket: String, moleculeHosts: Boolean): FileScope =
+        fileScopes.get(FileScopeKey(root, file, bucket, moleculeHosts)) { scopes.of(root, file, context, if (bucket.isEmpty()) -1 else offset, moleculeHosts) }
 
     // ------------------------------------------------------------------------------------------------ evaluation
 
@@ -270,21 +296,23 @@ class AnsibleContextServiceImpl(private val project: Project) : AnsibleContextSe
             VarDefKind.ROLE_PARAMS -> notLoaded(AnsibilityHostBundle.message("definition.role.params"))
             else -> {
                 val location = definition.location
-                statuses.get(StatusKey(location.file, location.offset, definition.name, definition.kind)) { computeStatus(definition) }
+                val moleculeHosts = presentationMoleculeHosts()
+                statuses.get(StatusKey(location.file, location.offset, definition.name, definition.kind, moleculeHosts)) { computeStatus(definition, moleculeHosts) }
             }
         }
     }
 
-    private fun computeStatus(definition: VarDefinition): DefinitionStatus {
+    private fun computeStatus(definition: VarDefinition, moleculeHosts: Boolean): DefinitionStatus {
         val file = definition.location.file
         val workspace = AnsibleWorkspace.getInstance(project)
         val context = workspace.contextOf(file)
         val root = context?.root ?: workspace.rootFor(file) ?: return notLoaded(null)
         val bucket = scopes.bucket(file, context, definition.location.offset)
-        val fileScope = fileScope(root, file, context, definition.location.offset, bucket)
+        // Presentation (cards, the all-repos panel): Molecule hosts follow the setting like the cards' scopes.
+        val fileScope = fileScope(root, file, context, definition.location.offset, bucket, moleculeHosts)
         val scope = selections.intersect(root, fileScope, selections.resolve(root, RootContext.DEFAULT))
         val role = fileScope.runningRole
-        val targets = scope.targets + moleculeCompanions(scope, role)
+        val targets = scope.targets + if (moleculeHosts) moleculeCompanions(scope, role) else emptyList()
         val own = Location(file, definition.location.offset)
         val wins = LinkedHashSet<HostKey>()
         val shadowed = LinkedHashMap<HostKey, VarSourceRef>()
@@ -340,9 +368,11 @@ class AnsibleContextServiceImpl(private val project: Project) : AnsibleContextSe
 
     /**
      * The molecule hosts that accompany a role scope (F8.10: "role files show molecule outcomes on a separate line"):
-     * every scenario of the role, while the selection names no inventory environment.
+     * every scenario of the role, while the selection names no inventory environment and "Show Molecule in navigation
+     * and search" is on (plan amendment R20, D153: a role scope never starts in a Molecule file). Presentation only.
      */
     private fun moleculeCompanions(scope: HostScope, role: String?): List<EvalTarget> {
+        if (!MoleculeVisibility.showInNavigation(project)) return emptyList()
         if (role == null || scope.origin !is HostScopeOrigin.RoleReach || scope.targets.any { it.host.isMolecule }) return emptyList()
         if (scope.selection.environment is EnvironmentChoice.Named) return emptyList()
         return model.molecules(scope.root).filter { it.roleName == role }.flatMap { model.moleculeTargets(scope.root, it) }

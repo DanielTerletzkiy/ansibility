@@ -1,0 +1,21 @@
+<html>
+<body>
+<p><b>ANS-S004.</b> Reports an argument_specs <code>default:</code> for a variable that nothing sets for the role:
+  no role default (of its own or of a <code>meta/main.yml</code> dependency), no <code>vars/</code> key, and no task
+  of the role sets it. ansible-core never applies a documented default, so the variable is undefined unless the caller
+  or the inventory sets it. Nothing is reported when a loaded defaults file of the role or of a dependency cannot be
+  read (a whole-file vault), because it may set the variable.</p>
+<!-- tooltip end -->
+<pre><code># meta/argument_specs.yml
+argument_specs:
+  main:
+    options:
+      version:
+        default: 1.5   # ANS-S004: no defaults file sets version
+</code></pre>
+<p>Quick fixes add the documented default to the file the role loads its defaults from (<code>defaults/main.yml</code>,
+  or the last file of a <code>defaults/main/</code> directory; <code>defaults/main.yml</code> is created only when the
+  role has no defaults file) or remove the documented default. The value is never added to a vault file or a JSON
+  file, and a value written with a YAML alias or anchor is not copied. Secret values are never shown.</p>
+</body>
+</html>

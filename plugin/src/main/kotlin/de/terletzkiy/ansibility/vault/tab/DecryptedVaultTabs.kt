@@ -102,11 +102,15 @@ class DecryptedVaultTabs(private val project: Project, private val scope: Corout
         launch(TabTexts.message("tab.progress.open", original.name), original) { decryptAndOpen(original) }
     }
 
-    /** The banner's [Unlock…]: unlocks the ids of [original]'s root (consent, password sources, prompts) and decrypts nothing. */
+    /**
+     * The banner's [Unlock…]: unlocks the ids of [original]'s root (consent, password sources, prompts) and decrypts
+     * nothing. Being explicit, it asks again for a root declined with Not now earlier in the session.
+     */
     fun unlock(original: VirtualFile) {
         ThreadingAssertions.assertEventDispatchThread()
         launch(TabTexts.message("progress.unlock"), original) {
             val root = readAction { AnsibleWorkspace.getInstance(project).rootFor(original) } ?: return@launch
+            VaultSecretsService.getInstance(project).forgetDeclined(root)
             when (val result = VaultOperations.getInstance(project).unlock(root)) {
                 is VaultUnlockResult.Unlocked -> onEdt { VaultUiFeedback.info(project, null, TabTexts.message("action.unlocked", result.identities.joinToString(", "))) }
                 is VaultUnlockResult.Failed -> if (result.failure != VaultFailure.CANCELLED) onEdt { VaultUiFeedback.failure(project, null, result.failure) }
@@ -309,6 +313,19 @@ class DecryptedVaultTabs(private val project: Project, private val scope: Corout
             }
         }
         closeQuietly(open)
+        return true
+    }
+
+    /**
+     * Before a file action (V6b) rewrites [original] in place: its tab would save over the new content with the old
+     * envelope's id, so it closes. True when there is no tab or it was closed; false when it has unsaved edits, which
+     * stay (the caller leaves the file alone and says why). EDT.
+     */
+    fun closeBeforeRewrite(original: VirtualFile): Boolean {
+        ThreadingAssertions.assertEventDispatchThread()
+        val session = sessionOf(original) ?: return true
+        if (session.isModified) return false
+        closeQuietly(listOf(session))
         return true
     }
 

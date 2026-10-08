@@ -2,6 +2,7 @@ package de.terletzkiy.ansibility.vars.registered
 
 import com.intellij.psi.PsiFile
 import de.terletzkiy.ansibility.api.AnsibleSite
+import de.terletzkiy.ansibility.context.MoleculeView
 import de.terletzkiy.ansibility.resolve.register.RegisteredResult
 import de.terletzkiy.ansibility.resolve.register.RegisteredResults
 import de.terletzkiy.ansibility.semantics.registered.ResultMember
@@ -38,16 +39,17 @@ internal object RegisteredSites {
         val virtualFile = file.originalFile.viewProvider.virtualFile
         val offset = site.range.startOffset
         val results = RegisteredResults.getInstance(project)
+        val view = MoleculeView.of(project, virtualFile)
         val display = display(site.name, site.attrPath)
         val binding = LoopItems.bindingAt(project, virtualFile, offset, site.name)
         if (binding != null) {
             val (variable, path) = binding.documented(site.name, site.attrPath) ?: return null
             val task = binding.tasks.firstOrNull()?.task ?: return null
-            val result = results.at(task.file, task.offset, variable) ?: return null
+            val result = results.at(task.file, task.offset, variable, view) ?: return null
             val member = result.member(path) ?: return null
             return RegisteredMember(result, path, member, display)
         }
-        val result = results.at(virtualFile, offset, site.name) ?: return null
+        val result = results.at(virtualFile, offset, site.name, view) ?: return null
         val member = result.member(site.attrPath) ?: return null
         return RegisteredMember(result, site.attrPath, member, display)
     }

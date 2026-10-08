@@ -88,7 +88,7 @@ internal class TemplatedValueTypes(private val project: Project, private val fil
     private val core: CoreSemantics = CoreSemantics(TargetVersionDetector.getInstance(project).targetVersion(root).version ?: CoreVersion.PINNED)
     private val rules = TemplatingRules(core, jinja2Native(project, root))
     private val settings = AnsibilityProjectSettings.getInstance(project).rootSettings(root)
-    private val resolver = ChainResolver(project, root, context.roleDir)
+    private val resolver = ChainResolver(project, root, context.roleDir, file.originalFile.virtualFile ?: file.viewProvider.virtualFile)
     private val evaluator = JinjaTypeEvaluator(rules, LexerJinjaTokenizer, resolver, settings.effectiveChainDepth, ProgressManager::checkCanceled)
     private val check = TemplatedTypeCheck(core)
     private val messages = TemplatedMessages(core.version)

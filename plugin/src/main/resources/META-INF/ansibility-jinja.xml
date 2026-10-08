@@ -58,7 +58,8 @@
         <!-- Re-types files when the claim settings or outer-language rules change (FileTypeManagerEx.makeFileTypesChange). -->
         <listener class="de.terletzkiy.ansibility.lang.jinja.filetype.AnsibleJinjaSettingsListener"
                   topic="de.terletzkiy.ansibility.settings.AnsibilityAppSettingsListener"/>
-        <!-- ansible.cfg added/removed, role markers, moved templates, Jinja appearing in files under templates/. -->
+        <!-- ansible.cfg added/removed/moved/renamed, role markers, directory events, Jinja appearing in files under
+             templates/: re-parses the files concerned (a global re-type only above 2000 files). -->
         <listener class="de.terletzkiy.ansibility.lang.jinja.filetype.AnsibleJinjaVfsListener"
                   topic="com.intellij.openapi.vfs.newvfs.BulkFileListenerBackgroundable"/>
     </applicationListeners>

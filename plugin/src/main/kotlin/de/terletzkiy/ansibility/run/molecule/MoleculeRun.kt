@@ -1,13 +1,11 @@
 package de.terletzkiy.ansibility.run.molecule
 
 import com.intellij.execution.ExecutionException
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.readAction
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.toNioPathOrNull
-import com.intellij.platform.ide.progress.runWithModalProgressBlocking
 import com.intellij.util.EnvironmentUtil
 import de.terletzkiy.ansibility.api.AnsibleRoot
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
@@ -18,6 +16,7 @@ import de.terletzkiy.ansibility.run.DockerTargets
 import de.terletzkiy.ansibility.run.PlaybookCommand
 import de.terletzkiy.ansibility.run.PlaybookExecutor
 import de.terletzkiy.ansibility.run.PlaybookPreparation
+import de.terletzkiy.ansibility.run.PreparationReporter
 import de.terletzkiy.ansibility.run.PreparedRun
 import de.terletzkiy.ansibility.run.RunAdditions
 import de.terletzkiy.ansibility.run.RunEventsSetup
@@ -29,18 +28,18 @@ import de.terletzkiy.ansibility.runtime.AnsibleTool
 import de.terletzkiy.ansibility.runtime.AnsibleToolchain
 import de.terletzkiy.ansibility.settings.RootKeys
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.jetbrains.annotations.TestOnly
 import java.io.File
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.security.MessageDigest
 
 /**
- * What a Molecule run of a role needs: the role's directory, its root (for the runner settings and the vault ids),
- * its scenarios (`molecule/<name>/molecule.yml`), the Compose services that mount it and have Molecule in their name,
- * and a local `molecule`.
+ * What a Molecule run of a role needs: the role's directory, its root (for the runner settings), its scenarios
+ * (`molecule/<name>/molecule.yml`), the Compose services that mount it and have Molecule in their name, and a local
+ * `molecule`.
  */
 class MoleculeRunContext(
     val roleDir: VirtualFile,
@@ -130,11 +129,14 @@ class MoleculeRunContext(
 }
 
 /**
- * Turns a [MoleculeSpec] into a [PreparedRun]: unlocks the root's vault ids that need no question (password files and
- * managers, remembered passwords: a role's vaulted values decrypt in the test as in a playbook run; no prompt, R17),
- * adds the events callback, the role's `MOLECULE_RUN_ID` unless the runner settings set one ([runId]), unbuffered
- * Python output (Molecule's stage lines and Ansible's events come as they happen), and builds the local or Compose
- * command.
+ * Turns a [MoleculeSpec] into a [PreparedRun]: adds the events callback, the role's `MOLECULE_RUN_ID` unless the runner
+ * settings set one ([runId]), unbuffered Python output (Molecule's stage lines and Ansible's events come as they
+ * happen), and builds the local or Compose command. No vault at all (plan amendment R19, D136, replacing R17's D126):
+ * nothing is unlocked, no vault secret or client is passed, so no Molecule run (single, bulk, stage rerun, destroy,
+ * automatic destroy) can ask for a password or open a password manager; the header says that vaulted values fail to
+ * decrypt. It runs in the run's tab and reports its phases there. A run of a role (other than its destroy) first waits
+ * for a destroy of the role that [MoleculeCleanup] launched and that has not ended (a stopped test's, a countdown's,
+ * Destroy Now), so it never works on instances that destroy removes; Stop ends the wait.
  */
 object MoleculePreparation {
     const val RUN_ID = "MOLECULE_RUN_ID"
@@ -148,27 +150,24 @@ object MoleculePreparation {
     fun runId(rolePath: Path): String =
         "ansibility-" + MessageDigest.getInstance("SHA-256").digest(rolePath.toString().toByteArray()).take(4).joinToString("") { "%02x".format(it) }
 
-    /** Null when the run cannot start. Blocks: on the EDT behind a modal progress. */
-    fun prepare(project: Project, spec: MoleculeSpec): PreparedRun? {
-        val title = message("molecule.progress.prepare")
-        return if (ApplicationManager.getApplication().isDispatchThread) {
-            runWithModalProgressBlocking(project, title) { prepareAsync(project, spec) }
-        } else {
-            runBlocking { prepareAsync(project, spec) }
-        }
-    }
-
-    /** [prepare] in a coroutine (a bulk run prepares all its roles under one progress). */
-    internal suspend fun prepareAsync(project: Project, spec: MoleculeSpec): PreparedRun {
+    /** The run of [spec], or an [ExecutionException] saying why it cannot start. Off the EDT; [reporter] hears what it does. */
+    internal suspend fun prepareAsync(project: Project, spec: MoleculeSpec, reporter: PreparationReporter = PreparationReporter.NONE): PreparedRun {
+        reporter.phase(message("molecule.prepare.phase.role"))
         val dir = withContext(Dispatchers.IO) { LocalFileSystem.getInstance().refreshAndFindFileByPath(spec.roleDir) }
             ?: throw ExecutionException(message("molecule.error.role.missing", spec.roleDir))
         val context = MoleculeRunContext.collect(project, dir) ?: throw ExecutionException(message("molecule.error.no.scenario", spec.roleDir))
         if (spec.scenario.isNotBlank() && spec.scenario !in context.scenarios) {
             throw ExecutionException(message("molecule.error.scenario.missing", spec.scenario, context.roleDir.name))
         }
+        if (spec.command != MoleculeCommand.DESTROY) {
+            MoleculeCleanup.getInstance(project).awaitDestroys(spec.roleDir) { destroy ->
+                reporter.phase(message("molecule.prepare.phase.destroy", MoleculeCleanup.subject(destroy)))
+            }
+        }
         val runner = context.runner(project)
         val header = ArrayList<String>()
         header += message("molecule.header", spec.command.id, spec.scenario.ifBlank { message("molecule.all.scenarios") }, context.roleDir.name)
+        header += message("molecule.header.vault.none")
         val executor = context.executor(spec)
         val target = if (executor == PlaybookExecutor.DOCKER) {
             context.dockerTarget(spec) ?: throw ExecutionException(message("molecule.error.no.service", context.roleDir.name))
@@ -176,8 +175,15 @@ object MoleculePreparation {
             null
         }
         val token = if (runner.runView) RunCallback.newToken() else null
-        // No password prompt: a test's own variables rarely need a vault, and a role library has no password to give.
-        val secrets = PlaybookPreparation.secretsFor(project, context.root, header, null, vaultPlaceholder = false, callback = token != null, askForVault = false)
+        // Only the callback (D136: no vault secret, no client). Written to the end even when Stop comes meanwhile;
+        // deleted then, or below on every later way out.
+        val secrets = RunSecrets.writeScripts {
+            try {
+                RunSecrets.create(PlaybookPreparation.secretsBase(), emptyList(), null, callback = if (token != null) RunCallback.source() else null)
+            } catch (e: IOException) {
+                throw ExecutionException(message("molecule.error.scripts", e.message.orEmpty()), e)
+            }
+        }
         try {
             val environment = LinkedHashMap<String, String>()
             environment += runner.environmentVariables

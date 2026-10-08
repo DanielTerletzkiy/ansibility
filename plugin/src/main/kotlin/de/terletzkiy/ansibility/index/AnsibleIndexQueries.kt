@@ -8,6 +8,7 @@ import com.intellij.util.indexing.ID
 import de.terletzkiy.ansibility.api.AnsibleRoot
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.FileContext
+import de.terletzkiy.ansibility.context.MoleculeView
 
 /** A value found in one file together with that file's query-time context. */
 data class InContext<T>(val file: VirtualFile, val context: FileContext, val value: T)
@@ -78,13 +79,13 @@ object AnsibleIndexQueries {
     fun plays(project: Project, root: AnsibleRoot): List<InContext<PlayEntry>> =
         values(project, PlayIndex.NAME, PlayIndex.KEY, RootFamily.of(project, root))
 
-    /** The `tags:` scalars in [root] that carry [tag]. */
-    fun tagUses(project: Project, root: AnsibleRoot, tag: String): List<InContext<Int>> =
-        values(project, TagIndex.NAME, tag, RootFamily.of(project, root))
+    /** The `tags:` scalars in [root] that carry [tag], as a request with [view] sees them (plan amendment R20, D153). */
+    fun tagUses(project: Project, root: AnsibleRoot, tag: String, view: MoleculeView = MoleculeView.INCLUDE): List<InContext<Int>> =
+        values(project, TagIndex.NAME, tag, RootFamily.of(project, root, view = view))
 
-    /** Every tag written in [root]. */
-    fun tagNames(project: Project, root: AnsibleRoot): Set<String> =
-        keys(project, TagIndex.NAME, RootFamily.of(project, root))
+    /** Every tag written in [root], as a request with [view] sees them. */
+    fun tagNames(project: Project, root: AnsibleRoot, view: MoleculeView = MoleculeView.INCLUDE): Set<String> =
+        keys(project, TagIndex.NAME, RootFamily.of(project, root, view = view))
 
     /** Render sites in [root] whose literal template name is [src]. */
     fun renders(project: Project, root: AnsibleRoot, src: String): List<InContext<RenderEntry>> =

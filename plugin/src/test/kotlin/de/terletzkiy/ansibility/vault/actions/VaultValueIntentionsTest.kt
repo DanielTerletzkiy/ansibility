@@ -61,7 +61,7 @@ class VaultValueIntentionsTest : VaultUiTestCase() {
         myFixture.editor.caretModel.moveToOffset(match.range.last + 2)
     }
 
-    private fun vaultTexts(): Set<String> = myFixture.availableIntentions.filter { it.familyName == "Ansible Vault" }.map { it.text }.toSet()
+    private fun vaultTexts(): Set<String> = myFixture.availableIntentions.filter { it.familyName == "Ansibility Vault" }.map { it.text }.toSet()
 
     private fun intention(text: String): IntentionAction = myFixture.availableIntentions.single { it.text == text }
 
@@ -84,7 +84,7 @@ class VaultValueIntentionsTest : VaultUiTestCase() {
         awaitAction()
     }
 
-    fun testTheIntentionsAreRegisteredUnderAnsibilityAnsibleVault() {
+    fun testTheIntentionsAreRegisteredUnderAnsibilityVault() {
         val intentions = listOf(
             VaultRevealIntention(), VaultCopyIntention(), VaultEditIntention(), VaultEncryptIntention(), VaultDecryptToPlainIntention(),
             VaultRekeyIntention(), VaultChangeIdIntention(),
@@ -92,10 +92,13 @@ class VaultValueIntentionsTest : VaultUiTestCase() {
         val beans = ExtensionPointName<IntentionActionBean>("com.intellij.intentionAction").extensionList
             .filter { it.className.startsWith(VaultIntentionBase::class.java.packageName + ".") }
         assertEquals(intentions.map { it.javaClass.name }.toSet(), beans.map { it.className }.toSet())
-        for (bean in beans) assertEquals(bean.className, listOf("Ansibility", "Ansible Vault"), bean.categories?.toList())
+        // R19 (D141): category Ansibility › Vault like the inspections and the settings page, family "Ansibility Vault"
+        // (R18: Ansibility › Ansible Vault and "Ansible Vault"); the intention texts stay unprefixed.
+        for (bean in beans) assertEquals(bean.className, listOf("Ansibility", "Vault"), bean.categories?.toList())
         for (intention in intentions) {
             assertFalse("classic intentions: crypto in the background, the write on the EDT", intention.startInWriteAction())
-            assertEquals("Ansible Vault", intention.familyName)
+            assertEquals("Ansibility Vault", intention.familyName)
+            assertFalse(intention.text, intention.text.startsWith("Ansibility"))
         }
     }
 

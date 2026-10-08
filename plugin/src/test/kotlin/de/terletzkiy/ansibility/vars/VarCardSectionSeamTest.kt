@@ -56,7 +56,7 @@ class VarCardSectionSeamTest : VarsTestCase() {
 
         val rowAt = html.indexOf("SEAM-SECTION")
         assertTrue("SECTION inside the table", rowAt in sectionsStart until sectionsEnd)
-        for (builtIn in listOf("Runtime default", "Set in", "This definition")) {
+        for (builtIn in listOf(">Default<", ">Set in<", ">This definition<")) {
             val at = html.indexOf(builtIn)
             if (at >= 0) assertTrue("after the built-in row $builtIn", rowAt > at)
         }

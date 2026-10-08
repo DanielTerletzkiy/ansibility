@@ -181,9 +181,9 @@ interface InventoryService {
     fun playbookVarFiles(root: AnsibleRoot): List<VarFile>
 
     /**
-     * The molecule pseudo-inventories of [root]'s roles and of `<root>/molecule`, by role and scenario name. Empty when
-     * molecule support is switched off in the project settings; scenarios in ignored paths or in ghost role
-     * directories are left out.
+     * The molecule pseudo-inventories of [root]'s roles and of `<root>/molecule`, by role and scenario name. Scenarios
+     * in ignored paths or in ghost role directories are left out; the Molecule settings do not change the list (plan
+     * amendment R20: "Molecule support" is gone, Molecule files are always classified).
      */
     fun moleculeInventories(root: AnsibleRoot): List<MoleculeInventory>
 

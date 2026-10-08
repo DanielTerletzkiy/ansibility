@@ -2,5 +2,17 @@
      M10 workflow integrations register here. -->
 <idea-plugin>
     <extensions defaultExtensionNs="com.intellij">
+        <!-- d167: the commit check (plan amendment R21; X99 of R7/R8): plaintext private keys, vault password files and
+             broken or decrypted vaults stop a commit with Commit Anyway and Encrypt Files…. CommitCheck, early, dumb
+             aware; public API only (no BooleanCommitOption: its switch is on the Vault settings page). -->
+        <checkinHandlerFactory implementation="de.terletzkiy.ansibility.vault.vcs.impl.SecretCheckinHandlerFactory"/>
+        <!-- /d167 -->
+    </extensions>
+    <extensions defaultExtensionNs="de.terletzkiy.ansibility">
+        <!-- v108: the VCS status of files for ANS-V108 (plan amendment R21, D162): ProjectLevelVcsManager,
+             ChangeListManager and FileStatusManager.addFileStatusListener (public API only). This fragment loads only
+             with VCS support, so no always-loaded class touches a VCS class. -->
+        <trackedStatusLookup implementation="de.terletzkiy.ansibility.vault.vcs.impl.VcsTrackedStatusLookup"/>
+        <!-- /v108 -->
     </extensions>
 </idea-plugin>

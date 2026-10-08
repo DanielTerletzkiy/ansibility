@@ -25,7 +25,8 @@ class UsagesCardSectionTest : UsagesTestCase() {
         val link = LINK.find(html)?.groupValues?.get(1) ?: error("no Show usages link in $html")
 
         assertNull("the link resolves to nothing (no card history entry)", runReadActionBlocking { UsagesCardLinkHandler().resolveLink(target, link) })
-        assertEquals(VarFindUsagesTest.WEB_PORT, describeUsages(awaitUsageView()))
+        // From the role's template: no molecule override while Molecule is hidden (R20/D153).
+        assertEquals(VarFindUsagesTest.WEB_PORT_PRODUCTION, describeUsages(awaitUsageView()))
     }
 
     fun testTheRowComesLastAndNeverOnTheHint() {

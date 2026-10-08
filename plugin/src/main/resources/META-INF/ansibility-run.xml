@@ -18,6 +18,8 @@
                              nonDefaultProject="true"/>
         <applicationService serviceInterface="de.terletzkiy.ansibility.run.become.BecomePrompter"
                             serviceImplementation="de.terletzkiy.ansibility.run.become.BecomeDialogPrompter"/>
+        <!-- R19: how runs ended (passed, failed, stopped, not started); users set the balloon style in Settings › Notifications. -->
+        <notificationGroup id="Ansibility.Runs" displayType="BALLOON" bundle="messages.AnsibilityRunBundle" key="notification.group.runs"/>
     </extensions>
 
     <actions resource-bundle="messages.AnsibilityRunBundle">

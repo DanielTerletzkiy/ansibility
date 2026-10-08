@@ -15,12 +15,13 @@ import de.terletzkiy.ansibility.api.PlayRef
 import de.terletzkiy.ansibility.api.RoleReach
 import de.terletzkiy.ansibility.api.TemplateContextService
 import de.terletzkiy.ansibility.context.AnsibleLayout
+import de.terletzkiy.ansibility.context.MoleculeVisibility
 import de.terletzkiy.ansibility.model.inventory.EnvironmentModel
-import de.terletzkiy.ansibility.semantics.inventory.InventoryLocation
 import de.terletzkiy.ansibility.model.inventory.ModelInputs
 import de.terletzkiy.ansibility.model.task.TaskFileKind
 import de.terletzkiy.ansibility.model.task.TaskFileModels
 import de.terletzkiy.ansibility.model.task.YamlFiles
+import de.terletzkiy.ansibility.semantics.inventory.InventoryLocation
 import de.terletzkiy.ansibility.yaml.YamlPaths
 import org.jetbrains.yaml.psi.YAMLFile
 
@@ -38,8 +39,14 @@ import org.jetbrains.yaml.psi.YAMLFile
  * | playbook | the play at the caret, else the plays the playbook runs |
  * | `vars_files` target | where the plays that load it run |
  * | molecule file | its scenario's pseudo-inventory |
- * | golden role (no inventory) | its molecule scenarios |
+ * | golden role (no inventory) | its molecule scenarios (with `moleculeHosts`; otherwise "no inventory") |
  * | other | [HostScopeOrigin.RootWide]: the selection |
+ *
+ * `moleculeHosts` (plan amendment R20, D156): whether a role library's role without inventory may use its Molecule
+ * scenarios as its hosts. Inspections ([AnsibleContextServiceImpl.allHostsScope]) and the other presentation scopes
+ * ([AnsibleContextServiceImpl.hostScope]: Template Preview, value previews, banners, Show Ansible Context) always pass
+ * true; cards, the status-bar segment and Ctrl+B's ranking ([AnsibleContextServiceImpl.cardScope]) pass "Show Molecule in
+ * navigation and search", so with it off such a role's cards say "no inventory".
  *
  * An inventory-level file's hosts are evaluated in every play that hits them (deduplicated, [ContextModel.deduplicate]),
  * or inventory-only when no play does. Call in a read action in smart mode (render contexts and reach read indexes).
@@ -63,10 +70,10 @@ internal class FileScopes(
         else -> ""
     }
 
-    /** The file scope of [file] at [offset] (negative: file level) in [root]. */
-    fun of(root: AnsibleRoot, file: VirtualFile, context: FileContext?, offset: Int): FileScope {
+    /** The file scope of [file] at [offset] (negative: file level) in [root]; [moleculeHosts] as in the class comment. */
+    fun of(root: AnsibleRoot, file: VirtualFile, context: FileContext?, offset: Int, moleculeHosts: Boolean): FileScope {
         if (context == null) return rootWide(root)
-        val molecule = context.kind in MOLECULE_KINDS || context.moleculeScenarioDir != null
+        val molecule = MoleculeVisibility.isMoleculeFile(context.root, file)
         return when {
             molecule -> moleculeScope(root, context)
             context.kind == FileKind.HOST_VARS && context.host != null -> hostVarsScope(root, file, context, context.host)
@@ -75,8 +82,8 @@ internal class FileScopes(
             context.kind == FileKind.INVENTORY_INI && context.environment != null -> inventoryScope(root, file, context.environment, offset, ini = true)
             context.kind == FileKind.PLAYBOOK -> playbookScope(root, file, offset)
             context.kind == FileKind.ROLE_TEMPLATE && context.roleName != null && context.roleDir != null ->
-                templateScope(root, file, context.roleName, context.roleDir)
-            context.roleName != null && context.roleDir != null -> roleScope(root, context.roleName, context.roleDir)
+                templateScope(root, file, context.roleName, context.roleDir, moleculeHosts)
+            context.roleName != null && context.roleDir != null -> roleScope(root, context.roleName, context.roleDir, moleculeHosts)
             context.kind == FileKind.OTHER -> varsFilesScope(root, file) ?: rootWide(root)
             else -> rootWide(root)
         }
@@ -251,10 +258,10 @@ internal class FileScopes(
 
     // ------------------------------------------------------------------------------------------------ roles
 
-    private fun roleScope(root: AnsibleRoot, role: String, roleDir: VirtualFile): FileScope {
+    private fun roleScope(root: AnsibleRoot, role: String, roleDir: VirtualFile, moleculeHosts: Boolean): FileScope {
         val reach = reach(root, role)
         if (reach.targets.isEmpty() && model.environments(root).isEmpty()) {
-            val scenarios = model.molecules(root).filter { it.scenarioDir.parent?.parent == roleDir }
+            val scenarios = if (moleculeHosts) model.molecules(root).filter { it.scenarioDir.parent?.parent == roleDir } else emptyList()
             if (scenarios.isNotEmpty()) {
                 return FileScope(HostScopeOrigin.RoleReach(role, emptyList()), scenarios.flatMap { model.moleculeTargets(root, it) }, null, role)
             }
@@ -279,13 +286,13 @@ internal class FileScopes(
     }
 
     /** A template applies where the roles that render it run (playbook-task renders: where that play runs). */
-    private fun templateScope(root: AnsibleRoot, template: VirtualFile, ownRole: String, roleDir: VirtualFile): FileScope {
+    private fun templateScope(root: AnsibleRoot, template: VirtualFile, ownRole: String, roleDir: VirtualFile, moleculeHosts: Boolean): FileScope {
         // The render contexts have their own cache: the scope depends on what they say, compared by value.
         val renderers = ModelInputs.untracked { renderers(root, template) }
         ModelInputs.external(renderers) { renderers(root, template) }
         val roles = renderers.roles
         val directPlays = renderers.directPlays
-        if (roles.isEmpty() && directPlays.isEmpty()) return roleScope(root, ownRole, roleDir)
+        if (roles.isEmpty() && directPlays.isEmpty()) return roleScope(root, ownRole, roleDir, moleculeHosts)
         val primary = ownRole.takeIf { it in roles } ?: roles.firstOrNull() ?: ownRole
         val reaches = roles.map { reach(root, it) }
         val plays = (reaches.flatMap { it.plays } + directPlays).distinct()
@@ -332,7 +339,5 @@ internal class FileScopes(
         val INI_SECTION = Regex("""^[ \t]*\[([^\]:]+)(?::\w+)?][ \t]*$""", RegexOption.MULTILINE)
         const val HOSTS = "hosts"
         const val CHILDREN = "children"
-
-        val MOLECULE_KINDS = setOf(FileKind.MOLECULE_CONFIG, FileKind.MOLECULE_PLAYBOOK, FileKind.MOLECULE_TASKS, FileKind.MOLECULE_VARS)
     }
 }

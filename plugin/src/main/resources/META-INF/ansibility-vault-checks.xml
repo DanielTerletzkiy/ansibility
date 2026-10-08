@@ -1,4 +1,4 @@
-<!-- Area fragment: vault checks (V4: coexistence and ANS-V101..V103; V9: V104..V106). Included from plugin.xml; only the owning work units edit this file, each in its own block. -->
+<!-- Area fragment: vault checks (V4: coexistence and ANS-V101..V103; V9: V104..V106; ANS-V113 secret file modes; R21: ANS-V107, ANS-V108, ANS-V114). Included from plugin.xml; only the owning work units edit this file, each in its own block. -->
 <idea-plugin>
     <!-- v4: Ansible Vault Editor coexistence (F7.12). The lookup of its intentions is registered by the optional
          ansibility-vault.xml, which loads only with that plugin; coexist.vault.VaultEditorCoexistence is the gate. -->
@@ -7,6 +7,14 @@
                         interface="de.terletzkiy.ansibility.coexist.vault.VaultEditorLookup" dynamic="true"/>
     </extensionPoints>
     <!-- /v4 -->
+    <!-- v108: the VCS status of a file for ANS-V108 (plan amendment R21, D162). Implemented only by the optional
+         ansibility-vcs.xml (loaded with com.intellij.modules.vcs); vault.vcs.TrackedStatuses is the gate other areas
+         call, and without an extension every file counts as not under version control. -->
+    <extensionPoints>
+        <extensionPoint qualifiedName="de.terletzkiy.ansibility.trackedStatusLookup"
+                        interface="de.terletzkiy.ansibility.vault.vcs.TrackedStatusLookup" dynamic="true"/>
+    </extensionPoints>
+    <!-- /v108 -->
 
     <extensions defaultExtensionNs="com.intellij">
         <!-- v4: the password-free structural vault checks ANS-V101..V103 (plan amendment R7/R8, "R7 diagnostics"). No
@@ -28,5 +36,41 @@
                          enabledByDefault="true" level="ERROR"
                          implementationClass="de.terletzkiy.ansibility.inspections.vault.AnsibleVaultTrailingWhitespaceInspection"/>
         <!-- /v4 -->
+        <!-- v113: ANS-V113, a secret written to a file others can read (template, copy, lineinfile, blockinfile, ini_file
+             tasks). YAML task files only; the severity is the profile's (WARNING by default). Nothing here decrypts. -->
+        <localInspection language="yaml" shortName="AnsibleSecretFileMode"
+                         bundle="messages.AnsibilityVaultChecksBundle" key="inspection.v113.display.name"
+                         groupPath="Ansibility" groupBundle="messages.AnsibilityVaultChecksBundle" groupKey="inspection.group.vault"
+                         enabledByDefault="true" level="WARNING"
+                         implementationClass="de.terletzkiy.ansibility.inspections.vault.AnsibleSecretFileModeInspection"/>
+        <!-- /v113 -->
+        <!-- v107: ANS-V107 not a whole-file vault (plan amendment R21, D159): an envelope Ansible does not see because
+             a !vault line, a preamble, indentation, a byte order mark, quotes or other text come first. No language:
+             key files, certificates and templates are plain text or of any type. The severity comes from
+             SeverityPolicy (ERROR by default). Nothing here decrypts. -->
+        <localInspection shortName="AnsibleVaultNotWholeFile"
+                         bundle="messages.AnsibilityVaultChecksBundle" key="inspection.v107.display.name"
+                         groupPath="Ansibility" groupBundle="messages.AnsibilityVaultChecksBundle" groupKey="inspection.group.vault"
+                         enabledByDefault="true" level="ERROR"
+                         implementationClass="de.terletzkiy.ansibility.inspections.vault.AnsibleVaultNotWholeFileInspection"/>
+        <!-- /v107 -->
+        <!-- v114: ANS-V114 a vault envelope in a YAML value without the !vault tag (plan amendment R21, D163). YAML only;
+             the severity comes from SeverityPolicy (WARNING by default). Nothing here decrypts. -->
+        <localInspection language="yaml" shortName="AnsibleVaultUntaggedEnvelope"
+                         bundle="messages.AnsibilityVaultChecksBundle" key="inspection.v114.display.name"
+                         groupPath="Ansibility" groupBundle="messages.AnsibilityVaultChecksBundle" groupKey="inspection.group.vault"
+                         enabledByDefault="true" level="WARNING"
+                         implementationClass="de.terletzkiy.ansibility.inspections.vault.AnsibleVaultUntaggedEnvelopeInspection"/>
+        <!-- /v114 -->
+        <!-- v108: ANS-V108 plaintext private key (plan amendment R21, D160-D162): keys by their signatures, key-like names
+             without a readable key and committed vault password files. No language: keys live in files of any type. The
+             severity comes from SeverityPolicy per finding (ERROR by default; protected keys, key-like names and files
+             not committed yet are WARNING; ignored and allowlisted files get nothing). Nothing here decrypts. -->
+        <localInspection shortName="AnsiblePlaintextPrivateKey"
+                         bundle="messages.AnsibilityVaultChecksBundle" key="inspection.v108.display.name"
+                         groupPath="Ansibility" groupBundle="messages.AnsibilityVaultChecksBundle" groupKey="inspection.group.vault"
+                         enabledByDefault="true" level="ERROR"
+                         implementationClass="de.terletzkiy.ansibility.inspections.vault.AnsiblePlaintextPrivateKeyInspection"/>
+        <!-- /v108 -->
     </extensions>
 </idea-plugin>

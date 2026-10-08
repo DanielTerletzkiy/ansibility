@@ -10,6 +10,8 @@ import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.FileContext
 import de.terletzkiy.ansibility.api.ProjectLayoutService
 import de.terletzkiy.ansibility.api.RootKind
+import de.terletzkiy.ansibility.context.MoleculeView
+import de.terletzkiy.ansibility.context.MoleculeVisibility
 
 /**
  * The files one [AnsibleRoot] resolves against (plan A.7 "Scope", DEV.md rule 6): the root directory minus every other
@@ -19,22 +21,34 @@ import de.terletzkiy.ansibility.api.RootKind
  *
  * Index lookups run with [scope]; each hit is then confirmed with [admits], because a file inside the scope may still
  * belong to no root (a skipped `.ansible` cache) or to a root the scope cannot express.
+ *
+ * [view] (plan amendment R20, D153): with [MoleculeView.EXCLUDE], [admits] also refuses Molecule files
+ * ([MoleculeVisibility.isMoleculeFile]), so indexed definitions, uses and in-file definitions of navigation and search
+ * started outside Molecule leave them out. The model, rename and inspections use [MoleculeView.INCLUDE].
  */
 class RootFamily internal constructor(
     val root: AnsibleRoot,
     val scope: GlobalSearchScope,
     /** Directories outside the root that belong to its family. */
     val familyDirs: List<VirtualFile>,
+    /** Whether Molecule files belong to the results ([MoleculeView.INCLUDE]) or not. */
+    val view: MoleculeView = MoleculeView.INCLUDE,
 ) {
-    /** True when [file], classified as [context], belongs to [root]'s results. */
+    /** True when [file], classified as [context], belongs to [root]'s results (in [view]). */
     fun admits(file: VirtualFile, context: FileContext): Boolean =
-        context.root.dir == root.dir || familyDirs.any { VfsUtilCore.isAncestor(it, file, false) }
+        (context.root.dir == root.dir || familyDirs.any { VfsUtilCore.isAncestor(it, file, false) }) &&
+            (view.includesMolecule || !MoleculeVisibility.isMoleculeFile(context.root, file))
 
     companion object {
         private const val WORKTREES = ".claude/worktrees"
 
-        /** The family of [root], computed from the current roots of [workspace]. */
-        fun of(project: Project, root: AnsibleRoot, workspace: AnsibleWorkspace = AnsibleWorkspace.getInstance(project)): RootFamily {
+        /** The family of [root], computed from the current roots of [workspace], as a request with [view] sees it. */
+        fun of(
+            project: Project,
+            root: AnsibleRoot,
+            workspace: AnsibleWorkspace = AnsibleWorkspace.getInstance(project),
+            view: MoleculeView = MoleculeView.INCLUDE,
+        ): RootFamily {
             val roots = workspace.roots()
             val excluded = roots.filter { it.dir != root.dir && VfsUtilCore.isAncestor(root.dir, it.dir, true) }.map { it.dir } +
                 listOfNotNull(root.dir.findFileByRelativePath(WORKTREES)?.takeIf { it.isDirectory })
@@ -61,7 +75,7 @@ class RootFamily internal constructor(
             if (family.isNotEmpty()) {
                 scope = scope.uniteWith(GlobalSearchScopesCore.directoriesScope(project, true, *family.toTypedArray()))
             }
-            return RootFamily(root, scope, family)
+            return RootFamily(root, scope, family, view)
         }
     }
 }

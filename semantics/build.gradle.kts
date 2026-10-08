@@ -34,6 +34,8 @@ tasks.test {
     // Opt-in corpus tests (ANSIBLE_INFRA_REPO, ANSIBLE_INVENTORY_BIN) must re-run when these variables change.
     inputs.property("ansibleInfraRepo", providers.environmentVariable("ANSIBLE_INFRA_REPO").orElse(""))
     inputs.property("ansibleInventoryBin", providers.environmentVariable("ANSIBLE_INVENTORY_BIN").orElse(""))
+    // Opt-in PrivateKeyToolOracleTest: a directory for throwaway keys made with openssl and ssh-keygen.
+    inputs.property("ansibilityKeyTools", providers.environmentVariable("ANSIBILITY_KEY_TOOLS").orElse(""))
     // RenderOracleTest lists this many mismatches per case (default 25).
     providers.gradleProperty("oracleMismatches").orNull?.let { systemProperty("oracle.mismatches", it) }
 }

@@ -120,7 +120,8 @@ class JinjaVarCompletionTiersTest : JinjaCompletionTestCase() {
     fun testLoopItemMembersInTaskAndNoItemInTheLoopValue() {
         val members = completeAfterEdit(webTasks, 10, "PLACEHOLDER", "item.")
         assertEquals(listOf("name", "port"), strings(members))
-        assertEquals("int | = 80", describe(members, "port"))
+        // Plan amendment R23 (D174): the spec's sub-option `default: 80` is never applied, so no `= 80` tail.
+        assertEquals("int |", describe(members, "port"))
         reset(webTasks)
         val inLoop = completeAfterEdit(webTasks, 11, "web_sites", "it")
         assertDoesntContain(strings(inLoop), "item")

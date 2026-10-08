@@ -83,8 +83,8 @@ class CoexistenceSettingsWiringTest : DispatchTestCase() {
             assertFalse(exclusion.isExcluded(project, tasks))
             assertEquals("the toggle resets the schema mappings", 1, resets)
 
-            settings.update { it.copy(paths = it.paths.copy(moleculeSupport = false)) }
-            assertEquals("other path settings do not", 1, resets)
+            settings.update { it.copy(paths = it.paths.copy(detachedRule = false), molecule = MoleculeSettings(runTests = false, showInNavigation = true)) }
+            assertEquals("other path settings and the Molecule settings do not", 1, resets)
 
             settings.update { it.copy(paths = it.paths.copy(schemaStoreExclusion = true)) }
             assertTrue(exclusion.isExcluded(project, tasks))

@@ -21,9 +21,15 @@ class MoleculeResults(private val project: Project) : RoleTests {
     private val results = ConcurrentHashMap<String, Map<String, RoleTestState>>()
     private val running = ConcurrentHashMap<String, Int>()
 
+    /**
+     * A role has tests when it has a Molecule scenario and "Run Molecule tests" is on (R19/D140, R20/D152: off hides
+     * every marker and entry point).
+     */
+    override fun hasTests(roleDir: VirtualFile): Boolean = MoleculeScenarios.runsTests(project) && MoleculeScenarios.hasScenarios(roleDir)
+
     override fun stateOf(roleDir: VirtualFile): RoleTestState {
-        if (MoleculeRunContext.scenariosOf(roleDir).isEmpty()) return RoleTestState.NONE
-        if ((running[roleDir.path] ?: 0) > 0) return RoleTestState.RUNNING
+        if (!hasTests(roleDir)) return RoleTestState.NONE
+        if (isRunning(roleDir.path)) return RoleTestState.RUNNING
         val states = results[roleDir.path]?.values.orEmpty()
         return when {
             RoleTestState.FAILED in states -> RoleTestState.FAILED
@@ -31,6 +37,9 @@ class MoleculeResults(private val project: Project) : RoleTests {
             else -> RoleTestState.NOT_RUN
         }
     }
+
+    /** Whether a run of the role at [roleDir] runs now (from its start until its end). */
+    fun isRunning(roleDir: String): Boolean = (running[roleDir] ?: 0) > 0
 
     /** The last result of [scenario] of the role at [roleDir], or null before it ran. */
     fun scenarioState(roleDir: String, scenario: String): RoleTestState? = results[roleDir]?.get(scenario)

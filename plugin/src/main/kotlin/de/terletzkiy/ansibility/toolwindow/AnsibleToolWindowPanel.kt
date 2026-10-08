@@ -8,6 +8,7 @@ import com.intellij.ide.util.treeView.NodeRenderer
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.ActionGroup
 import com.intellij.openapi.actionSystem.ActionManager
+import com.intellij.openapi.actionSystem.ActionToolbar
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
@@ -17,6 +18,7 @@ import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.EDT
 import com.intellij.openapi.application.ModalityState
+import com.intellij.openapi.application.asContextElement
 import com.intellij.openapi.application.readAction
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.DumbService
@@ -38,6 +40,7 @@ import com.intellij.util.ui.tree.TreeUtil
 import de.terletzkiy.ansibility.api.HostKey
 import de.terletzkiy.ansibility.api.PlayGraph
 import de.terletzkiy.ansibility.api.RoleTests
+import de.terletzkiy.ansibility.api.WorkspaceScopeService
 import de.terletzkiy.ansibility.settings.AnsibilitySettingsListener
 import de.terletzkiy.ansibility.settings.WorkspaceState
 import de.terletzkiy.ansibility.toolwindow.host.EffectivePlayChoices
@@ -48,6 +51,8 @@ import de.terletzkiy.ansibility.toolwindow.model.NodeDetails
 import de.terletzkiy.ansibility.toolwindow.model.TreeContext
 import de.terletzkiy.ansibility.toolwindow.model.TreeView
 import de.terletzkiy.ansibility.toolwindow.model.WorkspaceSnapshot
+import de.terletzkiy.ansibility.toolwindow.model.rootsKnown
+import de.terletzkiy.ansibility.workspace.WorkspaceScopeListener
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -80,7 +85,12 @@ import javax.swing.tree.TreeSelectionModel
  *   computation of an older one.
  * - A play chosen in the Effective vars selector ([choosePlay]), a change of the Ansible context (HA3's
  *   `workspaceStateChanged`) and the end of indexing re-render the tree from the current snapshot: nothing is rebuilt,
- *   the cached tables answer (or compute what the indexes now allow).
+ *   the cached tables answer (or compute what the indexes now allow). A change of the workspace scope re-renders
+ *   the Roles tab's tree (plan amendment R19, D143: a role-name row's marker and "in scope" count follow the scope
+ *   picker); no other row and no details read the scope.
+ * - The toolbar is asked to update after every snapshot and scope change ([updateToolbar]): actions whose visibility
+ *   depends on them (Run Molecule Tests, D140) appear and disappear without waiting for the next mouse move, also
+ *   once a named scope's roots are worked out in the background.
  * - Expand All ([expandAll]) leaves the per-host subtrees collapsed (a host's Effective vars and Targeted by).
  */
 class AnsibleToolWindowPanel(private val project: Project, val view: TreeView = TreeView.REPOS) : SimpleToolWindowPanel(true, true), Disposable {
@@ -102,9 +112,15 @@ class AnsibleToolWindowPanel(private val project: Project, val view: TreeView = 
     }
 
     private val refresher: AnsibleTreeRefresher
+
+    /** The toolbar, kept to update its actions after a snapshot or scope change; tests read its visible actions. */
+    internal lateinit var actionToolbar: ActionToolbar
+        private set
+
     private var expandedOnce = false
     private var detailsUpdateScheduled = false
     private var detailsJob: Job? = null
+    private var scopeRootsJob: Job? = null
     private var detailsGeneration = 0L
     private val shownDetails = AtomicLong()
 
@@ -156,6 +172,18 @@ class AnsibleToolWindowPanel(private val project: Project, val view: TreeView = 
         )
         // R16: a role's Molecule tests started or ended: its marker changes.
         connection.subscribe(RoleTests.TOPIC, RoleTests.Listener { scheduleRerender() })
+        // R19: the scope picker decides what a role-name row runs (its marker and "in scope" count) and whether the
+        // toolbar offers Molecule tests. Fired on any thread, often (every editor switch under "Current file's root"):
+        // only the Roles tab's rows read the scope, so only that tree re-renders; the snapshot and the details stay.
+        connection.subscribe(
+            WorkspaceScopeListener.TOPIC,
+            WorkspaceScopeListener {
+                ApplicationManager.getApplication().invokeLater({
+                    if (view == TreeView.ROLES) structureModel.invalidateAsync()
+                    updateToolbar()
+                }, ModalityState.any()) { isDisposed }
+            },
+        )
         // Runtime markers (variable index) and var-file effects (the background summary) wait for the indexes.
         connection.subscribe(
             DumbService.DUMB_MODE,
@@ -187,6 +215,8 @@ class AnsibleToolWindowPanel(private val project: Project, val view: TreeView = 
             tree.emptyText.clear()
         }
         val done = structureModel.invalidateAsync()
+        // Run Molecule Tests shows only while a role in scope has scenarios, which the new snapshot may change (R19).
+        updateToolbar()
         if (!expandedOnce && snapshot.roots.isNotEmpty() && view == TreeView.REPOS) {
             expandedOnce = true
             done.thenRun {
@@ -232,6 +262,7 @@ class AnsibleToolWindowPanel(private val project: Project, val view: TreeView = 
     override fun dispose() {
         isDisposed = true
         detailsJob?.cancel()
+        scopeRootsJob?.cancel()
     }
 
     /**
@@ -243,6 +274,29 @@ class AnsibleToolWindowPanel(private val project: Project, val view: TreeView = 
     }
 
     private fun scheduleRerender() = ApplicationManager.getApplication().invokeLater({ rerender() }, ModalityState.any()) { isDisposed }
+
+    /**
+     * Updates the toolbar's actions in the background (their `update` runs on the BGT). While a named scope's roots are
+     * still being worked out, Run Molecule Tests counts every root rather than walking in its update (D140), and the
+     * workspace scope service says nothing when it has finished: the roots are worked out here in a background read
+     * action (the service caches them), and the toolbar updates again once they are known. Without any role with tests
+     * the button hides either way, and nothing is worked out. Must be called on the EDT.
+     */
+    private fun updateToolbar() {
+        if (isDisposed) return
+        actionToolbar.updateActionsAsync()
+        if (view == TreeView.ENVIRONMENTS) return
+        val scope = WorkspaceScopeService.getInstance(project).current()
+        val snapshot = snapshot
+        if (scope.rootsKnown() || snapshot.roots.none { snapshot.hasTestedRoles(it) }) return
+        scopeRootsJob?.cancel()
+        scopeRootsJob = AnsibleToolWindowScope.getInstance(project).scope.launch(Dispatchers.Default) {
+            readAction { scope.roots }
+            withContext(Dispatchers.EDT + ModalityState.any().asContextElement()) {
+                if (!isDisposed) actionToolbar.updateActionsAsync()
+            }
+        }
+    }
 
     /** Re-renders every visible node from the current snapshot (the presentation changed, the structure did not). */
     private fun rerender() {
@@ -351,6 +405,7 @@ class AnsibleToolWindowPanel(private val project: Project, val view: TreeView = 
         }
         val toolbar = ActionManager.getInstance().createActionToolbar(TOOLBAR_PLACE, group, true)
         toolbar.setTargetComponent(tree)
+        actionToolbar = toolbar
         return toolbar.component
     }
 

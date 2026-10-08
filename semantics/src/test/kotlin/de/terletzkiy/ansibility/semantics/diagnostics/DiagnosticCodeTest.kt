@@ -4,14 +4,18 @@ import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode.P001B_FALLB
 import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode.P001_INEFFECTIVE_OVERRIDE
 import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode.P002_REDUNDANT_OVERRIDE
 import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode.P003_REQUIRED_VAR_UNREACHABLE
+import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode.S003_SPEC_DEFAULT_MISMATCH
+import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode.S004_SPEC_DEFAULT_NOT_APPLIED
+import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode.S005_SPEC_DEFAULT_UNDOCUMENTED
 import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode.V101_MALFORMED_ENVELOPE
 import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode.V102_FOLDED_VAULT_VALUE
 import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode.V103_TRAILING_WHITESPACE
 import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode.V104_NO_ID_DECRYPTS
 import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode.V105_LABEL_SECRET_MISMATCH
 import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode.V106_UNKNOWN_VAULT_LABEL
-import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode.V107_PASTED_VAULT_BLOCK
-import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode.V108_UNVAULTED_KEY_FILE
+import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode.V107_NOT_WHOLE_FILE_VAULT
+import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode.V108_PLAINTEXT_PRIVATE_KEY
+import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode.V114_UNTAGGED_VAULT_VALUE
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -43,14 +47,17 @@ class DiagnosticCodeTest {
             V104_NO_ID_DECRYPTS to Triple(Level.WARNING, Level.WARNING, true),
             V105_LABEL_SECRET_MISMATCH to Triple(Level.WEAK_WARNING, Level.WEAK_WARNING, true),
             V106_UNKNOWN_VAULT_LABEL to Triple(Level.INFO, Level.INFO, true),
-            V107_PASTED_VAULT_BLOCK to Triple(Level.WARNING, Level.WARNING, false),
-            V108_UNVAULTED_KEY_FILE to Triple(Level.WARNING, Level.WARNING, false),
+            // R21 (D159, D160): not a whole-file vault and a plaintext private key are errors the user asked for;
+            // D163: ANS-V114 is an extra at WARNING.
+            V107_NOT_WHOLE_FILE_VAULT to Triple(Level.ERROR, Level.ERROR, true),
+            V108_PLAINTEXT_PRIVATE_KEY to Triple(Level.ERROR, Level.ERROR, true),
+            V114_UNTAGGED_VAULT_VALUE to Triple(Level.WARNING, Level.WARNING, false),
         )
         for ((code, levels) in expected) {
             assertEquals(levels, Triple(code.documented, code.runtimeFaithful, code.requested), code.id)
         }
         assertEquals(
-            (101..108).map { "ANS-V$it" },
+            (101..108).map { "ANS-V$it" } + "ANS-V114",
             DiagnosticCode.entries.map { it.id }.filter { it.startsWith("ANS-V1") }.sorted(),
         )
     }
@@ -67,6 +74,25 @@ class DiagnosticCodeTest {
         for ((code, levels) in expected) {
             assertEquals(levels, Triple(code.documented, code.runtimeFaithful, code.requested), code.id)
         }
+    }
+
+    @Test
+    fun `spec default codes of amendment R23`() {
+        // code to (documented, runtime-faithful, requested)
+        val expected = mapOf(
+            S003_SPEC_DEFAULT_MISMATCH to Triple(Level.ERROR, Level.ERROR, true),
+            S004_SPEC_DEFAULT_NOT_APPLIED to Triple(Level.WARNING, Level.WARNING, false),
+            S005_SPEC_DEFAULT_UNDOCUMENTED to Triple(Level.INFO, Level.INFO, false),
+        )
+        for ((code, levels) in expected) {
+            assertEquals(levels, Triple(code.documented, code.runtimeFaithful, code.requested), code.id)
+        }
+        assertEquals(
+            (1..5).map { "ANS-S00$it" },
+            DiagnosticCode.entries.map { it.id }.filter { it.startsWith("ANS-S") }.sorted(),
+        )
+        assertEquals(Level.ERROR, S003_SPEC_DEFAULT_MISMATCH.levelFor(Preset.STRICT))
+        assertEquals(Level.INFO, S005_SPEC_DEFAULT_UNDOCUMENTED.levelFor(Preset.STRICT))
     }
 
     @Test

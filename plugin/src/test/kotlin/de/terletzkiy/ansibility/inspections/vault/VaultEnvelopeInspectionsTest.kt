@@ -174,6 +174,7 @@ class VaultEnvelopeInspectionsTest : BasePlatformTestCase() {
         assertEquals(envelope.format(), myFixture.editor.document.text)
         assertEquals(emptyList<DiagnosticCode>(), codes("padded2.txt", myFixture.editor.document.text))
 
+        // A file starting with whitespace is no vault for Ansible: not V101–V103's, ANS-V107 reports it (VaultNotWholeFileInspectionTest).
         assertEquals("a file starting with whitespace is no vault", emptyList<DiagnosticCode>(), codes("lead.txt", " " + envelope.format()))
     }
 
@@ -208,13 +209,21 @@ class VaultEnvelopeInspectionsTest : BasePlatformTestCase() {
     fun testRegisteredUnderAnsibilityVaultForEveryLanguageWithDescriptions() {
         val ours = LocalInspectionEP.LOCAL_INSPECTION.extensionList
             .filter { it.shortName?.startsWith("AnsibleVault") == true }.associateBy { it.shortName }
-        assertEquals(setOf("AnsibleVaultMalformedEnvelope", "AnsibleVaultFoldedValue", "AnsibleVaultTrailingWhitespace"), ours.keys)
+        // short name to (language, default level): whole-file vaults and ANS-V107 live in files of any type (R21: D159, D163).
+        val expected = mapOf(
+            "AnsibleVaultMalformedEnvelope" to (null to "ERROR"),
+            "AnsibleVaultFoldedValue" to (null to "ERROR"),
+            "AnsibleVaultTrailingWhitespace" to (null to "ERROR"),
+            "AnsibleVaultNotWholeFile" to (null to "ERROR"),
+            "AnsibleVaultUntaggedEnvelope" to ("yaml" to "WARNING"),
+        )
+        assertEquals(expected.keys, ours.keys)
         for (ep in ours.values) {
             assertEquals(ep.shortName, "Ansibility", ep.groupPath)
             assertEquals(ep.shortName, "inspection.group.vault", ep.groupKey)
             assertEquals(ep.shortName, "Vault", AnsibilityVaultChecksBundle.message(ep.groupKey))
-            assertNull("whole-file vaults live in files of any type", ep.language)
-            assertEquals(ep.shortName, "ERROR", ep.level)
+            assertEquals(ep.shortName, expected.getValue(ep.shortName).first, ep.language)
+            assertEquals(ep.shortName, expected.getValue(ep.shortName).second, ep.level)
             assertNotNull(ep.shortName, javaClass.getResource("/inspectionDescriptions/${ep.shortName}.html"))
         }
     }

@@ -20,6 +20,7 @@ import com.intellij.testFramework.TestActionEvent
 import com.intellij.usageView.UsageViewUtil
 import com.intellij.usages.UsageInfo2UsageAdapter
 import com.intellij.usages.UsageView
+import de.terletzkiy.ansibility.context.MoleculeNavigationFixture
 import de.terletzkiy.ansibility.lang.jinja.psi.AnsibleJinjaFile
 import de.terletzkiy.ansibility.vault.crypto.VaultCrypto
 import org.jetbrains.yaml.psi.YAMLKeyValue
@@ -28,7 +29,9 @@ import org.jetbrains.yaml.psi.YAMLKeyValue
  * F1.10 entry points and results on `testData/vars/site`: `web_port` is declared by the specs of `roles/web` and
  * `roles/other`, defaulted in `roles/web/defaults`, overridden in `environments/dev` and molecule, and read in the
  * role's template (twice), its tasks (a `when:` expression, an `assert.that` item, a folded shell value), the other
- * role's tasks and the playbook's `set_fact` value. Every start finds the same twelve usages.
+ * role's tasks and the playbook's `set_fact` value. Every start outside Molecule finds the same eleven usages (plan
+ * amendment R20, D153: the molecule override is hidden while "Show Molecule in navigation and search" is off, the
+ * default); a start in `molecule.yml`, or any start with the setting on, finds all twelve.
  */
 class VarFindUsagesTest : UsagesTestCase() {
 
@@ -41,7 +44,16 @@ class VarFindUsagesTest : UsagesTestCase() {
 
     fun testFindUsagesFromATemplateUse() {
         at(TEMPLATE, 1, "web_port")
-        assertEquals(WEB_PORT, describeUsages(findUsagesViaAction()))
+        assertEquals(WEB_PORT_PRODUCTION, describeUsages(findUsagesViaAction()))
+    }
+
+    /** R20/D153: with "Show Molecule in navigation and search" on, every start finds the molecule override too. */
+    fun testFindUsagesWithMoleculeShownListsTheMoleculeOverride() {
+        MoleculeNavigationFixture.showInNavigationUntil(project, testRootDisposable)
+        for ((path, line) in listOf(TEMPLATE to 1, DEFAULTS to 3, TASKS to 9)) {
+            at(path, line, "web_port")
+            assertEquals("from $path:$line", WEB_PORT, describeUsages(findUsagesViaAction()))
+        }
     }
 
     fun testFindUsagesFromAnInjectedTaskValueSeesTheInjectedFragment() {
@@ -50,21 +62,24 @@ class VarFindUsagesTest : UsagesTestCase() {
         assertTrue("the action's PSI_FILE is the injected fragment", context.getData(CommonDataKeys.PSI_FILE) is AnsibleJinjaFile)
         assertTrue("the action's EDITOR is the injected editor", context.getData(CommonDataKeys.EDITOR) is EditorWindow)
         assertEquals("web_port", targetAtCaret()?.name)
-        assertEquals(WEB_PORT, describeUsages(findUsagesViaAction()))
+        assertEquals(WEB_PORT_PRODUCTION, describeUsages(findUsagesViaAction()))
     }
 
     fun testFindUsagesFromBareExpressions() {
         at(TASKS, 9, "web_port")
-        assertEquals("a when: expression", WEB_PORT, describeUsages(findUsagesViaAction()))
+        assertEquals("a when: expression", WEB_PORT_PRODUCTION, describeUsages(findUsagesViaAction()))
         at(TASKS, 31, "web_port")
-        assertEquals("an assert that: item", WEB_PORT, describeUsages(findUsagesViaAction()))
+        assertEquals("an assert that: item", WEB_PORT_PRODUCTION, describeUsages(findUsagesViaAction()))
     }
 
     fun testFindUsagesFromVariableKeys() {
-        for ((path, line) in listOf(DEFAULTS to 3, SPEC to 5, GROUP_VARS to 2, MOLECULE to 10, OTHER_SPEC to 5)) {
+        for ((path, line) in listOf(DEFAULTS to 3, SPEC to 5, GROUP_VARS to 2, OTHER_SPEC to 5)) {
             at(path, line, "web_port")
-            assertEquals("from $path:$line", WEB_PORT, describeUsages(findUsagesViaAction()))
+            assertEquals("from $path:$line", WEB_PORT_PRODUCTION, describeUsages(findUsagesViaAction()))
         }
+        // R20/D154: a search that starts in a Molecule file sees everything.
+        at(MOLECULE, 10, "web_port")
+        assertEquals("from $MOLECULE:10", WEB_PORT, describeUsages(findUsagesViaAction()))
     }
 
     /** The usage view of the real action names the groups, from a use and from a key (the key-value path of the action). */
@@ -72,7 +87,7 @@ class VarFindUsagesTest : UsagesTestCase() {
         for ((path, line) in listOf(TEMPLATE to 1, DEFAULTS to 3)) {
             at(path, line, "web_port")
             val groups = findUsagesViaActionWithGroups().associate { (usage, group) -> describeUsages(listOf(usage)).single() to group }
-            assertEquals("from $path:$line", WEB_PORT.toSet(), groups.keys)
+            assertEquals("from $path:$line", WEB_PORT_PRODUCTION.toSet(), groups.keys)
             assertEquals("from $path:$line", "Read: template", groups.getValue("$TEMPLATE:1:web_port R"))
             assertEquals("from $path:$line", "Set: role default", groups.getValue("$DEFAULTS:3:web_port W"))
             assertEquals("from $path:$line", "Spec: argument spec", groups.getValue("$SPEC:5:web_port W"))
@@ -107,7 +122,7 @@ class VarFindUsagesTest : UsagesTestCase() {
             val manager = (FindManager.getInstance(project) as FindManagerBase).findUsagesManager
             val handler = runReadActionBlocking { manager.getFindUsagesHandler(keyValue, FindUsagesHandlerFactory.OperationMode.USAGES_WITH_DEFAULT_OPTIONS) }
             assertInstanceOf(handler, VarFindUsagesHandler::class.java)
-            assertEquals(WEB_PORT.map { it.dropLast(2) }, describeInfos(findUsagesOf(keyValue)))
+            assertEquals(WEB_PORT_PRODUCTION.map { it.dropLast(2) }, describeInfos(findUsagesOf(keyValue)))
         }
     }
 
@@ -140,6 +155,10 @@ class VarFindUsagesTest : UsagesTestCase() {
     // ------------------------------------------------------------------------------------------------ presentation
 
     fun testTheUsageViewGroupsReadsBeforeWritesAndNamesTheTarget() {
+        // The molecule inventory group needs Molecule shown (R20/D153); without it the group is absent.
+        at(TEMPLATE, 1, "web_port")
+        assertFalse("Set: molecule inventory" in myFixture.getUsageViewTreeTextRepresentation(targetAtCaret()!!))
+        MoleculeNavigationFixture.showInNavigationUntil(project, testRootDisposable)
         at(TEMPLATE, 1, "web_port")
         val symbol = targetAtCaret()!!
         val tree = myFixture.getUsageViewTreeTextRepresentation(symbol)
@@ -160,7 +179,7 @@ class VarFindUsagesTest : UsagesTestCase() {
         at(TEMPLATE, 1, "web_port")
         val symbol = targetAtCaret()!!
         val tasksOnly = findUsagesOf(symbol, GlobalSearchScope.fileScope(project, vf(TASKS)))
-        assertEquals(WEB_PORT.filter { it.startsWith(TASKS) }.map { it.dropLast(2) }, describeInfos(tasksOnly))
+        assertEquals(WEB_PORT_PRODUCTION.filter { it.startsWith(TASKS) }.map { it.dropLast(2) }, describeInfos(tasksOnly))
     }
 
     fun testTheTargetNavigatesToThePrimaryDeclarationOffTheEdt() {
@@ -251,5 +270,8 @@ class VarFindUsagesTest : UsagesTestCase() {
             "site/roles/web/templates/site.conf.j2:1:web_port R",
             "site/roles/web/templates/site.conf.j2:4:web_port R",
         )
+
+        /** [WEB_PORT] as a start outside Molecule sees it while Molecule is hidden (the default, R20/D153). */
+        val WEB_PORT_PRODUCTION = WEB_PORT.filter { !it.startsWith(MOLECULE) }
     }
 }

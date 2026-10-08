@@ -79,6 +79,12 @@ object AnsibleTemplatePaths {
     }
 
     /**
+     * Whether [dir] is the `templates/` directory of a role, `roles/<role>/templates`: the files below it are
+     * [isUnderRoleTemplates]. Path only, like that.
+     */
+    fun isRoleTemplatesDir(dir: VirtualFile): Boolean = dir.name == TEMPLATES && dir.parent?.parent?.name == ROLES
+
+    /**
      * The path of [file] relative to its [ansibleBase] (`/`-separated, no leading slash), for the path patterns of the
      * outer-language rules; the absolute path without the leading `/` when it is outside Ansible content.
      */

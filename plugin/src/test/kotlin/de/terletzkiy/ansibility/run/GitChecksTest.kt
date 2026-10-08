@@ -2,6 +2,7 @@ package de.terletzkiy.ansibility.run
 
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Before
@@ -9,6 +10,7 @@ import org.junit.Test
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 
 /** The freshness check and the run metadata against real repositories: an upstream, a clone, a second clone that pushes. */
 class GitChecksTest {
@@ -81,6 +83,81 @@ class GitChecksTest {
         assertEquals("ssh://git@git.example.test:7999/team/infra.git", GitChecks.withoutCredentials("ssh://git@git.example.test:7999/team/infra.git"))
         assertEquals("git@git.example.test:team/infra.git", GitChecks.withoutCredentials("git@git.example.test:team/infra.git"))
         assertEquals("/srv/infra.git", GitChecks.withoutCredentials("/srv/infra.git"))
+    }
+
+    @Test
+    fun `an interrupt ends the git process it waits for`() {
+        // A run stopped while it prepares (R19): runInterruptible interrupts the thread that waits for `git fetch`.
+        val pid = base.resolve("pid")
+        val error = AtomicReference<Throwable>()
+        val thread = Thread {
+            try {
+                GitChecks.ProcessRunner.run(listOf("sh", "-c", "echo $$ > '$pid'; exec sleep 30"), base, 60)
+            } catch (e: Throwable) {
+                error.set(e)
+            }
+        }
+        thread.start()
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20)
+        while (!(Files.exists(pid) && Files.readString(pid).isNotBlank()) && System.nanoTime() < deadline) Thread.sleep(20)
+        val process = ProcessHandle.of(Files.readString(pid).trim().toLong()).orElseThrow()
+        thread.interrupt()
+        thread.join(TimeUnit.SECONDS.toMillis(10))
+        assertFalse("the wait ends at once", thread.isAlive)
+        assertTrue(error.get().toString(), error.get() is InterruptedException)
+        assertTrue("the process goes", process.onExit().get(10, TimeUnit.SECONDS).let { !it.isAlive })
+    }
+
+    // R19 integration fix: git's own children (ssh, git-remote-https, credential helpers) end with it.
+
+    /** A stand-in git that starts a background child (the grandchild of the runner) and waits for it. */
+    private fun gitWithChild(pid: Path) = listOf("sh", "-c", "sleep 30 & echo $! > '$pid'; wait")
+
+    private fun awaitPid(pid: Path): ProcessHandle {
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20)
+        while (!(Files.exists(pid) && Files.readString(pid).isNotBlank()) && System.nanoTime() < deadline) Thread.sleep(20)
+        return ProcessHandle.of(Files.readString(pid).trim().toLong()).orElseThrow()
+    }
+
+    @Test
+    fun `an interrupt also ends the processes git started`() {
+        val pid = base.resolve("child.pid")
+        val error = AtomicReference<Throwable>()
+        val thread = Thread {
+            try {
+                GitChecks.ProcessRunner.run(gitWithChild(pid), base, 60)
+            } catch (e: Throwable) {
+                error.set(e)
+            }
+        }
+        thread.start()
+        val child = awaitPid(pid)
+        try {
+            thread.interrupt()
+            thread.join(TimeUnit.SECONDS.toMillis(10))
+            assertFalse("the wait ends at once", thread.isAlive)
+            assertTrue(error.get().toString(), error.get() is InterruptedException)
+            assertTrue("git's child goes too", child.onExit().get(10, TimeUnit.SECONDS).let { !it.isAlive })
+        } finally {
+            child.destroyForcibly()
+        }
+    }
+
+    @Test
+    fun `a timeout also ends the processes git started`() {
+        val pid = base.resolve("child.pid")
+        val result = AtomicReference<Any?>("pending")
+        val thread = Thread { result.set(GitChecks.ProcessRunner.run(gitWithChild(pid), base, 1)) }
+        thread.start()
+        val child = awaitPid(pid)
+        try {
+            thread.join(TimeUnit.SECONDS.toMillis(15))
+            assertFalse("the timeout ends the wait", thread.isAlive)
+            assertEquals("a timeout gives no output", null, result.get())
+            assertTrue("git's child goes too", child.onExit().get(10, TimeUnit.SECONDS).let { !it.isAlive })
+        } finally {
+            child.destroyForcibly()
+        }
     }
 
     private fun commit(dir: Path, message: String) {

@@ -15,8 +15,10 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Connects the project settings to the services that depend on them:
  * - installs [TargetVersionDetector.overrideFor] from [AnsibilityProjectSettings.targetCoreOverride] and re-installs
  *   it when a target changes (assigning the hook invalidates the detector's cache);
- * - refreshes the workspace structure ([AnsibleWorkspace.refreshStructure]) when the detached-root rule, the ignored
- *   paths or molecule support change; the workspace reads those path settings itself at query time;
+ * - refreshes the workspace structure ([AnsibleWorkspace.refreshStructure]) when the detached-root rule or the ignored
+ *   paths change; the workspace reads those path settings itself at query time. The Molecule settings
+ *   ([MoleculeSettings], plan amendment R20) change no structure: the run UI and the navigation filters read them per
+ *   request, and the restart below redraws the ▶ of scenario files;
  * - resets the JSON schema mappings ([JsonSchemaService.reset], public in 262) when the SchemaStore exclusion is
  *   toggled, so the catalog schemas are re-assigned to the task and playbook files at once;
  * - restarts highlighting after any change of the effective project settings, since severities and semantics
@@ -75,7 +77,7 @@ class AnsibilitySettingsWiring(private val project: Project) : Disposable {
 
         /** The path settings that change which roots exist or which files they contain. */
         internal fun structuralPaths(paths: PathSettings): List<Any> =
-            listOf(paths.detachedRule, paths.extraIgnoredPaths, paths.moleculeSupport)
+            listOf(paths.detachedRule, paths.extraIgnoredPaths)
     }
 }
 

@@ -25,6 +25,13 @@ data class FindingContext(
     val docsDifferFromTarget: Boolean = false,
     /** The root turns `vault_id_match` on (`VaultStatusService.config(root).idMatch`); raises ANS-V105 to WARNING. */
     val vaultIdMatch: Boolean = false,
+    /**
+     * ANS-V108 (plan amendment R21, D161): a weaker secret signal: a passphrase-protected key, a keystore, or a key-like
+     * name without a readable key. Caps ANS-V108 at WARNING.
+     */
+    val weakSecretSignal: Boolean = false,
+    /** ANS-V108 (D162): the file is not committed yet (untracked, not ignored by the VCS). Caps ANS-V108 at WARNING. */
+    val uncommitted: Boolean = false,
 ) {
     companion object {
         val DEFAULT = FindingContext()
@@ -41,7 +48,9 @@ data class FindingContext(
  * 5. with "Require a reachable play for red" on, an ERROR without a reachable play becomes WARNING;
  * 6. a finding whose docs differ from the target is capped by [capForDocsMismatch];
  * 7. ANS-V003 is ERROR with a witness host ([FindingContext.certainFailure]) or when the root enables
- *    "Unguarded optional variables without a default are always errors"; ANS-V105 is WARNING under `vault_id_match`.
+ *    "Unguarded optional variables without a default are always errors"; ANS-V105 is WARNING under `vault_id_match`;
+ * 8. ANS-V108 is at most WARNING for a weaker secret signal ([FindingContext.weakSecretSignal]) or a file that is not
+ *    committed yet ([FindingContext.uncommitted]) (plan amendment R21, D161/D162).
  *
  * Reachability never changes severity unless that toggle is on (D6). Safe to call from any thread.
  */
@@ -94,6 +103,9 @@ class SeverityPolicy(private val project: Project) {
             ) level = Level.ERROR
             if (code == DiagnosticCode.V105_LABEL_SECRET_MISMATCH && context.vaultIdMatch && level != Level.OFF) {
                 if (Level.WARNING.isMoreSevereThan(level)) level = Level.WARNING
+            }
+            if (code == DiagnosticCode.V108_PLAINTEXT_PRIVATE_KEY && (context.weakSecretSignal || context.uncommitted)) {
+                level = level.atMost(Level.WARNING)
             }
             if (context.onModuleOption && code in MODULE_OPTION_COERCION_CODES) {
                 level = when {

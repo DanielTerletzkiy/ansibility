@@ -7,6 +7,9 @@ import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode.M002_MISSIN
 import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode.M003_DEPRECATED_MODULE
 import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode.R001_UNRESOLVED_REFERENCE
 import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode.S001_ARG_SPEC_LINT
+import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode.S003_SPEC_DEFAULT_MISMATCH
+import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode.S004_SPEC_DEFAULT_NOT_APPLIED
+import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode.S005_SPEC_DEFAULT_UNDOCUMENTED
 import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode.T001_VALUE_REJECTED
 import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode.T004_CHOICE_MISMATCH
 import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode.T010_SHAPE_CONTRADICTION
@@ -20,6 +23,7 @@ import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode.T020_TEMPLA
 import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode.V001_UNDEFINED_VARIABLE
 import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode.V003_POSSIBLY_UNDEFINED
 import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode.V105_LABEL_SECRET_MISMATCH
+import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode.V108_PLAINTEXT_PRIVATE_KEY
 import de.terletzkiy.ansibility.semantics.diagnostics.Level
 import de.terletzkiy.ansibility.semantics.diagnostics.Level.ERROR
 import de.terletzkiy.ansibility.semantics.diagnostics.Level.INFO
@@ -62,6 +66,9 @@ class SeverityPolicyTest {
             T012B_UNLOADABLE_SCALAR to Triple(ERROR, ERROR, ERROR),
             R001_UNRESOLVED_REFERENCE to Triple(ERROR, ERROR, ERROR),
             S001_ARG_SPEC_LINT to Triple(WARNING, WARNING, WARNING),
+            S003_SPEC_DEFAULT_MISMATCH to Triple(ERROR, ERROR, ERROR),
+            S004_SPEC_DEFAULT_NOT_APPLIED to Triple(WARNING, WARNING, WARNING),
+            S005_SPEC_DEFAULT_UNDOCUMENTED to Triple(INFO, INFO, INFO),
             M001_UNKNOWN_MODULE_OPTION to Triple(ERROR, ERROR, ERROR),
             M003_DEPRECATED_MODULE to Triple(WEAK_WARNING, WEAK_WARNING, WARNING),
             V001_UNDEFINED_VARIABLE to Triple(WEAK_WARNING, WEAK_WARNING, WARNING),
@@ -71,6 +78,13 @@ class SeverityPolicyTest {
             assertEquals("$code runtime-faithful", levels.second, level(code, RUNTIME_FAITHFUL))
             assertEquals("$code strict", levels.third, level(code, STRICT))
         }
+    }
+
+    @Test
+    fun theRequestedSpecDefaultMismatchIsRedWhateverTheCertainFailureToggle() {
+        // Plan amendment R23 (D169): a requested check, not one of Claude's certain-failure checks.
+        assertFalse(S003_SPEC_DEFAULT_MISMATCH in SeverityPolicy.CERTAIN_FAILURE_CODES)
+        assertEquals(ERROR, level(S003_SPEC_DEFAULT_MISMATCH) { copy(redForClaudeCertainFailures = false) })
     }
 
     @Test
@@ -197,5 +211,15 @@ class SeverityPolicyTest {
         assertEquals(WEAK_WARNING, level(V105_LABEL_SECRET_MISMATCH))
         assertEquals(WARNING, level(V105_LABEL_SECRET_MISMATCH, context = FindingContext(vaultIdMatch = true)))
         assertEquals("never red: the IDE's ids may differ from the deployment's", WARNING, level(V105_LABEL_SECRET_MISMATCH, STRICT, FindingContext(vaultIdMatch = true)))
+    }
+
+    @Test
+    fun plaintextKeysAreErrorsUnlessTheSignalIsWeakerOrTheFileIsNotCommitted() {
+        // R21 (D160–D162): a complete unencrypted key in a committed file (or without VCS) is red in every preset.
+        for (preset in Preset.entries) assertEquals(preset.name, ERROR, level(V108_PLAINTEXT_PRIVATE_KEY, preset))
+        assertEquals("protected key, keystore, key-like name", WARNING, level(V108_PLAINTEXT_PRIVATE_KEY, context = FindingContext(weakSecretSignal = true)))
+        assertEquals("untracked: encrypt it before you commit", WARNING, level(V108_PLAINTEXT_PRIVATE_KEY, STRICT, FindingContext(uncommitted = true)))
+        assertEquals(WARNING, level(V108_PLAINTEXT_PRIVATE_KEY, context = FindingContext(weakSecretSignal = true, uncommitted = true)))
+        assertEquals("other codes ignore the secret context", ERROR, level(T001_VALUE_REJECTED, context = FindingContext(weakSecretSignal = true, uncommitted = true)))
     }
 }

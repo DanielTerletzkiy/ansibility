@@ -115,6 +115,15 @@ sealed interface RunEvent {
     /** A unit of a batch: [key] identifies it (a role directory), [name] and [label] are shown ("web", "falcon"). */
     data class UnitInfo(val key: String, val name: String, val label: String)
 
+    /**
+     * The run (or the batch's current unit) prepares its process, from the IDE: [phase] says what it does now
+     * ("unlocking the vault ids of falcon"); null once the process starts (plan amendment R19, D144).
+     */
+    data class Preparing(override val time: Double, val phase: String?) : RunEvent
+
+    /** The run never started its process, from the IDE: [reason] is the text shown (why it failed, "cancelled"). */
+    data class NotStarted(override val time: Double, val reason: String) : RunEvent
+
     /** An event of a newer schema or kind, kept so that nothing breaks. */
     data class Unknown(override val time: Double, val name: String) : RunEvent
 }

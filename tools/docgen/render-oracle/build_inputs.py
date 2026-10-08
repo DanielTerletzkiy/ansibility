@@ -9,7 +9,7 @@ are invented or the neutral aliases of the plugin's test fixture. Two kinds of i
 - generated (written here, from the literals below and from the expression modules in expr/ through gen_expr.py):
   01, 03, 04, 04n, 05, 06, 09, 10, 11, 11b, 13, 14;
 - curated (the committed input/ is the source and is never rewritten): 02, 07, 08 and 12, which came from the
-  exploratory probes of the research note (docs/research/rendering.md), and 15, whose cases.json is the regex table.
+  exploratory probes of the research note (plan/research/rendering.md), and 15, whose cases.json is the regex table.
 
 After writing inputs, run run_some.sh <case> (or run_all.sh) to regenerate the expected outputs with the real tools.
 """

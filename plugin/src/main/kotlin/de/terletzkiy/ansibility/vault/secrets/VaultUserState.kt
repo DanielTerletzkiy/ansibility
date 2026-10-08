@@ -24,7 +24,8 @@ data class ConsentRecord(val locator: String, val size: Long, val fingerprint: S
 /**
  * Per-user vault state at application level, in `ansibility-vault-user.xml` of the IDE configuration directory with
  * roaming disabled (DEV.md rule 12, secret rule 5): the consents to read discovered password sources, the labels
- * whose typed password is remembered in PasswordSafe, and the idle auto-lock.
+ * whose typed password is remembered in PasswordSafe, the idle auto-lock, and whether commits are checked for
+ * plaintext keys and broken vaults (plan amendment R21, D167; per user, so a repository cannot turn the check off).
  *
  * Nothing here ever comes from a project file: a cloned repository can ship `.idea/workspace.xml`, but it cannot
  * write the IDE configuration directory, so entries it plants have no effect. No secret is stored here.
@@ -52,6 +53,13 @@ class VaultUserState : PersistentStateComponent<VaultUserState.StateBean> {
         set(value) {
             autoLock = value.coerceIn(0, MAX_AUTO_LOCK_MINUTES)
         }
+
+    /**
+     * Whether the commit check of plan amendment R21 (D167) runs: before a commit from the IDE, the committed content is
+     * checked for plaintext private keys, vault password files and broken or decrypted vaults. On by default.
+     */
+    @Volatile
+    var checkCommits: Boolean = true
 
     /** The consent stored for [locator], or null. */
     fun consent(locator: String): ConsentRecord? = consents[locator]
@@ -97,6 +105,7 @@ class VaultUserState : PersistentStateComponent<VaultUserState.StateBean> {
 
     override fun getState(): StateBean = StateBean().apply {
         autoLockMinutes = autoLock
+        checkCommits = this@VaultUserState.checkCommits
         consents = this@VaultUserState.consents.values.sortedBy { it.locator }
             .map { ConsentBean().apply { locator = it.locator; size = it.size; fingerprint = it.fingerprint } }
             .toMutableList()
@@ -107,6 +116,7 @@ class VaultUserState : PersistentStateComponent<VaultUserState.StateBean> {
 
     override fun loadState(state: StateBean) {
         autoLockMinutes = state.autoLockMinutes
+        checkCommits = state.checkCommits
         consents.clear()
         for (bean in state.consents) {
             val locator = bean.locator ?: continue
@@ -133,6 +143,9 @@ class VaultUserState : PersistentStateComponent<VaultUserState.StateBean> {
     class StateBean {
         @get:Attribute("autoLockMinutes")
         var autoLockMinutes: Int = DEFAULT_AUTO_LOCK_MINUTES
+
+        @get:Attribute("checkCommits")
+        var checkCommits: Boolean = true
 
         @get:XCollection(propertyElementName = "consents", elementName = "consent")
         var consents: MutableList<ConsentBean> = ArrayList()

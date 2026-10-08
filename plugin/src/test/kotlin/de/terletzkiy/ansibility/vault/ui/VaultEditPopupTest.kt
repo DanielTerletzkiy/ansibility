@@ -186,7 +186,7 @@ class VaultEditPopupTest : VaultUiTestCase() {
 
     fun testTheEditIntentionOpensThePopup() {
         myFixture.editor.caretModel.moveToOffset(offsetOf("vault_db_password"))
-        val intention = myFixture.availableIntentions.single { it.familyName == "Ansible Vault" && it.text == VaultEditIntention().text }
+        val intention = myFixture.availableIntentions.single { it.familyName == "Ansibility Vault" && it.text == VaultEditIntention().text }
         myFixture.launchAction(intention)
         awaitAction()
         assertEquals("hello world", VaultEditService.getInstance(project).session?.textArea?.text)

@@ -3,11 +3,17 @@ package de.terletzkiy.ansibility.run
 import com.intellij.openapi.util.io.NioFiles
 import de.terletzkiy.ansibility.run.events.RunCallback
 import de.terletzkiy.ansibility.semantics.vault.LabelledSecret
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
+import org.jetbrains.annotations.TestOnly
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermissions
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.io.path.getLastModifiedTime
 import kotlin.io.path.isDirectory
 import kotlin.io.path.listDirectoryEntries
@@ -58,6 +64,33 @@ class RunSecrets private constructor(
         private val STALE_AFTER = TimeUnit.DAYS.toMillis(1)
 
         val NONE = RunSecrets(null, emptyList(), false, emptyMap())
+
+        /**
+         * Runs [write], which creates a run's secrets, on `Dispatchers.IO` to its end even when the caller is cancelled
+         * meanwhile (Stop while the run prepares), and hands them to the caller, which deletes them on every way out
+         * (plan amendment R19, D146). `NonCancellable` alone does not do that: when `withContext` changes the
+         * dispatcher, a caller cancelled meanwhile gets a `CancellationException` instead of the block's result, so the
+         * secrets are deleted here then.
+         */
+        suspend fun writeScripts(write: () -> RunSecrets): RunSecrets {
+            val written = AtomicReference<RunSecrets?>()
+            try {
+                return withContext(Dispatchers.IO + NonCancellable) {
+                    write().also { secrets ->
+                        written.set(secrets)
+                        scriptsWrittenForTests?.invoke(secrets)
+                    }
+                }
+            } catch (e: CancellationException) {
+                written.getAndSet(null)?.close()
+                throw e
+            }
+        }
+
+        /** Hears of each run's secrets right after [writeScripts] wrote them, still inside its uncancellable step (tests). */
+        @TestOnly
+        @Volatile
+        internal var scriptsWrittenForTests: ((RunSecrets) -> Unit)? = null
 
         /** The environment variable holding the password of vault id [label]; the client script derives the same name. */
         fun variableOf(label: String): String =

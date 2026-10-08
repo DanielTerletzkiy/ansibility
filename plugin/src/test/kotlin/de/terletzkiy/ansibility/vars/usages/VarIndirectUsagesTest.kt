@@ -59,7 +59,7 @@ class VarIndirectUsagesTest : UsagesTestCase() {
     fun testIndirectReadsHaveTheirOwnGroups() {
         at(VarFindUsagesTest.TEMPLATE, 1, "web_port")
         val found = findUsagesViaActionWithGroups().map { (usage, group) -> describeUsages(listOf(usage)).single() to group }
-        assertEquals((VarFindUsagesTest.WEB_PORT + INDIRECT_READS + BRACED_READS).sorted(), found.map { it.first }.sorted())
+        assertEquals((VarFindUsagesTest.WEB_PORT_PRODUCTION + INDIRECT_READS + BRACED_READS).sorted(), found.map { it.first }.sorted())
         val groups = found.toMap()
         assertEquals("Read: through hostvars", groups.getValue("$INDIRECT:1:web_port R"))
         assertEquals("Read: by name (vars)", groups.getValue("$INDIRECT:2:web_port R"))

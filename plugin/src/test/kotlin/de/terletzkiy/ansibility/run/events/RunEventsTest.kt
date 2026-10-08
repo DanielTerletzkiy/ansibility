@@ -197,4 +197,105 @@ class RunEventsTest {
         assertEquals(32, RunCallback.newToken().length)
         assertTrue(RunCallback.source().contains("CALLBACK_NAME = \"ansibility_events\""))
     }
+
+    // ------------------------------------------------------------------ R19: preparation, not started, no vault secrets
+
+    @Test
+    fun `the preparation's phases come and go, and a run that did not start says why`() {
+        val model = RunModel()
+        model.apply(RunEvent.Preparing(1.0, "reading the playbook"))
+        assertEquals("reading the playbook", model.preparing)
+        model.apply(RunEvent.Preparing(2.0, "unlocking the vault ids of falcon"))
+        assertEquals("unlocking the vault ids of falcon", model.preparing)
+        assertFalse("a preparation is no event of the process", model.hasEvents)
+        model.apply(RunEvent.Preparing(3.0, null))
+        assertNull("the process started", model.preparing)
+
+        val failed = RunModel()
+        failed.apply(RunEvent.Preparing(1.0, "reading the role"))
+        failed.apply(RunEvent.NotStarted(2.0, "No docker executable found on PATH"))
+        failed.finish(RunModel.NOT_STARTED)
+        assertNull(failed.preparing)
+        assertEquals("No docker executable found on PATH", failed.notStarted)
+        assertEquals(RunModel.NOT_STARTED, failed.exitCode)
+        assertFalse(failed.hasEvents)
+
+        val stopped = RunModel().apply {
+            apply(RunEvent.Preparing(1.0, "checking that the checkout is up to date with main"))
+            finish(RunModel.NOT_STARTED)
+        }
+        assertNull("the end clears the phase", stopped.preparing)
+    }
+
+    @Test
+    fun `a unit of a batch prepares in its own row`() {
+        val model = RunModel()
+        model.apply(RunEvent.Units(0.0, listOf(RunEvent.UnitInfo("/r/web", "web", "falcon"), RunEvent.UnitInfo("/r/db", "db", "falcon"))))
+        model.apply(RunEvent.UnitStart(1.0, "/r/web"))
+        model.apply(RunEvent.Preparing(1.1, "reading the role"))
+        val (web, db) = model.units
+        assertEquals("reading the role", web.preparing)
+        assertNull("the run's own phase stays empty", model.preparing)
+        model.apply(RunEvent.Preparing(1.2, null))
+        assertNull(web.preparing)
+        model.apply(RunEvent.UnitEnd(2.0, "/r/web", 0))
+        model.apply(RunEvent.UnitStart(2.0, "/r/db"))
+        model.apply(RunEvent.Preparing(2.1, "reading the role"))
+        model.apply(RunEvent.UnitEnd(3.0, "/r/db", RunModel.NOT_STARTED, "No Docker Compose service with Molecule mounts the role db"))
+        assertNull("its end clears it", db.preparing)
+        model.apply(RunEvent.UnitStart(3.0, "/r/web"))
+        model.apply(RunEvent.Preparing(3.1, "reading the role"))
+        model.finish(1)
+        assertNull("so does the batch's", web.preparing)
+    }
+
+    @Test
+    fun `a failure for want of vault secrets is told apart from others`() {
+        assertTrue(RunModel.isMissingVaultSecrets("Attempting to decrypt but no vault secrets found"))
+        assertTrue(RunModel.isMissingVaultSecrets("ERROR! attempting to decrypt but NO VAULT SECRETS found"))
+        assertFalse(RunModel.isMissingVaultSecrets("The task includes an option with an undefined variable"))
+        assertFalse(RunModel.isMissingVaultSecrets(null))
+
+        val model = RunModel()
+        model.apply(RunEvent.Play(1.0, "p", "Converge", listOf("instance"), null))
+        fun task(id: String, name: String) = model.apply(RunEvent.Task(2.0, id, "p", name, null, "debug", null, handler = false, loop = false, tags = emptyList()))
+        fun result(task: String, host: String, status: HostStatus, message: String?, item: Boolean = false) = model.apply(
+            RunEvent.Result(3.0, item, task, host, status, false, if (item) "x" else null, null, null, null, message, emptyList(), null, false),
+        )
+        task("t1", "Read the secret")
+        result("t1", "instance", HostStatus.OK, "Attempting to decrypt but no vault secrets found")
+        assertFalse("only a failure counts", model.missingVaultSecrets)
+        task("t2", "Other failure")
+        result("t2", "instance", HostStatus.FAILED, "Connection refused")
+        assertFalse(model.missingVaultSecrets)
+        task("t3", "Read the vaulted password")
+        result("t3", "instance", HostStatus.FAILED, "Attempting to decrypt but no vault secrets found")
+        val (ok, other, vaulted) = model.plays.single().tasks
+        assertFalse(ok.missingVaultSecrets)
+        assertFalse(other.missingVaultSecrets)
+        assertTrue(vaulted.missingVaultSecrets)
+        assertTrue(vaulted.hosts.getValue("instance").missingVaultSecrets)
+        assertTrue(model.missingVaultSecrets)
+        assertTrue(model.plays.single().missingVaultSecrets)
+
+        // A Molecule stage and a batch's unit say so too.
+        val batch = RunModel()
+        batch.apply(RunEvent.Units(0.0, listOf(RunEvent.UnitInfo("/r/web", "web", "falcon"))))
+        batch.apply(RunEvent.UnitStart(0.5, "/r/web"))
+        batch.apply(RunEvent.Stage(0.6, "default", "converge", null))
+        batch.apply(RunEvent.Start(0.7, "converge.yml", "2.18.8", false, false, null, emptyList(), emptyList()))
+        batch.apply(RunEvent.Play(1.0, "p", "Converge", listOf("instance"), null))
+        batch.apply(RunEvent.Task(2.0, "t", "p", "Read", null, "debug", null, handler = false, loop = false, tags = emptyList()))
+        batch.apply(RunEvent.Result(3.0, false, "t", "instance", HostStatus.FAILED, false, null, null, null, null, "Attempting to decrypt but no vault secrets found", emptyList(), null, false))
+        assertTrue(batch.units.single().stages.single().missingVaultSecrets)
+        assertTrue(batch.units.single().missingVaultSecrets)
+
+        val items = RunModel()
+        items.apply(RunEvent.Play(1.0, "p", "Converge", listOf("instance"), null))
+        items.apply(RunEvent.Task(2.0, "t", "p", "Loop", null, "debug", null, handler = false, loop = true, tags = emptyList()))
+        items.apply(RunEvent.Result(3.0, true, "t", "instance", HostStatus.FAILED, false, "a", null, null, null, "Attempting to decrypt but no vault secrets found", emptyList(), null, false))
+        items.apply(RunEvent.Result(4.0, false, "t", "instance", HostStatus.FAILED, false, null, 1, null, null, "One or more items failed", emptyList(), null, false))
+        assertTrue("an item's failure counts", items.plays.single().tasks.single().hosts.getValue("instance").items.single().missingVaultSecrets)
+        assertTrue(items.missingVaultSecrets)
+    }
 }

@@ -11,6 +11,7 @@ import com.intellij.psi.impl.FakePsiElement
 import com.intellij.util.concurrency.AppExecutorUtil
 import de.terletzkiy.ansibility.api.AnsibleRoot
 import de.terletzkiy.ansibility.api.SourceLocation
+import de.terletzkiy.ansibility.context.MoleculeView
 import java.util.Collections
 import java.util.WeakHashMap
 import java.util.concurrent.Callable
@@ -24,24 +25,28 @@ internal sealed interface VarScope {
      * A variable of the root: every definition and use of the name in the root's family, plus the nested playbook
      * roots that read the root's inventory. [home] is the file the search started from; when the name turns out to be
      * a runtime name no role declares (`register`, `set_fact`, task vars), occurrences outside [home]'s owners form
-     * their own group. [home] is presentation only: symbols differing only in it are equal.
+     * their own group. [home] is presentation only: symbols differing only in it are equal. [view] is what the search
+     * sees of Molecule content ([MoleculeView.of] [home], plan amendment R20, D153): part of the target's identity.
      */
-    class Root(val home: VirtualFile?) : VarScope
+    class Root(val home: VirtualFile?, val view: MoleculeView) : VarScope
 
     /**
      * A loop variable (`item`, a `loop_var`, an `index_var`, `ansible_loop`): the bodies of the looping [tasks] (their
-     * mappings' starts) and the templates they render, plus every use in [file] when it is set: the template the
-     * search started in, whoever renders it (molecule renders a `Dockerfile.j2` once per platform, no task does), or
-     * the file of an `item` that no loop binds (never a root-wide search for `item`).
+     * mappings' starts) and the templates they render; for include tasks (`include_tasks`, `include_role`) also the
+     * files they run and the templates rendered there, where no inner loop rebinds the name. The same target wherever
+     * the search starts: at the `loop_var` value, in the task, in an included file or in a template. [file] is set
+     * only where no task runs the loop, and its uses there belong to the search: the template a search starts in when
+     * a loop of it is run by no task (molecule renders a `Dockerfile.j2` once per platform), or the file of an `item`
+     * no loop binds (never a root-wide search for `item`).
      */
     data class Loop(val tasks: List<SourceLocation>, val file: VirtualFile? = null) : VarScope
 
     /**
      * A member of a mapping variable of the root: the key [path] below the variable in its definitions
      * (`host_ips: {ops-pxe1: …}`) and the reads whose constant accessors start with it (`host_ips['ops-pxe1']`,
-     * `host_ips['ops-pxe1'].x`). [home] is presentation only, as for [Root].
+     * `host_ips['ops-pxe1'].x`). [home] is presentation only, as for [Root]; [view] is part of the identity.
      */
-    class Member(val home: VirtualFile?, val path: List<String>) : VarScope
+    class Member(val home: VirtualFile?, val path: List<String>, val view: MoleculeView) : VarScope
 
     /** A Jinja local (`{% set %}`, a `for` target, a macro parameter): its binding at [binding] in [file], and nothing outside that file. */
     data class Local(val file: VirtualFile, val binding: Int) : VarScope
@@ -49,8 +54,10 @@ internal sealed interface VarScope {
 
 /**
  * The Find Usages target for one variable (F1.10): name [varName] of [root], with the [scope] that decides which
- * occurrences belong to it. One element per (root, name) for root variables, so every caret position that names the
- * same variable searches the same target; loop variables and Jinja locals are their own targets.
+ * occurrences belong to it. One element per (root, name, Molecule view) for root variables, so every caret position
+ * that names the same variable with the same view searches the same target; a search started in a Molecule file and
+ * one started elsewhere with Molecule hidden are different targets, so the platform never reuses one's usage view for
+ * the other (plan amendment R20, D153). Loop variables and Jinja locals are their own targets.
  *
  * [getTextRange] stays null (the [FakePsiElement] default): smart pointers then keep the element itself instead of
  * trying to restore a fake element from a text range, and the usage view's target is the instance the search ran
@@ -81,6 +88,14 @@ class VarSymbolElement internal constructor(
     }
 
     override fun getParent(): PsiElement = anchor
+
+    /** What a search for this element sees of Molecule content; loop variables and locals are not filtered. */
+    internal val view: MoleculeView
+        get() = when (scope) {
+            is VarScope.Root -> scope.view
+            is VarScope.Member -> scope.view
+            is VarScope.Loop, is VarScope.Local -> MoleculeView.INCLUDE
+        }
 
     override fun getName(): String = varName
 
@@ -114,11 +129,14 @@ class VarSymbolElement internal constructor(
             .submit(AppExecutorUtil.getAppExecutorService())
     }
 
-    /** What two elements must share to be the same target: the root, the name and, except for root variables, the scope. */
+    /**
+     * What two elements must share to be the same target: the root, the name and, for root variables, the Molecule
+     * view; for members also the path; otherwise the scope.
+     */
     private val identity: Any
         get() = when (scope) {
-            is VarScope.Root -> ROOT_IDENTITY
-            is VarScope.Member -> scope.path
+            is VarScope.Root -> RootIdentity(scope.view)
+            is VarScope.Member -> scope.path to scope.view
             is VarScope.Loop, is VarScope.Local -> scope
         }
 
@@ -129,9 +147,10 @@ class VarSymbolElement internal constructor(
 
     override fun toString(): String = "VarSymbolElement($varName @ ${root.dir.name}, ${scope.javaClass.simpleName})"
 
-    internal companion object {
-        private val ROOT_IDENTITY = Any()
+    /** The identity of a root variable: one per Molecule view. */
+    private data class RootIdentity(val view: MoleculeView)
 
+    internal companion object {
         /** `host_ips['ops-pxe1']`: the variable with its member path as subscripts. */
         fun memberText(name: String, path: List<String>): String = name + path.joinToString("") { "['$it']" }
     }

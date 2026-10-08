@@ -28,7 +28,7 @@ Ansible's strip rules: the password file content, the script's stdout or the pro
 
 | Id | Label | Password | Hex | Source | Source bytes (hex) | Used by |
 |---|---|---|---|---|---|---|
-| `pw1` | `default` | `test-pass-1` | `746573742d706173732d31` | file | `746573742d706173732d310a` | v01, v04–v07, v09–v11; tolerance matrices; fixture; `default` in multi-vault rows |
+| `pw1` | `default` | `test-pass-1` | `746573742d706173732d31` | file | `746573742d706173732d310a` | v01, v04–v07, v09–v11; tolerance matrices; fixture; `default` in multi-vault rows; the wrapped shapes of v01 (`shapes/`, R21) |
 | `dev` | `dev` | `dev-pass-2` | `6465762d706173732d32` | file | `6465762d706173732d320a` | v02, v08; `dev` in multi-vault rows |
 | `prod` | `prod` | `prod-pass-3` | `70726f642d706173732d33` | file | `70726f642d706173732d330a` | v03, v13 (mislabelled `dev`), v14 (unlabelled); `prod` in multi-vault rows |
 | `spaced` | `default` | `spaced pass 4` | `73706163656420706173732034` | file | `202073706163656420706173732034200d0a` | v12 (surrounding whitespace and CRLF stripped) |
@@ -53,6 +53,11 @@ When a work unit adds a copy of a vector (for example the D15 fixture envelope u
 or R9's drift copy of v09 under `plugin/src/test/testData/toolwindow/drift/`), it adds the path to the block above and
 names the vector and password it uses.
 
+- `semantics/src/test/resources/vault/shapes/**` (R21, ANS-V107): vector v01's envelope (password `pw1`, plaintext
+  `hello world`) saved the ways a vault file goes wrong (a `!vault |` line first, `key: !vault |`, a preamble,
+  indentation, a byte order mark, quotes, other text), the whole-file vaults they unwrap to and `shapes.json`, written by
+  `tools/vault/shapes.sh` with what ansible-core 2.21.4 and 2.18.8 do with each. Plugin tests build the same shapes at
+  run time around envelopes they encrypt themselves.
 - `plugin/src/test/testData/infra/**` (V2b): the D15 fixture envelopes, password `fixture`, plaintext `dummy` padded with
   `-` to keep each value's line count and line lengths. `tools/fixtures/sync.py` writes them (`--envelopes-only`
   rewrites just the envelopes of an existing fixture) and `tools/fixtures/verify.py` refuses any envelope there that does
@@ -64,6 +69,7 @@ names the vector and password it uses.
 tools/vault/vectors.sh            # keep the committed envelopes; recompute every table with 2.21.4 (local) and 2.18.8 (docker)
 tools/vault/vectors.sh --fresh    # new envelopes from the local ansible-vault 2.21.4 (random salts, except v10)
 tools/vault/vectors.sh --seed DIR # take the envelopes from DIR/raw (for example the research vectors), then recompute
+tools/vault/shapes.sh             # the wrapped shapes of v01 and their oracle (2.21.4 local, 2.18.8 docker), after vectors.sh
 ```
 
 The docker run uses `--network none`, no volume mounts, and the script on stdin (DEV.md rule 1). Never edit the

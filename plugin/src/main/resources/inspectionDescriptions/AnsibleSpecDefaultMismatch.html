@@ -1,0 +1,35 @@
+<html>
+<body>
+<p><b>ANS-S003.</b> Reports an argument_specs <code>default:</code> that differs from the role default in
+  <code>defaults/</code>. ansible-core never applies a documented default: the role's validation task checks a copy
+  and returns only errors, so the variable always comes from the role defaults, and the documentation is wrong.</p>
+<!-- tooltip end -->
+<p>The role default is the value Ansible loads: the first of <code>defaults/main.yml</code>, <code>main.yaml</code>,
+  <code>main.json</code> and <code>main</code> (a file or a directory, whose files load in sorted order, the last one
+  winning). Other files of <code>defaults/</code> load only with <code>defaults_from</code>. Every entry point is
+  checked against the same role default, and dictionary options down their <code>options</code> where the role default
+  is a literal dictionary holding the key.</p>
+<p>The values are compared as <code>ansible-test</code> compares documented defaults: both go through the option's
+  <code>type</code> first (a missing type is <code>str</code>), so <code>1.2</code> and <code>"1.2"</code> for a
+  <code>str</code> option or <code>yes</code> and <code>true</code> for a <code>bool</code> are the same (the type
+  checks report the spelling on the defaults value). Two spellings YAML types differently (<code>"1.20"</code> and
+  <code>1.20</code>) and a role default that is a plain <code>{{ other }}</code> followed to a literal are warnings.
+  Other templates, secrets (<code>!vault</code> values, <code>vault_*</code> names, vault files, <code>no_log</code>
+  options and dictionaries with a <code>no_log</code> sub-option), values only a dependency sets and values a
+  whole-file vault loaded later in <code>defaults/</code> may override are not compared.</p>
+<pre><code># defaults/main.yml
+version: 1.2
+
+# meta/argument_specs.yml
+argument_specs:
+  main:
+    options:
+      version:
+        default: 1.5   # ANS-S003: Ansible uses 1.2
+</code></pre>
+<p>The role default's key gets a hint without highlighting that leads back to the spec. Quick fixes set the documented
+  default to the role default (keeping the spec's quoting where it means the same) or remove it. A value written with
+  a YAML alias or anchor is not copied into the spec. No fix changes <code>defaults/</code>, because that would change
+  what Ansible does.</p>
+</body>
+</html>

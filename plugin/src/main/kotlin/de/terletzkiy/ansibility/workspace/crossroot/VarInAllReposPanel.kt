@@ -15,6 +15,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.ui.SimpleToolWindowPanel
 import com.intellij.openapi.vfs.VfsUtilCore
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.util.PsiModificationTracker
 import com.intellij.ui.ColoredTreeCellRenderer
 import com.intellij.ui.DoubleClickListener
@@ -44,9 +45,14 @@ import javax.swing.tree.DefaultTreeModel
 /**
  * The closable "This Variable in All Repos" tab (plan amendment R9, F9.8): every definition of one variable per root,
  * with an environment chooser for the effective column. It is a report: Refresh recomputes it, and the header says
- * "outdated" once PSI changed since.
+ * "outdated" once PSI changed since. [origin] is the file the action started in: from a Molecule file the report lists
+ * Molecule definitions whatever the setting (plan amendment R20, D154), otherwise the setting decides on each refresh.
  */
-class VarInAllReposPanel(private val project: Project, private val name: String) : SimpleToolWindowPanel(true, true), Disposable {
+class VarInAllReposPanel(
+    private val project: Project,
+    private val name: String,
+    val origin: VirtualFile? = null,
+) : SimpleToolWindowPanel(true, true), Disposable {
     private val root = DefaultMutableTreeNode()
     private val model = DefaultTreeModel(root)
     val tree = Tree(model)
@@ -90,7 +96,7 @@ class VarInAllReposPanel(private val project: Project, private val name: String)
         val environment = selectedEnvironment()
         job = AnsibleToolWindowScope.getInstance(project).scope.launch(Dispatchers.Default) {
             val (report, modCount) = smartReadAction(project) {
-                CrossRootVars.report(project, name, environment) to PsiModificationTracker.getInstance(project).modificationCount
+                CrossRootVars.report(project, name, environment, origin) to PsiModificationTracker.getInstance(project).modificationCount
             }
             withContext(Dispatchers.EDT) { show(report, modCount) }
         }

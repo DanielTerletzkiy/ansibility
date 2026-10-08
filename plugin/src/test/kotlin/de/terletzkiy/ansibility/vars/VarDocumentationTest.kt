@@ -10,6 +10,7 @@ import com.intellij.platform.backend.documentation.DocumentationTarget
 import com.intellij.psi.PsiDocumentManager
 import de.terletzkiy.ansibility.api.AnsibleSite
 import de.terletzkiy.ansibility.api.SourceLocation
+import de.terletzkiy.ansibility.context.MoleculeNavigationFixture
 import de.terletzkiy.ansibility.fixtures.InfraTestData
 import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.lang.jinja.AnsibleJinjaFileType
@@ -37,12 +38,13 @@ class VarDocumentationTest : VarsTestCase() {
         assertTrue(card, card.startsWith("haproxy_settings_kernel_somaxconn : str ⚠ role haproxy · golden · optional"))
         assertTrue(card, "Type str" in card)
         assertTrue(card, "Required no" in card)
-        assertTrue(card, "Default (spec) '65535' documentation only — not applied at runtime" in card)
-        val runtime = section(card, "Runtime default", *SECTIONS)
+        // R23 (D173): the documented '65535' (str) is what the chain gives after the type's conversion: no Documented row.
+        assertFalse(card, "Default (spec)" in card || "Documented (argument_specs)" in card)
+        val runtime = section(card, "Default", *SECTIONS)
         assertTrue(runtime, "'{{ haproxy_settings_maximum_connections }}' evaluated at runtime" in runtime)
         assertTrue(runtime, "roles/haproxy/defaults/main.yml:15" in runtime)
         assertTrue("the chain to the literal", "→ int 65535 via haproxy_settings_maximum_connections (roles/haproxy/defaults/main.yml:12)" in runtime)
-        assertTrue("X06 badge: spec and runtime defaults differ", "⚠ the spec default '65535' differs from the runtime default" in runtime)
+        assertFalse("R23: no raw-equality 'differs' badge (ANS-S003 finds no mismatch)", "differs" in runtime)
         assertTrue("X06 badge: int for str through the chain", "resolves to a YAML int for documented str" in runtime)
         assertTrue("the comment of line 14", "# Maximum connections at kernel level" in runtime)
         assertTrue(card, "Set in no other definition in golden" in card)
@@ -54,8 +56,8 @@ class VarDocumentationTest : VarsTestCase() {
         val apt = "golden/roles/haproxy/tasks/apt.yml"
         val version = text(html(hover(apt, offsetAt(apt, 24, "haproxy_backports_version", 3))))
         assertTrue("the description's Jinja is shown literally", "Repo URL uses {{ haproxy_backports_version }}-backports." in version)
-        assertTrue(version, "Default (spec) '3.2'" in version)
-        val versionRuntime = section(version, "Runtime default", *SECTIONS)
+        assertFalse("R23: \"3.2\" (str) is the role default 3.2 after the type's conversion", "Documented (argument_specs)" in version)
+        val versionRuntime = section(version, "Default", *SECTIONS)
         assertTrue(versionRuntime, versionRuntime.startsWith(" 3.2 · roles/haproxy/defaults/main.yml:1"))
         assertTrue(versionRuntime, "⚠ the runtime default is a YAML float for documented str" in versionRuntime)
     }
@@ -69,7 +71,7 @@ class VarDocumentationTest : VarsTestCase() {
                 assertEquals(type, psi(template).fileType)
                 val card = text(html(hover(template, offsetAt(template, 9, "postfix_relayhost", 2))))
                 assertTrue(card, card.startsWith("postfix_relayhost : str role postfix · falcon · optional"))
-                val runtime = section(card, "Runtime default", *SECTIONS)
+                val runtime = section(card, "Default", *SECTIONS)
                 assertTrue(runtime, runtime.startsWith(" \"\" · roles/postfix/defaults/main.yml:2"))
                 val setIn = section(card, "Set in", *SECTIONS)
                 for (expected in listOf(
@@ -79,10 +81,20 @@ class VarDocumentationTest : VarsTestCase() {
                 )) {
                     assertTrue("$expected in $setIn", expected in setIn)
                 }
-                assertTrue("the fixture also sets it in the role's molecule inventory", "molecule roles/postfix/molecule/default/molecule.yml:56" in setIn)
+                // R20/D153: the role's molecule inventory is hidden from its template while Molecule is hidden.
+                assertFalse(setIn, "molecule.yml" in setIn)
                 assertFalse(setIn, "golden" in setIn)
             }
         }
+    }
+
+    /** With "Show Molecule in navigation and search" on (R20/D153), "Set in" lists the role's molecule inventory too. */
+    fun testPostfixRelayhostInTemplateWithMoleculeShown() {
+        copyInfra("repos/falcon")
+        MoleculeNavigationFixture.showInNavigationUntil(project, testRootDisposable)
+        val template = "repos/falcon/ansible/roles/postfix/templates/main.cf.j2"
+        val setIn = section(text(html(hover(template, offsetAt(template, 9, "postfix_relayhost", 2)))), "Set in", *SECTIONS)
+        assertTrue("the fixture also sets it in the role's molecule inventory", "molecule roles/postfix/molecule/default/molecule.yml:56" in setIn)
     }
 
     /** Acceptance 3 and 7: vars-file keys. */
@@ -142,8 +154,9 @@ class VarDocumentationTest : VarsTestCase() {
         copyVarsData("site")
         val version = text(html(hover(TASKS, offsetAt(TASKS, 35, "web_version", 2))))
         assertTrue(version, "Choices '3.2' | '3.3'" in version)
-        val runtime = section(version, "Runtime default", *SECTIONS)
-        assertTrue(runtime, "⚠ the spec default '3.2' differs from the runtime default" in runtime)
+        val runtime = section(version, "Default", *SECTIONS)
+        assertFalse("R23: the documented \"3.2\" is the role default 3.2 under type str (no ANS-S003): $runtime", "differs" in runtime)
+        assertFalse(version, "Documented (argument_specs)" in version)
         assertTrue(runtime, "⚠ the runtime default is a YAML float for documented str" in runtime)
 
         val port = text(html(hover(TASKS, offsetAt(TASKS, 31, "web_port", 2))))
@@ -153,7 +166,10 @@ class VarDocumentationTest : VarsTestCase() {
         assertTrue("O(web_nested) is a link", "href=\"psi_element://ansibility-var/var/web_nested\"" in html(hover(TASKS, offsetAt(TASKS, 31, "web_port", 2))))
         val setIn = section(port, "Set in", *SECTIONS)
         assertTrue(setIn, "env dev environments/dev/group_vars/all/vars.yml:2" in setIn)
-        assertTrue(setIn, "molecule roles/web/molecule/default/molecule.yml:10" in setIn)
+        assertFalse("R20/D153: Molecule is hidden from the role's tasks: $setIn", "molecule.yml" in setIn)
+        MoleculeNavigationFixture.showInNavigationUntil(project, testRootDisposable)
+        val shown = section(text(html(hover(TASKS, offsetAt(TASKS, 31, "web_port", 2)))), "Set in", *SECTIONS)
+        assertTrue(shown, "molecule roles/web/molecule/default/molecule.yml:10" in shown)
     }
 
     fun testCommentDocsWithoutSpec() {
@@ -168,10 +184,10 @@ class VarDocumentationTest : VarsTestCase() {
     fun testMultiLineRuntimeDefaultIsACodeBlock() {
         copyVarsData("site")
         val html = html(hover(DEFAULTS, offsetAt(DEFAULTS, 9, "web_motd", 2)))
-        val runtime = section(text(html), "Runtime default", *SECTIONS)
+        val runtime = section(text(html), "Default", *SECTIONS)
         assertTrue(runtime, "Welcome to {{ inventory_hostname }} second line" in runtime)
         assertTrue(runtime, "evaluated at runtime" in runtime)
-        assertTrue("a block, not inline code", "<pre" in html.substringAfter("Runtime default"))
+        assertTrue("a block, not inline code", "<pre" in html.substringAfter(">Default<"))
     }
 
     fun testNestedReferenceShowsTheNestedOption() {
@@ -194,7 +210,7 @@ class VarDocumentationTest : VarsTestCase() {
         val inner = resolve(nested, VarLinks.option(listOf("inner")))
         val innerCard = text(html(inner))
         assertTrue(innerCard, innerCard.startsWith("web_nested.inner : int role web · site · required"))
-        assertTrue("the nested runtime default", section(innerCard, "Runtime default", *SECTIONS).startsWith(" 0 "))
+        assertTrue("the nested runtime default", section(innerCard, "Default", *SECTIONS).startsWith(" 0 "))
 
         val port = hover(TASKS, offsetAt(TASKS, 31, "web_port", 2))
         val linked = text(html(resolve(port, VarLinks.variable(listOf("web_nested")))))
@@ -212,7 +228,8 @@ class VarDocumentationTest : VarsTestCase() {
         assertTrue(undefined, "Not defined, declared or set anywhere in site" in undefined)
 
         val loop = text(html(hover(TASKS, offsetAt(TASKS, 12, "item", 1))))
-        assertTrue(loop, "loop variable of the task at roles/web/tasks/main.yml:10" in loop)
+        // The loop card names the task, its action and what it iterates (was "loop variable of the task at …:10").
+        assertTrue(loop, "loop variable of 'Loop' (debug in roles/web/tasks/main.yml:10), iterates web_list" in loop)
 
         val local = text(html(hover(TEMPLATE, offsetAt(TEMPLATE, 5, "local_name", 1))))
         assertTrue(local, local.startsWith("local_name site · Jinja local"))

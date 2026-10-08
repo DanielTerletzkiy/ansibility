@@ -1,7 +1,13 @@
 package de.terletzkiy.ansibility.run.molecule
 
 import com.intellij.execution.RunManager
+import com.intellij.execution.RunnerAndConfigurationSettings
+import com.intellij.execution.configurations.RunProfile
+import com.intellij.execution.configurations.RunnerSettings as PlatformRunnerSettings
 import com.intellij.execution.configurations.RuntimeConfigurationError
+import com.intellij.execution.executors.DefaultRunExecutor
+import com.intellij.execution.runners.ExecutionEnvironment
+import com.intellij.execution.runners.ProgramRunner
 import com.intellij.execution.lineMarker.RunLineMarkerContributor
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.AnAction
@@ -9,25 +15,47 @@ import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.actionSystem.impl.SimpleDataContext
 import com.intellij.openapi.util.Disposer
 import com.intellij.psi.SyntaxTraverser
+import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.TestActionEvent
+import de.terletzkiy.ansibility.api.VaultSourceKind
+import de.terletzkiy.ansibility.api.VaultUnlockResult
 import de.terletzkiy.ansibility.run.AnsibilityRunBundle
 import de.terletzkiy.ansibility.run.PlaybookExecutor
 import de.terletzkiy.ansibility.run.PlaybookPreparation
+import de.terletzkiy.ansibility.run.RunSecrets
 import de.terletzkiy.ansibility.run.settings.RunnerRootSettings
 import de.terletzkiy.ansibility.run.settings.RunnerSettings
 import de.terletzkiy.ansibility.runtime.AnsibleRuntimeOptions
 import de.terletzkiy.ansibility.runtime.AnsibleTool
 import de.terletzkiy.ansibility.settings.RootKeys
 import de.terletzkiy.ansibility.vault.VaultTestCase
+import de.terletzkiy.ansibility.vault.VaultVectors
+import de.terletzkiy.ansibility.vault.identity.ExplicitIdentity
+import de.terletzkiy.ansibility.vault.identity.VaultProjectSettings
+import de.terletzkiy.ansibility.vault.identity.VaultRootSettings
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import org.jdom.Element
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 /**
  * Molecule on a role: its scenarios and Compose service, the gutter, the prepared run, the role action, the run
  * configuration and what each button runs.
  */
 class MoleculeRunTest : VaultTestCase() {
+    private object TestRunner : ProgramRunner<PlatformRunnerSettings> {
+        override fun getRunnerId(): String = "AnsibilityMoleculeRunTest"
+        override fun canRun(executorId: String, profile: RunProfile): Boolean = true
+        override fun execute(environment: ExecutionEnvironment) = Unit
+    }
+
     private lateinit var falcon: String
     private val role: String get() = "$falcon/roles/web"
 
@@ -51,6 +79,8 @@ class MoleculeRunTest : VaultTestCase() {
             PlaybookPreparation.dockerForTests = null
             MoleculeRunContext.moleculeForTests = null
             MoleculeLauncher.executeForTests = null
+            MoleculeResults.getInstance(project).resetForTests()
+            MoleculeCleanup.getInstance(project).resetForTests()
             RunnerSettings.getInstance(project).loadState(RunnerSettings.StateBean())
             RunManager.getInstance(project).let { manager ->
                 manager.getConfigurationSettingsList(MoleculeConfigurationType.getInstance()).forEach(manager::removeConfiguration)
@@ -90,7 +120,7 @@ class MoleculeRunTest : VaultTestCase() {
         val root = root(falcon)
         PlaybookPreparation.dockerForTests = { Path.of("/usr/local/bin/docker") }
         MoleculeRunContext.moleculeForTests = { null }
-        val prepared = await { MoleculePreparation.prepare(project, MoleculeSpec(vf(role).path, "default", MoleculeCommand.CONVERGE)) }!!
+        val prepared = await { MoleculePreparation.prepareAsync(project, MoleculeSpec(vf(role).path, "default", MoleculeCommand.CONVERGE)) }
         try {
             val command = prepared.process.command
             assertTrue(command.toString(), command.containsAll(listOf("--entrypoint", "molecule", "-w", "/ansible/roles/web", "ansible-molecule", "converge", "--scenario-name", "default")))
@@ -109,20 +139,49 @@ class MoleculeRunTest : VaultTestCase() {
         }
 
         RunnerSettings.getInstance(project).update(RootKeys.keyOf(project, root.dir)) { RunnerRootSettings(environmentVariables = mapOf("MOLECULE_RUN_ID" to "mine")) }
-        val own = await { MoleculePreparation.prepare(project, MoleculeSpec(vf(role).path, "")) }!!
+        val own = await { MoleculePreparation.prepareAsync(project, MoleculeSpec(vf(role).path, "")) }
         try {
             assertEquals("mine", own.process.environment[MoleculePreparation.RUN_ID])
             assertTrue(own.process.command.containsAll(listOf("test", "--all")))
         } finally {
             own.close()
         }
-        val error = runCatching { await { MoleculePreparation.prepare(project, MoleculeSpec(vf(role).path, "nope")) } }.exceptionOrNull()
+        val error = runCatching { await { MoleculePreparation.prepareAsync(project, MoleculeSpec(vf(role).path, "nope")) } }.exceptionOrNull()
         assertTrue(error.toString(), error?.message.orEmpty().contains("nope"))
-        val gone = runCatching { await { MoleculePreparation.prepare(project, MoleculeSpec(base.resolve("$falcon/roles/gone").toString())) } }.exceptionOrNull()
+        val gone = runCatching { await { MoleculePreparation.prepareAsync(project, MoleculeSpec(base.resolve("$falcon/roles/gone").toString())) } }.exceptionOrNull()
         assertTrue(gone.toString(), gone?.message.orEmpty().contains("does not exist"))
         PlaybookPreparation.dockerForTests = { null }
-        val noDocker = runCatching { await { MoleculePreparation.prepare(project, MoleculeSpec(vf(role).path, "default")) } }.exceptionOrNull()
+        val noDocker = runCatching { await { MoleculePreparation.prepareAsync(project, MoleculeSpec(vf(role).path, "default")) } }.exceptionOrNull()
         assertTrue(noDocker.toString(), noDocker?.message.orEmpty().contains("No docker executable"))
+    }
+
+    fun testStopWhileTheScriptsAreWrittenDeletesThem() {
+        root(falcon)
+        PlaybookPreparation.dockerForTests = { Path.of("/usr/local/bin/docker") }
+        MoleculeRunContext.moleculeForTests = { null }
+        val written = CopyOnWriteArrayList<Path>()
+        val release = CountDownLatch(1)
+        RunSecrets.scriptsWrittenForTests = { secrets ->
+            written.add(secrets.dir!!)
+            release.await(30, TimeUnit.SECONDS)
+        }
+        // A caller on another dispatcher than the scripts' step (IO): withContext drops what that step returns to it
+        // once it was cancelled, NonCancellable or not.
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        try {
+            val job = scope.launch { MoleculePreparation.prepareAsync(project, MoleculeSpec(vf(role).path, "default", MoleculeCommand.CONVERGE)) }
+            PlatformTestUtil.waitWithEventsDispatching("the scripts were not written", { written.isNotEmpty() }, 30)
+            // Stop comes while the scripts are written.
+            job.cancel()
+            release.countDown()
+            PlatformTestUtil.waitWithEventsDispatching("the preparation did not end", { job.isCompleted }, 30)
+            assertTrue(job.isCancelled)
+            assertFalse("the scripts written while Stop came are deleted", Files.exists(written.single()))
+        } finally {
+            RunSecrets.scriptsWrittenForTests = null
+            release.countDown()
+            scope.cancel()
+        }
     }
 
     fun testALibraryRoleRunsInTheMoleculeServiceOfTheRepoAboveIt() {
@@ -139,7 +198,7 @@ class MoleculeRunTest : VaultTestCase() {
         root("library")
         PlaybookPreparation.dockerForTests = { Path.of("/usr/local/bin/docker") }
         MoleculeRunContext.moleculeForTests = { null }
-        val prepared = await { MoleculePreparation.prepare(project, MoleculeSpec(vf("library/roles/web").path)) }!!
+        val prepared = await { MoleculePreparation.prepareAsync(project, MoleculeSpec(vf("library/roles/web").path)) }
         try {
             val command = prepared.process.command
             assertTrue(command.toString(), command.containsAll(listOf("-w", "/ansible/roles/web", "ansible-molecule", "test", "--all")))
@@ -149,26 +208,133 @@ class MoleculeRunTest : VaultTestCase() {
         }
     }
 
-    fun testAMoleculeRunNeverAsksForAVaultPassword() {
-        // A root whose only vault password comes from a prompt (a role library has none at all).
-        val vaulted = projectRoot("heron", "[defaults]\nvault_identity_list = default@prompt\n")
+    /** A root with a vault password file and an id in a password manager, its `default` unlocked earlier in the session. */
+    private fun vaultedRoot(): String {
+        val vaulted = projectRoot("heron")
+        write("$vaulted/.vault-pass", "${VaultVectors.PW1}\n")
+        write("$vaulted/vars/v01.yml", VaultVectors.raw("v01"))
         write("$vaulted/roles/app/tasks/main.yml", "- name: One\n  ansible.builtin.debug: {}\n")
         write("$vaulted/roles/app/molecule/default/molecule.yml", "---\ndriver:\n  name: default\n")
-        root(vaulted)
+        val root = root(vaulted)
+        VaultProjectSettings.getInstance(project).update(registry.rootKey(root)) {
+            VaultRootSettings(identities = listOf(ExplicitIdentity("ops", VaultSourceKind.ONE_PASSWORD, "op://Infra/ops/password")))
+        }
+        registry.invalidate()
+        managerReads.set(0)
+        secrets.setPasswordManagersForTests { _, _, _ ->
+            managerReads.incrementAndGet()
+            null
+        }
+        assertEquals("unlocked earlier in the session", listOf("default"), (await { secrets.unlock(root, "default") } as VaultUnlockResult.Unlocked).identities)
+        access.secretReads.clear()
+        access.nonSecretReads.clear()
+        prompter.consentRequests.clear()
+        prompter.passwordRequests.clear()
+        managerReads.set(0)
+        return vaulted
+    }
+
+    private val managerReads = java.util.concurrent.atomic.AtomicInteger()
+
+    /** Nothing of the vault was asked, read or run: no source, no prompt or consent, no password manager (D136). */
+    private fun assertNoVaultCall() {
+        assertEmpty("no vault source read", access.secretReads)
+        assertEmpty("no prompt", prompter.passwordRequests)
+        assertEmpty("no consent", prompter.consentRequests)
+        assertEmpty("no master password", prompter.masterRequests)
+        assertEquals("no password manager", 0, managerReads.get())
+    }
+
+    /** No vault secret, client or identity list in what the run passes. */
+    private fun assertNoVaultEnvironment(environment: Map<String, String>, command: List<String>) {
+        assertFalse(environment.keys.toString(), environment.keys.any { it.startsWith("ANSIBILITY_VAULT_") || it.startsWith("ANSIBLE_VAULT_") })
+        assertFalse(command.toString(), command.any { "ANSIBLE_VAULT" in it || "ANSIBILITY_VAULT" in it || RunSecrets.VAULT_CLIENT in it })
+    }
+
+    fun testAMoleculeRunUsesNoVaultAtAll() {
+        // R19/D136 replaces R17/D126 ("unlock what needs no question"): even an id unlocked earlier stays out.
+        val vaulted = vaultedRoot()
         MoleculeRunContext.moleculeForTests = { Path.of("/venv/bin/molecule") }
-        val prepared = await { MoleculePreparation.prepare(project, MoleculeSpec(vf("$vaulted/roles/app").path, "default", executor = PlaybookExecutor.NATIVE)) }!!
+        val native = await { MoleculePreparation.prepareAsync(project, MoleculeSpec(vf("$vaulted/roles/app").path, "default", executor = PlaybookExecutor.NATIVE)) }
         try {
-            assertTrue("no prompt: ${prompter.passwordRequests}", prompter.passwordRequests.isEmpty())
-            assertTrue(prepared.header.toString(), prepared.header.any { "Molecule runs do not ask" in it })
+            assertNoVaultCall()
+            assertNoVaultEnvironment(native.process.environment, native.process.command)
+            assertNull("no vault client is written", native.secrets.vaultClient)
+            assertEmpty(native.secrets.vaultLabels)
+            assertTrue(native.header.toString(), native.header.contains(AnsibilityRunBundle.message("molecule.header.vault.none")))
+            assertEquals("Vault: none \u2014 Molecule runs pass no vault secrets; vaulted values fail to decrypt.", AnsibilityRunBundle.message("molecule.header.vault.none"))
         } finally {
-            prepared.close()
+            native.close()
+        }
+
+        // In its Compose service: no vault variable passed by name, no vault client mounted.
+        write(
+            "repos/heron/docker-compose.ansible-molecule.yaml",
+            "services:\n  ansible-molecule:\n    volumes:\n      - ./ansible/roles:/ansible/roles\n",
+        )
+        refresh()
+        PlaybookPreparation.dockerForTests = { Path.of("/usr/local/bin/docker") }
+        val docker = await { MoleculePreparation.prepareAsync(project, MoleculeSpec(vf("$vaulted/roles/app").path, "default", MoleculeCommand.DESTROY)) }
+        try {
+            assertTrue(docker.process.command.toString(), "ansible-molecule" in docker.process.command && "destroy" in docker.process.command)
+            assertNoVaultCall()
+            assertNoVaultEnvironment(docker.process.environment, docker.process.command)
+        } finally {
+            docker.close()
+        }
+        assertTrue("the earlier unlock stays as it was", secrets.unlockedLabels(registry.discovery(root(vaulted))).contains("default"))
+    }
+
+    fun testADestroyAndABulkRunOfAVaultedRootAskNothingEither() {
+        val vaulted = vaultedRoot()
+        val molecule = base.resolve("venv/bin/molecule")
+        Files.createDirectories(molecule.parent)
+        // Each run leaves the names of its environment variables behind (names only, never values).
+        Files.writeString(molecule, "#!/bin/sh\nenv | cut -d= -f1 > \"${'$'}PWD/.env-names-${'$'}1\"\n")
+        molecule.toFile().setExecutable(true)
+        MoleculeRunContext.moleculeForTests = { molecule }
+        write("$vaulted/roles/db/tasks/main.yml", "- name: One\n  ansible.builtin.debug: {}\n")
+        write("$vaulted/roles/db/molecule/default/molecule.yml", "---\ndriver:\n  name: default\n")
+        refresh()
+        val app = MoleculeSpec(vf("$vaulted/roles/app").path, "default", MoleculeCommand.DESTROY, PlaybookExecutor.NATIVE)
+        val db = MoleculeSpec(vf("$vaulted/roles/db").path, executor = PlaybookExecutor.NATIVE)
+        val executor = DefaultRunExecutor.getRunExecutorInstance()
+
+        // The destroy run, as the countdown starts it: through the configuration MoleculeLauncher runs.
+        val launched = ArrayList<RunnerAndConfigurationSettings>()
+        MoleculeLauncher.executeForTests = { settings, _ -> launched += settings }
+        MoleculeCleanup.destroy(project, app.copy(command = MoleculeCommand.TEST))
+        PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
+        val settings = launched.single()
+        val destroy = ExecutionEnvironment(executor, TestRunner, settings, project)
+        val state = settings.configuration.getState(executor, destroy)!!
+        val result = state.execute(executor, TestRunner)!!
+        Disposer.register(testRootDisposable, result.executionConsole)
+        result.processHandler.startNotify()
+        assertTrue(result.processHandler.waitFor(TimeUnit.SECONDS.toMillis(30)))
+        assertEquals(0, result.processHandler.exitCode)
+
+        // A bulk run of the root's two roles.
+        val targets = listOf(MoleculeTarget(app.copy(command = MoleculeCommand.TEST), "app", "heron"), MoleculeTarget(db, "db", "heron"))
+        val bulk = ExecutionEnvironment(executor, TestRunner, settings, project)
+        val batch = MoleculeBatchProfile(project, targets).getState(executor, bulk).execute(executor, TestRunner)!!
+        Disposer.register(testRootDisposable, batch.executionConsole)
+        batch.processHandler.startNotify()
+        // The batch begins each role on the EDT (and waits for the destroy's end): wait dispatching events.
+        PlatformTestUtil.waitWithEventsDispatching("the batch did not end", { batch.processHandler.isProcessTerminated }, 60)
+        assertEquals(0, batch.processHandler.exitCode)
+
+        assertNoVaultCall()
+        for (dump in listOf("app/.env-names-destroy", "app/.env-names-test", "db/.env-names-test")) {
+            val names = Files.readAllLines(base.resolve("$vaulted/roles/$dump"))
+            assertFalse("$dump: $names", names.any { it.startsWith("ANSIBILITY_VAULT_") })
         }
     }
 
     fun testALocalRunUsesTheMoleculeBesideAnsible() {
         root(falcon)
         MoleculeRunContext.moleculeForTests = { Path.of("/venv/bin/molecule") }
-        val prepared = await { MoleculePreparation.prepare(project, MoleculeSpec(vf(role).path, "default", executor = PlaybookExecutor.NATIVE)) }!!
+        val prepared = await { MoleculePreparation.prepareAsync(project, MoleculeSpec(vf(role).path, "default", executor = PlaybookExecutor.NATIVE)) }
         try {
             assertEquals(listOf("/venv/bin/molecule", "test", "--scenario-name", "default"), prepared.process.command)
             assertEquals(base.resolve(role), prepared.process.workDir)

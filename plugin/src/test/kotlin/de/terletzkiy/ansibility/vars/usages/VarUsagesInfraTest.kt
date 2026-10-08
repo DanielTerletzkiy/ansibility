@@ -9,6 +9,7 @@ import com.intellij.openapi.util.TextRange
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.TestActionEvent
 import com.intellij.usages.UsageInfo2UsageAdapter
+import de.terletzkiy.ansibility.context.MoleculeNavigationFixture
 import de.terletzkiy.ansibility.fixtures.InfraTestData
 import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.vault.crypto.VaultCrypto
@@ -40,6 +41,10 @@ class VarUsagesInfraTest : UsagesTestCase() {
     /** Acceptance 1: from the template use, the template and task uses and every definition, grouped `Read: …` / `Set: …`. */
     fun testFindUsagesFromTheTemplateListsUsesAndEveryDefinition() {
         at(TEMPLATE, 16, "alloy_tenant_api_key")
+        // R20/D153: the molecule override is hidden from the role's template while Molecule is hidden (the default).
+        assertEquals(EXPECTED_PRODUCTION, describeUsages(findUsagesViaAction()))
+        MoleculeNavigationFixture.showInNavigationUntil(project, testRootDisposable)
+        at(TEMPLATE, 16, "alloy_tenant_api_key")
         val usages = describeUsages(findUsagesViaAction())
         assertEquals(EXPECTED, usages)
         // The usage view merges the usages of one line into one node.
@@ -58,7 +63,7 @@ class VarUsagesInfraTest : UsagesTestCase() {
         val offset = at(SPEC, 91, "alloy_tenant_api_key")
         assertEquals(GTDUOutcome.SU, gtdu(offset))
         val keyValue = runReadActionBlocking { PsiTreeUtil.getParentOfType(hostFile().findElementAt(offset), YAMLKeyValue::class.java) }!!
-        assertEquals(EXPECTED.map { it.dropLast(2) }, describeInfos(findUsagesOf(keyValue)))
+        assertEquals(EXPECTED_PRODUCTION.map { it.dropLast(2) }, describeInfos(findUsagesOf(keyValue)))
         assertEquals(GTDUOutcome.GTD, gtdu(at(TEMPLATE, 16, "alloy_tenant_api_key")))
         assertEquals("$SPEC:91", gotoTargets(TEMPLATE, offsetAt(TEMPLATE, 16, "alloy_tenant_api_key", 1)).map(::describe).first())
     }
@@ -144,5 +149,8 @@ class VarUsagesInfraTest : UsagesTestCase() {
             "repos/falcon/ansible/environments/prod/group_vars/all/vars.yml:4:alloy_tenant_api_key W",
             "repos/falcon/ansible/environments/test/group_vars/all/vars.yml:4:alloy_tenant_api_key W",
         ).sorted()
+
+        /** [EXPECTED] from a production start while Molecule is hidden (R20/D153). */
+        val EXPECTED_PRODUCTION = EXPECTED.filter { "/molecule/" !in it }
     }
 }

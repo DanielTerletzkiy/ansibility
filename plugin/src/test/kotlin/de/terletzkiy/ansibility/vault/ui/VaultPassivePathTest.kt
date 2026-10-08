@@ -39,7 +39,7 @@ class VaultPassivePathTest : VaultUiTestCase() {
         val text = myFixture.editor.document.text
         for (key in keys) {
             myFixture.editor.caretModel.moveToOffset(text.indexOf("$key:"))
-            assertTrue(myFixture.availableIntentions.any { it.familyName == "Ansible Vault" })
+            assertTrue(myFixture.availableIntentions.any { it.familyName == "Ansibility Vault" })
         }
         for (file in listOf(path, "$root/environments/prod/group_vars/all/vars.yml")) {
             val virtualFile = vf(file)

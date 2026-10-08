@@ -35,8 +35,9 @@ import java.util.concurrent.ConcurrentHashMap
  * - [contextOf] results are cached per file with the same stamp; results that needed the content probe also
  *   depend on the file's modification stamp.
  * - The path settings ([PathSettings]) are read at query time: files matching an ignored-path glob have no context
- *   (and the root walk does not enter such directories), [PathSettings.detachedRule] off makes no root detached, and
- *   [PathSettings.moleculeSupport] off classifies molecule files as [de.terletzkiy.ansibility.api.FileKind.OTHER].
+ *   (and the root walk does not enter such directories), and [PathSettings.detachedRule] off makes no root detached.
+ *   Molecule files are always classified (plan amendment R20, D150); an ignored-path glob for `molecule` folders is
+ *   the way to have them skipped.
  * - A [BulkFileListenerBackgroundable] on `VFS_CHANGES_BG` bumps [structureTracker] for the changes that
  *   [StructureChangeFilter] considers structural and then publishes [AnsibleStructureListener.TOPIC].
  *
@@ -45,7 +46,6 @@ import java.util.concurrent.ConcurrentHashMap
 class AnsibleWorkspaceImpl(private val project: Project) : AnsibleWorkspace, Disposable {
     private val tracker = SimpleModificationTracker()
     private val classifier = AnsibleFileClassifier(
-        moleculeSupport = { paths().moleculeSupport },
         layoutOf = { root -> ProjectLayoutService.getInstance(project).layout(root) },
     )
     private val contexts = ConcurrentHashMap<VirtualFile, CachedContext>()
@@ -128,8 +128,6 @@ class AnsibleWorkspaceImpl(private val project: Project) : AnsibleWorkspace, Dis
         tracker.modificationCount + ProjectRootManager.getInstance(project).modificationCount + settings().modificationTracker.modificationCount
 
     private fun settings(): AnsibilityProjectSettings = AnsibilityProjectSettings.getInstance(project)
-
-    private fun paths(): PathSettings = settings().settings.paths
 
     private fun currentScan(): RootScan = if (project.isDisposed) RootScan.EMPTY else readLocked { scanValue.value }
 

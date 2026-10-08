@@ -8,26 +8,32 @@ import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
+import de.terletzkiy.ansibility.semantics.vault.EnvelopeParse
 import de.terletzkiy.ansibility.semantics.vault.VaultEnvelope
+import de.terletzkiy.ansibility.semantics.vault.VaultFileShape
 import de.terletzkiy.ansibility.semantics.vault.VaultLayout
+import de.terletzkiy.ansibility.semantics.vault.VaultShapeKind
 import de.terletzkiy.ansibility.yaml.YamlPsi
 import org.jetbrains.yaml.psi.YAMLKeyValue
 import org.jetbrains.yaml.psi.YAMLScalar
 import org.jetbrains.yaml.psi.YAMLSequenceItem
 
 /**
- * The password-free quick fixes of ANS-V102 and ANS-V103 (plan A.13: `localInspection` + ModCommand, native preview,
- * nothing secret). They edit the text of the value only, through the document of the ModCommand copy, so the layout
- * around the value stays exactly as written; no envelope is decrypted or re-encrypted.
+ * The password-free quick fixes of ANS-V102, ANS-V103, ANS-V107 and ANS-V114 (plan A.13: `localInspection` +
+ * ModCommand, native preview, nothing secret). They edit the text only, through the document of the ModCommand copy,
+ * so the layout around the value stays exactly as written; no envelope is decrypted or re-encrypted.
  */
 object VaultFixes {
     private val HEX = Regex("[0-9A-Fa-f]+")
 
-    /** The fix for [kind]. */
-    fun of(kind: VaultFixKind): LocalQuickFix = when (kind) {
+    /** The fix of [finding], or null when it has none. */
+    fun of(finding: VaultFinding): LocalQuickFix? = when (finding.fix) {
+        null -> null
         VaultFixKind.FOLDED_TO_LITERAL -> ConvertToLiteralBlockFix(flattened = false)
         VaultFixKind.FLATTENED_TO_LITERAL -> ConvertToLiteralBlockFix(flattened = true)
         VaultFixKind.STRIP_TRAILING_WHITESPACE -> StripTrailingWhitespaceFix()
+        VaultFixKind.CONVERT_TO_WHOLE_FILE_VAULT -> finding.conversion?.let(::ConvertToWholeFileVaultFix)
+        VaultFixKind.ADD_VAULT_TAG -> AddVaultTagFix()
     }
 
     /**
@@ -116,5 +122,46 @@ class StripTrailingWhitespaceFix : PsiUpdateModCommandQuickFix() {
         if (edits.isEmpty()) return
         for ((from, to) in edits.asReversed()) document.deleteString(from, to)
         PsiDocumentManager.getInstance(project).commitDocument(document)
+    }
+}
+
+/**
+ * ANS-V107 "Convert to whole-file vault" (plan amendment R21, D159): the file becomes the whole-file vault it holds:
+ * the `!vault |` or `key: !vault |` line, comments and blank lines before the envelope, its indentation and trailing
+ * blanks go; the header and the payload digits stay as written (`VaultFileShape.unwrapped`). The document keeps the
+ * file's line separator when it is saved. Offered only when the result is a well-formed envelope; [applyFix] classifies
+ * the copy again and writes only when it still holds exactly the envelope the inspection saw. One undoable step, no
+ * password, nothing decrypted.
+ */
+class ConvertToWholeFileVaultFix(private val conversion: WholeFileConversion) : PsiUpdateModCommandQuickFix() {
+    override fun getFamilyName(): String = AnsibilityVaultChecksBundle.message("fix.v107.convert")
+
+    override fun applyFix(project: Project, element: PsiElement, updater: ModPsiUpdater) {
+        val document = updater.document
+        val shape = VaultFileShape.classify(document.charsSequence, conversion.context) ?: return
+        if (!shape.kind.isWrapped || shape.kind == VaultShapeKind.BYTE_ORDER_MARK) return
+        val envelope = (shape.inner as? EnvelopeParse.Ok)?.envelope ?: return
+        val unwrapped = shape.unwrapped ?: return
+        if (envelope != conversion.envelope) return
+        VaultFixes.replace(project, document, 0, document.textLength, unwrapped)
+    }
+}
+
+/**
+ * ANS-V114 "Add !vault tag": `key: |` with an envelope becomes `key: !vault |`, so Ansible decrypts the value instead
+ * of passing the envelope text on. The value itself is not touched (ANS-V101–V103 judge it once it is tagged).
+ */
+class AddVaultTagFix : PsiUpdateModCommandQuickFix() {
+    override fun getFamilyName(): String = AnsibilityVaultChecksBundle.message("fix.v114.tag")
+
+    override fun applyFix(project: Project, element: PsiElement, updater: ModPsiUpdater) {
+        val scalar = element as? YAMLScalar ?: return
+        if (YamlPsi.tagOf(scalar) != null) return
+        val start = scalar.textRange.startOffset
+        VaultFixes.replace(project, updater.document, start, start, "$TAG ")
+    }
+
+    private companion object {
+        const val TAG = "!vault"
     }
 }

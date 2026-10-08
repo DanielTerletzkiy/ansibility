@@ -1,7 +1,6 @@
 package de.terletzkiy.ansibility.run
 
 import com.intellij.execution.ExecutionException
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.EDT
 import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.application.PathManager
@@ -10,7 +9,6 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.MessageDialogBuilder
 import com.intellij.openapi.util.SystemInfo
 import com.intellij.openapi.vfs.LocalFileSystem
-import com.intellij.platform.ide.progress.runWithModalProgressBlocking
 import com.intellij.util.EnvironmentUtil
 import de.terletzkiy.ansibility.api.VaultFailure
 import de.terletzkiy.ansibility.api.VaultOperations
@@ -23,7 +21,7 @@ import de.terletzkiy.ansibility.run.settings.RunnerRootSettings
 import de.terletzkiy.ansibility.vault.identity.VaultIdentityRegistry
 import de.terletzkiy.ansibility.vault.secrets.VaultSecretsService
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
 import org.jetbrains.annotations.TestOnly
 import java.io.File
@@ -56,7 +54,8 @@ class RunEventsSetup(val token: String, val hostPath: (String) -> Path?)
  * chosen, confirms production-like environments, checks the checkout against its upstream branch, gets the become
  * password, unlocks the root's vault ids, and builds the native or Compose command with the root's runner settings
  * (connection, run metadata, environment and Compose variables). A play or role run is the whole playbook with the
- * `--tags` the dialog chose for it.
+ * `--tags` the dialog chose for it. It runs in the run's tab (plan amendment R19): it reports its phases there, its
+ * questions stay dialogs, and cancelling it (Stop) ends a pending `git` and deletes the scripts it wrote.
  */
 object PlaybookPreparation {
     private val PRODUCTION = Regex("(^|[^a-z])(prod|production|prd|live)([^a-z]|$)", RegexOption.IGNORE_CASE)
@@ -73,17 +72,9 @@ object PlaybookPreparation {
     /** Whether running against [environment] asks for a confirmation first (not in check mode). */
     fun isProductionLike(environment: String): Boolean = PRODUCTION.containsMatchIn(environment)
 
-    /** Null when the user cancels one of the prompts. Blocks: on the EDT behind a modal progress. */
-    fun prepare(project: Project, spec: PlaybookRunSpec): PreparedRun? {
-        val title = AnsibilityRunBundle.message("run.progress.prepare")
-        return if (ApplicationManager.getApplication().isDispatchThread) {
-            runWithModalProgressBlocking(project, title) { prepareAsync(project, spec) }
-        } else {
-            runBlocking { prepareAsync(project, spec) }
-        }
-    }
-
-    private suspend fun prepareAsync(project: Project, spec: PlaybookRunSpec): PreparedRun? {
+    /** Null when the user cancels one of the prompts. Off the EDT; [reporter] hears what it does. */
+    internal suspend fun prepareAsync(project: Project, spec: PlaybookRunSpec, reporter: PreparationReporter = PreparationReporter.NONE): PreparedRun? {
+        reporter.phase(AnsibilityRunBundle.message("run.prepare.phase.playbook"))
         val file = withContext(Dispatchers.IO) { LocalFileSystem.getInstance().refreshAndFindFileByPath(spec.playbook) }
             ?: throw ExecutionException(AnsibilityRunBundle.message("run.error.playbook.missing", spec.playbook))
         val context = PlaybookRunContext.collect(project, file)
@@ -110,9 +101,14 @@ object PlaybookPreparation {
             header += AnsibilityRunBundle.message("run.header.target", TargetChoice.describe(spec.target), spec.tags.ifBlank { "-" })
         }
         environment?.let { header += AnsibilityRunBundle.message("run.header.environment", it.label) }
-        if (runner.checkFreshness && !spec.skipFreshnessCheck && !spec.check && !checkFreshness(project, context, runner, header)) return null
+        if (runner.checkFreshness && !spec.skipFreshnessCheck && !spec.check) {
+            val upstream = runner.freshnessBranch.trim().ifEmpty { AnsibilityRunBundle.message("settings.runner.freshness.default") }
+            reporter.phase(AnsibilityRunBundle.message("run.prepare.phase.fresh", upstream))
+            if (!checkFreshness(project, context, runner, header)) return null
+        }
 
         val become = if (spec.become ?: context.becomeByDefault(project, environment?.id, spec.target)) {
+            reporter.phase(AnsibilityRunBundle.message("run.prepare.phase.become"))
             when (val result = BecomePasswords.getInstance(project).obtain(context.becomeRoot, runner, environment?.id)) {
                 is BecomeResult.Obtained -> {
                     header += AnsibilityRunBundle.message("run.header.become", result.origin)
@@ -135,13 +131,16 @@ object PlaybookPreparation {
         }
         val token = if (runner.runView) RunCallback.newToken() else null
         val secrets = try {
+            reporter.phase(AnsibilityRunBundle.message("run.prepare.phase.vault", context.root.displayName))
             secretsFor(project, context.root, header, become, vaultPlaceholder = dockerTarget?.vaultFileVariable != null, callback = token != null)
         } finally {
             become?.fill('\u0000')
         }
 
+        // Every way out from here (a failure, Stop at any suspension point) deletes the scripts just written.
         try {
             val playbook = context.playbookPath
+            if (runner.runMetadata) reporter.phase(AnsibilityRunBundle.message("run.prepare.phase.git"))
             val additions = additions(context, runner, header).let { base ->
                 if (token == null) base else base.copy(environment = base.environment + callbackEnvironment(context, runner, dockerTarget, secrets, token))
             }
@@ -162,8 +161,9 @@ object PlaybookPreparation {
     }
 
     /**
-     * Unlocks [root]'s vault ids (a header line names them, or why they stayed locked) and writes the run's secrets:
-     * the vault client, the [become] password script, the vault [vaultPlaceholder] and the events [callback].
+     * Unlocks [root]'s vault ids, asking as needed (a header line names them, or why they stayed locked), and writes the
+     * run's secrets: the vault client, the [become] password script, the vault [vaultPlaceholder] and the events
+     * [callback]. Playbook runs only: Molecule runs use no vault at all (plan amendment R19, D136).
      */
     internal suspend fun secretsFor(
         project: Project,
@@ -172,21 +172,17 @@ object PlaybookPreparation {
         become: CharArray?,
         vaultPlaceholder: Boolean,
         callback: Boolean,
-        /** False: unlock only what needs no question (files, password managers, remembered passwords), skip the rest. */
-        askForVault: Boolean = true,
     ): RunSecrets = try {
-        val unlock = if (askForVault) VaultOperations.getInstance(project).unlock(root)
-        else VaultSecretsService.getInstance(project).unlock(root, interactive = false)
-        when (unlock) {
+        when (val unlock = VaultOperations.getInstance(project).unlock(root)) {
             is VaultUnlockResult.Unlocked ->
                 if (unlock.identities.isNotEmpty()) header += AnsibilityRunBundle.message("run.header.vault", unlock.identities.joinToString())
             is VaultUnlockResult.Failed -> if (unlock.failure != VaultFailure.NO_IDENTITY) {
-                header += if (askForVault) AnsibilityRunBundle.message("run.header.vault.failed", unlock.failure.name.lowercase())
-                else AnsibilityRunBundle.message("run.header.vault.unasked")
+                header += AnsibilityRunBundle.message("run.header.vault.failed", unlock.failure.name.lowercase())
             }
         }
         val discovery = VaultIdentityRegistry.getInstance(project).discovery(root)
-        withContext(Dispatchers.IO) {
+        // Written to the end even when Stop comes meanwhile; deleted then, or by the caller on every later way out.
+        RunSecrets.writeScripts {
             VaultSecretsService.getInstance(project).lease(discovery).use { lease ->
                 RunSecrets.create(secretsBase(), lease.secrets, become, vaultPlaceholder, if (callback) RunCallback.source() else null)
             }
@@ -197,8 +193,9 @@ object PlaybookPreparation {
 
     /** False when the checkout is behind (or could not be compared) and the user does not want to run anyway. */
     private suspend fun checkFreshness(project: Project, context: PlaybookRunContext, runner: RunnerRootSettings, header: MutableList<String>): Boolean {
-        val result = withContext(Dispatchers.IO) {
-            val git = (gitForTests ?: GitChecks::locateGit)() ?: return@withContext Freshness.NotARepository
+        // Interruptible: Stop ends a pending `git fetch` (GitChecks destroys the process).
+        val result = runInterruptible(Dispatchers.IO) {
+            val git = (gitForTests ?: GitChecks::locateGit)() ?: return@runInterruptible Freshness.NotARepository
             GitChecks(git, context.rootPath).freshness(runner.freshnessBranch)
         }
         return when (result) {
@@ -236,7 +233,7 @@ object PlaybookPreparation {
     private suspend fun additions(context: PlaybookRunContext, runner: RunnerRootSettings, header: MutableList<String>): RunAdditions {
         val environment = LinkedHashMap<String, String>()
         if (runner.runMetadata) {
-            val info = withContext(Dispatchers.IO) {
+            val info = runInterruptible(Dispatchers.IO) {
                 (gitForTests ?: GitChecks::locateGit)()?.let { git -> GitChecks(git, context.rootPath).takeIf { it.isRepository() }?.info() }
             }
             if (info != null) {

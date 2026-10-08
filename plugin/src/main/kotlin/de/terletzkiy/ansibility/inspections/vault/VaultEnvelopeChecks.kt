@@ -8,6 +8,7 @@ import com.intellij.psi.PsiFile
 import com.intellij.psi.util.CachedValueProvider
 import com.intellij.psi.util.CachedValuesManager
 import com.intellij.psi.util.PsiTreeUtil
+import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.index.PathFacts
 import de.terletzkiy.ansibility.index.PathHint
 import de.terletzkiy.ansibility.index.vault.VaultEnvelopeProblem
@@ -15,8 +16,13 @@ import de.terletzkiy.ansibility.index.vault.VaultIndexer
 import de.terletzkiy.ansibility.semantics.diagnostics.DiagnosticCode
 import de.terletzkiy.ansibility.semantics.vault.EnvelopeParse
 import de.terletzkiy.ansibility.semantics.vault.FormatHint
+import de.terletzkiy.ansibility.semantics.vault.ShapeContext
 import de.terletzkiy.ansibility.semantics.vault.VaultEnvelope
+import de.terletzkiy.ansibility.semantics.vault.VaultFileShape
+import de.terletzkiy.ansibility.semantics.vault.VaultShapeKind
 import de.terletzkiy.ansibility.semantics.yaml.ScalarStyle
+import de.terletzkiy.ansibility.vault.envelope.WholeFileShapes
+import de.terletzkiy.ansibility.vault.tab.DecryptedVaultFile
 import de.terletzkiy.ansibility.yaml.YamlPsi
 import org.jetbrains.yaml.psi.YAMLFile
 import org.jetbrains.yaml.psi.YAMLKeyValue
@@ -25,13 +31,15 @@ import org.jetbrains.yaml.psi.YAMLScalar
 /** One password-free vault finding: the code, where it is, why, and the fix that applies (if any). */
 class VaultFinding(
     val code: DiagnosticCode,
-    /** The `!vault` scalar, the tag of an empty `!vault` value, or the file of a whole-file vault. */
+    /** The `!vault` scalar (or an untagged one, ANS-V114), the tag of an empty `!vault` value, or the file (whole-file vaults, ANS-V107). */
     val element: PsiElement,
     /** The highlighted range inside [element]. */
     val rangeInElement: TextRange,
     val message: String,
     /** The fix to offer, or null (ANS-V101 has none: a malformed envelope needs its author). */
     val fix: VaultFixKind?,
+    /** What [VaultFixKind.CONVERT_TO_WHOLE_FILE_VAULT] needs; null for every other fix. */
+    val conversion: WholeFileConversion? = null,
 ) {
     override fun toString(): String = "VaultFinding(${code.id} @ ${element.textRange.startOffset + rangeInElement.startOffset})"
 }
@@ -46,21 +54,41 @@ enum class VaultFixKind {
 
     /** ANS-V103: trailing spaces and TABs are removed from the value's lines. */
     STRIP_TRAILING_WHITESPACE,
+
+    /** ANS-V107: the tag or preamble lines and the indentation go, the file becomes the whole-file vault it held. */
+    CONVERT_TO_WHOLE_FILE_VAULT,
+
+    /** ANS-V114: the value gets the `!vault` tag. */
+    ADD_VAULT_TAG,
+}
+
+/**
+ * What ANS-V107's "Convert to whole-file vault" needs to redo the classification on the fix's copy of the file: the
+ * path facts the inspection used and the envelope it saw (ciphertext, nothing secret).
+ */
+class WholeFileConversion(val context: ShapeContext, val envelope: VaultEnvelope) {
+    override fun toString(): String = "WholeFileConversion($context, $envelope)"
 }
 
 /**
  * The structural vault checks ANS-V101 (malformed envelope), ANS-V102 (folded or flattened value) and ANS-V103
- * (trailing whitespace on a payload line), on inline `!vault` values of YAML files and on whole-file vaults.
+ * (trailing whitespace on a payload line), on inline `!vault` values of YAML files and on whole-file vaults; ANS-V107
+ * (not a whole-file vault: an envelope Ansible does not see, in a file of any type; plan amendment R21, D159) and
+ * ANS-V114 (an envelope in a YAML value without the `!vault` tag, D163).
  *
- * Every verdict is the codec's (`semantics.vault.VaultEnvelope.parse`, ansible-core's reader rules), read from the
- * same envelope text the `ansible.vault` index sees ([VaultIndexer]); each envelope gets at most one code. Nothing is
- * decrypted and no secret is read: the checks are safe on the highlighting path.
+ * Every verdict is the codec's (`semantics.vault.VaultEnvelope.parse`, ansible-core's reader rules; for ANS-V107
+ * `semantics.vault.VaultFileShape`), read from the same envelope text the `ansible.vault` index sees ([VaultIndexer]);
+ * each envelope gets at most one code: a file with an ANS-V107 finding gets no other. Nothing is decrypted and no
+ * secret is read: the checks are safe on the highlighting path. Messages carry line numbers and reasons, never content.
  */
 object VaultEnvelopeChecks {
     private const val NEWLINE = '\n'
 
     /** Every vault tag (`!vault`, `!vault-encrypted`) contains this; a YAML file without it has nothing to check. */
     private const val VAULT_TAG = "!vault"
+
+    /** The characters of an envelope header (`$ANSIBLE_VAULT;1.2;AES256;label`), for highlighting the header only. */
+    private val HEADER_CHARS = Regex("""[^\s"'\\]+""")
 
     /**
      * The code of an envelope that does not parse ([problem] non-null), from the codec's [hint] and the YAML [style]
@@ -95,34 +123,121 @@ object VaultEnvelopeChecks {
     )
 
     /**
-     * The findings of [file], cached until it changes. Empty for injected fragments, for secondary PSI of a template,
-     * for YAML below a `templates/` directory (rendered before Ansible loads it) and for files without any envelope.
-     * Call inside a read action.
+     * The findings of [file], cached until it changes. Empty for injected fragments, for secondary PSI of a template
+     * and for files without any envelope; the inline checks (ANS-V101–V103, ANS-V114) skip YAML below a `templates/`
+     * directory (rendered before Ansible loads it), ANS-V107 does not (a template is delivered as it is). Call inside a
+     * read action.
      */
     fun of(file: PsiFile): List<VaultFinding> {
-        // Cheap exits first: this runs on every file of every language the daemon highlights.
-        if (file !is YAMLFile && !file.viewProvider.contents.startsWith(VaultEnvelope.MAGIC)) return emptyList()
+        // Cheap exits first: this runs on every file of every language the daemon highlights. ANS-V107 needs the
+        // magic within the first 4 KiB (VaultFileShape.HEAD_CHARS).
+        if (file !is YAMLFile && !VaultFileShape.mayHoldEnvelope(file.viewProvider.contents)) return emptyList()
         if (InjectedLanguageManager.getInstance(file.project).isInjectedFragment(file)) return emptyList()
         val viewProvider = file.viewProvider
         if (viewProvider.getPsi(viewProvider.baseLanguage) != file) return emptyList()
-        return CachedValuesManager.getCachedValue(file) { CachedValueProvider.Result.create(compute(file), file) }
+        return CachedValuesManager.getCachedValue(file) {
+            CachedValueProvider.Result.create(compute(file), file, AnsibleWorkspace.getInstance(file.project).structureTracker)
+        }
     }
 
     private fun compute(file: PsiFile): List<VaultFinding> {
         val text = file.viewProvider.contents
         if (isWholeFileVault(file, text)) return listOfNotNull(wholeFile(file, text))
-        if (file !is YAMLFile || VAULT_TAG !in text) return emptyList()
+        notWholeFile(file, text)?.let { return listOf(it) }
+        if (file !is YAMLFile || (VAULT_TAG !in text && VaultEnvelope.MAGIC !in text)) return emptyList()
         if (PathFacts.of(file.viewProvider.virtualFile).hint == PathHint.TEMPLATE) return emptyList()
         val findings = ArrayList<VaultFinding>()
         PsiTreeUtil.processElements(file) { element ->
             ProgressManager.checkCanceled()
             when (element) {
-                is YAMLScalar -> if (VaultIndexer.isVaultScalar(element)) inline(element, text)?.let(findings::add)
+                is YAMLScalar -> when {
+                    VaultIndexer.isVaultScalar(element) -> inline(element, text)?.let(findings::add)
+                    else -> untagged(element, text)?.let(findings::add)
+                }
                 is YAMLKeyValue -> if (element.value == null) VaultIndexer.vaultTagOf(element)?.let { findings += empty(it) }
             }
             true
         }
         return findings
+    }
+
+    // ------------------------------------------------------------------------------------------------ ANS-V107
+
+    /**
+     * ANS-V107 for [file]: an envelope Ansible does not see because something comes before `$ANSIBLE_VAULT` (a tag
+     * line, a preamble, indentation, a byte order mark, quotes, other text). Null for decrypted tabs (their plaintext
+     * is not a file Ansible reads), in projects without an Ansible root and in detached worktrees (plan amendment R21:
+     * the R21 checks run in projects that have a root), and when the file holds no such envelope.
+     */
+    private fun notWholeFile(file: PsiFile, text: CharSequence): VaultFinding? {
+        val virtualFile = file.viewProvider.virtualFile
+        if (DecryptedVaultFile.isDecryptedTab(virtualFile) || !VaultFileShape.mayHoldEnvelope(text)) return null
+        val workspace = AnsibleWorkspace.getInstance(file.project)
+        if (workspace.roots().none { !it.detached } || workspace.rootFor(virtualFile)?.detached == true) return null
+        val context = WholeFileShapes.contextOf(file.project, virtualFile)
+        val shape = VaultFileShape.classify(text, context) ?: return null
+        if (shape.kind == VaultShapeKind.VAULT) return null
+        val range = when (shape.kind) {
+            VaultShapeKind.TAG_LINE, VaultShapeKind.YAML_VALUE, VaultShapeKind.VARS_DOCUMENT -> contentOfLine(text, shape.tagLine)
+            else -> HEADER_CHARS.matchAt(text, shape.headerOffset)?.range?.let { TextRange(it.first, it.last + 1) }
+                ?: TextRange(shape.headerOffset, shape.headerOffset + VaultEnvelope.MAGIC.length)
+        }
+        val message = buildString {
+            append(v107Message(shape))
+            val inner = shape.inner
+            if (shape.kind.isWrapped && inner != null && inner !is EnvelopeParse.Ok) {
+                VaultEnvelopeProblem.of(inner)?.let { append(AnsibilityVaultChecksBundle.message("inspection.v107.malformed", reason(it, inner))) }
+            }
+        }
+        val envelope = (shape.inner as? EnvelopeParse.Ok)?.envelope
+        val convertible = envelope != null && shape.unwrapsToVault && shape.kind != VaultShapeKind.BYTE_ORDER_MARK
+        return VaultFinding(
+            DiagnosticCode.V107_NOT_WHOLE_FILE_VAULT, file, range, message,
+            if (convertible) VaultFixKind.CONVERT_TO_WHOLE_FILE_VAULT else null,
+            if (convertible) WholeFileConversion(context, envelope) else null,
+        )
+    }
+
+    /** The ANS-V107 message of [shape]: what Ansible does with the file. Line numbers only, never content. */
+    private fun v107Message(shape: VaultFileShape): String = when (shape.kind) {
+        VaultShapeKind.TAG_LINE -> AnsibilityVaultChecksBundle.message("inspection.v107.tag", shape.tagLine + 1)
+        VaultShapeKind.YAML_VALUE -> AnsibilityVaultChecksBundle.message("inspection.v107.yaml.value", shape.tagLine + 1)
+        VaultShapeKind.VARS_DOCUMENT -> AnsibilityVaultChecksBundle.message("inspection.v107.vars.document", shape.tagLine + 1)
+        VaultShapeKind.PREAMBLE -> AnsibilityVaultChecksBundle.message("inspection.v107.preamble", shape.linesBefore, shape.headerLine + 1)
+        VaultShapeKind.INDENTED -> AnsibilityVaultChecksBundle.message("inspection.v107.indented", shape.indent)
+        VaultShapeKind.BYTE_ORDER_MARK -> AnsibilityVaultChecksBundle.message("inspection.v107.bom")
+        VaultShapeKind.QUOTED -> AnsibilityVaultChecksBundle.message("inspection.v107.quoted", shape.headerLine + 1)
+        VaultShapeKind.MIXED, VaultShapeKind.VAULT -> AnsibilityVaultChecksBundle.message("inspection.v107.mixed", shape.headerLine + 1)
+    }
+
+    /** The content of 0-based [line] of [text] without its indentation and trailing blanks (at least one character). */
+    private fun contentOfLine(text: CharSequence, line: Int): TextRange {
+        var start = 0
+        repeat(line) { start = indexOf(text, NEWLINE, start, text.length) + 1 }
+        val end = indexOf(text, NEWLINE, start, text.length)
+        val content = skipBlanks(text, start, end)
+        val trimmed = trimEnd(text, content, end)
+        return if (content < trimmed) TextRange(content, trimmed) else TextRange(start, minOf(start + 1, text.length))
+    }
+
+    // ------------------------------------------------------------------------------------------------ ANS-V114
+
+    /**
+     * ANS-V114: a scalar without any tag whose value is an envelope (`semantics.vault.VaultFileShape.isUntaggedEnvelope`):
+     * Ansible passes the ciphertext on as a string. Fix: "Add !vault tag".
+     */
+    private fun untagged(scalar: YAMLScalar, text: CharSequence): VaultFinding? {
+        if (YamlPsi.tagOf(scalar) != null || (scalar.parent as? YAMLKeyValue)?.let(YamlPsi::tagOf) != null) return null
+        if (VaultEnvelope.MAGIC !in scalar.node.chars) return null
+        if (!VaultFileShape.isUntaggedEnvelope(scalar.textValue)) return null
+        val range = scalar.textRange
+        val style = YamlPsi.contentStart(scalar)?.let(YamlPsi::styleOf)
+        val block = style == ScalarStyle.LITERAL || style == ScalarStyle.FOLDED
+        val header = if (block) contentLine(text, range) ?: firstLine(text, range) else firstLine(text, range)
+        return VaultFinding(
+            DiagnosticCode.V114_UNTAGGED_VAULT_VALUE, scalar, header.shiftLeft(range.startOffset),
+            AnsibilityVaultChecksBundle.message("inspection.v114.message"), VaultFixKind.ADD_VAULT_TAG,
+        )
     }
 
     /** Ansible's whole-file rule on the document: it starts with `$ANSIBLE_VAULT`, and the file has no byte order mark. */

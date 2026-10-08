@@ -3,9 +3,9 @@ package de.terletzkiy.ansibility.refactoring
 import com.intellij.ide.TitledHandler
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.actionSystem.DataContext
-import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.progress.ProgressManager
@@ -22,6 +22,7 @@ import com.intellij.refactoring.rename.RenameHandler
 import com.intellij.refactoring.util.CommonRefactoringUtil
 import de.terletzkiy.ansibility.api.VarDefKind
 import de.terletzkiy.ansibility.api.VarService
+import de.terletzkiy.ansibility.context.MoleculeView
 import de.terletzkiy.ansibility.vars.usages.VarOccurrences
 import de.terletzkiy.ansibility.vars.usages.VarScope
 import de.terletzkiy.ansibility.vars.usages.VarSymbolElement
@@ -29,10 +30,13 @@ import de.terletzkiy.ansibility.vars.usages.VarUsageSearch
 import java.util.concurrent.Callable
 
 /**
- * Rename of one variable: exactly the occurrences Find Usages lists for it ([VarOccurrences]). For a root variable
- * that is every definition (argument spec option, `defaults/`, `vars/`, inventory, `set_fact`, `register`, task and
- * play `vars:`) and every Jinja read (YAML values, `when:`, templates, `hostvars[h].x`, `vars['x']`) in the root's
- * family; a loop variable renames its `loop_var`/`index_var` and the reads in the loop; a Jinja local stays in its file.
+ * Rename of one variable: the occurrences Find Usages lists for it ([VarOccurrences]) with Molecule always included
+ * (plan amendment R20, D155: a rename started outside Molecule while "Show Molecule in navigation and search" is off
+ * still edits the Molecule scenarios, so the tests keep working; Find Usages from there leaves them out). For a root
+ * variable that is every definition (argument spec option, `defaults/`, `vars/`, inventory, molecule, `set_fact`,
+ * `register`, task and play `vars:`) and every Jinja read (YAML values, `when:`, templates, `hostvars[h].x`,
+ * `vars['x']`) in the root's family; a loop variable renames its `loop_var`/`index_var` and the reads in the loop; a
+ * Jinja local stays in its file.
  */
 internal object VarRenamer {
     private val NAME = Regex("[A-Za-z_][A-Za-z0-9_]*")
@@ -89,7 +93,8 @@ internal object VarRenamer {
         val documents = FileDocumentManager.getInstance()
         val edits = ArrayList<RenameEdit>()
         var skipped = 0
-        for (occurrence in VarOccurrences.of(project, symbol, null)) {
+        // Always every occurrence, Molecule included, whatever the symbol's view (D155).
+        for (occurrence in VarOccurrences.of(project, symbol, null, MoleculeView.INCLUDE)) {
             ProgressManager.checkCanceled()
             val text = documents.getDocument(occurrence.file)?.immutableCharSequence
             val edit = text?.let { RenamePlan.edit(occurrence.file, it, occurrence.range, oldName(symbol), newName) }

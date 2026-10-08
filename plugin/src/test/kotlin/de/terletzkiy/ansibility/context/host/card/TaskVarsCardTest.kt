@@ -1,6 +1,7 @@
 package de.terletzkiy.ansibility.context.host.card
 
 import com.intellij.testFramework.IndexingTestUtil
+import de.terletzkiy.ansibility.context.MoleculeNavigationFixture
 import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
 import de.terletzkiy.ansibility.settings.RootContext
@@ -75,10 +76,15 @@ class TaskVarsCardTest : HostCardTestCase() {
         assertTrue(section, section.startsWith("Effective on 4 hosts (play System) — 1 value"))
         assertTrue(section, "= from-task · roles/postfix/tasks/ha4.yml:4 · L15 block/task vars" in section)
         assertTrue("the inventory's winner is the runner-up: $section", "shadowed: group_vars/all/vars.yml:156 (L5, ops ×1, prod ×2, test ×1) · " in section)
-        assertTrue("molecule runs the role's tasks too: $section", "molecule default: = from-task · roles/postfix/tasks/ha4.yml:4" in section)
+        // R20/D153: Molecule outcomes only with "Show Molecule in navigation and search" on.
+        assertFalse(section, "molecule default" in section)
         val setIn = row(html, "Set in")!!
         assertTrue("the task var ranks first: $setIn", setIn.startsWith("roles and plays roles/postfix/tasks/ha4.yml:4 · block/task vars · level 15 · from-task · wins on 4 of 4 hosts"))
         assertTrue(setIn, "group_vars/all/vars.yml:156 · playbook group_vars/all · level 5 · $relayHost · shadowed on 4 of 4 hosts" in setIn)
+
+        MoleculeNavigationFixture.showInNavigationUntil(project, testRootDisposable)
+        val shown = effective(taskCard(6))
+        assertTrue("molecule runs the role's tasks too: $shown", "molecule default: = from-task · roles/postfix/tasks/ha4.yml:4" in shown)
     }
 
     fun testOtherTasksKeepTheStaticWinner() {

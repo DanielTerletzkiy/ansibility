@@ -19,6 +19,7 @@ import de.terletzkiy.ansibility.api.SourceLocation
 import de.terletzkiy.ansibility.api.VarDefKind
 import de.terletzkiy.ansibility.api.VarService
 import de.terletzkiy.ansibility.context.AnsibleCfg
+import de.terletzkiy.ansibility.context.MoleculeVisibility
 import de.terletzkiy.ansibility.index.JinjaBearing
 import de.terletzkiy.ansibility.model.inventory.ModelCache
 import de.terletzkiy.ansibility.model.inventory.ModelCacheStats
@@ -26,6 +27,7 @@ import de.terletzkiy.ansibility.model.inventory.ModelInputs
 import de.terletzkiy.ansibility.model.inventory.VarsConfig
 import de.terletzkiy.ansibility.model.inventory.VarsDocuments
 import de.terletzkiy.ansibility.model.inventory.readLocked
+import de.terletzkiy.ansibility.model.role.RoleDefaults
 import de.terletzkiy.ansibility.model.role.RoleLayout
 import de.terletzkiy.ansibility.model.task.BlockNode
 import de.terletzkiy.ansibility.model.task.PlayNode
@@ -132,9 +134,13 @@ class ExecutionSources(private val project: Project) {
      * The tasks of [inputs]' context that may replace [name] at runtime: `set_fact` keys and `register` names in the
      * play's own tasks and in the task files of its roles, and `include_vars` tasks whose literal file defines [name]
      * (or whose `name:` option is [name]). Needs smart mode (the variable index).
+     *
+     * A role's Molecule files (a converge play below its directory) are none of its task files: they count only for a
+     * context whose play is itself a Molecule playbook (plan amendment R20, D157).
      */
     fun runtimeMarkers(root: AnsibleRoot, inputs: ExecutionInputs, name: String): List<RuntimeMarker> = readLocked {
         val playRange = inputs.play?.let { playNode(it)?.range }
+        val moleculePlay = inputs.play?.file?.let { MoleculeVisibility.isMoleculeFile(project, it) } == true
         val markers = ArrayList<RuntimeMarker>()
         for (definition in VarService.getInstance(project).symbol(root, name).definitions) {
             ProgressManager.checkCanceled()
@@ -144,7 +150,8 @@ class ExecutionSources(private val project: Project) {
                 else -> continue
             }
             val file = definition.location.file
-            val inRole = inputs.roleDirs.any { VfsUtilCore.isAncestor(it, file, true) }
+            val inRole = inputs.roleDirs.any { VfsUtilCore.isAncestor(it, file, true) } &&
+                (moleculePlay || !MoleculeVisibility.isMoleculeFile(project, file))
             val inPlay = inputs.play?.file == file && playRange?.containsOffset(definition.location.offset) == true
             if (inRole || inPlay) markers += RuntimeMarker(name, kind, definition.location)
         }
@@ -188,8 +195,8 @@ class ExecutionSources(private val project: Project) {
                 val running = step.entry != null && step.entry == runningEntry
                 val defaultsFrom = includeCall?.defaultsFrom?.text?.takeIf { running }
                 val varsFrom = includeCall?.varsFrom?.text?.takeIf { running }
-                for (file in roleFiles(step.dir, RoleLayout.DEFAULTS, defaultsFrom)) add(VarLayer.ROLE_DEFAULTS, "defaults", file, order, step.name)
-                for (file in roleFiles(step.dir, RoleLayout.VARS, varsFrom)) add(VarLayer.ROLE_VARS, "vars", file, order, step.name)
+                for (file in RoleDefaults.loadedFiles(step.dir, RoleLayout.DEFAULTS, defaultsFrom)) add(VarLayer.ROLE_DEFAULTS, "defaults", file, order, step.name)
+                for (file in RoleDefaults.loadedFiles(step.dir, RoleLayout.VARS, varsFrom)) add(VarLayer.ROLE_VARS, "vars", file, order, step.name)
             }
             if (play != null) playSources(play)
             if (runningEntry != null && play != null) runningEntrySources(play, runningEntry, steps.size)
@@ -254,31 +261,6 @@ class ExecutionSources(private val project: Project) {
 
     /** One role whose defaults and vars apply, in application order; [entry] is null for a standalone running role. */
     private class Step(val dir: VirtualFile, val name: String, val entry: PlayRoleEntry?)
-
-    /**
-     * The files of `defaults/` or `vars/` ([subdir]) ansible-core loads for [roleDir]: the literal [from] file (with or
-     * without extension) when given, else the main file or the files of a `main/` directory.
-     */
-    private fun roleFiles(roleDir: VirtualFile, subdir: String, from: String?): List<VirtualFile> {
-        val files = if (subdir == RoleLayout.DEFAULTS) RoleLayout.defaultsFiles(roleDir) else RoleLayout.varsFiles(roleDir)
-        val dir = roleDir.findChild(subdir) ?: return emptyList()
-        if (from != null && !JinjaBearing.hasTemplateMarkers(from)) {
-            val named = (listOf(from) + MAIN_EXTENSIONS.map { "$from$it" }).firstNotNullOfOrNull { dir.findFileByRelativePath(it) }
-            return when {
-                named == null -> emptyList()
-                named.isDirectory -> named.children.orEmpty().filter { !it.isDirectory && !it.name.startsWith(".") }.sortedBy { it.name }
-                else -> listOf(named)
-            }
-        }
-        val mainFile = MAIN_NAMES.firstNotNullOfOrNull { name -> dir.findChild(name)?.takeIf { !it.isDirectory } }
-        if (mainFile != null && mainFile.name != RoleLayout.MAIN) return listOf(mainFile)
-        val mainDir = dir.findChild(RoleLayout.MAIN)?.takeIf { it.isDirectory }
-        return when {
-            mainDir != null -> files.filter { VfsUtilCore.isAncestor(mainDir, it, true) }
-            mainFile != null -> listOf(mainFile)
-            else -> emptyList()
-        }
-    }
 
     /** The task-model node of [entry] in [play]: its `roles:` entry, or its `include_role`/`import_role` task. */
     private fun entryNode(play: PlayRef, entry: PlayRoleEntry): Any? {
@@ -372,9 +354,6 @@ class ExecutionSources(private val project: Project) {
         private const val MAX_CACHED = 8192
         private const val MAX_DEPENDENCY_DEPTH = 16
 
-        /** ansible-core's search order for a role's main vars file (`Role._load_role_yaml`). */
-        private val MAIN_NAMES = listOf("main.yml", "main.yaml", "main.json", RoleLayout.MAIN)
-        private val MAIN_EXTENSIONS = listOf(".yml", ".yaml", ".json")
         private val INCLUDE_VARS = setOf("include_vars", "ansible.builtin.include_vars", "ansible.legacy.include_vars")
         private val TRUE_VALUES = setOf("y", "yes", "on", "1", "true", "t")
 

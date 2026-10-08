@@ -4,6 +4,7 @@ import de.terletzkiy.ansibility.api.HostScopeOrigin
 import de.terletzkiy.ansibility.api.VarDefKind
 import de.terletzkiy.ansibility.api.VarService
 import de.terletzkiy.ansibility.api.VarsLayer
+import de.terletzkiy.ansibility.context.MoleculeNavigationFixture
 import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
 import de.terletzkiy.ansibility.settings.RootContext
@@ -54,8 +55,11 @@ class EffectiveValuesTest : HostContextTestCase() {
         assertEquals("postfix", defaults.role)
         assertEquals("System", defaults.play?.name)
         assertEquals(emptyList<Any>(), breakdown.undefinedOn)
+        // R20/D153: a role file shows no Molecule companions while "Show Molecule in navigation and search" is off.
+        assertEquals(emptyList<Any>(), breakdown.molecule)
 
-        val molecule = breakdown.molecule.single()
+        MoleculeNavigationFixture.showInNavigationUntil(project, testRootDisposable)
+        val molecule = context.effective(scope, "postfix_relayhost").molecule.single()
         val moleculeWinner = molecule.winner!!
         assertEquals("$POSTFIX_MOLECULE:56", at(moleculeWinner))
         assertEquals(VarsLayer.MOLECULE_INVENTORY, moleculeWinner.layer)
@@ -149,13 +153,17 @@ class EffectiveValuesTest : HostContextTestCase() {
         assertEquals(emptyMap<Any, Any>(), winner.shadowedOn)
     }
 
-    fun testRoleDefaultsStatusIncludesMoleculeHosts() {
+    /** R20/D153: the status (a card row) counts Molecule hosts only with "Show Molecule in navigation and search" on. */
+    fun testRoleDefaultsStatusIncludesMoleculeHostsOnlyWhenMoleculeIsShown() {
+        val inventoryHosts = listOf("ops/ops-ops1", "prod/prod-prod1", "prod/prod-prod2", "test/test-test1")
+        val hidden = context.definitionStatus(definition(root(FALCON), "postfix_relayhost", POSTFIX_DEFAULTS, 2))
+        assertEquals(emptyList<Any>(), hidden.winsOn)
+        assertEquals(inventoryHosts, hidden.shadowedOn.keys.map(::label))
+
+        MoleculeNavigationFixture.showInNavigationUntil(project, testRootDisposable)
         val status = context.definitionStatus(definition(root(FALCON), "postfix_relayhost", POSTFIX_DEFAULTS, 2))
         assertEquals(emptyList<Any>(), status.winsOn)
-        assertEquals(
-            listOf("ops/ops-ops1", "prod/prod-prod1", "prod/prod-prod2", "test/test-test1"),
-            status.shadowedOn.keys.filter { !it.isMolecule }.map(::label),
-        )
+        assertEquals(inventoryHosts, status.shadowedOn.keys.filter { !it.isMolecule }.map(::label))
         assertTrue("molecule hosts shadow the default too", status.shadowedOn.keys.any { it.isMolecule })
         assertEquals("$POSTFIX_MOLECULE:56", at(status.shadowedOn.entries.first { it.key.isMolecule }.value))
     }

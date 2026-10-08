@@ -10,13 +10,16 @@ import de.terletzkiy.ansibility.api.AnsibleSite
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.FileContext
 import de.terletzkiy.ansibility.api.FileKind
+import de.terletzkiy.ansibility.api.LoopVarSite
 import de.terletzkiy.ansibility.api.RootKind
 import de.terletzkiy.ansibility.api.SiteNavigation
 import de.terletzkiy.ansibility.api.SourceLocation
 import de.terletzkiy.ansibility.api.VarDefKind
 import de.terletzkiy.ansibility.api.VarDefinition
 import de.terletzkiy.ansibility.api.VarService
+import de.terletzkiy.ansibility.context.MoleculeView
 import de.terletzkiy.ansibility.resolve.VarUsageQuery
+import de.terletzkiy.ansibility.resolve.VarViews
 import de.terletzkiy.ansibility.semantics.yaml.YMap
 import de.terletzkiy.ansibility.semantics.yaml.YValue
 import de.terletzkiy.ansibility.yaml.PsiYValueAdapter
@@ -29,10 +32,13 @@ import org.jetbrains.yaml.psi.YAMLKeyValue
  *
  * From a reference (the first rule with targets wins):
  * 1. a template local goes to its binding;
- * 2. a loop variable ([LoopItems]: the task's loop, or in a template the loops of its rendering tasks): a member
- *    (`item.floating.ssl.cert_file`) goes to the nested spec option of an element of the iterated variable
- *    (`grafana_nginx_sites[].floating.ssl.cert_file`), the bare variable (and any member no spec documents) to the
- *    loop keyword of each task running the loop (X78);
+ * 2. a loop variable ([LoopItems]: the task's loop, the loops of the include tasks that run the file, or in a template
+ *    the loops of its rendering tasks and of the include tasks that run them): a member (`item.floating.ssl.cert_file`)
+ *    goes to the nested spec option of an element of the iterated variable
+ *    (`grafana_nginx_sites[].floating.ssl.cert_file`), else, for a loop over a literal list, to the member's key in
+ *    each item (`dest:` of `loop: [{dest: …}, {dest: …}]`); the bare variable (and any other member) goes to where each
+ *    task binds it: its `loop_control.loop_var`/`index_var` value, or the loop keyword for `item` and `ansible_loop`
+ *    (X78);
  * 3. inside a file that defines variables (inventory `group_vars`/`host_vars`/`hosts.yml`, molecule inventories, role
  *    `defaults/` and `vars/`, play `vars_files`): the definition the reference sees there ([SeenDefinitions]), an
  *    accessor path to the nested key written there (merge keys and aliases followed);
@@ -46,10 +52,19 @@ import org.jetbrains.yaml.psi.YAMLKeyValue
  *
  * The key whose value holds the reference (`x: "{{ x }}"`) is never a target of a reference.
  *
+ * Molecule (plan amendment R20, D153/D154): the symbol is taken in the [MoleculeView] of the caret's file before any
+ * rule runs, so from a production file with "Show Molecule in navigation and search" off no rule sees a Molecule
+ * definition (converge play vars, `set_fact`, Molecule inventories) and the later rules still find the production ones;
+ * from a Molecule file every definition counts.
+ *
  * From a variable key: a nested key goes to the nested spec option (a nested argument_specs option to the same
  * option of the other declaring roles, if any); a top-level key to the declaring roles' spec options, `defaults/` and
  * `vars/` keys (own role first); an inventory-only key to its sibling definitions in other files and environments
  * (X87). The key itself is never a target.
+ *
+ * A `loop_control.loop_var`/`index_var` value ([LoopVarSite]) is the loop variable's declaration and gets no targets
+ * either. Unlike a key, the platform does not treat a scalar value as a declaration (D-FU4), so Ctrl+B there does
+ * nothing; Find Usages (Alt+F7) and Show Usages (Ctrl+Alt+F7) there search the loop.
  *
  * Two kinds of top-level keys get no targets, so Ctrl+B there falls through to the platform's "show usages" outcome
  * (plan amendment FU, `vars.usages`): a role's own declaration, i.e. an argument_specs option or a key of the role's
@@ -60,6 +75,9 @@ class VarNavigation : SiteNavigation {
     override fun targets(site: AnsibleSite, file: PsiFile): List<PsiElement> = when (site) {
         is AnsibleSite.VarRef -> Collector.forReference(file, site)
         is AnsibleSite.VarKey -> Collector.forKey(file, site)
+        // The declaration itself: no targets (a scalar value is no declaration for the platform, D-FU4: Ctrl+B does
+        // nothing there; Alt+F7 and Ctrl+Alt+F7 search the loop).
+        is LoopVarSite -> emptyList()
         else -> emptyList()
     }
 
@@ -167,13 +185,13 @@ class VarNavigation : SiteNavigation {
              * True when a direct read of [name] has constant accessors starting with [path] (`host_ips['ops-pxe1']`
              * for the key `ops-pxe1` under `host_ips`), in [root] or a nested playbook root inside it.
              */
-            fun hasMemberUses(project: Project, root: AnsibleRoot, name: String, path: List<String>): Boolean {
+            fun hasMemberUses(project: Project, root: AnsibleRoot, name: String, path: List<String>, view: MoleculeView): Boolean {
                 val roots = listOf(root) + AnsibleWorkspace.getInstance(project).roots()
                     .filter { it.kind == RootKind.NESTED_PLAYBOOK && it.parentDir == root.dir }
                 val query = VarUsageQuery.getInstance(project)
                 var found = false
                 for (member in roots) {
-                    query.process(member, name, null) { use ->
+                    query.process(member, name, null, view) { use ->
                         found = use.indirect == null && !use.called && use.attrPath.size >= path.size && use.attrPath.subList(0, path.size) == path
                         !found
                     }
@@ -191,8 +209,10 @@ class VarNavigation : SiteNavigation {
                 LoopItems.bindingAt(project, virtualFile, site.range.startOffset, site.name)?.let { binding ->
                     return loopTargets(file, site, context, binding)
                 }
-                val symbol = VarService.getInstance(project).symbol(root, site.name)
-                val ranking = VarRanking(project, root, context.roleName, virtualFile, context.kind, symbol)
+                // The view applies before every rule (D153): a hidden converge play var never stops rule 6.
+                val view = MoleculeView.of(project, virtualFile)
+                val symbol = VarViews.symbol(project, root, site.name, view)
+                val ranking = VarRanking(project, root, context.roleName, virtualFile, context.kind, symbol, view)
                 val collector = Collector(project, root, ranking)
                 val enclosing = enclosingKey(file, virtualFile, site)
                 enclosing?.let(collector.excluded::add)
@@ -215,8 +235,9 @@ class VarNavigation : SiteNavigation {
                 val topLevel = site.keyPath.size == 1
                 if (topLevel && site.kind in DECLARATION_KINDS) return emptyList()
                 val root = context.root
-                val symbol = VarService.getInstance(project).symbol(root, keySite.name)
-                val ranking = VarRanking(project, root, context.roleName, virtualFile, context.kind, symbol)
+                val view = MoleculeView.of(project, virtualFile)
+                val symbol = VarViews.symbol(project, root, keySite.name, view)
+                val ranking = VarRanking(project, root, context.roleName, virtualFile, context.kind, symbol, view)
                 val keyLocation = keySite.variable.key?.let { SourceLocation(virtualFile, it.textRange.startOffset) }
                 // A key that is itself a definition (an inventory override, set_fact, task vars …) is a declaration:
                 // Ctrl+B shows its usages; Go to Super and the override gutter lead to what it overrides.
@@ -231,7 +252,7 @@ class VarNavigation : SiteNavigation {
                     // A nested option no other role declares is the declaration itself (D-FU1); its parent is just above.
                     if (site.kind in SPEC_KINDS) return emptyList()
                     // A member with reads is a declaration like a role's own key: Ctrl+B shows its usages instead.
-                    if (Collector.hasMemberUses(project, root, keySite.name, nested)) return emptyList()
+                    if (Collector.hasMemberUses(project, root, keySite.name, nested, view)) return emptyList()
                 }
                 ranking.declaringRoles.forEach(collector::addRole)
                 if (collector.targets.isEmpty()) collector.addRemaining(virtualFile)
@@ -252,7 +273,8 @@ class VarNavigation : SiteNavigation {
 
             /**
              * The targets of a loop variable reference: for a member, the nested option of the iterated variable's
-             * element; for the bare variable (or a member no spec documents), the loop keywords of the looping tasks.
+             * element, else its keys in the items of a literal loop; for the bare variable (or another member), the
+             * `loop_var`/`index_var` values of the binding tasks (their loop keywords for `item` and `ansible_loop`).
              */
             private fun loopTargets(file: PsiFile, site: AnsibleSite.VarRef, context: FileContext, binding: LoopItems.Binding): List<PsiElement> {
                 val project = file.project
@@ -261,20 +283,38 @@ class VarNavigation : SiteNavigation {
                 val documented = binding.documented(site.name, site.attrPath)
                 if (documented != null && site.attrPath.isNotEmpty()) {
                     val (variable, path) = documented
-                    val symbol = VarService.getInstance(project).symbol(root, variable)
-                    val ranking = VarRanking(project, root, context.roleName, virtualFile, context.kind, symbol)
+                    val view = MoleculeView.of(project, virtualFile)
+                    val symbol = VarViews.symbol(project, root, variable, view)
+                    val ranking = VarRanking(project, root, context.roleName, virtualFile, context.kind, symbol, view)
                     val collector = Collector(project, root, ranking)
                     if (collector.addNested(path)) return collector.result()
                 }
                 val reference = VarSubject.reference(file, site) ?: return emptyList()
                 val subject = LoopItems.documentedSubject(project, root, reference) ?: reference
-                val kind = AnsibilityVarsBundle.message("target.loop", site.name)
-                return binding.loopKeys.mapNotNull { location ->
-                    ProgressManager.checkCanceled()
-                    val anchor = VarLocations.elementAt(project, location) ?: return@mapNotNull null
-                    val text = AnsibilityVarsBundle.message("target.location", kind, VarLocations.label(root, location))
-                    VarTargetElement(anchor, location, site.name, text, subject)
+                if (site.attrPath.isNotEmpty()) {
+                    val keys = LoopItems.literalMemberKeys(project, binding, site.name, site.attrPath).mapNotNull { key ->
+                        val kind = AnsibilityVarsBundle.message("target.loop.item.key", key.names.last())
+                        target(project, root, key.location, (listOf(site.name) + key.names).joinToString("."), kind, subject)
+                    }
+                    if (keys.isNotEmpty()) return keys
                 }
+                val loopKeys = binding.loopKeys.toSet()
+                return binding.bindingSites(project, site.name).mapNotNull { location ->
+                    val kind = when {
+                        location in loopKeys -> AnsibilityVarsBundle.message("target.loop", site.name)
+                        site.name == binding.loop.indexVar && site.name != binding.loop.loopVar -> AnsibilityVarsBundle.message("target.index.var", site.name)
+                        else -> AnsibilityVarsBundle.message("target.loop.var", site.name)
+                    }
+                    target(project, root, location, site.name, kind, subject)
+                }
+            }
+
+            /** A loop target at [location], shown as [display] with [kind] and its label; its card is [subject]'s. */
+            private fun target(project: Project, root: AnsibleRoot, location: SourceLocation, display: String, kind: String, subject: VarSubject): VarTargetElement? {
+                ProgressManager.checkCanceled()
+                val anchor = VarLocations.elementAt(project, location) ?: return null
+                val text = AnsibilityVarsBundle.message("target.location", kind, VarLocations.label(root, location))
+                return VarTargetElement(anchor, location, display, text, subject)
             }
 
             /** The binding of the template local [site] refers to. */

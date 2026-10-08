@@ -1,4 +1,4 @@
-<!-- Area fragment: vault UI (V3/V3b: reveal, edit popup, card section, X16 folding, value intentions, X93 gutter). Included from plugin.xml; only the owning work units edit this file, each in its own block. -->
+<!-- Area fragment: vault UI (V3/V3b: reveal, edit popup, card section, X16 folding, value intentions, X93 gutter; V6a/V6b: banner, decrypted tab, file actions; R21: the vault and secret monitoring). Included from plugin.xml; only the owning work units edit this file, each in its own block. -->
 <idea-plugin>
     <!-- v3 -->
     <extensions defaultExtensionNs="de.terletzkiy.ansibility">
@@ -103,6 +103,67 @@
                   topic="com.intellij.openapi.fileEditor.FileEditorManagerListener"/>
     </projectListeners>
     <!-- /v6a -->
+    <!-- v6b: the file actions (F7.5, F7.6, F7.8). The whole-file vault banner links RekeyFile, ChangeFileId and
+         DecryptFileInPlace by id; Find Action finds them all, as "Ansibility Vault: …" and by their R18 texts (synonyms).
+         R19 (D141, D142): every Ansibility.Vault.* text starts with "Ansibility Vault"; inside the submenus and New the
+         actions show short texts (VaultActionTexts). -->
+    <actions resource-bundle="messages.AnsibilityVaultUiBundle">
+        <action id="Ansibility.Vault.EncryptFile" class="de.terletzkiy.ansibility.vault.actions.EncryptFileAction">
+            <synonym key="action.Ansibility.Vault.EncryptFile.synonym"/>
+        </action>
+        <action id="Ansibility.Vault.DecryptFileInPlace" class="de.terletzkiy.ansibility.vault.actions.DecryptFileInPlaceAction">
+            <synonym key="action.Ansibility.Vault.DecryptFileInPlace.synonym"/>
+        </action>
+        <action id="Ansibility.Vault.RekeyFile" class="de.terletzkiy.ansibility.vault.actions.RekeyFileAction">
+            <synonym key="action.Ansibility.Vault.RekeyFile.synonym"/>
+        </action>
+        <action id="Ansibility.Vault.ChangeFileId" class="de.terletzkiy.ansibility.vault.actions.ChangeFileIdAction">
+            <synonym key="action.Ansibility.Vault.ChangeFileId.synonym"/>
+        </action>
+        <action id="Ansibility.Vault.NewFile" class="de.terletzkiy.ansibility.vault.actions.NewVaultFileAction" icon="AllIcons.Nodes.Locked">
+            <synonym key="action.Ansibility.Vault.NewFile.synonym"/>
+            <add-to-group group-id="NewGroup" anchor="last"/>
+        </action>
+        <!-- The Project view's, the editor's and the editor tab's "Ansibility Vault" menu; Find Action lists the Tools
+             one only (same name, same items) -->
+        <group id="Ansibility.Vault.FileMenu" class="de.terletzkiy.ansibility.vault.actions.VaultFileActionGroup" popup="true"
+               searchable="false">
+            <reference ref="Ansibility.Vault.EncryptFile"/>
+            <reference ref="Ansibility.Vault.DecryptFileInPlace"/>
+            <separator/>
+            <reference ref="Ansibility.Vault.RekeyFile"/>
+            <reference ref="Ansibility.Vault.ChangeFileId"/>
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <add-to-group group-id="EditorTabPopupMenu" anchor="last"/>
+        </group>
+        <!-- Tools › Ansibility Vault -->
+        <group id="Ansibility.Vault.ToolsMenu" class="de.terletzkiy.ansibility.vault.actions.VaultFileActionGroup" popup="true">
+            <reference ref="Ansibility.Vault.EncryptFile"/>
+            <reference ref="Ansibility.Vault.DecryptFileInPlace"/>
+            <separator/>
+            <reference ref="Ansibility.Vault.RekeyFile"/>
+            <reference ref="Ansibility.Vault.ChangeFileId"/>
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </group>
+    </actions>
+    <!-- /v6b -->
+    <!-- d165-d166: the monitoring of plan amendment R21: vault.monitor.SecretHealthService (a light service; started when
+         a project opens) keeps a snapshot of every broken vault and plaintext key of the workspace from the indexes
+         (ansibility.secrets, ansible.vault); the Ansibility tool window shows it in its Vault tab with a red badge
+         (added by toolwindow.AnsibleToolWindowFactory); new findings are announced once per user (application-level
+         memory, never project files). Names, kinds and counts only, never content. -->
+    <extensions defaultExtensionNs="com.intellij">
+        <postStartupActivity implementation="de.terletzkiy.ansibility.vault.monitor.SecretHealthActivity"/>
+        <notificationGroup id="Ansibility.Vault" displayType="STICKY_BALLOON"
+                           bundle="messages.AnsibilityVaultUiBundle" key="monitor.notification.group"/>
+        <notificationGroup id="Ansibility.Vault.Warnings" displayType="BALLOON"
+                           bundle="messages.AnsibilityVaultUiBundle" key="monitor.notification.group.warnings"/>
+        <!-- The Exclude Path question and Show in Project View of the Vault tab (tests replace it) -->
+        <applicationService serviceInterface="de.terletzkiy.ansibility.vault.monitor.SecretTabPrompts"
+                            serviceImplementation="de.terletzkiy.ansibility.vault.monitor.SecretTabDialogPrompts"/>
+    </extensions>
+    <!-- /d165-d166 -->
     <!-- F7.9: Settings › Ansibility › Vault: ids per root, IDE password store, 1Password, env → id -->
     <extensions defaultExtensionNs="com.intellij">
         <projectConfigurable parentId="de.terletzkiy.ansibility.settings"

@@ -395,4 +395,90 @@ class RunViewTest : BasePlatformTestCase() {
         view.select(collector.model.plays.first().tasks.first())
         assertTrue("no playbook actions in a Molecule run", view.detailsComponentForTests().find(AbstractButton::class.java).none { it.text == "Start at This Task" })
     }
+
+    fun testThePlaysTabSaysWhatTheRunPreparesAndWhyItDidNotStart() {
+        var reported = 0
+        val view = view(null, finish = null)
+        view.onNoEvents = { reported++ }
+        collector.accept(RunEvent.Preparing(1.0, "unlocking the vault ids of falcon"))
+        collector.drainForTests()
+        assertEquals("Preparing: unlocking the vault ids of falcon…", view.tree.emptyText.text)
+        collector.accept(RunEvent.NotStarted(2.0, "The Compose service ansible-playbook mounts LOCAL_VAULT_FILE, which is not set.\nSet it under Compose variables"))
+        collector.finish(-2)
+        collector.drainForTests()
+        assertEquals("the first line", "Not started: The Compose service ansible-playbook mounts LOCAL_VAULT_FILE, which is not set.", view.tree.emptyText.text)
+        assertEquals("the Plays tab says it: no switch to the console", 0, reported)
+
+        val started = RunEventCollector(testRootDisposable)
+        val other = AnsibleRunView(project, started, actions) { null }
+        started.accept(RunEvent.Preparing(1.0, "reading the playbook"))
+        started.accept(RunEvent.Preparing(2.0, null))
+        started.drainForTests()
+        assertEquals("Waiting for the first play… (the Console tab shows the output)", other.tree.emptyText.text)
+    }
+
+    fun testABannerShowsInfoWarningsAndErrors() {
+        val banner = RunBanner()
+        val component = banner.component()
+        assertFalse("hidden without a message", component.isVisible)
+        banner.show("Preparing: reading the playbook…", emptyList(), RunBanner.Status.INFO)
+        assertEquals(RunBanner.Status.INFO, banner.statusForTests())
+        banner.show("Preparing: unlocking the vault ids of falcon…", emptyList(), RunBanner.Status.INFO)
+        val info = component.find(com.intellij.ui.EditorNotificationPanel::class.java).single()
+        assertEquals("the same status only changes the text", "Preparing: unlocking the vault ids of falcon…", info.text)
+        banner.show("Not started: cancelled", emptyList(), RunBanner.Status.ERROR)
+        assertEquals(RunBanner.Status.ERROR, banner.statusForTests())
+        val error = component.find(com.intellij.ui.EditorNotificationPanel::class.java).single()
+        assertNotSame("another status builds another panel", info, error)
+        assertEquals("Not started: cancelled", error.text)
+        banner.show("web \u203a default: the instances are destroyed in 2:00", listOf(BannerAction("Keep Instances") {}))
+        assertEquals("a countdown warns, as before", RunBanner.Status.WARNING, banner.statusForTests())
+        banner.hide()
+        assertNull(banner.statusForTests())
+        assertFalse(component.isVisible)
+    }
+
+    fun testABatchRowSaysWhatItsRolePrepares() {
+        collector.accept(RunEvent.Units(0.0, listOf(RunEvent.UnitInfo("/r/web", "web", "falcon"), RunEvent.UnitInfo("/r/db", "db", "tern"))))
+        collector.accept(RunEvent.UnitStart(1.0, "/r/web"))
+        collector.accept(RunEvent.Preparing(1.1, "reading the role, its scenarios and its Molecule service"))
+        val view = AnsibleRunView(project, collector, actions) { null }
+        collector.drainForTests()
+        val web = view.children().first() as UnitRun
+        assertTrue(view.rendered(web), view.rendered(web).startsWith("web  falcon   Preparing: reading the role, its scenarios and its Molecule service…"))
+        val chip = view.strip.cellRenderer.getListCellRendererComponent(view.strip, web, 0, false, false) as SimpleColoredComponent
+        assertTrue(chip.getCharSequence(false).toString(), "Preparing: reading the role" in chip.getCharSequence(false).toString())
+        collector.accept(RunEvent.Preparing(2.0, null))
+        collector.drainForTests()
+        assertFalse(view.rendered(web), "Preparing" in view.rendered(web))
+    }
+
+    fun testAMoleculeTaskThatFailedForWantOfVaultSecretsSaysWhy() {
+        val error = "Attempting to decrypt but no vault secrets found"
+        fun events(stage: Boolean) {
+            if (stage) collector.accept(RunEvent.Stage(0.5, "default", "converge", null))
+            collector.accept(RunEvent.Play(1.0, "p", "Converge", listOf("instance"), null))
+            collector.accept(RunEvent.Task(2.0, "t", "p", "web : Read the password", "web", "debug", null, handler = false, loop = false, tags = emptyList()))
+            collector.accept(RunEvent.Result(3.0, false, "t", "instance", HostStatus.FAILED, false, null, null, null, null, error, emptyList(), null, false))
+            collector.finish(2)
+        }
+        events(stage = true)
+        val view = AnsibleRunView(project, collector, actions) { null }
+        collector.drainForTests()
+        val task = collector.model.plays.single().tasks.single()
+        fun labels() = view.detailsComponentForTests().find(javax.swing.JLabel::class.java).map { it.text.orEmpty() }
+        view.select(task)
+        assertTrue(labels().toString(), "Molecule runs pass no vault secrets." in labels())
+        view.select(task.hosts.getValue("instance"))
+        assertTrue("the host's details too", "Molecule runs pass no vault secrets." in labels())
+        assertTrue(collector.model.missingVaultSecrets)
+
+        // A playbook run passes the unlocked ids: the same error needs no Molecule hint.
+        collector = RunEventCollector(testRootDisposable)
+        events(stage = false)
+        val playbook = AnsibleRunView(project, collector, actions) { null }
+        collector.drainForTests()
+        playbook.select(collector.model.plays.single().tasks.single())
+        assertFalse(playbook.detailsComponentForTests().find(javax.swing.JLabel::class.java).any { it.text == "Molecule runs pass no vault secrets." })
+    }
 }

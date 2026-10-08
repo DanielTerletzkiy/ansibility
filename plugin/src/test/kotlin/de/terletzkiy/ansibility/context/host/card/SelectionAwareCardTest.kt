@@ -1,5 +1,6 @@
 package de.terletzkiy.ansibility.context.host.card
 
+import de.terletzkiy.ansibility.context.MoleculeNavigationFixture
 import de.terletzkiy.ansibility.context.switching.ContextSwitcher
 import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.model.inventory.ModelCacheKind
@@ -22,6 +23,13 @@ class SelectionAwareCardTest : HostCardTestCase() {
     private fun setIn(html: String): String = row(html, "Set in")!!
 
     fun testAllModeRanksSetInByEffect() {
+        val hidden = setIn(card(POSTFIX_TEMPLATE, 9, "postfix_relayhost"))
+        assertFalse("R20/D153: no Molecule row while Molecule is hidden: $hidden", "molecule.yml" in hidden)
+        val hiddenWinner = hidden.indexOf("group_vars/all/vars.yml:156 · playbook group_vars/all · level 5 · $relayHost · wins on 4 of 4 hosts")
+        val hiddenLoser = hidden.indexOf("environments/prod/group_vars/all/vars.yml:471 · inventory group_vars/all · level 4 · $prodRelayHost · shadowed on 2 of 4 hosts")
+        assertTrue("winners first: $hidden", hiddenWinner == "all environments (playbook vars) ".length && hiddenWinner < hiddenLoser)
+
+        MoleculeNavigationFixture.showInNavigationUntil(project, testRootDisposable)
         val html = card(POSTFIX_TEMPLATE, 9, "postfix_relayhost")
         val setIn = setIn(html)
         val winner = setIn.indexOf("group_vars/all/vars.yml:156 · playbook group_vars/all · level 5 · $relayHost · wins on 4 of 4 hosts")
@@ -56,12 +64,18 @@ class SelectionAwareCardTest : HostCardTestCase() {
             assertTrue(section, "shadowed: environments/prod/group_vars/all/vars.yml:471 (L4, prod ×1)" in section)
             val setIn = setIn(html)
             assertTrue(setIn, "$relayHost · ✓" in setIn)
-            assertTrue(setIn, "$testRelayHost · not for prod-prod1" in setIn)
+            // R20/D153: the role's template lists no Molecule row while Molecule is hidden (the default).
+            assertFalse(setIn, "molecule.yml" in setIn)
             val struck = html.substringAfter("<p>Set in</p>").substringBefore("</tr>")
             assertTrue("the loser is struck through: $struck", Regex("<s><a [^>]*>environments/prod/group_vars/all/vars.yml:471</a>[^<]*<code>[^<]*</code></s>").containsMatchIn(struck))
 
             val definition = card(FALCON_PROD_ALL, 471, "postfix_relayhost")
             assertEquals("✗ ineffective for prod-prod1: shadowed by group_vars/all/vars.yml:156 (L5 beats L4)", row(definition, "Effect"))
+
+            // With Molecule shown, the scenario's value is listed and does not apply to the selected host.
+            MoleculeNavigationFixture.showInNavigationUntil(project, testRootDisposable)
+            val shown = setIn(card(POSTFIX_TEMPLATE, 9, "postfix_relayhost"))
+            assertTrue(shown, "$moleculeRelayHost · not for prod-prod1" in shown)
         }
     }
 

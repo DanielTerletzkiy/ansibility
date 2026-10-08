@@ -86,7 +86,7 @@ class AnsibleRunView(
                     is UnitRun -> {
                         icon = RunViewTexts.unitIcon(value, collector.model.finished)
                         append(value.name)
-                        if (value.started == null || (value.exitCode ?: 0) != 0) RunViewTexts.unitStatus(value, collector.model.finished) else RunViewTexts.tally(value.counts)
+                        if (RunViewTexts.showsUnitStatus(value)) RunViewTexts.unitStatus(value, collector.model.finished) else RunViewTexts.tally(value.counts)
                     }
                     is StageRun -> {
                         icon = RunViewTexts.icon(value.status)
@@ -209,14 +209,25 @@ class AnsibleRunView(
         }
         strip.repaint()
         if (follow && created.isNotEmpty()) showEnd()
-        if (model.finished && !model.hasEvents) {
-            tree.emptyText.text = message("run.view.no.events")
-            if (!noEventsReported) {
-                noEventsReported = true
-                onNoEvents()
-            }
+        tree.emptyText.text = emptyText()
+        // A run that never started says why here; one that ran without events leaves it to the console.
+        if (model.finished && !model.hasEvents && model.notStarted == null && !noEventsReported) {
+            noEventsReported = true
+            onNoEvents()
         }
         updateDetails(force = false)
+    }
+
+    /** What the empty tree says: what the run prepares, why it did not start, that no plays came, or that it waits. */
+    private fun emptyText(): String {
+        val notStarted = model.notStarted
+        val preparing = model.preparing
+        return when {
+            notStarted != null -> message("run.prepare.not.started", RunViewTexts.firstLine(notStarted))
+            preparing != null -> message("run.prepare.phase", preparing)
+            model.finished && !model.hasEvents -> message("run.view.no.events")
+            else -> message("run.view.waiting")
+        }
     }
 
     private fun selectedNode(): DefaultMutableTreeNode? = tree.selectionPath?.lastPathComponent as? DefaultMutableTreeNode
@@ -334,6 +345,13 @@ class AnsibleRunView(
     /** The task of the selection (a task, or the task of a host or item). */
     fun selectedTask(): TaskRun? = selectedNode()?.let(treeModel::taskOf)
 
+    /** Selects the row of [value] (a model object: a task, a host…) and scrolls to it; false when the tree has none. */
+    fun select(value: Any): Boolean {
+        val node = treeModel.node(value) ?: return false
+        TreeUtil.selectNode(tree, node)
+        return true
+    }
+
     override fun dispose() = Unit
 
     @TestOnly
@@ -354,22 +372,32 @@ class AnsibleRunView(
 
 /**
  * The console of a playbook run with the "Plays" tab ([view]) in front of it: the Run tool window shows the view and
- * the console as two tabs, and the console keeps its own actions. A [banner] (a Molecule run's destroy countdown)
- * shows above both tabs; without a view the console alone gets it.
+ * the console as two tabs, and the console keeps its own actions. A [banner] (what the run prepares, why it did not
+ * start, a Molecule run's destroy countdown) shows above both tabs; without a view the console alone gets it.
  */
 class AnsibleRunConsole(console: ConsoleView, private val view: AnsibleRunView?, private val banner: RunBanner? = null) :
     ConsoleViewWrapperBase(console) {
+    /** Whether the run's tab was closed. */
+    @Volatile
+    var isDisposed: Boolean = false
+        private set
+
     init {
         view?.let { Disposer.register(this, it) }
+        Disposer.register(this) { isDisposed = true }
     }
 
     /** The console's tab content: the platform builds the Console tab from [getComponent]. */
     private val consoleComponent: JComponent by lazy { withBanner(delegate.component) }
 
+    private var ui: RunnerLayoutUi? = null
+    private var viewDropped = false
+
     override fun getComponent(): JComponent = consoleComponent
 
     override fun buildUi(ui: RunnerLayoutUi) {
-        val view = view ?: return super.buildUi(ui)
+        val view = view?.takeUnless { viewDropped } ?: return super.buildUi(ui)
+        this.ui = ui
         val plays = ui.createContent(PLAYS_ID, withBanner(view.component), message("run.view.tab"), AnsibilityToolWindowIcons.Root, view.preferredFocus)
         plays.isCloseable = false
         ui.addContent(plays)
@@ -377,6 +405,36 @@ class AnsibleRunConsole(console: ConsoleView, private val view: AnsibleRunView?,
         ui.selectAndFocus(plays, false, false)
         view.onNoEvents = { ui.findContent(ExecutionConsole.CONSOLE_CONTENT_ID)?.let { ui.selectAndFocus(it, false, false) } }
     }
+
+    /**
+     * The run turned out to report no events (its root's runner settings turned the run view off): the Plays tab,
+     * shown while the run prepared, goes and the console stays. EDT.
+     */
+    fun dropView() {
+        if (viewDropped) return
+        viewDropped = true
+        val ui = ui ?: return
+        ui.findContent(PLAYS_ID)?.let { ui.removeContent(it, true) }
+        ui.findContent(ExecutionConsole.CONSOLE_CONTENT_ID)?.let { ui.selectAndFocus(it, false, false) }
+    }
+
+    /**
+     * Brings the Plays tab to the front of the run's tabs and selects [select]'s row in it (a task, a host…); the
+     * console when the run has no Plays tab. EDT.
+     */
+    fun showPlays(select: Any? = null) {
+        ui?.let { ui ->
+            val tab = ui.findContent(PLAYS_ID)?.takeUnless { viewDropped } ?: ui.findContent(ExecutionConsole.CONSOLE_CONTENT_ID)
+            tab?.let { ui.selectAndFocus(it, true, false) }
+        }
+        if (select != null && !viewDropped) view?.select(select)
+    }
+
+    @TestOnly
+    fun viewDroppedForTests(): Boolean = viewDropped
+
+    @TestOnly
+    fun viewForTests(): AnsibleRunView? = view
 
     private fun withBanner(content: JComponent): JComponent {
         val banner = banner ?: return content

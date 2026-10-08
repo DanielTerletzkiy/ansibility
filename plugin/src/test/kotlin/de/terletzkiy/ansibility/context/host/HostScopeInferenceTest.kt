@@ -2,6 +2,7 @@ package de.terletzkiy.ansibility.context.host
 
 import de.terletzkiy.ansibility.api.HostKey
 import de.terletzkiy.ansibility.api.HostScopeOrigin
+import de.terletzkiy.ansibility.context.MoleculeNavigationFixture
 import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
 import de.terletzkiy.ansibility.settings.RootContext
@@ -115,6 +116,16 @@ class HostScopeInferenceTest : HostContextTestCase() {
     }
 
     fun testGoldenRolesUseTheirMoleculeScenarios() {
+        // R20/D156: in cards and the status bar only while "Show Molecule in navigation and search" is on; elsewhere
+        // (Template Preview, banners, Show Ansible Context) and in inspections always.
+        val hidden = (context as AnsibleContextServiceImpl).cardScope(vf("golden/roles/postfix/defaults/main.yml"))
+        assertEquals(emptyList<Any>(), hidden.targets)
+        assertEquals("golden has no inventory", hidden.emptyReason)
+        assertTrue(context.allHostsScope(vf("golden/roles/postfix/defaults/main.yml")).hosts.let { it.isNotEmpty() && it.all { host -> host.isMolecule } })
+        val kept = context.hostScope(vf("golden/roles/postfix/defaults/main.yml"))
+        assertTrue("hostScope keeps them with the setting off", kept.hosts.isNotEmpty() && kept.hosts.all { it.isMolecule })
+        MoleculeNavigationFixture.showInNavigationUntil(project, testRootDisposable)
+        assertEquals(kept.targets, (context as AnsibleContextServiceImpl).cardScope(vf("golden/roles/postfix/defaults/main.yml")).targets)
         val scope = context.hostScope(vf("golden/roles/postfix/defaults/main.yml"))
         assertTrue(scope.targets.isNotEmpty())
         assertTrue("golden has no inventory: scenarios are its only contexts", scope.hosts.all { it.isMolecule })

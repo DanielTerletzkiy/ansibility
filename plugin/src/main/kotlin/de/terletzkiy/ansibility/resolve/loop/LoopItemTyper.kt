@@ -15,13 +15,14 @@ import de.terletzkiy.ansibility.api.SourceLocation
 import de.terletzkiy.ansibility.api.ValueShape
 import de.terletzkiy.ansibility.api.VarDefKind
 import de.terletzkiy.ansibility.api.VarDefinition
-import de.terletzkiy.ansibility.api.VarService
+import de.terletzkiy.ansibility.context.MoleculeView
 import de.terletzkiy.ansibility.lang.jinja.lexer.JinjaLexMode
 import de.terletzkiy.ansibility.lang.jinja.refs.JinjaRefs
 import de.terletzkiy.ansibility.model.task.LoopInfo
 import de.terletzkiy.ansibility.model.task.TaskFileModels
 import de.terletzkiy.ansibility.model.task.TaskItem
 import de.terletzkiy.ansibility.model.task.TaskNode
+import de.terletzkiy.ansibility.resolve.VarViews
 import de.terletzkiy.ansibility.resolve.register.RegisteredResults
 import de.terletzkiy.ansibility.semantics.schema.OptionSpec
 import de.terletzkiy.ansibility.semantics.schema.OptionType
@@ -70,7 +71,8 @@ class LoopItemType(
  *   `ansible_loop`.
  *
  * Secrets are never read: vault files, `vault_*` names and `!vault` values are skipped, and only keys and types of
- * literal values are kept. Results are cached per file until YAML or the Ansible structure changes. Call in a read
+ * literal values are kept. A loop is typed as analysis of its file sees the root (plan amendment R20, D157,
+ * [MoleculeView.forAnalysis]): outside Molecule files, Molecule fixture values never type it. Results are cached per file until YAML or the Ansible structure changes. Call in a read
  * action in smart mode (the spec lookup reads indexes).
  */
 object LoopItemTyper {
@@ -188,7 +190,9 @@ object LoopItemTyper {
         val control = task.loopControl
         val virtualFile = file.originalFile.virtualFile ?: return null
         val context = AnsibleWorkspace.getInstance(project).contextOf(virtualFile)
-        val source = sourceOf(project, context, chain, loop, SourceLocation(virtualFile, task.range.startOffset))
+        // Loop types are analysis (plan amendment R20, D157): outside Molecule, Molecule fixture values never type them.
+        val view = MoleculeView.forAnalysis(project, virtualFile)
+        val source = sourceOf(project, context, chain, loop, SourceLocation(virtualFile, task.range.startOffset), view)
         val item = when (val collection = source.collection) {
             is Collection.Sequence -> collection.element?.copy(name = loopVar)
             is Collection.Mapping -> if (loop.lookup == "dict") keyValue(loopVar) else null
@@ -205,14 +209,14 @@ object LoopItemTyper {
         return LoopItemType(renderLoop, loop.keyword, SourceLocation(virtualFile, task.range.startOffset))
     }
 
-    private fun sourceOf(project: Project, context: FileContext?, chain: List<TaskItem>, loop: LoopInfo, site: SourceLocation): Source {
+    private fun sourceOf(project: Project, context: FileContext?, chain: List<TaskItem>, loop: LoopInfo, site: SourceLocation, view: MoleculeView): Source {
         val lookup = loop.lookup
         if (lookup != null && lookup in STRING_LOOKUPS) return Source(Collection.Sequence(OptionSpec("item", OptionType.Str)), null, emptyList())
         if (lookup != null && lookup !in setOf("items", "list", "dict", "flattened", "random_choice")) return Source(Collection.Unknown, null, emptyList())
         return when (val value = loop.value) {
             is YSeq -> Source(Collection.Sequence(LiteralShapes.elementOf("item", value.items, flatten = lookup == "items" || lookup == "flattened")), null, emptyList())
             is YMap -> if (lookup == "dict") literalDict(value) else Source(Collection.Unknown, null, emptyList())
-            is YScalar -> expressionSource(project, context, chain, value.text, flatten = lookup == "items", withDict = lookup == "dict", site)
+            is YScalar -> expressionSource(project, context, chain, value.text, flatten = lookup == "items", withDict = lookup == "dict", site, view)
             else -> Source(Collection.Unknown, null, emptyList())
         }
     }
@@ -231,6 +235,7 @@ object LoopItemTyper {
         flatten: Boolean,
         withDict: Boolean,
         site: SourceLocation,
+        view: MoleculeView,
     ): Source {
         val body = WHOLE_EXPRESSION.matchEntire(text)?.groupValues?.get(1)
         if (body == null || body.contains("{{")) {
@@ -238,7 +243,7 @@ object LoopItemTyper {
             return if (!text.contains("{{") && !text.contains("{%")) Source(Collection.Sequence(OptionSpec("item", OptionType.Str)), null, emptyList())
             else Source(Collection.Unknown, null, emptyList())
         }
-        return iterationSource(body, { name, path -> variableType(project, context, chain, name, path, site) }, flatten, withDict)
+        return iterationSource(body, { name, path -> variableType(project, context, chain, name, path, view, site) }, flatten, withDict)
     }
 
     /** What iterating a Jinja expression yields: the element type, and the variable (with accessors) iterated. */
@@ -374,6 +379,11 @@ object LoopItemTyper {
      * above the `vars:` of an include task, which are include parameters); else its own or enclosing blocks' literal
      * `vars:`, then the root's spec bindings (the file's role first), then the first literal container definition in
      * the root.
+     *
+     * [view] (plan amendment R20) is what the asker sees of Molecule content: registers, literal definitions and
+     * spec-less shapes of Molecule files, Molecule inventories and `include_vars` only Molecule playbooks load count
+     * only with [MoleculeView.INCLUDE]. Analysis passes [MoleculeView.forAnalysis] of the analysed file (D157),
+     * completion its own view (D153).
      */
     fun variableType(
         project: Project,
@@ -381,14 +391,15 @@ object LoopItemTyper {
         chain: List<TaskItem>,
         name: String,
         path: List<String>,
+        view: MoleculeView,
         site: SourceLocation? = null,
     ): OptionSpec? {
         val local = chain.asReversed().firstNotNullOfOrNull { item -> TaskChains.varsOf(item)?.get(name)?.let { item to it } }
         val includeParameter = (local?.first as? TaskNode)?.let { it.taskInclude != null || it.roleInclude != null } == true
-        if (!includeParameter) site?.let { RegisteredResults.getInstance(project).at(it.file, it.offset, name) }?.let { return it.option(path) }
+        if (!includeParameter) site?.let { RegisteredResults.getInstance(project).at(it.file, it.offset, name, view) }?.let { return it.option(path) }
         local?.let { (_, value) -> return walk(LiteralShapes.of(name, value), path) }
         val root = context?.root ?: return null
-        val symbol = VarService.getInstance(project).symbol(root, name)
+        val symbol = VarViews.symbol(project, root, name, view)
         val bindings = symbol.specBindings.sortedBy { if (it.role.name == context.roleName) 0 else 1 }
         for (binding in bindings) {
             val option = walk(binding.option, path)

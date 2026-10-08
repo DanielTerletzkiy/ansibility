@@ -85,6 +85,8 @@ class BecomePasswords(private val project: Project) : Disposable {
      * on `Dispatchers.IO`; asks on the EDT when there is none, it gave nothing, or it is a prompt with nothing remembered.
      */
     suspend fun obtain(root: BecomeRoot, settings: RunnerRootSettings, environment: String?): BecomeResult {
+        // Not interrupted: a password manager's read ends its CLI when its caller is cancelled (it checks for that
+        // while it waits, R19 D139), whereas an interrupt would leave the CLI and its approval sheet behind.
         val read = withContext(Dispatchers.IO) { readSource(root, settings.becomeSource(environment), environment, settings.becomeScope(environment)) }
         read.obtained?.let { return it }
         val error = read.error

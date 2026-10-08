@@ -238,10 +238,6 @@ class AnsibilityConfigurable(private val project: Project) :
                     .comment(message("paths.ignored.comment"))
             }
             row {
-                checkBox(message("paths.molecule"))
-                    .bindSelected({ edited.paths.moleculeSupport }, { edited = edited.copy(paths = edited.paths.copy(moleculeSupport = it)) })
-            }
-            row {
                 checkBox(message("paths.schemastore"))
                     .bindSelected(
                         { edited.paths.schemaStoreExclusion },
@@ -249,6 +245,27 @@ class AnsibilityConfigurable(private val project: Project) :
                     )
                     .comment(message("paths.schemastore.comment"))
             }
+        }
+        moleculeGroup()
+    }
+
+    /** The Molecule switches (plan amendment R20, D150): they replace the old "Molecule support" of the Paths group. */
+    private fun Panel.moleculeGroup() {
+        group(message("project.group.molecule")) {
+            row {
+                checkBox(message("molecule.tests"))
+                    .bindSelected({ edited.molecule.runTests }, { edited = edited.copy(molecule = edited.molecule.copy(runTests = it)) })
+                    .comment(message("molecule.tests.comment"))
+            }
+            row {
+                checkBox(message("molecule.navigation"))
+                    .bindSelected(
+                        { edited.molecule.showInNavigation },
+                        { edited = edited.copy(molecule = edited.molecule.copy(showInNavigation = it)) },
+                    )
+                    .comment(message("molecule.navigation.comment"))
+            }
+            row { comment(message("molecule.ignore.comment")) }
         }
     }
 

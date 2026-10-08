@@ -17,6 +17,7 @@ import com.intellij.formatting.Spacing
 import com.intellij.formatting.Wrap
 import com.intellij.lang.injection.InjectedLanguageManager
 import com.intellij.lang.annotation.HighlightSeverity
+import com.intellij.lang.annotation.ProblemGroup
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiErrorElement
@@ -54,11 +55,13 @@ class AnsibleJinjaOuterErrorFilter : HighlightErrorFilter() {
  * Hides warnings and errors of the outer language's annotators and inspections in Ansible Jinja templates: every
  * highlight of severity weak warning or above that starts or ends in outer text (`TEXT` or a raw body of the Jinja
  * tree), or comes from a fragment injected into the outer tree, for the same reason as [AnsibleJinjaOuterErrorFilter].
- * Highlights inside Jinja tags (Jinja syntax errors, Jinja inspections) and plain colouring stay.
+ * Highlights inside Jinja tags (Jinja syntax errors, Jinja inspections) and plain colouring stay, and so do findings
+ * about the template's text itself ([OuterTextFindings]).
  */
 class AnsibleJinjaOuterHighlightFilter : HighlightInfoFilter {
     override fun accept(highlightInfo: HighlightInfo, file: PsiFile?): Boolean {
         if (file == null || highlightInfo.severity < HighlightSeverity.WEAK_WARNING) return true
+        if (highlightInfo.problemGroup === OuterTextFindings) return true
         val top = topLevelFile(file)
         val provider = top.viewProvider as? AnsibleJinjaFileViewProvider ?: return true
         // a fragment injected into the outer tree: its offsets are fragment offsets, and all of it is outer text
@@ -72,6 +75,16 @@ class AnsibleJinjaOuterHighlightFilter : HighlightInfoFilter {
     /** The Jinja tree's own leaf at [offset] (`PsiFile.findElementAt` would answer from the outer tree). */
     private fun isOuterText(jinja: PsiFile, offset: Int): Boolean =
         jinja.node.findLeafElementAt(offset)?.elementType in AnsibleJinjaTokenTypes.OUTER_TEXT
+}
+
+/**
+ * The problem group of findings about a template's text as Ansible delivers it, which [AnsibleJinjaOuterHighlightFilter]
+ * keeps although they lie in outer text: a pasted vault envelope (ANS-V107) or a private key (ANS-V108) in a template
+ * reaches the host as it is (plan amendment R21). An inspection sets it on its problem descriptors
+ * (`ProblemDescriptor.setProblemGroup`); the highlight filter runs before the tool id is known, the group is already set.
+ */
+object OuterTextFindings : ProblemGroup {
+    override fun getProblemName(): String? = null
 }
 
 /**

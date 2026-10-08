@@ -22,8 +22,12 @@ import de.terletzkiy.ansibility.api.VarDefinition
 import de.terletzkiy.ansibility.api.VarService
 import de.terletzkiy.ansibility.api.VarSourceRef
 import de.terletzkiy.ansibility.api.VarsLayer
+import de.terletzkiy.ansibility.context.MoleculeView
+import de.terletzkiy.ansibility.context.MoleculeVisibility
 import de.terletzkiy.ansibility.context.host.Location
 import de.terletzkiy.ansibility.model.task.YamlFiles
+import de.terletzkiy.ansibility.resolve.VarViews
+import de.terletzkiy.ansibility.resolve.include.IncludeBindings
 import de.terletzkiy.ansibility.semantics.yaml.YValue
 import de.terletzkiy.ansibility.vars.VarLocations
 import de.terletzkiy.ansibility.yaml.PsiYValueAdapter
@@ -41,17 +45,50 @@ import org.jetbrains.yaml.psi.YAMLMapping
  *   context sets the name through one and the same definition;
  * - [partial]: in a template, the task vars of the render contexts that set the name when not all of them do (or not
  *   through one definition): they apply to those renders only, so the card names them without changing the outcomes.
+ * - [included]: the definitions the include tasks that run the file give the name ([IncludeBindings]); with
+ *   [includedEverywhere] no host counts as "not set" here. On an include task's own `vars:` key, the definitions the
+ *   other include tasks give the files that include runs.
+ *
+ * Precedence as ansible-core applies it: the `vars:` of dynamic includes (`include_tasks`, `include_role`) are include
+ * params, merged after task vars, `include_vars`, `set_fact` and role params ([includeParam]): when every include path
+ * gives the name that way, they win over the task's own `vars:` and every static layer below extra vars; an import's
+ * `vars:` are task vars, below the task's own. Includers in Molecule files never count for a production file (plan
+ * amendment R20, [MoleculeView.forAnalysis]).
  *
  * Values are the index's vault-safe previews; nothing here decrypts.
  */
-internal data class TaskVars(val applied: VarSourceRef?, val partial: List<VarSourceRef>) {
+internal data class TaskVars(
+    val applied: VarSourceRef?,
+    val partial: List<VarSourceRef>,
+    /**
+     * The definitions through which the include tasks that run the card's file give it the name (their `vars:` keys,
+     * the `loop_var`/`index_var` of a looping include; for a template, those of its rendering tasks' files), when the
+     * position has no own task var of the name. They apply on their include paths, so "Set in" never calls them "not
+     * for" a host; one `vars:` definition that every path goes through is [applied] as well.
+     */
+    val included: List<VarSourceRef> = emptyList(),
+    /** Every include path gives the name: hosts without a static definition are not "not set" here. */
+    val includedEverywhere: Boolean = false,
+    /**
+     * [applied] is an include param (a dynamic include's `vars:` that every path goes through), or, without [applied],
+     * every path gives the name through some dynamic include's `vars:`: they beat every layer below extra vars.
+     */
+    val includeParam: Boolean = false,
+) {
     /**
      * [breakdown] with [applied] in force (or [breakdown] itself without it): every outcome whose winner sits below
      * level 15 is won by [applied] instead, the old winner becoming the runner-up; outcomes won higher up shadow
      * [applied]. Hosts without any static definition get [applied] too. Outcomes with one winner merge, largest first.
      */
     fun applyTo(breakdown: EffectiveBreakdown, scope: HostScope): EffectiveBreakdown {
-        val local = applied ?: return breakdown
+        val local = applied ?: return when {
+            // Every path sets it through include params of several definitions: they win over every static outcome
+            // below extra vars, which the Effective section then names instead of a single winner.
+            includeParam -> EffectiveBreakdown(breakdown.name, breakdown.groups.filter(::aboveIncludeParams), emptyList(), breakdown.molecule.filter(::aboveIncludeParams))
+            // Every include path sets it (per path, through different definitions or a loop): nothing is "not set".
+            includedEverywhere && breakdown.undefinedOn.isNotEmpty() -> EffectiveBreakdown(breakdown.name, breakdown.groups, emptyList(), breakdown.molecule)
+            else -> breakdown
+        }
         val undefined = breakdown.undefinedOn.toSet()
         val undefinedPlays = scope.targets.filter { it.host in undefined }.mapNotNull { it.play }.distinct()
         val fromUndefined = if (undefined.isEmpty()) emptyList() else listOf(OutcomeGroup(local, breakdown.undefinedOn, emptyList(), undefinedPlays))
@@ -68,7 +105,7 @@ internal data class TaskVars(val applied: VarSourceRef?, val partial: List<VarSo
      * context's static [winner] (null: no static definition) and [shadowed]; null when nothing defines the name there.
      */
     fun outcome(winner: VarSourceRef?, shadowed: List<VarSourceRef>): Pair<VarSourceRef, List<VarSourceRef>>? {
-        val local = applied ?: return winner?.let { it to shadowed }
+        val local = applied ?: included.firstOrNull()?.takeIf { includeParam } ?: return winner?.let { it to shadowed }
         if (winner == null || beats(local, winner)) return local to listOfNotNull(winner) + shadowed
         return winner to byPrecedence(shadowed + local)
     }
@@ -82,6 +119,13 @@ internal data class TaskVars(val applied: VarSourceRef?, val partial: List<VarSo
         val at = adjusted.indexOfFirst { it.source.layer.level > local.layer.level }.let { if (it < 0) adjusted.size else it }
         return adjusted.subList(0, at) + ChainStep(local, if (wins) ChainOutcome.WINNER else ChainOutcome.SHADOWED) + adjusted.subList(at, adjusted.size)
     }
+
+    /** Whether [applied] (level 15, or an include param) beats [winner]. */
+    private fun beats(local: VarSourceRef, winner: VarSourceRef): Boolean =
+        winner.layer.level < (if (includeParam) VarsLayer.EXTRA_VARS.level else local.layer.level)
+
+    /** An outcome include params do not override: won by extra vars. */
+    private fun aboveIncludeParams(group: OutcomeGroup): Boolean = group.winner?.layer == VarsLayer.EXTRA_VARS
 
     private fun withLocal(group: OutcomeGroup): OutcomeGroup {
         val (winner, shadowed) = outcome(group.winner, group.shadowed) ?: return group
@@ -112,46 +156,98 @@ internal data class TaskVars(val applied: VarSourceRef?, val partial: List<VarSo
         /** The definition kinds a task's or a block's own `vars:` mapping writes. */
         private val KINDS = setOf(VarDefKind.TASK_VARS, VarDefKind.BLOCK_VARS)
 
+        /** The definition kinds an include task gives the included file: `vars:` (role params of `include_role`) and loop names. */
+        private val INCLUDED_KINDS = setOf(VarDefKind.TASK_VARS, VarDefKind.BLOCK_VARS, VarDefKind.INCLUDE_PARAMS, VarDefKind.LOOP_VAR, VarDefKind.INDEX_VAR)
+
         /** Files whose positions sit inside tasks. */
         private val TASK_KINDS = setOf(
             FileKind.ROLE_TASKS, FileKind.ROLE_HANDLERS, FileKind.PLAYBOOK, FileKind.MOLECULE_PLAYBOOK, FileKind.MOLECULE_TASKS,
         )
-
-        /** Whether [local] (level 15) beats [winner]: everything below block and task vars. */
-        private fun beats(local: VarSourceRef, winner: VarSourceRef): Boolean = winner.layer.level < local.layer.level
 
         /** Runner-up first (the highest level first), ties in the order given. */
         private fun byPrecedence(refs: List<VarSourceRef>): List<VarSourceRef> = refs.sortedByDescending { it.layer.level }
 
         /**
          * The block and task vars of [name] that apply at [offset] of [file] (negative: the whole file, which no task
-         * encloses). Call in a read action in smart mode; reads the file's PSI and, for templates, the render contexts.
+         * encloses), as a card shown in [file] sees them ([MoleculeView.of] [file]: outside Molecule, while Molecule is
+         * hidden, a template rendered by a converge task gets none of that task's vars), with what the include tasks that
+         * run [file] give it ([MoleculeView.forAnalysis]). Call in a read action in smart mode; reads the file's PSI and,
+         * for templates, the render contexts.
          */
         fun at(project: Project, root: AnsibleRoot, file: VirtualFile, offset: Int, name: String): TaskVars {
             if (offset < 0) return NONE
-            val definitions = VarService.getInstance(project).symbol(root, name).definitions.filter { it.kind in KINDS }
-            if (definitions.isEmpty()) return NONE
-            return when (AnsibleWorkspace.getInstance(project).contextOf(file)?.kind) {
+            val view = MoleculeView.of(project, file)
+            val all = VarViews.symbol(project, root, name, view).definitions
+            val definitions = all.filter { it.kind in KINDS }
+            val includable = all.filter { it.kind in INCLUDED_KINDS }
+            if (includable.isEmpty()) return NONE
+            val own = when (AnsibleWorkspace.getInstance(project).contextOf(file)?.kind) {
                 in TASK_KINDS -> enclosing(project, definitions, file, offset, reference = true)?.let { TaskVars(ref(it), emptyList()) } ?: NONE
-                FileKind.ROLE_TEMPLATE -> rendering(project, definitions, file, name)
+                FileKind.ROLE_TEMPLATE -> if (definitions.isEmpty()) NONE else rendering(project, definitions, file, name, view)
                 else -> NONE
             }
+            val includeView = MoleculeView.forAnalysis(project, file)
+            val applied = own.applied ?: return included(project, includable, file, name, includeView, own)
+            // On an include task's own `vars:` key: the other include tasks that run the same files give the name there too.
+            siblings(project, includable, applied, name)?.let { return it }
+            // Include params beat the task's own `vars:` when every include path gives the name that way.
+            return included(project, includable, file, name, includeView, own).takeIf { it.includeParam } ?: own
         }
+
+        /**
+         * What the include tasks that run [file] give [name] ([IncludeBindings.coverageAt]): their definitions, whether
+         * every include path gives it, and, when every path's winning includer gives it through one and the same `vars:`
+         * definition, that definition [applied] (an include param when the includers are dynamic). [own] (the card's
+         * own task vars, if any) stays when no include param overrides it.
+         */
+        private fun included(project: Project, definitions: List<VarDefinition>, file: VirtualFile, name: String, view: MoleculeView, own: TaskVars): TaskVars {
+            val coverage = IncludeBindings.coverageAt(project, file, name, view)
+            if (!coverage.provided) return own
+            val locations = coverage.providers.flatMapTo(HashSet()) { it.definitionsOf(name) }
+            val refs = definitions.filter { it.location in locations }.distinctBy { it.location }.map(::ref)
+            val everywhere = coverage.everywhere
+            // `include_role` vars are role params, which the model already evaluates; a loop name has no level-15 value.
+            val varsOnly = coverage.winners.none { winner -> winner.role || name in winner.loopNames }
+            val winnerLocations = coverage.winners.flatMapTo(HashSet()) { it.definitionsOf(name) }
+            val single = refs.filter { it.location() in winnerLocations }.singleOrNull()?.takeIf { everywhere && own.partial.isEmpty() && varsOnly }
+            val params = coverage.dynamicEverywhere && varsOnly
+            if (own.applied != null && !params) return own
+            return TaskVars(single, own.partial, refs, everywhere, includeParam = params)
+        }
+
+        /**
+         * On a key of an include task's own `vars:` ([applied] is one): the definitions every include task that runs the
+         * same files gives them [name] with (this one among them), so "Set in" shows the others apply through the
+         * include instead of "not for" a host; null for any other task var.
+         */
+        private fun siblings(project: Project, definitions: List<VarDefinition>, applied: VarSourceRef, name: String): TaskVars? {
+            val reached = IncludeBindings.filesRunByVarsKey(project, SourceLocation(applied.file, applied.offset)).ifEmpty { return null }
+            val coverages = reached.map { IncludeBindings.coverageAt(project, it, name, MoleculeView.forAnalysis(project, it)) }
+            val locations = coverages.flatMapTo(HashSet()) { coverage -> coverage.providers.flatMap { it.definitionsOf(name) } }
+            val refs = definitions.filter { it.location in locations }.distinctBy { it.location }.map(::ref)
+            return TaskVars(applied, emptyList(), refs.filter { it.location() != applied.location() })
+        }
+
+        private fun VarSourceRef.location(): SourceLocation = SourceLocation(file, offset)
 
         /**
          * The definition [location] names when it is still a block or task var of [name] in [root] (an Explain link's
          * position, which an edit may have moved), as a source.
          */
         fun definitionAt(project: Project, root: AnsibleRoot, name: String, location: SourceLocation): VarSourceRef? =
-            VarService.getInstance(project).symbol(root, name).definitions.firstOrNull { it.kind in KINDS && it.location == location }?.let(::ref)
+            VarService.getInstance(project).symbol(root, name).definitions
+                .firstOrNull { (it.kind in KINDS || it.kind == VarDefKind.INCLUDE_PARAMS) && it.location == location }?.let(::ref)
 
         /** The value [ref] writes (for the runtime-default chain of a task var), or null when its key is gone. */
         fun valueOf(project: Project, ref: VarSourceRef): YValue? =
             VarLocations.keyValueAt(project, SourceLocation(ref.file, ref.offset))?.let(PsiYValueAdapter::valueOf)
 
-        /** Every render context of [template] sets [name] through one task var: it applies; otherwise those that do are partial. */
-        private fun rendering(project: Project, definitions: List<VarDefinition>, template: VirtualFile, name: String): TaskVars {
-            val contexts = TemplateContextService.getInstance(project).renderContexts(template)
+        /**
+         * Every render context of [template] that [view] sees ([MoleculeVisibility.contextsInView]: no converge or verify
+         * task while Molecule is hidden) sets [name] through one task var: it applies; otherwise those that do are partial.
+         */
+        private fun rendering(project: Project, definitions: List<VarDefinition>, template: VirtualFile, name: String, view: MoleculeView): TaskVars {
+            val contexts = MoleculeVisibility.contextsInView(project, view, TemplateContextService.getInstance(project).renderContexts(template))
             if (contexts.none { name in it.taskVars }) return NONE
             val found = contexts.map { context ->
                 ProgressManager.checkCanceled()

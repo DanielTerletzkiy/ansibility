@@ -128,7 +128,7 @@ class RunTreeRenderer(private val now: () -> Double, private val finished: () ->
                 append("  " + item.label, SimpleTextAttributes.GRAYED_ATTRIBUTES)
                 val started = item.started
                 val details = listOfNotNull(
-                    RunViewTexts.unitStatus(item, finished()).takeIf { started == null || (item.exitCode ?: 0) != 0 },
+                    RunViewTexts.unitStatus(item, finished()).takeIf { RunViewTexts.showsUnitStatus(item) },
                     RunViewTexts.tally(item.counts).takeIf { it.isNotEmpty() },
                     started?.let { RunViewTexts.duration((item.ended ?: now()) - it) }?.takeIf { it.isNotEmpty() },
                 )

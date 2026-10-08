@@ -10,8 +10,9 @@ out/
 # Local-only test fixture.
 plugin/src/test/testData/infra/
 
-# Local-only notes and fixture tool settings.
-docs/local/
+# Plans, developer notes and research: local only (docs/ is the GitHub Pages site).
+/plan/
+# Local-only fixture tool settings.
 tools/fixtures/local/
 # The manifest describes the (git-ignored) fixture file by file.
 tools/fixtures/manifest.tsv

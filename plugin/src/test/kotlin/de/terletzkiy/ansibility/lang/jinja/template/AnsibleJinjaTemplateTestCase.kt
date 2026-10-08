@@ -1,6 +1,7 @@
 package de.terletzkiy.ansibility.lang.jinja.template
 
 import com.intellij.openapi.application.WriteAction
+import com.intellij.openapi.application.impl.NonBlockingReadActionImpl
 import com.intellij.openapi.fileTypes.FileType
 import com.intellij.openapi.fileTypes.FileTypeManager
 import com.intellij.openapi.vfs.VirtualFile
@@ -28,8 +29,12 @@ abstract class AnsibleJinjaTemplateTestCase : BasePlatformTestCase() {
     /** The view provider PSI uses for [path] (an [AnsibleJinjaFileViewProvider] for templates). */
     protected fun viewProvider(path: String) = PsiManager.getInstance(project).findViewProvider(vf(path)) ?: error("no view provider for $path")
 
-    /** Runs pending EDT events (the file type refresh is scheduled with `invokeLater`) and waits for re-indexing. */
+    /**
+     * Runs pending EDT events (the file type refresh is scheduled with `invokeLater`, after a background walk when the
+     * walk was too large for the VFS write action) and waits for re-indexing.
+     */
     protected fun dispatchEvents() {
+        NonBlockingReadActionImpl.waitForAsyncTaskCompletion()
         PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
         IndexingTestUtil.waitUntilIndexesAreReady(project)
     }
@@ -45,6 +50,18 @@ abstract class AnsibleJinjaTemplateTestCase : BasePlatformTestCase() {
         } finally {
             service.update { before }
             dispatchEvents()
+        }
+    }
+
+    /** Runs [action] with `*-playbook.yml` and `*-playbook.yaml` associated to [type], as PyCharm's Jinja2 does. */
+    protected fun withPlaybookPatternsAs(type: FileType, action: () -> Unit) {
+        val manager = FileTypeManager.getInstance()
+        val patterns = listOf("*-playbook.yml", "*-playbook.yaml")
+        WriteAction.runAndWait<Throwable> { patterns.forEach { manager.associatePattern(type, it) } }
+        try {
+            action()
+        } finally {
+            WriteAction.runAndWait<Throwable> { patterns.forEach { manager.removeAssociation(type, FileTypeManager.parseFromString(it)) } }
         }
     }
 

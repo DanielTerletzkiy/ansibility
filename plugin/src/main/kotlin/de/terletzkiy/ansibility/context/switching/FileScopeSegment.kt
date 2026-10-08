@@ -12,6 +12,7 @@ import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.ContextWidgetSegment
 import de.terletzkiy.ansibility.api.HostScope
 import de.terletzkiy.ansibility.api.WidgetSegment
+import de.terletzkiy.ansibility.context.host.AnsibleContextServiceImpl
 
 /**
  * The `ansibilityFileScope` status-bar segment (plan amendment R7/R8, F8.1): `file: postfix → 4 hosts` when the
@@ -26,7 +27,8 @@ class FileScopeSegment : ContextWidgetSegment {
     override fun segment(project: Project, file: VirtualFile): WidgetSegment? {
         if (DumbService.isDumb(project)) return null
         if (AnsibleWorkspace.getInstance(project).rootFor(file) == null) return null
-        val scope = AnsibleContextService.getInstance(project).hostScope(file)
+        // Plan amendment R20, D156: a role library's Molecule hosts show only while Molecule is shown in navigation.
+        val scope = AnsibleContextServiceImpl.getInstance(project)?.cardScope(file) ?: AnsibleContextService.getInstance(project).hostScope(file)
         val text = ContextTexts.fileSegment(scope) ?: return null
         val appliesTo = ContextTexts.message("segment.file.tooltip", ContextTexts.appliesTo(scope))
         val tooltip = scope.emptyReason?.let { ContextTexts.message("segment.file.tooltip.empty", appliesTo, it) } ?: appliesTo

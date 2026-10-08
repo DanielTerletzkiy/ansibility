@@ -11,6 +11,7 @@ import de.terletzkiy.ansibility.api.ValueShape
 import de.terletzkiy.ansibility.api.VarDefKind
 import de.terletzkiy.ansibility.api.VarDefinition
 import de.terletzkiy.ansibility.api.VarService
+import de.terletzkiy.ansibility.context.MoleculeVisibility
 import de.terletzkiy.ansibility.facts.FactsCatalog
 import de.terletzkiy.ansibility.index.ValueSummary
 import de.terletzkiy.ansibility.model.task.YamlFiles
@@ -46,6 +47,8 @@ import java.util.Optional
  * - **Secrets**: values in vault files, of `vault_*` names and `!vault` values are typed but never shown
  *   ([ValueSummary.isSecret], [ValueSummary.isVaultFileName]).
  * - **Labels** are `path:line`, relative to [roleDir] for files of the checked file's role, else relative to the root.
+ * - **Molecule** (plan amendment R20, D157): Molecule definitions (converge play vars, scenario inventories, their
+ *   `set_fact` and `register`) count only when [origin], the checked file, is a Molecule file itself.
  *
  * Results are memoised per name for the lifetime of the resolver (one inspection pass). Call inside a read action.
  */
@@ -53,9 +56,15 @@ internal class ChainResolver(
     private val project: Project,
     private val root: AnsibleRoot,
     private val roleDir: VirtualFile?,
+    /** The checked file; null counts as a production file. */
+    private val origin: VirtualFile? = null,
 ) : VariableResolver {
     private val service = VarService.getInstance(project)
     private val memo = HashMap<String, List<VariableDefinition>?>()
+
+    /** The definitions of [name] the checked file's chains may follow. */
+    private fun definitionsOf(name: String): List<VarDefinition> =
+        MoleculeVisibility.forAnalysis(project, root, origin, service.symbol(root, name)).definitions.filter { it.kind != VarDefKind.SPEC_OPTION }
 
     override fun definitions(name: String): List<VariableDefinition>? = memo.getOrPut(name) { compute(name) }
 
@@ -76,15 +85,17 @@ internal class ChainResolver(
     private fun registeredResult(name: String): RegisteredResult? {
         ProgressManager.checkCanceled()
         if (isRuntimeProvided(name)) return null
-        val definitions = service.symbol(root, name).definitions.filter { it.kind != VarDefKind.SPEC_OPTION }
+        val definitions = definitionsOf(name)
         if (definitions.isEmpty() || definitions.any { it.kind != VarDefKind.REGISTER }) return null
-        return RegisteredResults.getInstance(project).inScope(root, roleDir, name)
+        // RegisteredResults.inScope, over the registers this file counts (sorted by file and offset like the symbol).
+        val registers = definitions.filter { roleDir == null || VfsUtilCore.isAncestor(roleDir, it.location.file, true) }
+        return RegisteredResults.getInstance(project).of(root, name, registers)
     }
 
     private fun compute(name: String): List<VariableDefinition>? {
         ProgressManager.checkCanceled()
         if (isRuntimeProvided(name)) return null
-        val definitions = service.symbol(root, name).definitions.filter { it.kind != VarDefKind.SPEC_OPTION }
+        val definitions = definitionsOf(name)
         if (definitions.isEmpty()) return null
         return definitions.map { definition ->
             val value = valueOf(definition)

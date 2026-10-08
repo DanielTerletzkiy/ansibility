@@ -57,6 +57,23 @@ enum class DiagnosticCode(
     /** A `1.2` label that no configured id of the root has. */
     V106_UNKNOWN_VAULT_LABEL("ANS-V106", Level.INFO, Level.INFO, true),
 
+    /**
+     * Not a whole-file vault (plan amendment R21, D159; allocated as X94 "pasted `!vault |` block"): a `!vault |` tag
+     * line, a preamble, indentation, a byte order mark, quotes or other text before `$ANSIBLE_VAULT`, so Ansible uses
+     * the file as it is (copy, template and lookups deliver the envelope text; vars files fail to load). ERROR since
+     * the user asked to mark these files as errors.
+     */
+    V107_NOT_WHOLE_FILE_VAULT("ANS-V107", Level.ERROR, Level.ERROR, true),
+
+    /**
+     * Plaintext private key (plan amendment R21, D160–D162; allocated as X95 "key-like file not vaulted"): a complete
+     * unencrypted private key in a file (PEM, OpenSSH, PuTTY, OpenPGP, also inside a YAML or JSON value), or a vault
+     * password file of a root under version control. ERROR since the user asked for it; the policy caps it at WARNING
+     * per finding (`FindingContext`) for passphrase-protected keys, keystores, key-like names without a readable key
+     * and files that are not committed yet.
+     */
+    V108_PLAINTEXT_PRIVATE_KEY("ANS-V108", Level.ERROR, Level.ERROR, true),
+
     // R8 inventory and host awareness (plan amendment R7/R8, "R8 diagnostics"): requested since the amendment.
     /** Ineffective override: never wins for any reachable (play, playbook dir, env, host); structurally shadowed. */
     P001_INEFFECTIVE_OVERRIDE("ANS-P001", Level.WARNING, Level.WARNING, true),
@@ -77,6 +94,13 @@ enum class DiagnosticCode(
      */
     V003_POSSIBLY_UNDEFINED("ANS-V003", Level.WARNING, Level.WARNING, true),
 
+    // R23 argument_specs default vs role default (plan amendment R23, D169–D172).
+    /**
+     * The role's argument_specs documents a `default:` that differs from the role default in `defaults/` (after the
+     * option type's conversion). Ansible never applies the documented default, so the documentation is wrong. Requested.
+     */
+    S003_SPEC_DEFAULT_MISMATCH("ANS-S003", Level.ERROR, Level.ERROR, true),
+
     // 🟣 CLAUDE extras
     T012_YAML_SCALAR_HAZARD("ANS-T012", Level.WARNING, Level.WARNING, false),
     T012B_UNLOADABLE_SCALAR("ANS-T012b", Level.ERROR, Level.ERROR, false),
@@ -84,15 +108,21 @@ enum class DiagnosticCode(
     M003_DEPRECATED_MODULE("ANS-M003", Level.WEAK_WARNING, Level.WEAK_WARNING, false),
     S001_ARG_SPEC_LINT("ANS-S001", Level.WARNING, Level.WARNING, false),
     S002_SPEC_DEFAULTS_SYNC("ANS-S002", Level.WARNING, Level.WARNING, false),
+
+    /** 🟣 CLAUDE (R23): a documented `default:` no defaults file sets, so Ansible never applies it. */
+    S004_SPEC_DEFAULT_NOT_APPLIED("ANS-S004", Level.WARNING, Level.WARNING, false),
+
+    /** 🟣 CLAUDE (R23): a role default the argument_specs option does not document. */
+    S005_SPEC_DEFAULT_UNDOCUMENTED("ANS-S005", Level.INFO, Level.INFO, false),
     V001_UNDEFINED_VARIABLE("ANS-V001", Level.WEAK_WARNING, Level.WEAK_WARNING, false),
     V002_UNUSED_INVENTORY_VAR("ANS-V002", Level.WEAK_WARNING, Level.WEAK_WARNING, false),
     X001_PLAINTEXT_VAULT_VALUE("ANS-X001", Level.WARNING, Level.WARNING, false),
 
-    /** 🟣 CLAUDE X94: a pasted `!vault |` block at the start of a file, which Ansible returns verbatim. */
-    V107_PASTED_VAULT_BLOCK("ANS-V107", Level.WARNING, Level.WARNING, false),
-
-    /** 🟣 CLAUDE X95: a key-like file (`files/ssl`, `files/ssh` keys, `*.password`) that is not vaulted. */
-    V108_UNVAULTED_KEY_FILE("ANS-V108", Level.WARNING, Level.WARNING, false),
+    /**
+     * 🟣 CLAUDE (plan amendment R21, D163): a YAML value that holds a vault envelope without the `!vault` tag, so Ansible
+     * passes the envelope text on as a string instead of decrypting it.
+     */
+    V114_UNTAGGED_VAULT_VALUE("ANS-V114", Level.WARNING, Level.WARNING, false),
     ;
 
     fun levelFor(preset: Preset): Level = when (preset) {

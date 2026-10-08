@@ -2,13 +2,15 @@ package de.terletzkiy.ansibility.workspace.crossroot
 
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.vfs.VirtualFile
 import de.terletzkiy.ansibility.api.AnsibleContextService
 import de.terletzkiy.ansibility.api.AnsibleRoot
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.VarDefKind
 import de.terletzkiy.ansibility.api.VarDefinition
-import de.terletzkiy.ansibility.api.VarService
 import de.terletzkiy.ansibility.api.WorkspaceScopeService
+import de.terletzkiy.ansibility.context.MoleculeView
+import de.terletzkiy.ansibility.resolve.VarViews
 
 /** Where one definition takes effect in its root for the report's environment: wins, shadowed, never loaded, or unknown. */
 sealed interface DefinitionMark {
@@ -32,24 +34,27 @@ class CrossRootReport(val name: String, val environment: String?, val groups: Li
 
 /**
  * Every definition of one variable in every non-detached root (plan amendment R9, F9.8): one cached
- * `VarService.symbol(root, name)` per root, in-scope roots first. Previews are the index's vault-safe ones. The
+ * `VarViews.symbol(root, name, view)` per root, in-scope roots first. Previews are the index's vault-safe ones. The
  * effective column comes from `AnsibleContextService.definitionStatus`, narrowed to [environment] when one is chosen.
- * Needs a read action in smart mode.
+ * Molecule definitions are listed as a request started in `origin` sees them (plan amendment R20, D153/D154,
+ * [MoleculeView.of]): from a Molecule file always; otherwise, and without a file, only with "Show Molecule in navigation
+ * and search" on. Needs a read action in smart mode.
  */
 object CrossRootVars {
     private val LOCAL_KINDS = setOf(VarDefKind.JINJA_LOCAL, VarDefKind.LOOP_VAR, VarDefKind.INDEX_VAR)
     private val INVENTORY_KINDS = setOf(VarDefKind.GROUP_VARS, VarDefKind.HOST_VARS, VarDefKind.INVENTORY_INLINE)
 
-    fun report(project: Project, name: String, environment: String?): CrossRootReport {
+    /** The report of [name]; [origin] is the file the request started in (the action's editor), null for none. */
+    fun report(project: Project, name: String, environment: String?, origin: VirtualFile? = null): CrossRootReport {
         val scope = WorkspaceScopeService.getInstance(project).current()
         val inScope = scope.roots.toSet()
         val roots = AnsibleWorkspace.getInstance(project).roots().filter { !it.detached }
-        val vars = VarService.getInstance(project)
+        val view = MoleculeView.of(project, origin?.takeIf { it.isValid })
         val context = AnsibleContextService.getInstance(project)
         val environments = sortedSetOf<String>()
         val groups = roots.mapNotNull { root ->
             ProgressManager.checkCanceled()
-            val definitions = vars.symbol(root, name).definitions
+            val definitions = VarViews.symbol(project, root, name, view).definitions
                 .filter { it.kind !in LOCAL_KINDS && it.location.file.path.startsWith(root.dir.path) }
                 .distinctBy { it.location }
             if (definitions.isEmpty()) return@mapNotNull null

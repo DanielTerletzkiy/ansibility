@@ -23,7 +23,8 @@ import org.jetbrains.yaml.psi.YAMLKeyValue
  * the host. The platform uses the first target only, hence `order="first"`.
  *
  * Runs in the actions' data rules on a background thread with a read lock: one classification, no search. Not
- * `DumbAware`: variables need the indexes, so while indexing the platform reports that Find Usages is unavailable.
+ * `DumbAware`: variables need the indexes, so while indexing the platform skips this provider and Find Usages shows
+ * only its generic "no usages at cursor" hint.
  */
 class VarUsageTargetProvider : UsageTargetProvider {
     override fun getTargets(editor: Editor, file: PsiFile): Array<UsageTarget>? {

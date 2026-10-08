@@ -28,7 +28,8 @@ import org.jetbrains.annotations.Nls
  * merge environments, `path:line` labels of definitions, layer labels in the card's own words, and vault-safe values.
  *
  * Values are the engine's previews ([VarSourceRef.preview], the one vault-safe rule of `index.ValueSummary`): a vault
- * value, a `vault_*` name and every value of a vault file have no preview and are shown masked. A `!vault` value gets
+ * value, a `vault_*` name and every value of a vault file have no preview and are shown masked, and so is every value of
+ * a variable a spec keeps secret (`no_log`, `vars.NoLogVariables`; the callers say so). A `!vault` value gets
  * the vault area's Reveal link ([VaultCardLinks]), the one explicit way from a card to a value; nothing here decrypts.
  * Definition links are the variable card's own ([VarLinks.definition]), so they open the definition's card.
  */
@@ -134,10 +135,11 @@ internal object HostCardTexts {
      * The value of [ref] for the card: its preview as inline code, or the masked form of a secret. A `!vault` value
      * reads `🔒 vault-encrypted (AES256, 1.1)` (header facts from [VaultStatusService], which never decrypts) followed
      * by the Reveal link when the envelope can be revealed; a value of a vault file or a `vault_*` name reads
-     * `🔒 value hidden`.
+     * `🔒 value hidden`, any other value of a [noLog] variable `🔒 value hidden (no_log)`.
      */
-    fun value(project: Project, ref: VarSourceRef): HtmlChunk {
+    fun value(project: Project, ref: VarSourceRef, noLog: Boolean = false): HtmlChunk {
         val preview = ref.preview
+        if (noLog && preview != null && !ref.isVault) return HtmlChunk.text(AnsibilityVarsBundle.message("card.vault.hidden.nolog.short"))
         if (preview != null && !ref.isVault) return HtmlChunk.tag("code").addText(preview)
         if (!ref.isVault) return HtmlChunk.text(message("card.value.hidden"))
         val location = SourceLocation(ref.file, ref.offset)
@@ -155,12 +157,26 @@ internal object HostCardTexts {
     /**
      * Where a bare `{{ other }}` value leads ([ResolvedChain]): `→ str 192.0.2.33 via system_ip_floating · <link>`,
      * `→ 🔒 vault-encrypted via vault_x · <link>` (never the value), `→ {{ … }} via x (Jinja, evaluated at runtime)`, or
-     * `→ x is not set`.
+     * `→ x is not set`; `→ 🔒 value hidden (no_log) via x` when a name of the chain is a [noLog] variable (its value is
+     * where the chain ends).
      */
-    fun chain(project: Project, root: AnsibleRoot, chain: ResolvedChain): HtmlChunk {
+    fun chain(project: Project, root: AnsibleRoot, chain: ResolvedChain, noLog: (String) -> Boolean = { false }): HtmlChunk {
         val via = chain.via.joinToString(" → ")
         val end = chain.end
-        val text = when (chain.kind) {
+        val hidden = (chain.kind == ChainEnd.VALUE || chain.kind == ChainEnd.TEMPLATE) && chain.via.any(noLog)
+        val text = if (hidden) {
+            HtmlChunk.text(
+                message("card.effective.chain.type", AnsibilityVarsBundle.message("card.vault.hidden.nolog.short")) + " " +
+                    message("card.effective.chain.via", via),
+            )
+        } else {
+            chainText(chain, via, end)
+        }
+        return if (end == null) text else joined(listOf(text, definitionLink(project, root, end)))
+    }
+
+    private fun chainText(chain: ResolvedChain, via: String, end: VarSourceRef?): HtmlChunk =
+        when (chain.kind) {
             ChainEnd.VALUE -> HtmlChunk.fragment(
                 HtmlChunk.text(message("card.effective.chain.type", chain.typeName.orEmpty()) + " "),
                 HtmlChunk.tag("code").addText(end?.preview.orEmpty()),
@@ -170,8 +186,6 @@ internal object HostCardTexts {
             ChainEnd.TEMPLATE -> HtmlChunk.text(message("card.effective.chain.template", end?.preview.orEmpty(), via))
             ChainEnd.UNDEFINED -> HtmlChunk.text(message("card.effective.chain.undefined", via))
         }
-        return if (end == null) text else joined(listOf(text, definitionLink(project, root, end)))
-    }
 
     // ------------------------------------------------------------------------------------------------ HTML
 

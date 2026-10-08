@@ -251,12 +251,18 @@ interface AnsibleContextService {
     /** The scope of [context] in [root] without any file (origin [HostScopeOrigin.Selection]): tool window, R9's WS9. */
     fun selectionScope(root: AnsibleRoot, context: RootContext = selection(root)): HostScope
 
-    /** The per-host outcome of variable [name] over [scope]'s targets (single-name evaluation, `PrecedenceEngine.effectiveOf`). */
+    /**
+     * The per-host outcome of variable [name] over [scope]'s targets (single-name evaluation, `PrecedenceEngine.effectiveOf`).
+     * Presentation: a role scope's Molecule companions ([EffectiveBreakdown.molecule]) are added only while "Show Molecule
+     * in navigation and search" is on (plan amendment R20, D153).
+     */
     fun effective(scope: HostScope, name: String): EffectiveBreakdown
 
     /**
      * Where [definition] takes effect over every reachable context of its root. Backed by the cached model; the root's
-     * background summary gives the same statuses for inventory-level definitions.
+     * background summary gives the same statuses for inventory-level definitions. Presentation (cards, the all-repos
+     * panel): Molecule hosts count only while "Show Molecule in navigation and search" is on (plan amendment R20, D153,
+     * D156), so inspections never use it.
      */
     fun definitionStatus(definition: VarDefinition): DefinitionStatus
 

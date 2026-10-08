@@ -7,7 +7,9 @@ import com.intellij.execution.process.ProcessListener
 import com.intellij.execution.process.ProcessOutputType
 import com.intellij.execution.process.ProcessOutputTypes
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
+import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.Key
 import com.intellij.util.Alarm
 import com.intellij.util.concurrency.ThreadingAssertions
@@ -23,7 +25,9 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * The [RunModel] of a running playbook: events arrive on the process reader thread and are applied on the EDT in
- * batches (at most every [BATCH_MILLIS]), after which the listeners refresh their views.
+ * batches (at most every [BATCH_MILLIS]), after which the listeners refresh their views. Once [parent] is disposed
+ * (the run's tab closed while the process still runs), the run's end is still applied, so the listeners that act on
+ * it (results, the destroy countdown) hear of it.
  */
 class RunEventCollector(parent: Disposable) {
     val model = RunModel()
@@ -37,6 +41,21 @@ class RunEventCollector(parent: Disposable) {
 
     @Volatile
     private var ended = false
+
+    @Volatile
+    private var disposed = false
+
+    /** The end was applied to [model]. */
+    @Volatile
+    private var endApplied = false
+
+    init {
+        Disposer.register(parent) {
+            disposed = true
+            // A pending batch went with the alarm: the end must still be applied.
+            if (ended && !endApplied) drainLater()
+        }
+    }
 
     /** Any thread. */
     fun accept(event: RunEvent) {
@@ -57,16 +76,22 @@ class RunEventCollector(parent: Disposable) {
     }
 
     private fun schedule() {
+        if (disposed || alarm.isDisposed) {
+            if (ended && !endApplied) drainLater()
+            return
+        }
         if (!scheduled.compareAndSet(false, true)) return
-        if (alarm.isDisposed) return
         alarm.addRequest({ drain() }, BATCH_MILLIS, ModalityState.any())
     }
+
+    private fun drainLater() = ApplicationManager.getApplication().invokeLater({ drain() }, ModalityState.any())
 
     private fun drain() {
         ThreadingAssertions.assertEventDispatchThread()
         scheduled.set(false)
         while (true) model.apply(queue.poll() ?: break)
         if (ended && !model.finished) model.finish(exit)
+        if (model.finished) endApplied = true
         listeners.forEach { it() }
     }
 

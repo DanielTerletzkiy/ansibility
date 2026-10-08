@@ -67,7 +67,7 @@ class AnsibleToolWindowFactoryTest : ToolWindowTestCase() {
         val toolWindow = ToolWindowHeadlessManagerImpl.MockToolWindow(project)
         AnsibleToolWindowFactory().createToolWindowContent(project, toolWindow)
         val contents = toolWindow.contentManager.contents
-        assertEquals(listOf("Repos", "Roles", "Environments"), contents.map { it.displayName })
+        assertEquals("the tree views, then the Vault tab (R21)", listOf("Repos", "Roles", "Environments", "Vault"), contents.map { it.displayName })
         assertTrue("the fixed tabs cannot be closed", contents.none { it.isCloseable })
         val content = contents.first()
         val panel = content.component as AnsibleToolWindowPanel

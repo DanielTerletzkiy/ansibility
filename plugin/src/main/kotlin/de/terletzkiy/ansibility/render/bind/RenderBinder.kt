@@ -19,7 +19,8 @@ import de.terletzkiy.ansibility.semantics.render.RenderScope
 /**
  * A render site plus a context gives a [RenderScope] (plan amendment R11, A.17 "The binder"), lowest to highest:
  * the effective values of [values] (the task's own vars already inside the precedence engine), magic variables,
- * then [locals] (the loop item, `index_var`, `ansible_loop`). Facts, registered results and names only a runtime
+ * then [locals] (the loop item, `index_var`, `ansible_loop`, also those of the include tasks that run the file; a
+ * hole among them is a placeholder). Facts, registered results and names only a runtime
  * task sets are holes; vault values are holes too and are never decrypted (D71).
  */
 internal class RenderBinder(
@@ -45,7 +46,7 @@ internal class RenderBinder(
 
     fun scope(locals: Map<String, RValue> = emptyMap()): RenderScope = RenderScope { name ->
         ProgressManager.checkCanceled()
-        locals[name]?.let { return@RenderScope Binding.Computed(it) }
+        locals[name]?.let { return@RenderScope LoopItems.bindingOf(it) }
         lookup(name)
     }
 

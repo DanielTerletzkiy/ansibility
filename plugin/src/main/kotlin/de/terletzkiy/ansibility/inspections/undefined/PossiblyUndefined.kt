@@ -17,6 +17,8 @@ import de.terletzkiy.ansibility.api.RenderKind
 import de.terletzkiy.ansibility.api.RoleInfo
 import de.terletzkiy.ansibility.api.RoleRegistry
 import de.terletzkiy.ansibility.api.TemplateContextService
+import de.terletzkiy.ansibility.context.MoleculeView
+import de.terletzkiy.ansibility.context.MoleculeVisibility
 import de.terletzkiy.ansibility.context.TargetVersionDetector
 import de.terletzkiy.ansibility.context.host.witness.DefinitionWitnesses
 import de.terletzkiy.ansibility.context.host.witness.WitnessReport
@@ -27,6 +29,7 @@ import de.terletzkiy.ansibility.model.task.TaskFileModels
 import de.terletzkiy.ansibility.model.task.TaskItem
 import de.terletzkiy.ansibility.model.task.TaskNode
 import de.terletzkiy.ansibility.model.task.YamlFiles
+import de.terletzkiy.ansibility.resolve.include.IncludeBindings
 import de.terletzkiy.ansibility.resolve.loop.TaskChains
 import de.terletzkiy.ansibility.semantics.schema.OptionSpec
 import org.jetbrains.annotations.Nls
@@ -89,8 +92,11 @@ class UndefinedFinding internal constructor(
  * of the root; `name:` values (templated for display only, failures are swallowed) and `debug.var` (prints "VARIABLE IS
  * NOT DEFINED!"); names a task of the role (or of a dependency) sets itself (`set_fact`, `register`, a literal
  * `include_vars` file, include params, `template_vars`), or that a playbook's own task sets; the rendering task's and
- * its blocks' `vars:`, loop and index variables; variables the owning role's spec marks `required: true` (ANS-P003's
- * job, no double report). Play vars, `vars_files`, role params and every inventory layer are definitions, evaluated
+ * its blocks' `vars:`, loop and index variables; names some include task that runs the use's task file (or the
+ * rendering task's file) gives it ([IncludeBindings.names]: its `vars:`, the loop names of a looping include; any
+ * includer counts, Molecule includers not for production files; the role params of a play's `include_role`, and those of
+ * an `include_role` whose entry file a play also applies directly, are left to the witness, which evaluates them per
+ * play); variables the owning role's spec marks `required: true` (ANS-P003's job, no double report). Play vars, `vars_files`, role params and every inventory layer are definitions, evaluated
  * per context by the witness. A name the role sets anywhere counts, not only before the use: the order of tasks across
  * dynamic includes, handlers and later plays is not known statically, so the check stays silent rather than guess.
  *
@@ -120,7 +126,7 @@ class UndefinedFinding internal constructor(
 internal class PossiblyUndefined(private val project: Project, private val file: PsiFile, private val context: FileContext) {
     private val root: AnsibleRoot = context.root
     private val virtualFile: VirtualFile = file.viewProvider.virtualFile
-    private val rules = UndefinedRules(project, root)
+    private val rules = UndefinedRules(project, root, virtualFile)
     private val guardRules = GuardRules.of(TargetVersionDetector.getInstance(project).targetVersion(root).version)
     private val guards = TaskGuards(project, guardRules)
     private val witnesses = DefinitionWitnesses.getInstance(project)
@@ -128,6 +134,10 @@ internal class PossiblyUndefined(private val project: Project, private val file:
     private val reports = HashMap<Pair<DefinitionWitnesses.WitnessScope, String>, WitnessReport>()
     private val entryPoints = HashMap<VirtualFile, Set<String>>()
     private val targetGates = HashMap<Triple<PlayRef, VirtualFile, VirtualFile?>, Gate>()
+    private val includeNames = HashMap<VirtualFile, Set<String>>()
+
+    /** Analysis of a production file never counts Molecule includers (plan amendment R20, D157). */
+    private val analysisView: MoleculeView = MoleculeView.forAnalysis(project, virtualFile)
 
     /** What runs a use: a role's task or template, or a play's own task. */
     private class Runner(
@@ -135,7 +145,11 @@ internal class PossiblyUndefined(private val project: Project, private val file:
         val role: RoleInfo?,
         /** The play of a playbook's own task (its hosts are the targets). */
         val play: PlayRef?,
-        /** Names the running task provides itself: task and block `vars:`, loop and index variables, `template_vars`. */
+        /**
+         * Names the running task provides itself (task and block `vars:`, loop and index variables, `template_vars`) and
+         * the names some include task that runs its file gives it ([IncludeBindings.names]: `vars:` of includes and
+         * imports, loop names of looping includes; role params the witness evaluates per play are not among them).
+         */
         val provided: Set<String>,
         /** The task's file and the offset its guards are computed at (-1: no task, a vars file). */
         val taskFile: VirtualFile?,
@@ -343,6 +357,8 @@ internal class PossiblyUndefined(private val project: Project, private val file:
                 provided += loop.loopVar
                 loop.indexVar?.let(provided::add)
             }
+            // The includers of the rendering task's file give the template their vars and loop names too (any includer).
+            provided += includedNames(render.taskSite.file)
             val roleRef = render.role
             val conditional = render.kind in CHOSEN_BY_VALUE || render.via.isNotEmpty() || isHandlerFile(render.taskSite.file, roleRef?.dir)
             val loopGates = render.kind != RenderKind.FILEGLOB
@@ -377,7 +393,7 @@ internal class PossiblyUndefined(private val project: Project, private val file:
         val chain = TaskChains.chainAt(TaskFileModels.of(yaml), use.nameRange.startOffset)
         val task = chain.lastOrNull() ?: return null
         if (isDisplayOnly(scalar, task)) return null
-        val runner = Runner(role, null, provided(chain), virtualFile, task.range.startOffset, conditional = isHandlerFile(virtualFile, role.ref.dir))
+        val runner = Runner(role, null, provided(chain) + includedNames(virtualFile), virtualFile, task.range.startOffset, conditional = isHandlerFile(virtualFile, role.ref.dir))
         return Located(use, listOf(runner), task.range.startOffset)
     }
 
@@ -402,6 +418,15 @@ internal class PossiblyUndefined(private val project: Project, private val file:
         // role params are templated lazily, like role defaults: only where the role uses them
         return Located(use, listOf(Runner(null, play, entry.vars.mapTo(HashSet()) { it.text }, null, -1, conditional = true)), -1)
     }
+
+    /**
+     * The names the include tasks that run [taskFile] give it, transitively: a name counts as set when ANY includer sets
+     * it (its `vars:`, or the loop variable, `index_var` or `ansible_loop` of a looping `include_tasks`/`include_role`),
+     * like a loop variable of any task of the root. Molecule includers do not count for a production file; role params
+     * the witness evaluates per play stay with the witness ([IncludeBindings.names]).
+     */
+    private fun includedNames(taskFile: VirtualFile): Set<String> =
+        includeNames.getOrPut(taskFile) { IncludeBindings.names(project, taskFile, analysisView) }
 
     /** Names the task chain provides: task and block `vars:`, the task's loop and index variables. */
     private fun provided(chain: List<TaskItem>): Set<String> {
@@ -434,7 +459,8 @@ internal class PossiblyUndefined(private val project: Project, private val file:
     private enum class Shape { TEMPLATE, ROLE_TASKS, ROLE_VARS, PLAYBOOK }
 
     private fun shapeOf(file: VirtualFile, context: FileContext): Shape? {
-        if (context.moleculeScenarioDir != null) return null
+        // Molecule files run in their scenarios only (plan amendment R20): no production witness applies to them.
+        if (MoleculeVisibility.isMoleculeFile(context.root, file)) return null
         return when (context.kind) {
             FileKind.ROLE_TEMPLATE -> Shape.TEMPLATE
             FileKind.ROLE_TASKS, FileKind.ROLE_HANDLERS -> Shape.ROLE_TASKS.takeIf { context.roleDir != null }

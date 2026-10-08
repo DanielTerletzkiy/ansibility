@@ -5,6 +5,7 @@ import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.ui.DialogWrapper
+import com.intellij.openapi.ui.InputValidatorEx
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.util.NlsContexts
 import com.intellij.ui.dsl.builder.AlignX
@@ -63,6 +64,24 @@ interface VaultActionPrompts {
     /** The edit popup has unsaved changes: discard them? */
     fun confirmDiscard(project: Project): Boolean
 
+    /**
+     * The file actions (V6b) are about to [operation] the files [names]: go ahead? Encrypt File asks when there are
+     * several, Decrypt File in Place always (Cancel is the default button there). True only on an explicit yes.
+     */
+    fun confirmFiles(project: Project, operation: FileOperation, names: List<String>): Boolean
+
+    /**
+     * Change Id… of the file actions found vaults of the root [root] (its display name) that [target]'s secret does not
+     * decrypt ([decryptsWith] does): encrypt them with [target]? Asked once per root and id; true only on an explicit yes.
+     */
+    fun confirmRekeyFilesForChangeId(project: Project, root: String, target: String, decryptsWith: String): Boolean
+
+    /**
+     * New › Ansibility Vault File: the name of the new file in [directory] (as shown to you), checked while you type by
+     * [validate] (an error text, or null for a valid name); null when cancelled.
+     */
+    fun askVaultFileName(project: Project, directory: String, validate: (String) -> String?): String?
+
     companion object {
         fun getInstance(): VaultActionPrompts = ApplicationManager.getApplication().service()
     }
@@ -111,6 +130,45 @@ class VaultDialogPrompts : VaultActionPrompts {
         return Messages.showDialog(project, message("edit.discard.message"), message("edit.discard.title"), options, 1, Messages.getQuestionIcon()) == 0
     }
 
+    override fun confirmFiles(project: Project, operation: FileOperation, names: List<String>): Boolean {
+        ThreadingAssertions.assertEventDispatchThread()
+        val key = operation.confirmKey
+        val text = message("$key.message", names.size, fileList(names))
+        val options = arrayOf(message("$key.ok"), message("decrypt.cancel"))
+        // Writing plaintext to disk is the one answer that is not the default.
+        val cancelByDefault = operation == FileOperation.DECRYPT
+        val icon = if (cancelByDefault) Messages.getWarningIcon() else Messages.getQuestionIcon()
+        return Messages.showDialog(project, text, operation.confirmTitle, options, if (cancelByDefault) 1 else 0, icon) == 0
+    }
+
+    override fun confirmRekeyFilesForChangeId(project: Project, root: String, target: String, decryptsWith: String): Boolean {
+        ThreadingAssertions.assertEventDispatchThread()
+        val options = arrayOf(message("change.id.rekey.ok", target), message("decrypt.cancel"))
+        val answer = Messages.showDialog(
+            project, message("file.change.id.rekey.message", target, decryptsWith, root), message("change.id.rekey.title"), options, 1,
+            Messages.getQuestionIcon(),
+        )
+        return answer == 0
+    }
+
+    override fun askVaultFileName(project: Project, directory: String, validate: (String) -> String?): String? {
+        ThreadingAssertions.assertEventDispatchThread()
+        val validator = object : InputValidatorEx {
+            override fun getErrorText(inputString: String): String? = validate(inputString.trim())
+
+            override fun checkInput(inputString: String): Boolean = getErrorText(inputString) == null
+
+            override fun canClose(inputString: String): Boolean = checkInput(inputString)
+        }
+        return Messages.showInputDialog(project, message("file.new.prompt", directory), message("file.new.title"), null, "", validator)?.trim()
+    }
+
+    /** At most [LISTED] names, one per line, then how many more. */
+    private fun fileList(names: List<String>): String {
+        val shown = names.take(LISTED).joinToString("\n") { "  $it" }
+        return if (names.size > LISTED) shown + "\n" + message("file.confirm.more", names.size - LISTED) else shown
+    }
+
     /** A message, optional warnings and a vault-id combo box. */
     private class IdentityDialog(
         project: Project,
@@ -151,3 +209,19 @@ class VaultDialogPrompts : VaultActionPrompts {
 }
 
 private fun message(key: String, vararg params: Any): String = AnsibilityVaultUiBundle.message(key, *params)
+
+/** The names a file confirmation lists before "… and N more". */
+private const val LISTED = 10
+
+/** The title of [FileOperation]'s confirmation: the menu item's words ("Decrypt File in Place", "Change Vault Id"). */
+internal val FileOperation.confirmTitle: String
+    @NlsContexts.DialogTitle get() = message("$confirmKey.title")
+
+/** The bundle prefix of [FileOperation]'s confirmation: `.title`, `.message`, `.ok`. */
+private val FileOperation.confirmKey: String
+    get() = when (this) {
+        FileOperation.ENCRYPT -> "file.confirm.encrypt"
+        FileOperation.DECRYPT -> "file.confirm.decrypt"
+        FileOperation.REKEY -> "file.confirm.rekey"
+        FileOperation.CHANGE_ID -> "file.confirm.change.id"
+    }

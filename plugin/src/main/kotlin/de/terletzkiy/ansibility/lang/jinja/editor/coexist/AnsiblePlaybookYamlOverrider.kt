@@ -31,8 +31,9 @@ import org.jetbrains.yaml.YAMLFileType
  * Jinja overrider runs first and claims them), or when the user set a per-file type (the platform's overrider runs
  * first). Like every file type overrider it is a pure function of the file's name, its ancestors and the application
  * settings: the file types are refreshed together with those of the Ansible Jinja templates (an `ansible.cfg` that
- * appears or disappears re-types every file), and [AnsiblePlaybookYamlSettingsListener] re-types them when "Defer .j2
- * to PyCharm Jinja2" changes.
+ * appears or disappears re-parses the playbooks below it and the compose files next to it, see
+ * [AnsibleJinjaFileTypeRefresh]), and [AnsiblePlaybookYamlSettingsListener] re-types them when "Defer .j2 to PyCharm
+ * Jinja2" changes.
  */
 class AnsiblePlaybookYamlOverrider : FileTypeOverrider, DumbAware {
     override fun getOverriddenFileType(file: VirtualFile): FileType? {

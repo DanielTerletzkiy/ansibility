@@ -108,7 +108,7 @@ class HostCardViews(private val project: Project) {
         if (AnsibleWorkspace.getInstance(project).rootFor(file) == null) return null
         val impl = AnsibleContextServiceImpl.getInstance(project) ?: return null
         return try {
-            val scope = impl.hostScope(file, offset)
+            val scope = impl.cardScope(file, offset)
             val taskVars = TaskVars.at(project, scope.root, file, offset, name)
             cache.get(Key(scope, taskVars, name)) { compute(impl, scope, taskVars, name) }
         } catch (e: ProcessCanceledException) {

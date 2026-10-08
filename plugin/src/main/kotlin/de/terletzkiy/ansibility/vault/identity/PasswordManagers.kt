@@ -1,12 +1,17 @@
 package de.terletzkiy.ansibility.vault.identity
 
+import com.intellij.openapi.progress.ProgressManager
 import com.intellij.util.EnvironmentUtil
 import de.terletzkiy.ansibility.api.VaultSourceKind
+import de.terletzkiy.ansibility.runtime.ProcessTrees
+import de.terletzkiy.ansibility.vault.VaultLog
+import org.jetbrains.annotations.TestOnly
 import java.io.ByteArrayOutputStream
 import java.nio.CharBuffer
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.concurrent.CancellationException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
@@ -35,10 +40,21 @@ fun interface MasterPasswordPrompt {
     }
 }
 
-/** Reads one secret from a password manager; the caller zeroes the returned bytes. */
+/**
+ * Reads one secret from a password manager; the caller zeroes the returned bytes. Blocking: a coroutine calls it
+ * through `runInterruptible`, so its cancellation interrupts the read.
+ */
 fun interface PasswordManagerReader {
-    /** The secret, or null when the CLI is missing, the read was refused, cancelled or timed out. */
+    /**
+     * The secret, or null when the CLI is missing, the read was refused, cancelled in the manager or timed out.
+     * Throws when the caller is cancelled while it waits: an interrupt of the calling thread, or a cancelled progress
+     * indicator (the CLI is ended first).
+     */
     fun read(manager: PasswordManager, reference: String, prompt: MasterPasswordPrompt): ByteArray?
+
+    /** [read] for the vault id [label] (null: not for a vault id, a become password say), which a reader may log. */
+    fun read(manager: PasswordManager, reference: String, prompt: MasterPasswordPrompt, label: String?): ByteArray? =
+        read(manager, reference, prompt)
 
     /** Drops the unlocks kept for this session (a Bitwarden session key, KeePassXC database passwords). */
     fun forgetUnlocks() {}
@@ -52,9 +68,20 @@ fun interface PasswordManagerReader {
  *   the `BW_SESSION` of the environment, or a session from `bw unlock` with the master password asked once.
  * - KeePassXC: `keepassxc-cli show -s -a Password <db> <entry>` with the database password on stdin, asked once.
  * Session keys and master passwords stay in memory until [forgetUnlocks] (the vault's lock). Blocking; call off the EDT.
+ *
+ * A read waits up to [TIMEOUT_MILLIS] for the CLI (1Password's approval sheet waits for you), in short slices: an
+ * interrupt of the calling thread (a cancelled coroutine's `runInterruptible`) or a cancelled progress indicator stops
+ * the wait at once and ends the CLI and every process it started (plan amendment R19, D139). Every read, whoever asks
+ * (vault ids, become passwords, the settings page's Test), and every master password dialog it shows is logged at
+ * INFO with the manager's name and the vault id only ([VaultLog]).
  */
 object PasswordManagers : PasswordManagerReader {
-    private const val TIMEOUT_SECONDS = 120L
+    /** How long one CLI may run before it is ended and the read gives nothing. */
+    private const val TIMEOUT_MILLIS = 120_000L
+
+    /** How often a waiting read checks whether its caller was cancelled. */
+    private const val WAIT_SLICE_MILLIS = 50L
+
     private const val MAX_ATTEMPTS = 3
     private const val BW_PASSWORD_VARIABLE = "ANSIBILITY_BW_PASSWORD"
     private const val KDBX_SEPARATOR = ".kdbx#"
@@ -62,6 +89,12 @@ object PasswordManagers : PasswordManagerReader {
     @Volatile
     private var bitwardenSession: CharArray? = null
     private val keePassPasswords = ConcurrentHashMap<String, CharArray>()
+
+    @Volatile
+    private var timeoutMillis: Long = TIMEOUT_MILLIS
+
+    @Volatile
+    private var commandsForTests: Map<String, Path>? = null
 
     /** Whether [text] is a reference [manager] can read (single line, no surrounding whitespace). */
     fun isReference(manager: PasswordManager, text: String): Boolean {
@@ -87,13 +120,39 @@ object PasswordManagers : PasswordManagerReader {
     /** The Bitwarden CLI wrapper that unlocks through the desktop app (Touch ID, Windows Hello), when installed. */
     fun bitwardenBiometrics(): Path? = find("bwbio")
 
-    override fun read(manager: PasswordManager, reference: String, prompt: MasterPasswordPrompt): ByteArray? {
+    override fun read(manager: PasswordManager, reference: String, prompt: MasterPasswordPrompt): ByteArray? = read(manager, reference, prompt, null)
+
+    /**
+     * Reads [reference] with [manager]'s CLI. Its start and its end (the time it took and how it ended) are logged at
+     * INFO with the manager's name and [label], never the reference or the value.
+     */
+    override fun read(manager: PasswordManager, reference: String, prompt: MasterPasswordPrompt, label: String?): ByteArray? {
         if (!isReference(manager, reference)) return null
-        return when (manager) {
-            PasswordManager.ONE_PASSWORD -> executable(manager)?.let { run(listOf(it.toString(), "read", "--no-newline", reference))?.output() }
-            PasswordManager.PROTON_PASS -> executable(manager)?.let { run(listOf(it.toString(), "item", "view", reference))?.output() }
-            PasswordManager.BITWARDEN -> readBitwarden(reference, prompt)
-            PasswordManager.KEEPASSXC -> readKeePass(reference, prompt)
+        val logged = LoggedPrompt(prompt, label)
+        VaultLog.event(VaultLog.Operation.LOAD_SOURCE, VaultLog.Event.MANAGER_READ_STARTED, manager.displayName, label)
+        val started = System.nanoTime()
+        var outcome = VaultLog.ManagerReadOutcome.FAILED
+        try {
+            return when (manager) {
+                PasswordManager.ONE_PASSWORD -> executable(manager)?.let { run(listOf(it.toString(), "read", "--no-newline", reference))?.output() }
+                PasswordManager.PROTON_PASS -> executable(manager)?.let { run(listOf(it.toString(), "item", "view", reference))?.output() }
+                PasswordManager.BITWARDEN -> readBitwarden(reference, logged)
+                PasswordManager.KEEPASSXC -> readKeePass(reference, logged)
+            }.also { outcome = if (it != null) VaultLog.ManagerReadOutcome.OK else VaultLog.ManagerReadOutcome.NO_VALUE }
+        } catch (e: Throwable) {
+            if (e is InterruptedException || e is CancellationException) outcome = VaultLog.ManagerReadOutcome.CANCELLED
+            throw e
+        } finally {
+            VaultLog.managerRead(manager.displayName, label, TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started), outcome)
+        }
+    }
+
+    /** [prompt] with each dialog logged at INFO before it shows (the manager's name and the vault id only). */
+    private class LoggedPrompt(private val prompt: MasterPasswordPrompt, private val label: String?) : MasterPasswordPrompt {
+        override fun ask(manager: PasswordManager, target: String, retry: Boolean): CharArray? {
+            if (prompt === MasterPasswordPrompt.NONE) return null
+            VaultLog.event(VaultLog.Operation.PROMPT, VaultLog.Event.MASTER_PASSWORD_PROMPTED, manager.displayName, label)
+            return prompt.ask(manager, target, retry)
         }
     }
 
@@ -157,19 +216,27 @@ object PasswordManagers : PasswordManagerReader {
         repeat(MAX_ATTEMPTS) { attempt ->
             val cached = keePassPasswords[database]
             val password = cached ?: prompt.ask(PasswordManager.KEEPASSXC, database, retry = attempt > 0) ?: return null
-            val stdin = encode(password)
-            val result = try {
-                run(command, stdin = stdin)
+            // A password typed for this attempt is kept only when it opened the database: zeroed on every other way
+            // out (a timeout, a cancelled read, a refused password).
+            var kept = false
+            try {
+                val stdin = encode(password)
+                val result = try {
+                    run(command, stdin = stdin)
+                } finally {
+                    stdin.fill(0)
+                } ?: return null
+                result.output()?.let {
+                    if (cached == null) keePassPasswords.put(database, password)?.takeIf { old -> old !== password }?.fill('\u0000')
+                    kept = cached == null
+                    return it
+                }
+                keePassPasswords.remove(database, password)
+                password.fill('\u0000')
+                if (!result.credentialsRejected) return null
             } finally {
-                stdin.fill(0)
-            } ?: return null
-            result.output()?.let {
-                if (cached == null) keePassPasswords.put(database, password)?.takeIf { old -> old !== password }?.fill('\u0000')
-                return it
+                if (cached == null && !kept) password.fill('\u0000')
             }
-            keePassPasswords.remove(database, password)
-            password.fill('\u0000')
-            if (!result.credentialsRejected) return null
         }
         return null
     }
@@ -190,7 +257,16 @@ object PasswordManagers : PasswordManagerReader {
                 err.contains("Error while reading the database", ignoreCase = true)
     }
 
-    private fun run(command: List<String>, extraEnvironment: Map<String, String> = emptyMap(), stdin: ByteArray? = null): Finished? {
+    /**
+     * Runs [command] and collects its result; null when it cannot start or runs longer than [timeoutMillis] (it is
+     * ended then). Throws when the caller is cancelled while it waits, after ending the process.
+     */
+    private fun run(
+        command: List<String>,
+        extraEnvironment: Map<String, String> = emptyMap(),
+        stdin: ByteArray? = null,
+        timeoutMillis: Long = this.timeoutMillis,
+    ): Finished? {
         val process = try {
             ProcessBuilder(command)
                 .redirectInput(if (stdin == null) ProcessBuilder.Redirect.from(nullFile()) else ProcessBuilder.Redirect.PIPE)
@@ -210,18 +286,59 @@ object PasswordManagers : PasswordManagerReader {
                 Thread { runCatching { process.errorStream.use { s -> s.readNBytes(4096).let(err::writeBytes); s.transferTo(java.io.OutputStream.nullOutputStream()) } } },
             ).onEach { it.isDaemon = true; it.start() }
             if (stdin != null) runCatching { process.outputStream.use { it.write(stdin) } }
-            if (!process.waitFor(TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
-                process.destroyForcibly()
+            if (!awaitExit(process, timeoutMillis)) {
+                end(process)
                 return null
             }
             readers.forEach { it.join(TimeUnit.SECONDS.toMillis(5)) }
             return Finished(process.exitValue(), out.toByteArray(), err.toString(StandardCharsets.UTF_8))
+        } catch (e: Throwable) {
+            // Cancelled (interrupted, or the progress indicator was cancelled): the CLI must not outlive its caller.
+            end(process)
+            throw e
         } finally {
             out.wipe()
         }
     }
 
+    /**
+     * Waits until [process] exits (true) or [timeoutMillis] pass (false), checking between short slices whether the
+     * caller was cancelled: `ProgressManager.checkCanceled` throws for a cancelled indicator (or job), and `waitFor`
+     * throws `InterruptedException` when the thread is interrupted.
+     */
+    private fun awaitExit(process: Process, timeoutMillis: Long): Boolean {
+        val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis)
+        while (true) {
+            ProgressManager.checkCanceled()
+            val left = deadline - System.nanoTime()
+            if (left <= 0) return false
+            if (process.waitFor(minOf(left, TimeUnit.MILLISECONDS.toNanos(WAIT_SLICE_MILLIS)), TimeUnit.NANOSECONDS)) return true
+        }
+    }
+
+    /**
+     * Ends [process] and every process it started: a wrapper (`bwbio`, a shell shim) runs the real CLI as its child,
+     * which would otherwise keep running, and keep the output pipes open, after the wrapper is gone ([ProcessTrees]).
+     */
+    private fun end(process: Process) = ProcessTrees.end(process)
+
+    /** stdout of [command] when it exits with 0 and prints something, as a read does; a test seam for the waiting. */
+    @TestOnly
+    internal fun outputForTests(command: List<String>, timeoutMillis: Long): ByteArray? = run(command, timeoutMillis = timeoutMillis)?.output()
+
+    /**
+     * Replaces the CLIs found on the `PATH` by [commands] (command name to executable; null restores the search), so a
+     * test runs synthetic scripts and never a manager installed on the machine; and the read timeout by
+     * [timeoutMillis] (null restores [TIMEOUT_MILLIS]).
+     */
+    @TestOnly
+    fun setCommandsForTests(commands: Map<String, Path>?, timeoutMillis: Long? = null) {
+        commandsForTests = commands
+        this.timeoutMillis = timeoutMillis ?: TIMEOUT_MILLIS
+    }
+
     private fun find(name: String): Path? {
+        commandsForTests?.let { return it[name] }
         val names = if (isWindows()) listOf("$name.exe", "$name.cmd") else listOf(name)
         val home = System.getProperty("user.home").orEmpty()
         val extra = listOf(

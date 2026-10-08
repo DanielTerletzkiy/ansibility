@@ -17,8 +17,8 @@ import de.terletzkiy.ansibility.api.HostScope
 import de.terletzkiy.ansibility.api.HostScopeOrigin
 import de.terletzkiy.ansibility.api.VarDefKind
 import de.terletzkiy.ansibility.api.VarDefinition
-import de.terletzkiy.ansibility.api.VarService
 import de.terletzkiy.ansibility.api.VarSourceRef
+import de.terletzkiy.ansibility.context.MoleculeView
 import de.terletzkiy.ansibility.context.host.AnsibleContextServiceImpl
 import de.terletzkiy.ansibility.context.host.Location
 import de.terletzkiy.ansibility.context.host.PlayKeys
@@ -26,6 +26,7 @@ import de.terletzkiy.ansibility.context.host.card.HostCardTexts.grayed
 import de.terletzkiy.ansibility.context.host.card.HostCardTexts.message
 import de.terletzkiy.ansibility.context.switching.ContextTexts
 import de.terletzkiy.ansibility.model.inventory.InventoryModels
+import de.terletzkiy.ansibility.resolve.VarViews
 import de.terletzkiy.ansibility.settings.RootContext
 import de.terletzkiy.ansibility.settings.RootKeys
 
@@ -56,12 +57,12 @@ class DefinitionCardSection : CardSection {
         if (variable.local) return null
         val project = context.project
         if (DumbService.isDumb(project) || AnsibleWorkspace.getInstance(project).rootFor(location.file) == null) return null
-        val definition = VarService.getInstance(project).symbol(variable.root, variable.name).definitions
+        val definition = VarViews.symbol(project, variable.root, variable.name, MoleculeView.of(project, context.file)).definitions
             .firstOrNull { it.location == location } ?: return null
         if (definition.kind == VarDefKind.SPEC_OPTION) return null
         val service = AnsibleContextService.getInstance(project)
         val status = service.definitionStatus(definition)
-        val scope = service.hostScope(location.file, location.offset)
+        val scope = AnsibleContextServiceImpl.getInstance(project)?.cardScope(location.file, location.offset) ?: service.hostScope(location.file, location.offset)
         val lines = Renderer(project, variable.root, definition, status, scope).lines()
         if (lines.isEmpty()) return null
         return CardSection.row(message("card.effect.title"), HostCardTexts.lines(lines))

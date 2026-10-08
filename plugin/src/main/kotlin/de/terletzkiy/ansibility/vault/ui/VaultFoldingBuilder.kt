@@ -20,7 +20,7 @@ import org.jetbrains.yaml.psi.YAMLScalarList
  * 🟣 X16: folds the hex body of every literal `!vault |` block to `🔒 vault 1.1 · default · 6 lines`, collapsed by
  * default.
  *
- * Spike S-V2 (no collision with `YAMLFoldingBuilder`, see docs/research/vault-ide.md "S-V2 result"): YAML folds the
+ * Spike S-V2 (no collision with `YAMLFoldingBuilder`, see plan/research/vault-ide.md "S-V2 result"): YAML folds the
  * whole scalar, from its `!vault` tag to the end of the block. This region starts at the line break after the `|`
  * indicator and ends at the block's last character, so it nests strictly inside YAML's region (the composite
  * builder drops only regions with identical ranges). It is anchored on that line-break token, not on the scalar,

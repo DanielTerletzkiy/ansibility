@@ -21,6 +21,7 @@ import com.intellij.openapi.application.impl.NonBlockingReadActionImpl
 import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.ex.util.EditorUtil
+import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.TextRange
 import com.intellij.openapi.util.text.StringUtil
@@ -30,6 +31,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.impl.source.tree.injected.InjectedLanguageEditorUtil
 import com.intellij.psi.search.GlobalSearchScope
+import com.intellij.testFramework.IndexingTestUtil
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.TestActionEvent
 import com.intellij.usageView.UsageInfo
@@ -57,6 +59,22 @@ abstract class UsagesTestCase : VarsTestCase() {
     protected fun copyUsagesData(path: String, target: String = path) {
         myFixture.copyDirectoryToProject("$USAGES_DATA/$path", target)
         refreshRoots()
+        settle()
+    }
+
+    /**
+     * Runs what the copy left pending: a new `ansible.cfg` makes a background VFS listener schedule a re-parse of the
+     * files that depend on it (invokeLater, after a non-blocking read action when the walk is large; a file types
+     * change, whose rescan starts dumb mode, only when there are too many files). Their re-indexing, or dumb mode, in
+     * the middle of a later Find Usages would leave its targets empty, so that no search starts.
+     */
+    protected fun settle() {
+        do {
+            NonBlockingReadActionImpl.waitForAsyncTaskCompletion()
+            IndexingTestUtil.waitUntilIndexesAreReady(project)
+            PlatformTestUtil.dispatchAllEventsInIdeEventQueue()
+        } while (DumbService.isDumb(project))
+        IndexingTestUtil.waitUntilIndexesAreReady(project)
     }
 
     /** Opens [path] with the caret at [marker] on 1-based [line] plus [delta], and builds the injection there. */
@@ -107,11 +125,12 @@ abstract class UsagesTestCase : VarsTestCase() {
     protected fun findUsagesViaActionWithGroups(): List<Pair<Usage, String?>> {
         val action = ActionManager.getInstance().getAction(IdeActions.ACTION_FIND_USAGES)
         val event = TestActionEvent.createTestEvent(action, EditorUtil.getEditorDataContext(hostEditor()))
+        val previousView = UsageViewManager.getInstance(project).selectedUsageView
         ActionUtil.updateAction(action, event)
         assertTrue("Find Usages is enabled", event.presentation.isEnabled)
         ActionUtil.performAction(action, event)
         var groups: List<Pair<Usage, String?>> = emptyList()
-        awaitUsageView { view ->
+        awaitUsageView(previousView) { view ->
             groups = runReadActionBlocking {
                 view.usages.map { usage ->
                     val element = (usage as UsageInfo2UsageAdapter).element
@@ -124,9 +143,10 @@ abstract class UsagesTestCase : VarsTestCase() {
 
     /**
      * Waits for the selected usage view to finish, lets [inspect] look at it, and returns a copy of its usages
-     * (disposing it clears them).
+     * (disposing it clears them). A view that was already selected before the search ([previous], e.g. a disposed
+     * one of an earlier test) never counts, so a search that did not start fails with "no usage view".
      */
-    protected fun awaitUsageView(inspect: (UsageView) -> Unit = {}): List<Usage> {
+    protected fun awaitUsageView(previous: UsageView? = null, inspect: (UsageView) -> Unit = {}): List<Usage> {
         val deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(60)
         var view: UsageView? = null
         while (System.currentTimeMillis() < deadline) {
@@ -134,7 +154,7 @@ abstract class UsagesTestCase : VarsTestCase() {
             PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
             FindUsagesManager.waitForAsyncTaskCompletion(project)
             IdeEventQueue.getInstance().flushQueue()
-            view = UsageViewManager.getInstance(project).selectedUsageView
+            view = UsageViewManager.getInstance(project).selectedUsageView?.takeIf { it !== previous }
             if (view != null && !view.isSearchInProgress && view.usages.isNotEmpty()) break
             Thread.sleep(20)
         }

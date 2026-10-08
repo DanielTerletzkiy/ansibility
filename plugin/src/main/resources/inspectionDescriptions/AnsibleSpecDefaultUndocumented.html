@@ -1,0 +1,21 @@
+<html>
+<body>
+<p><b>ANS-S005.</b> Reports an optional argument_specs option that documents no <code>default:</code> although the
+  role default in <code>defaults/</code> sets one. Shown without highlighting.</p>
+<!-- tooltip end -->
+<pre><code># defaults/main.yml
+web_port: 8080
+
+# meta/argument_specs.yml
+argument_specs:
+  main:
+    options:
+      web_port:        # ANS-S005: the role default 8080 is not documented
+        type: int
+</code></pre>
+<p>The quick fix writes the role default as <code>default:</code>. Required options, secrets (<code>!vault</code>
+  values, <code>vault_*</code> names, vault files, <code>no_log</code> options and dictionaries with a
+  <code>no_log</code> sub-option), templated and <code>null</code> role defaults are left alone. A value written with a
+  YAML alias or anchor is not copied into the spec.</p>
+</body>
+</html>

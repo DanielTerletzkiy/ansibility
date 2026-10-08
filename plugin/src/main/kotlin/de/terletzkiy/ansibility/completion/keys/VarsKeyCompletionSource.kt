@@ -6,6 +6,7 @@ import com.intellij.openapi.progress.ProgressManager
 import de.terletzkiy.ansibility.api.AnsibleSite
 import de.terletzkiy.ansibility.api.CompletionSource
 import de.terletzkiy.ansibility.api.VarService
+import de.terletzkiy.ansibility.context.MoleculeView
 import de.terletzkiy.ansibility.semantics.schema.OptionSpec
 import de.terletzkiy.ansibility.semantics.schema.OptionType
 import de.terletzkiy.ansibility.vars.SpecOptions
@@ -66,7 +67,10 @@ class VarsKeyCompletionSource : CompletionSource {
         val insideItem = rest.lastOrNull()?.toIntOrNull() != null
         val symbol = VarService.getInstance(request.project).symbol(request.root, name)
         if (symbol.specBindings.isEmpty()) return
-        val ranking = VarRanking(request.project, request.root, request.context.roleName, request.file, request.context.kind, symbol)
+        val ranking = VarRanking(
+            request.project, request.root, request.context.roleName, request.file, request.context.kind, symbol,
+            MoleculeView.of(request.project, request.file),
+        )
         // Sub-option name → (the option of the best-ranked role that declares it, every declaring role).
         val options = LinkedHashMap<String, Pair<OptionSpec, MutableList<String>>>()
         for (binding in ranking.bindings) {

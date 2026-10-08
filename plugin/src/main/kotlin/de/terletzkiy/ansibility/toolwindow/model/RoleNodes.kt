@@ -1,5 +1,6 @@
 package de.terletzkiy.ansibility.toolwindow.model
 
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileTypes.FileTypeManager
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.vfs.VirtualFile
@@ -8,7 +9,11 @@ import de.terletzkiy.ansibility.api.RoleRef
 import de.terletzkiy.ansibility.api.RoleTestState
 import de.terletzkiy.ansibility.api.RoleTests
 import de.terletzkiy.ansibility.api.RootKind
+import de.terletzkiy.ansibility.api.WorkspaceScope
+import de.terletzkiy.ansibility.api.WorkspaceScopeService
 import de.terletzkiy.ansibility.context.AnsibleLayout
+import de.terletzkiy.ansibility.context.MoleculeView
+import de.terletzkiy.ansibility.context.MoleculeVisibility
 import de.terletzkiy.ansibility.model.role.RoleLayout
 import de.terletzkiy.ansibility.toolwindow.AnsibilityToolWindowBundle.message
 
@@ -19,11 +24,16 @@ enum class TreeView(val segment: String) {
     ENVIRONMENTS("workspace-environments"),
 }
 
-/** How many plays of the role's root apply it, computed when the parent expands (the play graph is cached). */
+/**
+ * How many plays of the role's root apply it, computed when the parent expands (the play graph is cached). Converge and
+ * verify plays count only with "Show Molecule in navigation and search" on (plan amendment R20, D153; the tree starts in
+ * no file).
+ */
 private fun appliedText(node: AnsibleTreeNode, root: RootSnapshot, role: RoleRef): String? {
     if (root.kind == RootKind.ROLE_LIBRARY) return null
     val project = node.project ?: return null
-    val plays = PlayGraph.getInstance(project).playsApplying(root.root, role.name).size
+    val applying = PlayGraph.getInstance(project).playsApplying(root.root, role.name)
+    val plays = MoleculeVisibility.playsInView(project, MoleculeView.of(project, null), applying).size
     return if (plays == 0) message("role.applied.none") else message("role.applied", plays)
 }
 
@@ -93,17 +103,39 @@ class RoleFileNode(parent: AnsibleTreeNode, val file: VirtualFile) : AnsibleTree
     }
 }
 
-/** The Roles tab (F9.3): one row per role name with its copies, library roots first. */
+/**
+ * The Roles tab (F9.3): one row per role name with its copies, library roots first. The tab lists every copy; what the
+ * row stands for in a Molecule test run, and so its marker, are the copies of the roots the scope picker covers
+ * ([copiesIn]; plan amendment R19, D143), and the row says how many those are when they are fewer than all.
+ */
 class RoleNameNode(parent: AnsibleTreeNode, val name: String, val copies: List<Pair<RootSnapshot, RoleRef>>) : AnsibleTreeNode(parent, "role-name:$name") {
+    /**
+     * The tree renders on its background thread, which may work out a named scope's roots; on the EDT ("Copy Name")
+     * a scope whose roots are not known yet leaves the count and marker to the next render.
+     */
     override fun presentation(): NodePresentation {
         val roots = copies.map { it.first.root.displayName }.distinct()
-        return NodePresentation(name, message("role.copies", copies.size, ToolWindowTexts.joinCapped(roots, MAX_ROOTS)), icon = NodeIcon.ROLE, marker = marker())
+        val scope = project?.let { WorkspaceScopeService.getInstance(it).current() }
+        val inScope = when {
+            scope == null -> copies
+            !scope.rootsKnown() && ApplicationManager.getApplication().isDispatchThread -> copies
+            else -> copiesIn(scope)
+        }
+        val text = message("role.copies", copies.size, ToolWindowTexts.joinCapped(roots, MAX_ROOTS))
+        val extra = if (inScope.size < copies.size) message("role.copies.scope", text, inScope.size) else text
+        return NodePresentation(name, extra, icon = NodeIcon.ROLE, marker = marker(inScope))
     }
 
-    /** The tests of the copies (what a test run of this row runs): running before failed before passed before never run. */
-    private fun marker(): NodeMarker? {
+    /**
+     * The copies whose root [scope] covers ([RootSnapshot.isIn]): what a Molecule test run of this row runs (R19/D143,
+     * superseding R17/D122's "every copy"). All roots: every copy; none when the scope holds no copy.
+     */
+    fun copiesIn(scope: WorkspaceScope): List<Pair<RootSnapshot, RoleRef>> = copies.filter { (root, _) -> root.isIn(scope) }
+
+    /** The tests of [inScope] (what a test run of this row runs): running before failed before passed before never run. */
+    private fun marker(inScope: List<Pair<RootSnapshot, RoleRef>>): NodeMarker? {
         val project = project ?: return null
-        val states = copies.map { (_, role) -> RoleTests.getInstance(project).stateOf(role.dir) }
+        val states = inScope.map { (_, role) -> RoleTests.getInstance(project).stateOf(role.dir) }
         val state = listOf(RoleTestState.RUNNING, RoleTestState.FAILED, RoleTestState.PASSED, RoleTestState.NOT_RUN).firstOrNull { it in states } ?: return null
         return NodeMarker.of(state)
     }
@@ -114,17 +146,15 @@ class RoleNameNode(parent: AnsibleTreeNode, val name: String, val copies: List<P
     companion object {
         private const val MAX_ROOTS = 4
 
-        /** Every role directory once, attributed to the innermost root that lists it; role libraries first. */
+        /**
+         * Every role directory once, under the root it belongs to ([WorkspaceSnapshot.roleCopies]: the innermost root
+         * that lists and contains it, the one the scoped Molecule runs use too); role libraries first.
+         */
         fun all(parent: AnsibleTreeNode, snapshot: WorkspaceSnapshot): List<RoleNameNode> {
-            val owner = LinkedHashMap<String, Pair<RootSnapshot, RoleRef>>()
-            val ordered = snapshot.roots.sortedBy { if (it.kind == RootKind.ROLE_LIBRARY) 0 else 1 }
-            for (root in ordered) for (role in root.roles) {
-                val current = owner[role.dir.path]
-                if (current == null || root.dir.path.length > current.first.dir.path.length) owner[role.dir.path] = root to role
-            }
-            val byName = owner.values.groupBy { it.second.name }
+            val order = snapshot.librariesFirst.withIndex().associate { (index, root) -> root to index }
+            val byName = snapshot.roleCopies.groupBy { it.second.name }
             return byName.keys.sorted().map { name ->
-                RoleNameNode(parent, name, byName.getValue(name).sortedBy { (root, _) -> ordered.indexOf(root) })
+                RoleNameNode(parent, name, byName.getValue(name).sortedBy { (root, _) -> order.getValue(root) })
             }
         }
     }

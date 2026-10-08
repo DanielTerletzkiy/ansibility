@@ -1,6 +1,7 @@
 package de.terletzkiy.ansibility.model.effective
 
 import com.intellij.openapi.fileEditor.FileDocumentManager
+import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.terletzkiy.ansibility.api.AnsibleContextService
 import de.terletzkiy.ansibility.api.AnsibleRoot
@@ -153,6 +154,32 @@ class ExecutionSourcesTest : BasePlatformTestCase() {
 
         val playOnly = VarService.getInstance(project).symbol(root(SITE), "play_only").definitions.single()
         assertEquals(listOf("web1", "web2"), AnsibleContextService.getInstance(project).definitionStatus(playOnly).winsOn.map { it.host })
+    }
+
+    fun testRoleFilesLoadAsAnsibleLoadsThem() {
+        // `_get_dir_vars_files`: sorted per directory level (`a` before `a.yml`), recursive, vars extensions only.
+        myFixture.addFileToProject("$SITE/roles/ordered/defaults/main/a/x.yml", "---\nordered_value: x")
+        myFixture.addFileToProject("$SITE/roles/ordered/defaults/main/a.yml", "---\nordered_value: a")
+        myFixture.addFileToProject("$SITE/roles/ordered/defaults/extra2/a.yml", "---\nordered_from: 1")
+        myFixture.addFileToProject("$SITE/roles/ordered/defaults/extra2/notes.txt", "ordered_from: 3")
+        myFixture.addFileToProject("$SITE/roles/ordered/defaults/extra2/sub/b.yml", "---\nordered_from: 2")
+        myFixture.addFileToProject("$SITE/roles/ordered/tasks/main.yml", "---\n- name: Noop\n  ansible.builtin.debug:\n    msg: hi")
+        myFixture.addFileToProject(
+            "$SITE/ordered.yml",
+            "---\n- name: Ordered\n  hosts: web\n  tasks:\n    - name: Include\n      ansible.builtin.include_role:\n        name: ordered\n        defaults_from: extra2",
+        )
+        AnsibleWorkspaceImpl.getInstance(project)!!.structureChanged()
+        val roleDir = myFixture.findFileInTempDir("$SITE/roles/ordered")!!
+        fun defaults(inputs: ExecutionInputs): List<String> = inputs.sources.filter { it.layer == VarLayer.ROLE_DEFAULTS }
+            .map { VfsUtilCore.getRelativePath(inputs.origins.getValue(it.originId).file, roleDir)!! }
+        val standalone = ExecutionSources.getInstance(project).inputs(root(SITE), null, "ordered")
+        assertEquals("a.yml loads last and wins", listOf("defaults/main/a/x.yml", "defaults/main/a.yml"), defaults(standalone))
+        val included = ExecutionSources.getInstance(project).inputs(root(SITE), play("$SITE/ordered.yml", "Ordered"), "ordered")
+        assertEquals(
+            "a defaults_from directory is read recursively, without notes.txt",
+            listOf("defaults/extra2/a.yml", "defaults/extra2/sub/b.yml"),
+            defaults(included),
+        )
     }
 
     fun testInputsAreCachedUntilAVarsFileChanges() {

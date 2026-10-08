@@ -3,6 +3,7 @@ package de.terletzkiy.ansibility.vars.usages
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.progress.ProgressManager
+import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.TextRange
 import com.intellij.openapi.vfs.VirtualFile
@@ -17,10 +18,11 @@ import de.terletzkiy.ansibility.api.AnsibleSite
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.FileContext
 import de.terletzkiy.ansibility.api.FileKind
-import de.terletzkiy.ansibility.api.SiteClassifier
 import de.terletzkiy.ansibility.api.JinjaContainer
+import de.terletzkiy.ansibility.api.LoopVarSite
+import de.terletzkiy.ansibility.api.SiteClassifier
 import de.terletzkiy.ansibility.api.SourceLocation
-import de.terletzkiy.ansibility.api.VarService
+import de.terletzkiy.ansibility.context.MoleculeView
 import de.terletzkiy.ansibility.dispatch.SiteDispatch
 import de.terletzkiy.ansibility.lang.jinja.refs.JinjaIndirectRef
 import de.terletzkiy.ansibility.lang.jinja.refs.JinjaIndirection
@@ -33,6 +35,7 @@ import de.terletzkiy.ansibility.model.task.TaskFileModels
 import de.terletzkiy.ansibility.model.task.TaskNode
 import de.terletzkiy.ansibility.model.task.YamlFiles
 import de.terletzkiy.ansibility.resolve.InlineInventoryDefinitions
+import de.terletzkiy.ansibility.resolve.VarViews
 import de.terletzkiy.ansibility.resolve.loop.LoopItemTyper
 import de.terletzkiy.ansibility.resolve.loop.TaskChains
 import de.terletzkiy.ansibility.vars.JinjaTextSites
@@ -55,13 +58,20 @@ import java.util.concurrent.Callable
  *   path); a `hostvars` member is a root variable, never a loop's (a member called `item` gives no symbol);
  * - a Jinja reference to a template local, or a local's binding (`{% set x %}`, a `for` target, a macro parameter)
  *   → that local ([VarScope.Local]); `loop` and macro implicits are no variables;
- * - a reference to a loop variable ([LoopItems]) and a `loop_control.loop_var`/`index_var` value → the loop
- *   ([VarScope.Loop]); `item` and `ansible_loop` where no loop binds them → their uses in that file;
+ * - a reference to a loop variable ([LoopItems]: the task's loop, an include task's loop that runs the file, the loops
+ *   that render a template) and a `loop_control.loop_var`/`index_var` value ([LoopVarSite]) → the loop
+ *   ([VarScope.Loop], the same target from each); `item` and `ansible_loop` where no loop binds them → their uses in
+ *   that file;
  * - any other reference, a top-level variable key and a `register:` value → the root variable ([VarScope.Root]);
  *   nested keys are accessor-level and give no symbol (v1.x);
  * - a name outside the braces of a braced implicit expression (`that: "{{ a }} == b"`, rendered first and then
  *   evaluated; [JinjaRefs.analyzeBracedExpression]) → as a reference, when the `ansible.var.use` indexer records it
  *   there (only implicit-expression keys are evaluated, and the indexer knows which those are).
+ *
+ * Root variables and members carry the [MoleculeView] of the file the search starts in (plan amendment R20, D153): a
+ * search from a production file with "Show Molecule in navigation and search" off lists no Molecule occurrence; one
+ * from a Molecule file lists them all. Rename always edits every occurrence ([VarOccurrences.of] with
+ * [MoleculeView.INCLUDE]).
  *
  * **Symbol → usages** ([process]): the occurrences come from the indexes in one non-blocking read action
  * ([VarOccurrences]), the usages from the PSI in batches, each in its own non-blocking read action, so a write action
@@ -101,6 +111,8 @@ internal object VarUsageSearch {
         return when (site) {
             is AnsibleSite.VarRef -> referenceSymbol(caret, site)
             is AnsibleSite.VarKey -> keySymbol(caret, site)
+            // A `loop_control.loop_var`/`index_var` value: the task's loop variable (never dropped by `else`).
+            is LoopVarSite -> nameValueSymbol(caret)
             null -> nameValueSymbol(caret) ?: bindingSymbol(caret) ?: bracedSymbol(caret)
             else -> null
         }
@@ -113,7 +125,7 @@ internal object VarUsageSearch {
             offset >= it.location.offset && offset <= it.location.offset + it.name.length
         } ?: return null
         val anchor = file.findElementAt(definition.location.offset) ?: file
-        return VarSymbolElement(anchor, context.root, definition.name, VarScope.Root(virtualFile))
+        return VarSymbolElement(anchor, context.root, definition.name, VarScope.Root(virtualFile, MoleculeView.of(file.project, virtualFile)))
     }
 
     /**
@@ -127,10 +139,20 @@ internal object VarUsageSearch {
         val context = AnsibleWorkspace.getInstance(keyValue.project).contextOf(virtualFile) ?: return null
         val keySite = VarKeySites.of(keyValue, context, virtualFile) ?: return null
         val path = keySite.site.keyPath
-        if (path.size == 1 && keySite.variable == keyValue) return VarSymbolElement(file, context.root, keySite.name, VarScope.Root(virtualFile))
+        val view = MoleculeView.of(keyValue.project, virtualFile)
+        if (path.size == 1 && keySite.variable == keyValue) return VarSymbolElement(file, context.root, keySite.name, VarScope.Root(virtualFile, view))
         if (path.size < 2 || keySite.site.kind in SPEC_KINDS || keyValue.keyText != path.last()) return null
-        return VarSymbolElement(file, context.root, keySite.name, VarScope.Member(virtualFile, path.drop(1)))
+        return VarSymbolElement(file, context.root, keySite.name, VarScope.Member(virtualFile, path.drop(1), view))
     }
+
+    /**
+     * The scope of the loop variable [binding] binds, the same wherever a search for it starts (the tasks' `loop_var`
+     * value, their bodies, the files they include, the templates rendered there). [template] is the template a search
+     * starts in: when a loop of [binding] is run by no task (Molecule's platform loop over a `Dockerfile.j2`, X77), the
+     * uses in that template are the search's own ([VarScope.Loop.file]).
+     */
+    fun loopScope(project: Project, binding: LoopItems.Binding, template: VirtualFile?): VarScope.Loop =
+        VarScope.Loop(binding.tasks.map { it.task }, template?.takeIf { binding.runByNoTask(project) })
 
     /**
      * The symbol a card about [name] in [file] stands for: what the card's position names ([offset], -1 for a card
@@ -140,7 +162,7 @@ internal object VarUsageSearch {
         val psi = PsiManager.getInstance(project).findFile(file) ?: return null
         if (offset >= 0) symbolAt(psi, offset)?.takeIf { it.name == name }?.let { return it }
         val root = AnsibleWorkspace.getInstance(project).contextOf(file)?.root ?: return null
-        return VarSymbolElement(psi, root, name, VarScope.Root(file))
+        return VarSymbolElement(psi, root, name, VarScope.Root(file, MoleculeView.of(project, file)))
     }
 
     /**
@@ -191,7 +213,7 @@ internal object VarUsageSearch {
 
     private fun runtimeHome(project: Project, symbol: VarSymbolElement): Set<VarOwner>? {
         val home = (symbol.scope as? VarScope.Root)?.home ?: return null
-        val definitions = VarService.getInstance(project).symbol(symbol.root, symbol.name).definitions
+        val definitions = VarViews.symbol(project, symbol.root, symbol.name, symbol.view).definitions
         return VarOwners.runtimeHome(project, symbol.root, home, definitions)
     }
 
@@ -200,6 +222,9 @@ internal object VarUsageSearch {
     /** The caret in its host file, with the Jinja analysed around it once (null outside Jinja). */
     private class Caret(val host: PsiFile, val file: VirtualFile, val context: FileContext, val offset: Int) {
         val analysis: JinjaTextSites.Analysis? by lazy(LazyThreadSafetyMode.NONE) { JinjaTextSites.analysisAt(host, offset) }
+
+        /** What a search from this caret sees of Molecule content. */
+        val view: MoleculeView by lazy(LazyThreadSafetyMode.NONE) { MoleculeView.of(host.project, file) }
 
         fun symbol(name: String, scope: VarScope): VarSymbolElement = VarSymbolElement(host, context.root, name, scope)
     }
@@ -214,28 +239,34 @@ internal object VarUsageSearch {
         return nameSymbol(caret, site.name, site.range.startOffset)
     }
 
-    /** A free name read at [start] (host offset): the loop variable a loop binds there, else the root variable. */
+    /**
+     * A free name read at [start] (host offset): the loop variable a loop binds there, else the root variable. A loop
+     * variable's symbol is the same wherever the search starts (its tasks only): in the task, in a file the task
+     * includes, in a template rendered there, or at its `loop_var` value.
+     */
     private fun nameSymbol(caret: Caret, name: String, start: Int): VarSymbolElement {
         val inTemplate = JinjaTextSites.isTemplateFile(caret.file, caret.context)
         if (inTemplate || mayBeTaskLoopName(caret, name, start)) {
             LoopItems.bindingAt(caret.host.project, caret.file, start, name)?.let { binding ->
-                return caret.symbol(name, VarScope.Loop(binding.tasks.map { it.task }, caret.file.takeIf { inTemplate }))
+                return caret.symbol(name, loopScope(caret.host.project, binding, caret.file.takeIf { inTemplate }))
             }
         }
         if (name in LOOP_ONLY_NAMES) return caret.symbol(name, VarScope.Loop(emptyList(), caret.file))
-        return caret.symbol(name, VarScope.Root(caret.file))
+        return caret.symbol(name, VarScope.Root(caret.file, caret.view))
     }
 
     /**
      * True when the task around [start] loops and [name] is one of the names its loop can bind (the loop variable,
-     * `index_var`, `ansible_loop`): a structural check on the file's task model, so that [LoopItems] types the loop
+     * `index_var`, `ansible_loop`), or when an include task that runs a role task file binds [name] through its loop
+     * ([LoopItems.includeLoopMayBind], the cached include graph): structural checks, so that [LoopItems] types loops
      * (which reads the loop source's definitions across the root) only for those names.
      */
     private fun mayBeTaskLoopName(caret: Caret, name: String, start: Int): Boolean {
         val yaml = caret.host as? YAMLFile ?: YamlFiles.yamlFile(caret.host.project, caret.file) ?: return false
         if (!YamlPaths.isTopLevelSequence(yaml)) return false
-        val task = TaskChains.taskOf(TaskChains.chainAt(TaskFileModels.of(yaml), start)) ?: return false
-        return name == task.loopVar || name == task.loopControl?.indexVar?.text || name == LoopItemTyper.ANSIBLE_LOOP && task.loop != null
+        val task = TaskChains.taskOf(TaskChains.chainAt(TaskFileModels.of(yaml), start))
+        if (task != null && (name == task.loopVar || name == task.loopControl?.indexVar?.text || name == LoopItemTyper.ANSIBLE_LOOP && task.loop != null)) return true
+        return caret.context.kind == FileKind.ROLE_TASKS && LoopItems.includeLoopMayBind(caret.host.project, caret.file, name)
     }
 
     /** The variables area's own classifier ([VarsSiteClassifier], `order="first"`): the only sites this search starts from. */
@@ -250,7 +281,7 @@ internal object VarUsageSearch {
 
     private fun indirectMember(caret: Caret, analysis: JinjaTextSites.Analysis, member: JinjaIndirectRef): VarSymbolElement? = when (member.via) {
         // Some host's variable: never the loop's, and `item` is never searched across the root.
-        JinjaIndirection.HOSTVARS -> if (member.name in LOOP_ONLY_NAMES) null else caret.symbol(member.name, VarScope.Root(caret.file))
+        JinjaIndirection.HOSTVARS -> if (member.name in LOOP_ONLY_NAMES) null else caret.symbol(member.name, VarScope.Root(caret.file, caret.view))
         JinjaIndirection.VARS -> nameSymbol(caret, member.name, analysis.toHost(member.nameRange.startOffset))
     }
 
@@ -279,23 +310,30 @@ internal object VarUsageSearch {
 
     private fun keySymbol(caret: Caret, site: AnsibleSite.VarKey): VarSymbolElement? {
         val keySite = VarKeySites.at(caret.host, site.range.startOffset, caret.context) ?: return null
-        if (site.keyPath.size == 1) return caret.symbol(keySite.name, VarScope.Root(caret.file))
+        if (site.keyPath.size == 1) return caret.symbol(keySite.name, VarScope.Root(caret.file, caret.view))
         if (site.kind in SPEC_KINDS) return null
-        return caret.symbol(keySite.name, VarScope.Member(caret.file, site.keyPath.drop(1)))
+        return caret.symbol(keySite.name, VarScope.Member(caret.file, site.keyPath.drop(1), caret.view))
     }
 
-    /** A `register:` value (a root variable) or a `loop_control.loop_var`/`index_var` value (the task's loop variable). */
+    /**
+     * A `register:` value (a root variable) or a `loop_control.loop_var`/`index_var` value (the task's loop variable;
+     * for a looping include task the loop [LoopItems.bindingOfValue] finds, which also holds the other include tasks
+     * binding the name in the files it runs, so the symbol is the one a search from those files finds).
+     */
     private fun nameValueSymbol(caret: Caret): VarSymbolElement? {
         val yaml = caret.host as? YAMLFile ?: YamlFiles.yamlFile(caret.host.project, caret.file) ?: return null
         if (!YamlPaths.isTopLevelSequence(yaml)) return null
         val offset = caret.offset
         val task = TaskFileModels.of(yaml).itemAt(offset) as? TaskNode ?: return null
         task.register?.takeIf { it.range.containsOffset(offset) }?.let {
-            return caret.symbol(it.text, VarScope.Root(caret.file))
+            return caret.symbol(it.text, VarScope.Root(caret.file, caret.view))
         }
         val control = task.loopControl ?: return null
         val name = listOfNotNull(control.loopVar, control.indexVar).firstOrNull { it.range.containsOffset(offset) } ?: return null
-        return caret.symbol(name.text, VarScope.Loop(listOf(SourceLocation(caret.file, task.range.startOffset))))
+        val own = VarScope.Loop(listOf(SourceLocation(caret.file, task.range.startOffset)))
+        if (task.taskInclude == null && task.roleInclude == null || DumbService.isDumb(caret.host.project)) return caret.symbol(name.text, own)
+        val binding = LoopItems.bindingOfValue(caret.host.project, caret.file, offset)?.takeIf { it.first == name.text }?.second
+        return caret.symbol(name.text, binding?.let { loopScope(caret.host.project, it, null) } ?: own)
     }
 
     /** The Jinja local whose binding name is under the caret. */

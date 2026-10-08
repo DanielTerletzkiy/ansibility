@@ -58,6 +58,38 @@ class TagIntelligenceTest : BasePlatformTestCase() {
         assertTrue(html, "In roles: nginx" in html)
     }
 
+    /**
+     * Plan amendment R20, D153: from production files, while "Show Molecule in navigation and search" is off, Ctrl+B,
+     * hover and completion leave Molecule playbooks out; from a Molecule file they see everything.
+     */
+    fun testMoleculePlaybooksOnlyWhereMoleculeIsShown() {
+        myFixture.addFileToProject("roles/nginx/molecule/default/molecule.yml", "---\ndriver:\n  name: default\n")
+        myFixture.addFileToProject(
+            "roles/nginx/molecule/default/verify.yml",
+            "- name: Verify\n  hosts: all\n  tasks:\n    - name: Check\n      ansible.builtin.command: \"true\"\n      tags: [web, molecule_only]\n",
+        )
+        AnsibleWorkspaceImpl.getInstance(project)!!.structureChanged()
+        fun targets(path: String, anchor: String, delta: Int): List<String> = runReadActionBlocking<List<String>> {
+            val (psi, site) = siteAt(path, anchor, delta)
+            TagNavigation().targets(site, psi).map { (it as FakePsiElement).locationString.orEmpty() }.sorted()
+        }
+        assertFalse("off, from the role's tasks", targets("roles/nginx/tasks/main.yml", "    - web", 6).any { "verify.yml" in it })
+        val hover = runReadActionBlocking {
+            val (psi, site) = siteAt("site.yml", "web, base", 0)
+            TagDocumentation().documentation(site, psi)!!.computeDocumentation().toString()
+        }
+        assertTrue("off: the hover counts no Molecule task: $hover", "1 play, 1 role entry, no blocks, 1 task" in hover)
+        assertTrue("from verify.yml: everything", targets("roles/nginx/molecule/default/verify.yml", "[web", 1).any { "tasks/main.yml" in it })
+        myFixture.configureFromTempProjectFile("roles/nginx/tasks/main.yml")
+        myFixture.editor.caretModel.moveToOffset(myFixture.editor.document.text.indexOf("tags: config") + "tags: ".length)
+        myFixture.type("web, ")
+        val items = myFixture.completeBasic()?.map { it.lookupString }.orEmpty()
+        assertTrue("the root's tags: $items", "base" in items && "packages" in items)
+        assertFalse("off: no tag only a Molecule playbook writes: $items", "molecule_only" in items)
+        de.terletzkiy.ansibility.context.MoleculeNavigationFixture.showInNavigationUntil(project, testRootDisposable)
+        assertTrue("on", targets("roles/nginx/tasks/main.yml", "    - web", 6).any { "verify.yml" in it })
+    }
+
     fun testModuleArgumentsAreNotTags() {
         runReadActionBlocking {
             val file = myFixture.findFileInTempDir("roles/nginx/tasks/main.yml")

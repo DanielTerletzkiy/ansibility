@@ -15,12 +15,16 @@ import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.CardContext
 import de.terletzkiy.ansibility.api.CardSection
 import de.terletzkiy.ansibility.api.CardSubject
+import de.terletzkiy.ansibility.api.LoopVarSite
 import de.terletzkiy.ansibility.api.SiteDocumentation
 import de.terletzkiy.ansibility.api.SourceLocation
+import de.terletzkiy.ansibility.model.task.YamlFiles
+import org.jetbrains.yaml.psi.YAMLFile
 
 /**
  * The variable documentation card (plan F1.2, F4.3, F4.8; X06, X07, X84) as a platform [DocumentationTarget]: for a
- * Jinja reference, a vars-file key, a spec option, a navigation target (Ctrl-hover) or a link inside another card.
+ * Jinja reference, a vars-file key, a spec option, a `loop_control.loop_var`/`index_var` value, a navigation target
+ * (Ctrl-hover) or a link inside another card.
  *
  * The card is computed when the platform asks for it (in a read action, in smart mode), from the root-scoped
  * [de.terletzkiy.ansibility.api.VarService] symbol; other areas add to it through [CardSection]s, which see the
@@ -108,6 +112,20 @@ class VarDocumentationTarget internal constructor(
             return VarDocumentationTarget(project, LoopItems.documentedSubject(project, root, subject) ?: subject)
         }
 
+        /**
+         * The card of the `loop_control.loop_var`/`index_var` value [site] in host [file]: the definition written there
+         * (at the scalar's start, as the variable index records it), which [VarCards] shows as the loop card.
+         */
+        internal fun forLoopVarValue(file: PsiFile, site: LoopVarSite): VarDocumentationTarget? {
+            val project = file.project
+            val virtualFile = file.originalFile.viewProvider.virtualFile
+            val root = AnsibleWorkspace.getInstance(project).contextOf(virtualFile)?.root ?: return null
+            val yaml = file as? YAMLFile ?: YamlFiles.yamlFile(project, virtualFile) ?: return null
+            val value = LoopVarValues.valueAt(yaml, site.range.startOffset) ?: return null
+            val location = SourceLocation(virtualFile, value.ref.range.startOffset)
+            return VarDocumentationTarget(project, VarSubject.definition(project, root, site.name, emptyList(), location))
+        }
+
         /** The card of the variable key [site] in host [file]. */
         internal fun forKey(file: PsiFile, site: AnsibleSite.VarKey): VarDocumentationTarget? {
             val virtualFile = file.originalFile.viewProvider.virtualFile
@@ -119,13 +137,14 @@ class VarDocumentationTarget internal constructor(
 }
 
 /**
- * The variables area's `siteDocumentation`: [VarDocumentationTarget] for [AnsibleSite.VarRef] and
- * [AnsibleSite.VarKey]; null for every other site. Needs indexes, so it is not `DumbAware`.
+ * The variables area's `siteDocumentation`: [VarDocumentationTarget] for [AnsibleSite.VarRef], [AnsibleSite.VarKey] and
+ * [LoopVarSite] (the loop card); null for every other site. Needs indexes, so it is not `DumbAware`.
  */
 class VarSiteDocumentation : SiteDocumentation {
     override fun documentation(site: AnsibleSite, file: PsiFile): DocumentationTarget? = when (site) {
         is AnsibleSite.VarRef -> VarDocumentationTarget.forReference(file, site)
         is AnsibleSite.VarKey -> VarDocumentationTarget.forKey(file, site)
+        is LoopVarSite -> VarDocumentationTarget.forLoopVarValue(file, site)
         else -> null
     }
 }

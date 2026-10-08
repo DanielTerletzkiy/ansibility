@@ -101,8 +101,6 @@ class AnsibilitySettingsWiringTest : BasePlatformTestCase() {
 
         settings.update { it.copy(paths = it.paths.copy(extraIgnoredPaths = listOf("docs/**"))) }
         assertEquals(2, notified)
-        settings.update { it.copy(paths = it.paths.copy(moleculeSupport = false)) }
-        assertEquals(3, notified)
     }
 
     fun testOtherChangesLeaveTheStructureAlone() {
@@ -113,10 +111,37 @@ class AnsibilitySettingsWiringTest : BasePlatformTestCase() {
         assertEquals(0, notified)
     }
 
+    fun testTheMoleculeSettingsChangeNoStructureButReachTheListeners() {
+        // Plan amendment R20: classification no longer depends on them, so nothing is rescanned; the settings event
+        // still goes out, which restarts highlighting and rebuilds the tool window's snapshot.
+        var structure = 0
+        project.messageBus.connect(testRootDisposable).subscribe(AnsibleStructureListener.TOPIC, AnsibleStructureListener { structure++ })
+        val events = ArrayList<Pair<MoleculeSettings, MoleculeSettings>>()
+        project.messageBus.connect(testRootDisposable).subscribe(
+            AnsibilitySettingsListener.TOPIC,
+            object : AnsibilitySettingsListener {
+                override fun projectSettingsChanged(old: ProjectSettings, new: ProjectSettings) {
+                    events += old.molecule to new.molecule
+                }
+            },
+        )
+        val workspace = AnsibleWorkspace.getInstance(project)
+        val before = workspace.structureTracker.modificationCount
+        settings.update { it.copy(molecule = it.molecule.copy(runTests = false)) }
+        settings.update { it.copy(molecule = it.molecule.copy(showInNavigation = true)) }
+        assertEquals(0, structure)
+        assertEquals(before, workspace.structureTracker.modificationCount)
+        assertEquals(
+            listOf(MoleculeSettings() to MoleculeSettings(runTests = false), MoleculeSettings(runTests = false) to MoleculeSettings(runTests = false, showInNavigation = true)),
+            events,
+        )
+    }
+
     fun testStructuralPathSelection() {
         val base = PathSettings()
         assertEquals(AnsibilitySettingsWiring.structuralPaths(base), AnsibilitySettingsWiring.structuralPaths(base.copy(schemaStoreExclusion = false)))
         assertFalse(AnsibilitySettingsWiring.structuralPaths(base) == AnsibilitySettingsWiring.structuralPaths(base.copy(detachedRule = false)))
+        assertFalse(AnsibilitySettingsWiring.structuralPaths(base) == AnsibilitySettingsWiring.structuralPaths(base.copy(extraIgnoredPaths = listOf("x/**"))))
         assertEquals(
             mapOf(FALCON to "2.19"),
             AnsibilitySettingsWiring.targetCores(ProjectSettings(mapOf(FALCON to RootSettings(targetCore = "2.19"), GOLDEN to RootSettings(preset = Preset.STRICT)))),

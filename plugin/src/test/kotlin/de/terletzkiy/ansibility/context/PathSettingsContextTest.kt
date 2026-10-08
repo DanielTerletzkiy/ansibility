@@ -13,6 +13,7 @@ import de.terletzkiy.ansibility.context.ContextTestTree.SANDBOX_SITE
 import de.terletzkiy.ansibility.context.ContextTestTree.WT_FALCON
 import de.terletzkiy.ansibility.context.ContextTestTree.WT_GOLDEN
 import de.terletzkiy.ansibility.settings.AnsibilityProjectSettings
+import de.terletzkiy.ansibility.settings.MoleculeSettings
 import de.terletzkiy.ansibility.settings.PathSettings
 import de.terletzkiy.ansibility.settings.SettingsTestSupport
 
@@ -108,35 +109,40 @@ class PathSettingsContextTest : BasePlatformTestCase() {
         assertEquals("[wt-2] falcon", root(WT_FALCON).displayName)
     }
 
-    // ------------------------------------------------------------------ molecule support
+    // ------------------------------------------------------------------ molecule (plan amendment R20, D150)
 
-    fun testMoleculeSupportOffReportsNoMoleculeKinds() {
+    private val moleculeKinds = setOf(FileKind.MOLECULE_CONFIG, FileKind.MOLECULE_PLAYBOOK, FileKind.MOLECULE_TASKS, FileKind.MOLECULE_VARS)
+
+    fun testMoleculeFilesAreClassifiedWhateverTheMoleculeSettings() {
         val config = vf("$PLATFORM/roles/docker-registry/molecule/cleanup/molecule.yml")
-        assertEquals(FileKind.MOLECULE_CONFIG, workspace.contextOf(config)?.kind)
-        val moleculeKinds = setOf(FileKind.MOLECULE_CONFIG, FileKind.MOLECULE_PLAYBOOK, FileKind.MOLECULE_TASKS, FileKind.MOLECULE_VARS)
+        val inventories = InventoryService.getInstance(project)
+        for (molecule in listOf(MoleculeSettings(runTests = false, showInNavigation = false), MoleculeSettings(runTests = true, showInNavigation = true), MoleculeSettings())) {
+            settings.update { it.copy(molecule = molecule) }
+            assertEquals("$molecule", FileKind.MOLECULE_CONFIG, workspace.contextOf(config)?.kind)
+            assertEquals("$molecule", FileKind.MOLECULE_VARS, workspace.contextOf(vf("$GOLDEN/roles/chronod/molecule/vars/vars.yml"))?.kind)
+            assertEquals("$molecule", listOf("cleanup"), inventories.moleculeInventories(root(PLATFORM)).map { it.scenarioDir.name })
+            assertEquals("$molecule", listOf("chronod"), inventories.moleculeInventories(root(GOLDEN)).map { it.roleName })
+        }
+        assertTrue(allFiles().mapNotNull { workspace.contextOf(it)?.kind }.any { it in moleculeKinds })
+    }
 
-        paths { it.copy(moleculeSupport = false) }
+    fun testAnIgnoredPathSkipsMoleculeFolders() {
+        // The documented way to have Ansibility ignore Molecule completely: **/molecule/** in the ignored paths.
+        val config = vf("$PLATFORM/roles/docker-registry/molecule/cleanup/molecule.yml")
+        val inventories = InventoryService.getInstance(project)
+        paths { it.copy(extraIgnoredPaths = it.extraIgnoredPaths + "**/molecule/**") }
         assertNull("molecule files are skipped like ignored paths", workspace.contextOf(config))
         val kinds = allFiles().mapNotNull { workspace.contextOf(it)?.kind }
         assertTrue(kinds.isNotEmpty())
         assertTrue("no molecule kind in $kinds", kinds.none { it in moleculeKinds })
         assertEquals("role files keep their kinds", FileKind.ROLE_TASKS, workspace.contextOf(vf("$GOLDEN/roles/chronod/tasks/main.yml"))?.kind)
-
-        paths { it.copy(moleculeSupport = true) }
-        assertEquals(FileKind.MOLECULE_CONFIG, workspace.contextOf(config)?.kind)
-        assertEquals(FileKind.MOLECULE_VARS, workspace.contextOf(vf("$GOLDEN/roles/chronod/molecule/vars/vars.yml"))?.kind)
-    }
-
-    fun testMoleculeSupportOffHidesTheMoleculeInventories() {
-        val inventories = InventoryService.getInstance(project)
-        assertEquals(listOf("cleanup"), inventories.moleculeInventories(root(PLATFORM)).map { it.scenarioDir.name })
-        assertEquals(listOf("chronod"), inventories.moleculeInventories(root(GOLDEN)).map { it.roleName })
-        paths { it.copy(moleculeSupport = false) }
         assertEmpty(inventories.moleculeInventories(root(PLATFORM)))
         assertEmpty(inventories.moleculeInventories(root(GOLDEN)))
-        paths { it.copy(moleculeSupport = true, extraIgnoredPaths = it.extraIgnoredPaths + "golden/roles/chronod/molecule/**") }
+
+        paths { it.copy(extraIgnoredPaths = PathSettings.DEFAULT_IGNORED_PATHS + "golden/roles/chronod/molecule/**") }
         assertEmpty("an ignored scenario has no inventory", inventories.moleculeInventories(root(GOLDEN)))
         assertEquals(1, inventories.moleculeInventories(root(PLATFORM)).size)
+        assertEquals(FileKind.MOLECULE_CONFIG, workspace.contextOf(config)?.kind)
     }
 
     // ------------------------------------------------------------------ caching

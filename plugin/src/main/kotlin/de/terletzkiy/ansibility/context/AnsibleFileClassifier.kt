@@ -21,8 +21,9 @@ import de.terletzkiy.ansibility.semantics.inventory.InventoryDirectoryWalk
  * and every file of a directory under `roles/` that is not a role by [RoleDirectories.isRole] (the `role-state`
  * ghosts). The ignored paths of the project settings are applied by the caller (`AnsibleWorkspaceImpl`).
  *
- * [moleculeSupport] is read on every classification: when it answers false, files below a `molecule/` directory
- * are skipped like ignored paths, so no `MOLECULE_*` kind is ever reported and their plays and vars never take part.
+ * Files below a `molecule` directory are always classified (`MOLECULE_*` kinds, plan amendment R20, D150): whether
+ * Molecule content shows in navigation from other files is decided at request time (`MoleculeVisibility`), and an
+ * ignored-path glob is the way to have Ansibility skip them.
  *
  * [layoutOf] answers first for inventory files and inventory-level vars directories (plan amendment R10): a file
  * that is an inventory source of the root's layout is [FileKind.INVENTORY] or [FileKind.INVENTORY_INI], and a
@@ -31,7 +32,6 @@ import de.terletzkiy.ansibility.semantics.inventory.InventoryDirectoryWalk
  */
 class AnsibleFileClassifier(
     private val probe: (VirtualFile) -> Boolean = PlaybookProbe::looksLikePlaybook,
-    private val moleculeSupport: () -> Boolean = { true },
     private val layoutOf: (AnsibleRoot) -> RootLayout? = { null },
 ) {
 
@@ -43,9 +43,7 @@ class AnsibleFileClassifier(
         val relative = VfsUtilCore.getRelativePath(file, root.dir) ?: return Result(null, false)
         val segments = relative.split('/')
         if (AnsibleLayout.DOT_ANSIBLE in segments || segments.first() == AnsibleLayout.PATCHES) return Result(null, false)
-        val molecule = moleculeSupport()
-        if (!molecule && AnsibleLayout.MOLECULE in segments.dropLast(1)) return Result(null, false)
-        val run = Run(file, root, molecule)
+        val run = Run(file, root)
         val roleDir = roleDirOf(file, root)
         val context = when {
             roleDir == null -> run.rootFile(segments)
@@ -56,7 +54,7 @@ class AnsibleFileClassifier(
     }
 
     /** One classification; remembers whether the content probe ran. */
-    private inner class Run(val file: VirtualFile, val root: AnsibleRoot, val molecule: Boolean) {
+    private inner class Run(val file: VirtualFile, val root: AnsibleRoot) {
         var probed = false
         val name: String = file.name
 
@@ -105,7 +103,7 @@ class AnsibleFileClassifier(
                 )
                 "templates" -> context(FileKind.ROLE_TEMPLATE, roleDir)
                 "files" -> context(FileKind.ROLE_FILE, roleDir)
-                AnsibleLayout.MOLECULE -> if (molecule) molecule(inRole.drop(1), roleDir) else context(FileKind.OTHER, roleDir)
+                AnsibleLayout.MOLECULE -> molecule(inRole.drop(1), roleDir)
                 else -> context(FileKind.OTHER, roleDir)
             }
         }
@@ -158,9 +156,7 @@ class AnsibleFileClassifier(
         /** A file of the root that is not inside a role directory. */
         fun rootFile(segments: List<String>): FileContext {
             val moleculeAt = segments.indexOf(AnsibleLayout.MOLECULE)
-            if (moleculeAt in 0 until segments.lastIndex) {
-                return if (molecule) molecule(segments.drop(moleculeAt + 1), null) else context(FileKind.OTHER)
-            }
+            if (moleculeAt in 0 until segments.lastIndex) return molecule(segments.drop(moleculeAt + 1), null)
             when {
                 name == AnsibleLayout.ANSIBLE_CFG -> return context(FileKind.ANSIBLE_CFG)
                 name in AnsibleLayout.LINT_CONFIG_NAMES -> return context(FileKind.LINT_CONFIG)

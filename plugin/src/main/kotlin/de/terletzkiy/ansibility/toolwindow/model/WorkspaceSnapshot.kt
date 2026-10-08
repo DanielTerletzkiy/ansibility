@@ -13,14 +13,18 @@ import de.terletzkiy.ansibility.api.InventoryService
 import de.terletzkiy.ansibility.api.PlayGraph
 import de.terletzkiy.ansibility.api.RoleRef
 import de.terletzkiy.ansibility.api.RoleRegistry
+import de.terletzkiy.ansibility.api.RoleTests
 import de.terletzkiy.ansibility.api.RootKind
+import de.terletzkiy.ansibility.api.ScopeChoice
 import de.terletzkiy.ansibility.api.VarFile
+import de.terletzkiy.ansibility.api.WorkspaceScope
 import de.terletzkiy.ansibility.context.AnsibleCfg
 import de.terletzkiy.ansibility.context.AnsibleLayout
 import de.terletzkiy.ansibility.context.AnsibleWorkspaceImpl
 import de.terletzkiy.ansibility.context.TargetVersion
 import de.terletzkiy.ansibility.context.TargetVersionDetector
 import de.terletzkiy.ansibility.semantics.precedence.PrecedenceEntry
+import de.terletzkiy.ansibility.workspace.WorkspaceScopeImpl
 import java.io.IOException
 
 /**
@@ -101,15 +105,34 @@ class RootSnapshot(
     val parent: AnsibleRoot?,
     /** The roles the root resolves (`RoleRegistry.roles`), for the Roles node and tab (R9 F9.2, F9.3). */
     val roles: List<RoleRef> = emptyList(),
+    /**
+     * The directories of [roles] that have tests ([RoleTests.hasTests]: Molecule scenarios, with "Run Molecule tests"
+     * on), so the Molecule run UI decides without reading the VFS (plan amendments R19, D140, and R20, D152).
+     */
+    val testedRoles: Set<VirtualFile> = emptySet(),
 ) {
     val dir: VirtualFile get() = root.dir
 
     val kind: RootKind get() = root.kind
 
-    /** The roles listed under this root: a nested playbook root's own only, since its parent's are listed there. */
+    /**
+     * The roles listed under this root in the Repos tab: a nested playbook root's own only, since its parent's are
+     * listed there. Which root a role directory belongs to for the scope is [WorkspaceSnapshot.roleCopies].
+     */
     val ownRoles: List<RoleRef> by lazy {
-        if (kind == RootKind.NESTED_PLAYBOOK) roles.filter { VfsUtilCore.isAncestor(dir, it.dir, false) } else roles
+        if (kind == RootKind.NESTED_PLAYBOOK) roles.filter { contains(it.dir) } else roles
     }
+
+    /** Whether [file] lies in this root's directory. */
+    fun contains(file: VirtualFile): Boolean = VfsUtilCore.isAncestor(dir, file, false)
+
+    /**
+     * Whether the workspace [scope] covers this root, wholly or in part: the one rule by which the tool window's
+     * scoped actions pick roots (plan amendment R19: the Molecule toolbar button, D140, and what a role-name row runs,
+     * D143). All roots covers every root without asking; any other scope reads [WorkspaceScope.roots], which for a
+     * named scope walks the roots' files on first use unless its coverage is known ([rootsKnown]): off the EDT then.
+     */
+    fun isIn(scope: WorkspaceScope): Boolean = scope.choice == ScopeChoice.AllRoots || scope.roots.any { it.dir == dir }
 
     val environments: List<EnvironmentView> by lazy { inventories.map { EnvironmentView(this, it) } }
 
@@ -135,6 +158,13 @@ class RootSnapshot(
     fun playbookVarsLabel(dir: VirtualFile = root.dir): String = "${dir.name}/${AnsibleLayout.GROUP_VARS}"
 }
 
+/**
+ * Whether this scope's [WorkspaceScope.roots] are known without a walk over the roots' files: always, except for a
+ * named scope whose coverage the workspace scope service has not computed yet. Code on the EDT asks before
+ * [RootSnapshot.isIn] (plan amendment R19, D143).
+ */
+fun WorkspaceScope.rootsKnown(): Boolean = this !is WorkspaceScopeImpl || coverageIfComputed() != null
+
 /** A detached worktree (X01): shown as a single node, never expanded into roots. */
 class WorktreeSnapshot(val name: String, val dir: VirtualFile, val roots: List<AnsibleRoot>)
 
@@ -147,6 +177,36 @@ class WorkspaceSnapshot(val roots: List<RootSnapshot>, val worktrees: List<Workt
 
     fun root(dir: VirtualFile): RootSnapshot? = roots.firstOrNull { it.dir == dir }
 
+    /** [roots] with the role libraries first: the order of a role name's copies in the Roles tab. */
+    val librariesFirst: List<RootSnapshot> by lazy { roots.sortedBy { if (it.kind == RootKind.ROLE_LIBRARY) 0 else 1 } }
+
+    /**
+     * Every role directory the roots list, once, with the root it belongs to (plan amendment R19, D143): the innermost
+     * root that lists it and contains it. A nested playbook root's roles path may also reach its parent's `roles/`,
+     * and a project's `roles_path` a role library's: those copies stay the parent's or the library's. A directory
+     * outside every root that lists it (a `roles_path` beyond the roots) goes to the first of them, role libraries
+     * first. The Roles tab names a copy by this root, and the scoped Molecule runs (a role-name row, the toolbar
+     * with nothing selected) take a copy when this root is in the scope, so the row and the button agree.
+     */
+    val roleCopies: List<Pair<RootSnapshot, RoleRef>> by lazy {
+        val owners = LinkedHashMap<VirtualFile, Pair<RootSnapshot, RoleRef>>()
+        for (root in librariesFirst) for (role in root.roles) {
+            val current = owners[role.dir]?.first
+            val better = current == null ||
+                root.contains(role.dir) && (!current.contains(role.dir) || root.dir.path.length > current.dir.path.length)
+            if (better) owners[role.dir] = root to role
+        }
+        owners.values.toList()
+    }
+
+    private val rolesByOwner: Map<RootSnapshot, List<RoleRef>> by lazy { roleCopies.groupBy({ it.first }, { it.second }) }
+
+    /** The roles that belong to [root] ([roleCopies]): what a Molecule run of the scope takes from it. */
+    fun ownedRoles(root: RootSnapshot): List<RoleRef> = rolesByOwner[root].orEmpty()
+
+    /** Whether a role that belongs to [root] ([ownedRoles]) has tests ([RootSnapshot.testedRoles]). */
+    fun hasTestedRoles(root: RootSnapshot): Boolean = ownedRoles(root).any { it.dir in root.testedRoles }
+
     companion object {
         val EMPTY: WorkspaceSnapshot = WorkspaceSnapshot(emptyList(), emptyList())
     }
@@ -154,7 +214,8 @@ class WorkspaceSnapshot(val roots: List<RootSnapshot>, val worktrees: List<Workt
 
 /**
  * Builds the [WorkspaceSnapshot] from the shared services: [AnsibleWorkspace], [InventoryService], [RoleRegistry]
- * (role counts), [PlayGraph] (playbook names), [TargetVersionDetector] and the roots' `ansible.cfg`.
+ * (role counts), [RoleTests] (which roles have tests), [PlayGraph] (playbook names), [TargetVersionDetector] and the
+ * roots' `ansible.cfg`.
  *
  * Runs inside a read action on a background thread; every service is cached, so a rebuild after a change costs
  * little more than the changed inventory. Loops check for cancellation.
@@ -166,9 +227,13 @@ object WorkspaceSnapshotBuilder {
         if (project.isDisposed) return WorkspaceSnapshot.EMPTY
         val workspace = AnsibleWorkspace.getInstance(project)
         val all = workspace.roots()
+        // A nested root also lists its parent's roles: ask about each role directory once.
+        val tests = RoleTests.getInstance(project)
+        val tested = HashMap<VirtualFile, Boolean>()
+        val hasTests = { dir: VirtualFile -> tested.getOrPut(dir) { tests.hasTests(dir) } }
         val roots = displayOrder(all.filter { !it.detached }).map { root ->
             ProgressManager.checkCanceled()
-            rootSnapshot(project, workspace, root, all)
+            rootSnapshot(project, workspace, root, all, hasTests)
         }
         return WorkspaceSnapshot(roots, worktrees(project, all.filter { it.detached }), project)
     }
@@ -191,7 +256,13 @@ object WorkspaceSnapshotBuilder {
         return a.size.compareTo(b.size)
     }
 
-    private fun rootSnapshot(project: Project, workspace: AnsibleWorkspace, root: AnsibleRoot, all: List<AnsibleRoot>): RootSnapshot {
+    private fun rootSnapshot(
+        project: Project,
+        workspace: AnsibleWorkspace,
+        root: AnsibleRoot,
+        all: List<AnsibleRoot>,
+        hasTests: (VirtualFile) -> Boolean,
+    ): RootSnapshot {
         val cfgFile = cfgFileOf(root)
         val cfgText = cfgFile?.let(::read)
         val precedence = cfgText?.let { AnsibleCfg.parse(it).value("defaults", "precedence") }
@@ -215,6 +286,10 @@ object WorkspaceSnapshotBuilder {
             precedence = precedence,
             parent = root.parentDir?.let { dir -> all.firstOrNull { it.dir == dir && !it.detached } },
             roles = roles,
+            testedRoles = roles.filter { role ->
+                ProgressManager.checkCanceled()
+                hasTests(role.dir)
+            }.mapTo(HashSet()) { it.dir },
         )
     }
 

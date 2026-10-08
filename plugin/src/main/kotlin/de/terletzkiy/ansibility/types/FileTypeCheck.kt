@@ -13,6 +13,7 @@ import de.terletzkiy.ansibility.api.SpecBinding
 import de.terletzkiy.ansibility.api.TypeFinding
 import de.terletzkiy.ansibility.api.VarService
 import de.terletzkiy.ansibility.context.AnsibleLayout
+import de.terletzkiy.ansibility.context.MoleculeVisibility
 import de.terletzkiy.ansibility.context.TargetVersionDetector
 import de.terletzkiy.ansibility.semantics.CoreVersion
 import de.terletzkiy.ansibility.semantics.coerce.CoreSemantics
@@ -61,7 +62,7 @@ internal class FileTypeCheck(private val project: Project, private val file: YAM
     private val ownRoleOnly = context.kind == FileKind.ROLE_DEFAULTS || context.kind == FileKind.ROLE_VARS
     private val roleDirs: Set<VirtualFile>? = when {
         ownRoleOnly -> setOfNotNull(context.roleDir)
-        context.kind in MOLECULE_KINDS -> context.roleDir?.let { scenarioRoles(it) }
+        MoleculeVisibility.isMoleculeFile(root, file.originalFile.virtualFile ?: file.viewProvider.virtualFile) -> context.roleDir?.let { scenarioRoles(it) }
         else -> null
     }
     private val reachabilityApplies = context.kind in REACHABILITY_KINDS
@@ -163,8 +164,7 @@ internal class FileTypeCheck(private val project: Project, private val file: YAM
 
     /** Whether a play of the root (molecule scenarios aside) applies [roleName]; cached for the run. */
     private fun isApplied(roleName: String): Boolean = applied.getOrPut(roleName) {
-        val workspace = AnsibleWorkspace.getInstance(project)
-        PlayGraph.getInstance(project).playsApplying(root, roleName).any { workspace.contextOf(it.file)?.kind != FileKind.MOLECULE_PLAYBOOK }
+        PlayGraph.getInstance(project).playsApplying(root, roleName).any { !MoleculeVisibility.isMoleculeFile(project, it.file) }
     }
 
     private fun readsOf(name: String): LoopReads = loopReads.getOrPut(name) { LoopReads.of(project, root, name) }
@@ -257,8 +257,6 @@ internal class FileTypeCheck(private val project: Project, private val file: YAM
         private val REACHABILITY_KINDS = setOf(
             FileKind.GROUP_VARS, FileKind.HOST_VARS, FileKind.INVENTORY, FileKind.PLAYBOOK, FileKind.ROLE_TASKS, FileKind.ROLE_HANDLERS,
         )
-
-        private val MOLECULE_KINDS = setOf(FileKind.MOLECULE_CONFIG, FileKind.MOLECULE_VARS, FileKind.MOLECULE_PLAYBOOK, FileKind.MOLECULE_TASKS)
 
         /** Codes that report a rejection (the rest report a coercion of a documented-type mismatch). */
         private val REJECTIONS = setOf(

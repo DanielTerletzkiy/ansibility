@@ -52,7 +52,7 @@ internal class DefinednessFacts(val whenTrue: Set<String>, val whenFalse: Set<St
 }
 
 /**
- * The definedness facts of a [Cond] (verified on ansible-core 2.18.8 and 2.21.4, `docs/research/host-awareness.md`,
+ * The definedness facts of a [Cond] (verified on ansible-core 2.18.8 and 2.21.4, `plan/research/host-awareness.md`,
  * "V003 guard semantics"):
  * - `x is defined` is true only when `x` is defined, `x is not defined` only when it is not; `and`, `or` and `not`
  *   combine the facts (`a and b` true: both; false: what both sides prove when false, and so on);

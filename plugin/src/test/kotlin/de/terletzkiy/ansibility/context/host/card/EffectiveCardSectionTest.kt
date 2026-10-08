@@ -4,6 +4,7 @@ import com.intellij.lang.documentation.DocumentationMarkup
 import de.terletzkiy.ansibility.api.CardContext
 import de.terletzkiy.ansibility.api.CardSubject
 import de.terletzkiy.ansibility.api.SourceLocation
+import de.terletzkiy.ansibility.context.MoleculeNavigationFixture
 import de.terletzkiy.ansibility.fixtures.InfraTestData
 import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.vars.VarDocumentationTarget
@@ -85,7 +86,8 @@ class EffectiveCardSectionTest : HostCardTestCase() {
             "shadowed: environments/prod/group_vars/all/vars.yml:471 (L4, prod ×2) · environments/test/group_vars/all/vars.yml:323 (L4, test ×1) · " +
                 "roles/postfix/defaults/main.yml:2 (L2)" in section,
         )
-        assertTrue("molecule outcomes on their own line", "molecule default: = $moleculeRelayHost · roles/postfix/molecule/default/molecule.yml:56" in section)
+        // R20/D153: a role template shows no Molecule outcomes while "Show Molecule in navigation and search" is off.
+        assertFalse(section, "molecule default" in section)
 
         val definitionEnd = html.indexOf(DocumentationMarkup.DEFINITION_END)
         val effectiveAt = html.indexOf("Effective on")
@@ -114,14 +116,32 @@ class EffectiveCardSectionTest : HostCardTestCase() {
         assertEquals("✓ effective for prod-prod1", row(html, "Effect"))
     }
 
-    /** A role default is ineffective wherever the role runs: inventory hosts by L5, the molecule hosts by their inventory. */
+    /** With "Show Molecule in navigation and search" on (R20/D153), Molecule outcomes have their own line. */
+    fun testTemplateReferenceShowsMoleculeOutcomesWhenMoleculeIsShown() {
+        MoleculeNavigationFixture.showInNavigationUntil(project, testRootDisposable)
+        val section = effective(card(POSTFIX_TEMPLATE, 9, "postfix_relayhost"))
+        assertTrue(section, section.startsWith("Effective on 4 hosts (play System) — 1 value"))
+        assertTrue("molecule outcomes on their own line", "molecule default: = $moleculeRelayHost · roles/postfix/molecule/default/molecule.yml:56" in section)
+    }
+
+    /**
+     * A role default is ineffective wherever the role runs: inventory hosts by L5, and, with "Show Molecule in navigation
+     * and search" on (R20/D153), the molecule hosts by their inventory.
+     */
     fun testRoleDefaultsCard() {
         val html = card(POSTFIX_DEFAULTS, 2, "postfix_relayhost")
         assertTrue(effective(html).startsWith("Effective on 4 hosts (play System) — 1 value"))
-        val effect = row(html, "Effect")!!
-        assertTrue(effect, effect.startsWith("✗ ineffective, shadowed on every host that loads it:"))
-        assertTrue(effect, "for ops: ops-ops1 · prod: prod-prod1, prod-prod2 · test: test-test1 by group_vars/all/vars.yml:156 (L5 beats L2)" in effect)
-        assertTrue(effect, "by roles/postfix/molecule/default/molecule.yml:56 (L6 beats L2)" in effect)
+        assertEquals(
+            "one winner while Molecule is hidden",
+            "✗ ineffective for ops: ops-ops1 · prod: prod-prod1, prod-prod2 · test: test-test1: shadowed by group_vars/all/vars.yml:156 (L5 beats L2)",
+            row(html, "Effect"),
+        )
+
+        MoleculeNavigationFixture.showInNavigationUntil(project, testRootDisposable)
+        val shown = row(card(POSTFIX_DEFAULTS, 2, "postfix_relayhost"), "Effect")!!
+        assertTrue(shown, shown.startsWith("✗ ineffective, shadowed on every host that loads it:"))
+        assertTrue(shown, "for ops: ops-ops1 · prod: prod-prod1, prod-prod2 · test: test-test1 by group_vars/all/vars.yml:156 (L5 beats L2)" in shown)
+        assertTrue(shown, "by roles/postfix/molecule/default/molecule.yml:56 (L6 beats L2)" in shown)
     }
 
     /** A spec card shows where the role's variable takes effect, but has no definition status (a declaration). */

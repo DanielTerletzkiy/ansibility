@@ -20,6 +20,7 @@ import de.terletzkiy.ansibility.api.InventoryService
 import de.terletzkiy.ansibility.api.RoleRegistry
 import de.terletzkiy.ansibility.index.DefSite
 import de.terletzkiy.ansibility.index.VarDefIndex
+import de.terletzkiy.ansibility.model.role.RoleDefaults
 import de.terletzkiy.ansibility.model.task.YamlFiles
 import de.terletzkiy.ansibility.semantics.schema.OptionSpec
 import de.terletzkiy.ansibility.semantics.yaml.Resolved
@@ -130,12 +131,15 @@ internal class KeyCatalogs(private val project: Project) {
         val files = listOfNotNull(info.specFile) + info.defaultsFiles
         val defaults = LinkedHashMap<String, String?>()
         for (file in info.defaultsFiles) topLevelKeys(file).forEach { (key, type) -> defaults.putIfAbsent(key, type) }
+        // A role default exists only in the files ansible-core loads (`defaults/<x>.yml` needs `defaults_from`); the spec's
+        // `default:` never sets the variable (plan amendment R23, D174).
+        val roleDefaults = RoleDefaults.loadedFiles(info.ref.dir).flatMapTo(HashSet()) { topLevelKeys(it).keys }
         val declarations = ArrayList<NamedDeclaration>()
         val declared = HashSet<String>()
         for ((entryPoint, spec) in info.argumentSpecs.entries.sortedBy { if (it.key == MAIN) 0 else 1 }) {
             for (option in spec.options.values) {
                 if (!declared.add(option.name)) continue
-                val required = option.required && option.default == null && option.name !in defaults
+                val required = option.required && option.name !in roleDefaults
                 declarations += NamedDeclaration(option.name, KeyDeclaration(name, option, entryPoint, required, null))
             }
         }

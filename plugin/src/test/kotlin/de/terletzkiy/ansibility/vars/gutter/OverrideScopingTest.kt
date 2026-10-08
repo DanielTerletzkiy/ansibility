@@ -5,6 +5,7 @@ import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.terletzkiy.ansibility.context.AnsibleWorkspaceImpl
 import de.terletzkiy.ansibility.settings.AnsibilityProjectSettings
+import de.terletzkiy.ansibility.settings.MoleculeSettings
 import org.jetbrains.yaml.psi.YAMLKeyValue
 
 /** Plan X42: overrides only between definitions that can meet on a host, and never with molecule files. */
@@ -38,19 +39,39 @@ class OverrideScopingTest : BasePlatformTestCase() {
         assertEquals(Pair(emptyList<String>(), emptyList<String>()), overrides("roles/jenkins/defaults/main.yml", "credentials"))
     }
 
-    fun testMoleculeSupportOffDropsMoleculeDefinitions() {
+    /**
+     * Plan amendment R20, D153: the one Molecule rule judges `include_vars` by cause, so the keys of a file that only
+     * Molecule playbooks load are Molecule definitions: they no longer override the role default in production (they
+     * did while the gutter judged by path), while a file a production play loads too still does.
+     */
+    fun testAFileOnlyMoleculePlaybooksLoadOverridesNothingInProduction() {
+        myFixture.addFileToProject("shared/extra.yml", "credentials: [x]\n")
+        myFixture.addFileToProject("shared/both.yml", "credentials: [y]\n")
+        myFixture.addFileToProject(
+            "roles/jenkins/molecule/default/prepare.yml",
+            "- hosts: all\n  tasks:\n    - ansible.builtin.include_vars: ../../../../shared/extra.yml\n    - ansible.builtin.include_vars: ../../../../shared/both.yml\n",
+        )
+        myFixture.addFileToProject("load.yml", "- hosts: all\n  tasks:\n    - ansible.builtin.include_vars: shared/both.yml\n")
+        AnsibleWorkspaceImpl.getInstance(project)!!.structureChanged()
+        assertEquals(Pair(listOf("shared/both.yml"), emptyList<String>()), overrides("roles/jenkins/defaults/main.yml", "credentials"))
+    }
+
+    fun testTheMoleculeSettingsLeaveTheModelAndTheGutterAlone() {
+        // Plan amendment R20: Molecule files are always classified; the settings filter navigation, never the model.
         val settings = AnsibilityProjectSettings.getInstance(project)
         val before = settings.settings
-        settings.update { it.copy(paths = it.paths.copy(moleculeSupport = false)) }
-        try {
-            AnsibleWorkspaceImpl.getInstance(project)!!.structureChanged()
-            val files = runReadActionBlocking {
-                val root = de.terletzkiy.ansibility.api.AnsibleWorkspace.getInstance(project).roots().single()
-                de.terletzkiy.ansibility.api.VarService.getInstance(project).symbol(root, "credentials").definitions.map { it.location.file.path.substringAfter("/src/") }
+        for (molecule in listOf(MoleculeSettings(runTests = false, showInNavigation = false), MoleculeSettings(runTests = true, showInNavigation = true))) {
+            settings.update { it.copy(molecule = molecule) }
+            try {
+                val files = runReadActionBlocking {
+                    val root = de.terletzkiy.ansibility.api.AnsibleWorkspace.getInstance(project).roots().single()
+                    de.terletzkiy.ansibility.api.VarService.getInstance(project).symbol(root, "credentials").definitions.map { it.location.file.path.substringAfter("/src/") }
+                }
+                assertEquals("$molecule", listOf("roles/jenkins/defaults/main.yml", "roles/jenkins/molecule/default/converge.yml"), files)
+                assertEquals("$molecule", Pair(emptyList<String>(), emptyList<String>()), overrides("roles/jenkins/defaults/main.yml", "credentials"))
+            } finally {
+                settings.update { before }
             }
-            assertEquals(listOf("roles/jenkins/defaults/main.yml"), files)
-        } finally {
-            settings.update { before }
         }
     }
 

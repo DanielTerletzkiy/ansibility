@@ -1,0 +1,31 @@
+<html>
+<body>
+<p>Reports files whose vault envelope Ansible does not see (ANS-V107). Ansible decrypts a file only when its first 14
+  bytes are exactly <code>$ANSIBLE_VAULT</code>; when anything comes first, it uses the file as it is:</p>
+<ul>
+  <li>a <code>!vault |</code> line, or <code>key: !vault |</code> in a file Ansible copies or renders (elsewhere it
+    may be a vars file of one variable, which Ansible loads): the form
+    <code>ansible-vault encrypt_string</code> prints for YAML values, saved as a file;</li>
+  <li>a YAML vars file that is one <code>!vault</code> value instead of a mapping;</li>
+  <li>comments, blank lines or <code>---</code> before the envelope, an indented envelope, a byte order mark (reported
+    first when more comes before the envelope: remove the mark, then convert);</li>
+  <li>an envelope in quotes or inside other text, in files Ansible copies or renders (below <code>files</code> or
+    <code>templates</code>, templates, <code>*.key</code>, <code>*.pem</code>, <code>*.crt</code>,
+    <code>*.vault</code>, <code>*.password</code>).</li>
+</ul>
+<p><code>copy</code>, <code>template</code>, <code>lookup('file')</code> and <code>lookup('unvault')</code> then deliver
+  the envelope text instead of the decrypted content, without an error; as a vars file it fails to load
+  (<code>did not find expected &lt;document start&gt;</code>, or a value that is not a mapping);
+  <code>ansible-vault view</code> refuses it and <code>ansible-vault encrypt</code> would encrypt it a second time.
+  Verified with ansible-core 2.18 and 2.21. Normal <code>key: !vault |</code> values in YAML are not reported.</p>
+<p>Quick fix: <b>Convert to whole-file vault</b> removes the tag or the lines before the envelope and its indentation,
+  keeps the payload and the line separator, and is offered only when the result is a well-formed envelope. It needs no
+  password and decrypts nothing; one undo restores the file. A byte order mark is removed with
+  <b>File | File Properties | Remove BOM</b>. <b>Encrypt File</b> skips such files instead of encrypting them again.
+  Messages name lines, never content. Checked in projects with an Ansible root (detached worktrees are not); files
+  outside a root get the default severity. Documentation (Markdown, reStructuredText, AsciiDoc) is checked only below
+  <code>files</code> or <code>templates</code>, and only a complete header (<code>$ANSIBLE_VAULT;1.1;AES256</code>)
+  counts in quotes or other text, so <code>$ANSIBLE_VAULT_PASSWORD_FILE</code> in a script is no envelope.</p>
+<!-- tooltip end -->
+</body>
+</html>

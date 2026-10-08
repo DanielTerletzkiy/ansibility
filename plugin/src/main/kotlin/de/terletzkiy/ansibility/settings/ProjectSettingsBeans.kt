@@ -9,6 +9,10 @@ import de.terletzkiy.ansibility.semantics.diagnostics.Preset
  * The XML form of [ProjectSettings], shared by the workspace component and the team-shared component. Values equal
  * to the defaults are not written; the ignored paths are stored only when [customIgnoredPaths] is set, so the
  * built-in defaults can improve with plugin updates (and an emptied list stays empty).
+ *
+ * Migration (plan amendment R20, D151): the old `moleculeSupport` option has no field any more. The serializer skips
+ * the unknown option, so a stored value (true or false) loads as the [MoleculeSettings] defaults (tests on, Molecule
+ * hidden from navigation) and is gone from the next save.
  */
 open class ProjectSettingsBean {
     @get:XCollection(style = XCollection.Style.v2)
@@ -21,8 +25,13 @@ open class ProjectSettingsBean {
     @get:XCollection(style = XCollection.Style.v2, elementName = "path")
     var extraIgnoredPaths: MutableList<String> = ArrayList()
 
-    var moleculeSupport: Boolean = true
     var schemaStoreExclusion: Boolean = true
+
+    /** [MoleculeSettings.runTests]. */
+    var moleculeRunTests: Boolean = MoleculeSettings.DEFAULT.runTests
+
+    /** [MoleculeSettings.showInNavigation]. */
+    var moleculeShowInNavigation: Boolean = MoleculeSettings.DEFAULT.showInNavigation
 
     fun toSettings(): ProjectSettings = ProjectSettings(
         roots = roots.filter { it.path.isNotBlank() }.associate { it.path to it.toSettings() },
@@ -33,9 +42,9 @@ open class ProjectSettingsBean {
             } else {
                 PathSettings.DEFAULT_IGNORED_PATHS
             },
-            moleculeSupport = moleculeSupport,
             schemaStoreExclusion = schemaStoreExclusion,
         ),
+        molecule = MoleculeSettings(runTests = moleculeRunTests, showInNavigation = moleculeShowInNavigation),
     ).normalized()
 
     /** Copies [settings] into this bean. */
@@ -44,8 +53,9 @@ open class ProjectSettingsBean {
         detachedRule = settings.paths.detachedRule
         customIgnoredPaths = settings.paths.extraIgnoredPaths != PathSettings.DEFAULT_IGNORED_PATHS
         extraIgnoredPaths = if (customIgnoredPaths) settings.paths.extraIgnoredPaths.toMutableList() else ArrayList()
-        moleculeSupport = settings.paths.moleculeSupport
         schemaStoreExclusion = settings.paths.schemaStoreExclusion
+        moleculeRunTests = settings.molecule.runTests
+        moleculeShowInNavigation = settings.molecule.showInNavigation
     }
 }
 

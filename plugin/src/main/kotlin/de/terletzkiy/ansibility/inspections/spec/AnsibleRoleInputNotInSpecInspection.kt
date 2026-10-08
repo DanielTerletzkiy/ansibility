@@ -39,7 +39,9 @@ import org.jetbrains.yaml.psi.YAMLFile
  * Role inputs are the top-level keys of the role's `defaults/` files and the free Jinja uses in its tasks, handlers,
  * defaults and templates of names nothing inside the role sets: not a Jinja local, loop variable, magic variable or fact,
  * not a `vars/` key, not set by the role's own tasks (`set_fact`, `register`, `include_vars`, task or block `vars:`).
- * What is left comes from the inventory, the play or the caller, exactly what an argument spec documents.
+ * What is left comes from the inventory, the play or the caller, exactly what an argument spec documents. Molecule
+ * scenarios set nothing for the role (plan amendment R20, D157): their definitions neither make a name internal nor
+ * type the fix.
  *
  * A role without an argument spec gets the same findings one level lower (a suggestion while the role is new), with a
  * fix that creates `meta/argument_specs.yml`. The fixes write every input of the file at once, typed from its values
@@ -100,7 +102,8 @@ internal class RoleInput(val name: String, val range: TextRange, val fields: Lis
 
 /** Finds the undeclared inputs of [role] (see [AnsibleRoleInputNotInSpecInspection]). */
 internal class RoleInputs(private val project: Project, private val root: AnsibleRoot, private val role: RoleInfo) {
-    private val rules = UndefinedRules(project, root)
+    /** The role's own files are production files: Molecule definitions never count (plan amendment R20, D157). */
+    private val rules = UndefinedRules(project, root, origin = null)
 
     /** The undeclared inputs named in [file], in source order, each once; null when [file] is no input-bearing role file. */
     fun of(file: PsiFile): List<RoleInput>? {

@@ -1,7 +1,12 @@
 package de.terletzkiy.ansibility.run
 
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.SystemInfo
+import com.intellij.testFramework.PlatformTestUtil
+import com.intellij.testFramework.replaceService
+import com.intellij.util.EnvironmentUtil
 import de.terletzkiy.ansibility.api.VaultSourceKind
 import de.terletzkiy.ansibility.run.become.BecomePasswordAnswer
 import de.terletzkiy.ansibility.run.become.BecomePasswordRequest
@@ -18,12 +23,19 @@ import de.terletzkiy.ansibility.vault.identity.PasswordManagerReader
 import de.terletzkiy.ansibility.vault.identity.PasswordManagers
 import de.terletzkiy.ansibility.vault.secrets.PasswordSafeCredentialStore
 import de.terletzkiy.ansibility.vault.secrets.RememberChoice
-import com.intellij.util.EnvironmentUtil
-import com.intellij.testFramework.replaceService
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import java.nio.file.Files
 import java.nio.file.attribute.PosixFilePermissions
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 /** Become passwords from the sources of the runner settings, and the prompt with its remember choices. */
 class BecomePasswordsTest : VaultTestCase() {
@@ -140,6 +152,48 @@ class BecomePasswordsTest : VaultTestCase() {
         assertEquals("from Bitwarden (all environments)", passwords.describe(settings, "dev"))
         assertEquals("from the variable SUDO_PROD (prod)", passwords.describe(settings, "prod"))
         assertEquals("asked before the run unless remembered", passwords.describe(RunnerRootSettings(), null))
+    }
+
+    fun testAStoppedRunEndsAPasswordManagerReadWithoutInterruptingIt() {
+        if (SystemInfo.isWindows) return
+        // A run stopped while it prepares (R19) cancels the coroutine. A manager's read sees that while it waits (D139:
+        // ProgressManager.checkCanceled between short waits) and ends its CLI. An interrupt would not do: this reader,
+        // like PasswordManagers.run, leaves its CLI (and its approval sheet) behind when its thread is interrupted.
+        val pid = AtomicLong()
+        val interrupted = AtomicBoolean()
+        val waiting = CountDownLatch(1)
+        passwords.setSourcesForTests(PasswordSafeCredentialStore, object : PasswordManagerReader {
+            override fun read(manager: PasswordManager, reference: String, prompt: MasterPasswordPrompt): ByteArray? {
+                val cli = ProcessBuilder("sleep", "30").start()
+                pid.set(cli.pid())
+                waiting.countDown()
+                try {
+                    while (!cli.waitFor(50, TimeUnit.MILLISECONDS)) ProgressManager.checkCanceled()
+                } catch (e: InterruptedException) {
+                    interrupted.set(true)
+                    throw e
+                } catch (e: Throwable) {
+                    cli.destroyForcibly()
+                    throw e
+                }
+                return null
+            }
+        }) { variables[it] }
+        val settings = RunnerRootSettings(become = mapOf("*" to BecomeSource(VaultSourceKind.ONE_PASSWORD, "op://Private/sudo/password")))
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        try {
+            val job = scope.launch { passwords.obtain(root, settings, "dev") }
+            assertTrue(waiting.await(10, TimeUnit.SECONDS))
+            job.cancel()
+            PlatformTestUtil.waitWithEventsDispatching("the read still waits", { job.isCompleted }, 10)
+            assertTrue(job.isCancelled)
+            assertFalse("the read is not interrupted", interrupted.get())
+            PlatformTestUtil.waitWithEventsDispatching("the CLI outlives the run", { ProcessHandle.of(pid.get()).map { !it.isAlive }.orElse(true) }, 10)
+            assertEmpty("nothing is asked instead", become.requests)
+        } finally {
+            scope.cancel()
+            ProcessHandle.of(pid.get()).ifPresent { it.destroyForcibly() }
+        }
     }
 
     private fun obtained(settings: RunnerRootSettings, environment: String?): String {

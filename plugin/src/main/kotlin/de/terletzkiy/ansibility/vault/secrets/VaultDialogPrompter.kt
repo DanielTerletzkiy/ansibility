@@ -122,6 +122,7 @@ internal class VaultConsentDialog(project: Project, private val request: VaultCo
             }
             indent {
                 for (item in root.items) row { label(itemText(item)) }
+                managersText(root)?.let { text -> row { comment(text) } }
             }
         }
         row { comment(message("consent.footer")) }
@@ -151,6 +152,10 @@ internal class VaultConsentDialog(project: Project, private val request: VaultCo
             }
             return if (item.changed) message("consent.item.changed", text) else text
         }
+
+        /** What [Not now] means for [root]'s password managers (D139), or null when it has none to skip. */
+        fun managersText(root: ConsentRoot): String? =
+            root.managers.takeIf { it.isNotEmpty() }?.let { message("consent.managers", root.displayName, it.joinToString(", ")) }
     }
 }
 

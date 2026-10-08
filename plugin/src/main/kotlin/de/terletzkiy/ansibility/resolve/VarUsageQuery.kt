@@ -15,6 +15,7 @@ import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.FileKind
 import de.terletzkiy.ansibility.api.JinjaContainer
 import de.terletzkiy.ansibility.api.SourceLocation
+import de.terletzkiy.ansibility.context.MoleculeView
 import de.terletzkiy.ansibility.index.RootFamily
 import de.terletzkiy.ansibility.index.UseEntry
 import de.terletzkiy.ansibility.index.VarUseIndex
@@ -47,24 +48,26 @@ data class VarUsage(
 /**
  * Usages of a variable name inside one root, read from `ansible.var.use` (plan A.7; Find Usages, undefined and unused
  * checks). Scoped like [VarServiceImpl] ([RootFamily]); uses in files outside any root, in tool configuration and in
- * argument specs are dropped at query time.
+ * argument specs are dropped at query time. Every method takes the request's [MoleculeView] (plan amendment R20,
+ * D153): [MoleculeView.EXCLUDE] drops the uses in Molecule files; the default [MoleculeView.INCLUDE] keeps them
+ * (inspections, rename).
  *
  * Methods take a read lock when the caller holds none and need smart mode.
  */
 @Service(Service.Level.PROJECT)
 class VarUsageQuery(private val project: Project) {
     /** Every use of [name] in [root], in file and offset order. */
-    fun usages(root: AnsibleRoot, name: String): List<VarUsage> = readLocked {
+    fun usages(root: AnsibleRoot, name: String, view: MoleculeView = MoleculeView.INCLUDE): List<VarUsage> = readLocked {
         val result = ArrayList<VarUsage>()
-        process(root, name, null) { usage -> result += usage; true }
+        process(root, name, null, view) { usage -> result += usage; true }
         result.sortWith(compareBy<VarUsage>({ it.location.file.path }, { it.location.offset }))
         result
     }
 
     /** True when [name] is used anywhere in [root]; stops at the first use. */
-    fun hasUsages(root: AnsibleRoot, name: String): Boolean = readLocked {
+    fun hasUsages(root: AnsibleRoot, name: String, view: MoleculeView = MoleculeView.INCLUDE): Boolean = readLocked {
         var found = false
-        process(root, name, null) { found = true; false }
+        process(root, name, null, view) { found = true; false }
         found
     }
 
@@ -73,9 +76,15 @@ class VarUsageQuery(private val project: Project) {
      * false (Find Usages, F1.10). [scope] narrows the root's family further (a Find Usages dialog scope); null searches
      * the whole family. Returns false when [consumer] stopped the walk. Checks for cancellation once per file.
      */
-    fun process(root: AnsibleRoot, name: String, scope: GlobalSearchScope?, consumer: (VarUsage) -> Boolean): Boolean = readLocked {
+    fun process(
+        root: AnsibleRoot,
+        name: String,
+        scope: GlobalSearchScope?,
+        view: MoleculeView = MoleculeView.INCLUDE,
+        consumer: (VarUsage) -> Boolean,
+    ): Boolean = readLocked {
         val workspace = AnsibleWorkspace.getInstance(project)
-        val family = RootFamily.of(project, root, workspace)
+        val family = RootFamily.of(project, root, workspace, view)
         val searchScope = scope?.let { family.scope.intersectWith(it) } ?: family.scope
         FileBasedIndex.getInstance().processValues(
             VarUseIndex.NAME, name, null,
@@ -92,20 +101,20 @@ class VarUsageQuery(private val project: Project) {
      * The uses of [name] in one [file] of [root], in offset order, from that file's own index data (no lookup across
      * the root). Empty when [file] does not count for [root].
      */
-    fun usagesIn(root: AnsibleRoot, file: VirtualFile, name: String): List<VarUsage> =
-        usesOf(root, file, name) { FileBasedIndex.getInstance().getFileData(VarUseIndex.NAME, file, project)[name].orEmpty() }
+    fun usagesIn(root: AnsibleRoot, file: VirtualFile, name: String, view: MoleculeView = MoleculeView.INCLUDE): List<VarUsage> =
+        usesOf(root, file, name, view) { FileBasedIndex.getInstance().getFileData(VarUseIndex.NAME, file, project)[name].orEmpty() }
 
     /**
      * The uses of [name] among [entries], the `ansible.var.use` entries of [file] for that name as its indexer computes
      * them (the caret highlighting reads an open file that way, never the index), in offset order; empty when [file]
      * does not count for [root].
      */
-    fun usagesIn(root: AnsibleRoot, file: VirtualFile, name: String, entries: List<UseEntry>): List<VarUsage> =
-        usesOf(root, file, name) { entries }
+    fun usagesIn(root: AnsibleRoot, file: VirtualFile, name: String, entries: List<UseEntry>, view: MoleculeView = MoleculeView.INCLUDE): List<VarUsage> =
+        usesOf(root, file, name, view) { entries }
 
-    private fun usesOf(root: AnsibleRoot, file: VirtualFile, name: String, entries: () -> List<UseEntry>): List<VarUsage> = readLocked {
+    private fun usesOf(root: AnsibleRoot, file: VirtualFile, name: String, view: MoleculeView, entries: () -> List<UseEntry>): List<VarUsage> = readLocked {
         val workspace = AnsibleWorkspace.getInstance(project)
-        if (!counts(file, RootFamily.of(project, root, workspace), workspace)) return@readLocked emptyList()
+        if (!counts(file, RootFamily.of(project, root, workspace, view), workspace)) return@readLocked emptyList()
         entries().map { usage(name, file, it) }.sortedBy { it.location.offset }
     }
 

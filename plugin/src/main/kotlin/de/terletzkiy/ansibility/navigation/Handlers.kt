@@ -10,6 +10,8 @@ import de.terletzkiy.ansibility.api.FileKind
 import de.terletzkiy.ansibility.api.PlayGraph
 import de.terletzkiy.ansibility.api.PlayRef
 import de.terletzkiy.ansibility.api.RoleRegistry
+import de.terletzkiy.ansibility.context.MoleculeView
+import de.terletzkiy.ansibility.context.MoleculeVisibility
 import de.terletzkiy.ansibility.index.AnsibleIndexQueries
 import de.terletzkiy.ansibility.model.role.RoleLayout
 import de.terletzkiy.ansibility.model.task.BlockNode
@@ -89,6 +91,10 @@ internal object HandlerDefs {
  *
  * [isOpen] tells whether an unresolved name may still exist at runtime: a templated handler name in scope, or a play in
  * scope with a role the project cannot find. Everything stays inside [root].
+ *
+ * With [MoleculeView.EXCLUDE] (Ctrl+B and completion started outside Molecule while Molecule is hidden, plan amendment
+ * R20, D153) the plays of Molecule playbooks are not in the play scope and the root tier skips Molecule files; the
+ * unresolved-reference inspection keeps [MoleculeView.INCLUDE] (D155).
  */
 internal class HandlerScope(
     private val project: Project,
@@ -96,6 +102,7 @@ internal class HandlerScope(
     private val file: VirtualFile,
     private val context: FileContext,
     private val playIndex: Int?,
+    private val view: MoleculeView = MoleculeView.INCLUDE,
 ) {
     enum class Tier { QUALIFIED, OWN, PLAY, PLAY_SCOPE, ROOT }
 
@@ -128,7 +135,7 @@ internal class HandlerScope(
     /** For a role: the handlers of the other roles and the `handlers:` sections of the plays that apply it. */
     val playScope: List<Match> by lazy {
         val dir = ownRoleDir ?: return@lazy emptyList()
-        val plays = graph.playsApplying(root, dir.name)
+        val plays = MoleculeVisibility.playsInView(project, view, graph.playsApplying(root, dir.name))
         val sections = plays.flatMap { play -> HandlerDefs.ofPlay(project, play.file, play.playIndex).map { Match(it, Tier.PLAY_SCOPE) } }
         (sections + playRoles(plays, exclude = dir).map { it.copy(tier = Tier.PLAY_SCOPE) })
             .also { matches -> if (matches.any { it.def.isTemplated }) open = true }
@@ -182,6 +189,7 @@ internal class HandlerScope(
         return try {
             AnsibleIndexQueries.handlers(project, root, name)
                 .filter { (it.file to it.value.taskOffset) !in known }
+                .filter { view.includesMolecule || !MoleculeVisibility.isMoleculeFile(project, it.file) }
                 .map { Match(HandlerDef(name, it.value.listen, it.file, it.value.offset, it.context.roleName, it.value.taskOffset), Tier.ROOT) }
         } catch (_: IndexNotReadyException) {
             open = true

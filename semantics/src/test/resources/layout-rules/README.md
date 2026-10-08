@@ -7,7 +7,7 @@ from a neutral empty cwd. Paths are normalised to `{project}`, `{cwd}` and `{hom
 
 | Directory | Source | Records |
 |---|---|---|
-| `cfg-inventory-value-forms/` | the R10 research oracle (`docs/research/flat-layouts.md` §12), unchanged | its 25 `ansible-config dump` runs |
+| `cfg-inventory-value-forms/` | the R10 research oracle (`plan/research/flat-layouts.md` §12), unchanged | its 25 `ansible-config dump` runs |
 | `cfg-empty-inventory/` | the same oracle | the 2 dump runs (`dump-empty`, `dump-trailing-comma`); the graph runs live in `layout-oracle/` |
 | `cfg-multi-source/` | the same oracle | `config-dump`; the host and list runs live in `layout-oracle/` |
 | `probe-cfg-syntax/` | this unit's probe | 34 cfg files: configparser errors (rc 5) and accepted oddities |

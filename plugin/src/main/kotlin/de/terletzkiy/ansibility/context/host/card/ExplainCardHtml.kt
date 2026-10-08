@@ -15,6 +15,7 @@ import de.terletzkiy.ansibility.api.PrecedenceChain
 import de.terletzkiy.ansibility.api.SourceLocation
 import de.terletzkiy.ansibility.api.VarSourceRef
 import de.terletzkiy.ansibility.api.VarsLayer
+import de.terletzkiy.ansibility.context.MoleculeView
 import de.terletzkiy.ansibility.context.host.AnsibleContextServiceImpl
 import de.terletzkiy.ansibility.context.host.Evaluation
 import de.terletzkiy.ansibility.context.host.card.HostCardTexts.grayed
@@ -22,6 +23,7 @@ import de.terletzkiy.ansibility.context.host.card.HostCardTexts.message
 import de.terletzkiy.ansibility.context.switching.ContextTexts
 import de.terletzkiy.ansibility.model.effective.VarSourceRefs
 import de.terletzkiy.ansibility.settings.RootKeys
+import de.terletzkiy.ansibility.vars.NoLogVariables
 import de.terletzkiy.ansibility.vars.VarDocumentationTarget
 import de.terletzkiy.ansibility.vars.VarLinks
 
@@ -42,7 +44,8 @@ import de.terletzkiy.ansibility.vars.VarLinks
  * The chain is the service's ([AnsibleContextServiceImpl.explain], `PrecedenceEngine.effectiveOf` on the ExecutionView of
  * the context, the running role's defaults and vars applied last), plus the block or task var in force where the card
  * was opened ([TaskVars], at level 15). Values are the engine's vault-safe previews; vault values are masked with the
- * vault area's Reveal link ([HostCardTexts.value]). Call in a read action in smart mode.
+ * vault area's Reveal link ([HostCardTexts.value]), and a variable a spec keeps secret ([NoLogVariables]) shows no value
+ * and no chain (a chain through one ends hidden). Call in a read action in smart mode.
  */
 internal class ExplainCardHtml(
     private val project: Project,
@@ -50,6 +53,11 @@ internal class ExplainCardHtml(
     private val request: ExplainLinks.Request,
     private val origin: VarDocumentationTarget?,
 ) {
+    private val noLog: (String) -> Boolean = { NoLogVariables.isNoLog(project, root, it, MoleculeView.INCLUDE) }
+
+    /** The explained variable is a secret by its spec: no value of it is shown. */
+    private val hidden by lazy(LazyThreadSafetyMode.NONE) { noLog(request.name) }
+
     fun render(): String {
         val out = StringBuilder()
         definition().appendTo(out)
@@ -111,7 +119,7 @@ internal class ExplainCardHtml(
             listOf(
                 HtmlChunk.text(HostCardTexts.layerName(source)),
                 HostCardTexts.definitionLink(project, root, source),
-                HtmlChunk.fragment(HtmlChunk.text("= "), HostCardTexts.value(project, source)),
+                HtmlChunk.fragment(HtmlChunk.text("= "), HostCardTexts.value(project, source, hidden)),
             ),
         )
         val outcome = when (step.outcome) {
@@ -126,11 +134,12 @@ internal class ExplainCardHtml(
 
     /** Where a bare `{{ other }}` winner resolves in this context (nothing for a masked winner, [ValueChains.follow]). */
     private fun resolvedTo(evaluation: Evaluation, taskVars: TaskVars): HtmlChunk? {
+        if (hidden) return null
         val effective = evaluation.effectiveOf(request.name)
         val shadowed = effective?.shadowed?.mapNotNull { VarSourceRefs.ref(it, evaluation.origins) }.orEmpty()
         val (winner, _) = taskVars.outcome(effective?.let(evaluation::ref), shadowed) ?: return null
         val value = if (winner === taskVars.applied) TaskVars.valueOf(project, winner) else effective?.value
-        return value?.let { ValueChains.follow(evaluation, request.name, winner, it) }?.let { HostCardTexts.chain(project, root, it) }
+        return value?.let { ValueChains.follow(evaluation, request.name, winner, it) }?.let { HostCardTexts.chain(project, root, it, noLog) }
     }
 
     /** `may be replaced at runtime by set_fact at …` and the templated `vars_files` entries that may define the name. */
@@ -158,7 +167,7 @@ internal class ExplainCardHtml(
         val origin = origin ?: return null
         val context = origin.cardContext()
         if (AnsibleWorkspace.getInstance(project).rootFor(context.file) == null) return null
-        val scope = impl.hostScope(context.file, HostCardViews.scopeOffset(origin.definitionLocation, context))
+        val scope = impl.cardScope(context.file, HostCardViews.scopeOffset(origin.definitionLocation, context))
         val role = impl.runningRole(scope)
         val others = scope.targets.distinctBy { it.host }.filter { it.host != target.host }.take(MAX_OTHER_HOSTS)
         if (others.isEmpty()) return null

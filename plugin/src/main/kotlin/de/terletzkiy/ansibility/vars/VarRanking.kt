@@ -11,11 +11,15 @@ import de.terletzkiy.ansibility.api.SpecBinding
 import de.terletzkiy.ansibility.api.VarDefKind
 import de.terletzkiy.ansibility.api.VarDefinition
 import de.terletzkiy.ansibility.api.VarSymbol
+import de.terletzkiy.ansibility.context.MoleculeView
+import de.terletzkiy.ansibility.context.MoleculeVisibility
 
 /**
  * How the roles that declare one variable are ranked (plan F1.5), for the card's primary spec and the Ctrl+B chooser:
  * the file's own role → roles applied by the same plays → roles whose spec *and* defaults both define the name →
- * the rest; ties by name. Every role here belongs to [root]; the symbol is already root-scoped.
+ * the rest; ties by name. Every role here belongs to [root]; the symbol is already root-scoped (and already in the
+ * request's [view]). With [MoleculeView.EXCLUDE] the plays of Molecule files (converge, verify) do not count as the
+ * same plays (plan amendment R20, D153).
  */
 internal class VarRanking(
     private val project: Project,
@@ -26,6 +30,8 @@ internal class VarRanking(
     private val file: VirtualFile,
     private val fileKind: FileKind?,
     val symbol: VarSymbol,
+    /** What the request sees of Molecule content. */
+    private val view: MoleculeView = MoleculeView.INCLUDE,
 ) {
     private val playRoles: Set<String> by lazy(LazyThreadSafetyMode.NONE) { rolesInSamePlays() }
 
@@ -78,7 +84,7 @@ internal class VarRanking(
         val result = HashSet<String>()
         val own = ownRole
         if (own != null) {
-            for (play in graph.playsApplying(root, own)) {
+            for (play in MoleculeVisibility.playsInView(project, view, graph.playsApplying(root, own))) {
                 ProgressManager.checkCanceled()
                 graph.rolesOfPlay(play).mapTo(result) { it.name }
             }
