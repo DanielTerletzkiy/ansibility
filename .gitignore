@@ -6,6 +6,8 @@ build/
 .idea/
 *.iml
 out/
+__pycache__/
+*.pyc
 
 # Local-only test fixture.
 plugin/src/test/testData/infra/

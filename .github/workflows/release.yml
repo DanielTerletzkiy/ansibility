@@ -39,6 +39,21 @@ jobs:
         with:
           fetch-depth: 0
 
+      # verifyPlugin downloads several full IDEs.
+      - uses: jlumbroso/free-disk-space@v2.0.0
+        with:
+          tool-cache: false
+          large-packages: false
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: true
+
       - name: Bump version
         id: version
         env:
@@ -60,23 +75,9 @@ jobs:
             exit 1
           fi
           sed -i "s/^pluginVersion *=.*/pluginVersion = $version/" gradle.properties
+          ./gradlew :plugin:patchChangelog
           echo "Releasing $current -> $version"
           echo "version=$version" >> "$GITHUB_OUTPUT"
-
-      # verifyPlugin downloads several full IDEs.
-      - uses: jlumbroso/free-disk-space@v2.0.0
-        with:
-          tool-cache: false
-          large-packages: false
-
-      - uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: 25
-
-      - uses: gradle/actions/setup-gradle@v6
-        with:
-          cache-read-only: true
 
       - name: Test and verify
         run: ./gradlew check verifyPlugin
@@ -123,7 +124,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "Release v$VERSION" -- gradle.properties
+          git commit -m "Release v$VERSION" -- gradle.properties CHANGELOG.md
           git tag "v$VERSION"
           git push origin "v$VERSION"
           if ! git push origin HEAD:main; then
@@ -139,10 +140,11 @@ jobs:
         run: |
           zip="plugin/build/distributions/Ansibility-$VERSION.zip"
           [[ "$PUBLISHED" == true ]] && zip="plugin/build/distributions/Ansibility-$VERSION-signed.zip"
+          ./gradlew -q :plugin:getChangelog --no-header --console=plain > release-notes.md
           gh release create "v$VERSION" \
             --verify-tag \
             --title "v$VERSION" \
-            --generate-notes \
+            --notes-file release-notes.md \
             ${{ inputs.channel != 'default' && '--prerelease' || '' }} \
             "$zip"
 

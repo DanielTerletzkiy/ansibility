@@ -4,6 +4,7 @@ import org.jetbrains.intellij.platform.gradle.tasks.VerifyPluginTask.FailureLeve
 import org.gradle.api.tasks.PathSensitivity
 import org.jetbrains.kotlin.gradle.dsl.JvmDefaultMode
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import org.jetbrains.changelog.Changelog
 import java.util.Locale
 import java.util.Properties
 
@@ -11,6 +12,7 @@ plugins {
     id("org.jetbrains.kotlin.jvm")
     id("org.jetbrains.intellij.platform")
     id("org.jetbrains.kotlinx.kover")
+    id("org.jetbrains.changelog")
 }
 
 repositories {
@@ -43,6 +45,11 @@ dependencies {
     }
 }
 
+changelog {
+    version = providers.gradleProperty("pluginVersion")
+    path = rootProject.file("CHANGELOG.md").canonicalPath
+}
+
 intellijPlatform {
     // Names the distribution: build/distributions/Ansibility-<version>.zip containing Ansibility/lib/*.jar.
     projectName = providers.gradleProperty("pluginName")
@@ -51,6 +58,16 @@ intellijPlatform {
         id = providers.gradleProperty("pluginGroup")
         name = providers.gradleProperty("pluginName")
         version = providers.gradleProperty("pluginVersion")
+        changeNotes = providers.gradleProperty("pluginVersion").map { pluginVersion ->
+            with(changelog) {
+                renderItem(
+                    (getOrNull(pluginVersion) ?: getUnreleased())
+                        .withHeader(false)
+                        .withEmptySections(false),
+                    Changelog.OutputType.HTML,
+                )
+            }
+        }
         ideaVersion {
             sinceBuild = providers.gradleProperty("pluginSinceBuild")
             untilBuild = provider { null }
