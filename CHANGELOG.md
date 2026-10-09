@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.0.4 - 2026-10-09
+
 ### Added
 
 - **Golden Root & Role Drift**:
