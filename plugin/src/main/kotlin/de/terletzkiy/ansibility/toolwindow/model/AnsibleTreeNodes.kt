@@ -27,6 +27,33 @@ enum class NodeIcon {
 
     /** R9: a plain file of a role's listing. */
     FILE,
+
+    /** R24: the "Differences from golden" folder of a role copy and its category groups (a yellow folder). */
+    DRIFT_FOLDER,
+
+    /** R24 follow-up: the standard directories of a role, by what Ansible loads from them ([RoleDirectoryIcons]). */
+    ROLE_TASKS, ROLE_HANDLERS, ROLE_VARS, ROLE_META, ROLE_TEMPLATES, ROLE_FILES, ROLE_TESTS, ROLE_PLUGINS,
+}
+
+/** The icon of a directory directly inside a role ("tasks", "defaults", "molecule", "filter_plugins"): see [of]. */
+object RoleDirectoryIcons {
+    /**
+     * [NodeIcon.ROLE_TASKS] for `tasks`, [NodeIcon.ROLE_HANDLERS] for `handlers`, [NodeIcon.ROLE_VARS] for `defaults`
+     * and `vars`, [NodeIcon.ROLE_META] for `meta`, [NodeIcon.ROLE_TEMPLATES] for `templates`, [NodeIcon.ROLE_FILES]
+     * for `files`, [NodeIcon.ROLE_TESTS] for `molecule` and `tests`, [NodeIcon.ROLE_PLUGINS] for `library`,
+     * `module_utils` and every `*_plugins`; any other directory is a plain [NodeIcon.FOLDER].
+     */
+    fun of(name: String): NodeIcon = when {
+        name == "tasks" -> NodeIcon.ROLE_TASKS
+        name == "handlers" -> NodeIcon.ROLE_HANDLERS
+        name == "defaults" || name == "vars" -> NodeIcon.ROLE_VARS
+        name == "meta" -> NodeIcon.ROLE_META
+        name == "templates" -> NodeIcon.ROLE_TEMPLATES
+        name == "files" -> NodeIcon.ROLE_FILES
+        name == "molecule" || name == "tests" -> NodeIcon.ROLE_TESTS
+        name == "library" || name == "module_utils" || name.endsWith("_plugins") -> NodeIcon.ROLE_PLUGINS
+        else -> NodeIcon.FOLDER
+    }
 }
 
 /** A marker after a node's icon (plan amendment R16): a role's Molecule tests, running, or how their last run went. */
@@ -49,8 +76,16 @@ enum class NodeMarker {
 enum class NodeStyle { NORMAL, EMPHASIZED, STRUCK }
 
 /**
- * How a node renders: [name] in the regular colour (bold or struck through by [style]), an optional [badge] after it in
- * the regular colour (a host's address), [extra] in grey after that, [tooltip] lines on hover.
+ * The colour of a node's name (plan amendment R24, D179): the VCS file-status colours a file has against the golden
+ * copy (changed, only in this copy, only in the golden copy). The UI layer maps them to the colour scheme's
+ * `FILESTATUS_*` keys.
+ */
+enum class NodeColor { MODIFIED, ADDED, DELETED }
+
+/**
+ * How a node renders: [name] in the regular colour or [color] (bold or struck through by [style]), an optional [badge]
+ * after it in the regular colour (a host's address, a role's drift tier), [extra] in grey after that, [tooltip] lines
+ * on hover.
  */
 data class NodePresentation(
     @Nls val name: String,
@@ -60,6 +95,7 @@ data class NodePresentation(
     val style: NodeStyle = NodeStyle.NORMAL,
     @Nls val badge: String? = null,
     val marker: NodeMarker? = null,
+    val color: NodeColor? = null,
 ) {
     /** The row as one string (name, badge and extra separated by two spaces), for speed search and tests. */
     val text: String get() = listOfNotNull(name, badge?.takeIf { it.isNotEmpty() }, extra?.takeIf { it.isNotEmpty() }).joinToString("  ")
@@ -78,6 +114,21 @@ fun interface TreeContext {
 }
 
 /**
+ * What a node may do when it is activated (double-click, Enter or F4) instead of opening its target (plan amendment
+ * R24): the tool window panel provides it.
+ */
+interface NodeActivation {
+    /**
+     * Runs the registered action [id] with the tree's data context (the selected node's data); false when no such
+     * action is registered or it is disabled there.
+     */
+    fun runAction(id: String): Boolean
+
+    /** Opens [target]; false when it is gone. */
+    fun navigate(target: NavigationTarget): Boolean
+}
+
+/**
  * One node of the Ansible tree (plan F6.1): an immutable view over a [WorkspaceSnapshot].
  *
  * Equality is by class and [key], the node's path in the tree, never by content. After a refresh the tree reuses
@@ -85,7 +136,14 @@ fun interface TreeContext {
  * while the text is fresh.
  */
 abstract class AnsibleTreeNode(val parent: AnsibleTreeNode?, segment: String) {
-    val key: String = if (parent == null) segment else "${parent.key}/$segment"
+    val key: String = if (parent == null) segment else "${parent.childKeyBase}/$segment"
+
+    /**
+     * What the keys of this node's children start with: its own [key]. A grouping row that its children's keys ignore
+     * (Group by Variant, plan amendment R24, X123) returns its parent's, so a copy row keeps the same key, and with it
+     * its expansion and selection, whether it is grouped or not.
+     */
+    open val childKeyBase: String get() = key
 
     /**
      * The project the tree shows, found through the parent chain (the [WorkspaceNode] holds it); null for synthetic
@@ -93,7 +151,16 @@ abstract class AnsibleTreeNode(val parent: AnsibleTreeNode?, segment: String) {
      */
     open val project: Project? get() = parent?.project
 
+    /** The snapshot the tree shows, found like [project]; null for nodes built outside a [WorkspaceNode]. */
+    open val snapshot: WorkspaceSnapshot? get() = parent?.snapshot
+
     abstract fun presentation(): NodePresentation
+
+    /**
+     * Double-click, Enter and F4 ask this first (plan amendment R24): true when the node handled the activation itself
+     * (a drift file row runs Compare with Golden), false for the default (open [target], or expand).
+     */
+    open fun activate(activation: NodeActivation): Boolean = false
 
     /** Where double-click, Enter or F4 jumps to (plan F6.3), or null for pure containers. */
     open val target: NavigationTarget? get() = null
@@ -129,15 +196,25 @@ abstract class AnsibleTreeNode(val parent: AnsibleTreeNode?, segment: String) {
     override fun toString(): String = presentation().text
 }
 
-/** The invisible root: one node per non-detached root, then one per detached worktree. */
-class WorkspaceNode(val snapshot: WorkspaceSnapshot, val view: TreeView = TreeView.REPOS) : AnsibleTreeNode(null, view.segment) {
+/**
+ * The invisible root: one node per non-detached root, then one per detached worktree. In the Roles tab, [driftedOnly]
+ * (the toolbar's Drifted Only, plan amendment R24, D179) keeps the role names whose known drift has a copy that
+ * differs from the golden root, and [groupByVariant] (Group by Variant, X123) lists a name's copies in variant groups
+ * ([VariantGroupNode]); without a golden root neither has an effect (the toggles are hidden then).
+ */
+class WorkspaceNode(
+    override val snapshot: WorkspaceSnapshot,
+    val view: TreeView = TreeView.REPOS,
+    val driftedOnly: Boolean = false,
+    val groupByVariant: Boolean = false,
+) : AnsibleTreeNode(null, view.segment) {
     override val project: Project? get() = snapshot.project
 
     override fun presentation() = NodePresentation(message("toolwindow.title"), icon = NodeIcon.WORKSPACE)
 
     override fun children(context: TreeContext): List<AnsibleTreeNode> = when (view) {
         TreeView.REPOS -> snapshot.roots.map { RootNode(this, it) } + snapshot.worktrees.map { WorktreeNode(this, it) }
-        TreeView.ROLES -> RoleNameNode.all(this, snapshot)
+        TreeView.ROLES -> RoleNameNode.all(this, snapshot).let { names -> if (driftedOnly && snapshot.golden.isSet) names.filter { it.drifts() } else names }
         TreeView.ENVIRONMENTS -> EnvironmentNameNode.all(this, snapshot)
     }
 }

@@ -28,6 +28,22 @@ object AnsibilityToolWindowIcons {
     @JvmField
     val Host: Icon = load("/icons/ansibleHost.svg")
 
+    /** The "Differences from golden" folder and its groups: the platform's new-UI folder, in yellow (R24). */
+    @JvmField
+    val DriftFolder: Icon = load("/icons/driftFolder.svg")
+
+    /** A role's `defaults/` and `vars/`: a folder with the variable badge. */
+    @JvmField
+    val RoleVarsFolder: Icon = load("/icons/roleVarsFolder.svg")
+
+    /** A role's `handlers/`: a folder with a lightning badge (handlers run when notified). */
+    @JvmField
+    val RoleHandlersFolder: Icon = load("/icons/roleHandlersFolder.svg")
+
+    /** A role's `meta/`: a folder with an info badge. */
+    @JvmField
+    val RoleMetaFolder: Icon = load("/icons/roleMetaFolder.svg")
+
     /** A role's Molecule tests (the flask of the run area's Molecule icons). */
     @JvmField
     val Molecule: Icon = load("/icons/molecule.svg")
@@ -61,6 +77,16 @@ object AnsibilityToolWindowIcons {
         NodeIcon.ROLE -> AllIcons.Nodes.Package
         NodeIcon.RUNTIME -> AllIcons.Actions.Lightning
         NodeIcon.FILE -> AllIcons.FileTypes.Any_type
+        NodeIcon.DRIFT_FOLDER -> DriftFolder
+        // The role's directories: the platform's source/template/resource/test/library folders where they fit.
+        NodeIcon.ROLE_TASKS -> AllIcons.Modules.SourceRoot
+        NodeIcon.ROLE_HANDLERS -> RoleHandlersFolder
+        NodeIcon.ROLE_VARS -> RoleVarsFolder
+        NodeIcon.ROLE_META -> RoleMetaFolder
+        NodeIcon.ROLE_TEMPLATES -> AllIcons.Nodes.TemplateRoot
+        NodeIcon.ROLE_FILES -> AllIcons.Modules.ResourcesRoot
+        NodeIcon.ROLE_TESTS -> AllIcons.Modules.TestRoot
+        NodeIcon.ROLE_PLUGINS -> AllIcons.Nodes.PpLibFolder
     }
 
     /** A definition another one shadows: the variable icon, greyed. */

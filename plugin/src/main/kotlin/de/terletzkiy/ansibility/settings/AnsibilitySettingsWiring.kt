@@ -22,7 +22,8 @@ import java.util.concurrent.atomic.AtomicBoolean
  * - resets the JSON schema mappings ([JsonSchemaService.reset], public in 262) when the SchemaStore exclusion is
  *   toggled, so the catalog schemas are re-assigned to the task and playbook files at once;
  * - restarts highlighting after any change of the effective project settings, since severities and semantics
- *   depend on them.
+ *   depend on them; except a change of the role-drift settings alone ([DriftSettings], plan amendment R24, D177):
+ *   no inspection reads them, and the drift service and the tool window follow the settings event themselves.
  *
  * [install] runs from [AnsibilitySettingsActivity] when the project opens; calling it again only re-installs the hook.
  */
@@ -53,7 +54,7 @@ class AnsibilitySettingsWiring(private val project: Project) : Disposable {
     }
 
     private fun settingsChanged(old: ProjectSettings, new: ProjectSettings) {
-        if (project.isDisposed || old == new) return
+        if (project.isDisposed || !affectsHighlighting(old, new)) return
         if (targetCores(old) != targetCores(new)) applyTargetOverrides()
         if (structuralPaths(old.paths) != structuralPaths(new.paths)) {
             AnsibleWorkspace.getInstance(project).refreshStructure()
@@ -70,6 +71,9 @@ class AnsibilitySettingsWiring(private val project: Project) : Disposable {
         private const val RESTART_REASON = "Ansibility project settings changed"
 
         fun getInstance(project: Project): AnsibilitySettingsWiring = project.service()
+
+        /** Whether going from [old] to [new] restarts highlighting: any change except one of the drift settings alone. */
+        internal fun affectsHighlighting(old: ProjectSettings, new: ProjectSettings): Boolean = old != new && !old.differsOnlyInDrift(new)
 
         /** The explicit targets by root key; only they feed the detector. */
         internal fun targetCores(settings: ProjectSettings): Map<String, String> =

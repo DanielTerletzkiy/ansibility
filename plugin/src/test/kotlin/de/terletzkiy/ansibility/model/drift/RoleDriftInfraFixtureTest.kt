@@ -22,6 +22,7 @@ class RoleDriftInfraFixtureTest : BasePlatformTestCase() {
         super.setUp()
         myFixture.copyDirectoryToProject(InfraTestData.INFRA, "")
         ModelFixture.rescan(project)
+        DriftFixture.useGolden(project, testRootDisposable)
         service = DriftFixture.freshService(project, testRootDisposable)
         drifts = DriftFixture.await { service.driftAll() }.associateBy { it.name }
     }

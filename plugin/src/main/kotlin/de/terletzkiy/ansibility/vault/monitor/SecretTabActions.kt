@@ -68,7 +68,7 @@ object SecretTabActions {
     }
 
     /** "Encrypt Files…" (`VaultFileOperations.encrypt`: one confirmation for several files, the id question per root). */
-    class Encrypt : TabAction(message("monitor.action.encrypt"), message("monitor.action.encrypt.description"), AllIcons.Nodes.Locked) {
+    class Encrypt : TabAction(message("monitor.action.encrypt"), message("monitor.action.encrypt.description"), AllIcons.Ide.Readonly) {
         override fun applicable(selected: List<SecretFinding>) = selected.filter { it.fix == SecretFix.ENCRYPT }
 
         override fun perform(project: Project, findings: List<SecretFinding>) {

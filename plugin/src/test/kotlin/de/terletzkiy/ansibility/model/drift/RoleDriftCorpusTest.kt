@@ -39,6 +39,7 @@ class RoleDriftCorpusTest : BasePlatformTestCase() {
     }
 
     fun testMeasuredDriftOfTheRealRepo() = withRepo { repo ->
+        DriftFixture.useGolden(project, testRootDisposable)
         val service = DriftFixture.freshService(project, testRootDisposable)
         service.sensitiveContent = SensitiveContent.SIZE_ONLY
         val catalog = RoleCatalog.getInstance(project).snapshot()

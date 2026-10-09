@@ -120,7 +120,7 @@
         <action id="Ansibility.Vault.ChangeFileId" class="de.terletzkiy.ansibility.vault.actions.ChangeFileIdAction">
             <synonym key="action.Ansibility.Vault.ChangeFileId.synonym"/>
         </action>
-        <action id="Ansibility.Vault.NewFile" class="de.terletzkiy.ansibility.vault.actions.NewVaultFileAction" icon="AllIcons.Nodes.Locked">
+        <action id="Ansibility.Vault.NewFile" class="de.terletzkiy.ansibility.vault.actions.NewVaultFileAction" icon="AllIcons.Ide.Readonly">
             <synonym key="action.Ansibility.Vault.NewFile.synonym"/>
             <add-to-group group-id="NewGroup" anchor="last"/>
         </action>

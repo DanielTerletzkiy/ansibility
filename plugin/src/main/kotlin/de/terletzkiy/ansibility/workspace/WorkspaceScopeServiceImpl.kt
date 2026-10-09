@@ -27,9 +27,11 @@ import de.terletzkiy.ansibility.api.ScopeChoice
 import de.terletzkiy.ansibility.api.WorkspaceScope
 import de.terletzkiy.ansibility.api.WorkspaceScopeService
 import de.terletzkiy.ansibility.context.AnsibleStructureListener
+import de.terletzkiy.ansibility.model.role.GoldenRoots
 import de.terletzkiy.ansibility.settings.AnsibilityProjectSettings
 import de.terletzkiy.ansibility.settings.AnsibilitySettingsListener
 import de.terletzkiy.ansibility.settings.AnsibilityWorkspaceState
+import de.terletzkiy.ansibility.settings.GoldenRoot
 import de.terletzkiy.ansibility.settings.ProjectSettings
 import de.terletzkiy.ansibility.settings.RootKeys
 import de.terletzkiy.ansibility.settings.WorkspaceState
@@ -94,7 +96,8 @@ data class RootOption(val key: String, @Nls val label: String, @Nls val nestedIn
  *   named scope and, once the selector was opened, for every listed scope. Dynamic predefined scopes (Open Files,
  *   Changed Files) are re-evaluated on [refresh] (tool-window activation and its Refresh button).
  * - [modificationTracker] = choice + editor root (under Current file's root) + holders + refreshes + structure +
- *   project roots + project settings; [WorkspaceScopeListener.TOPIC] is published after every move (project roots
+ *   project roots + project settings (also the drift settings: the golden root decides [WorkspaceScope.references],
+ *   plan amendment R24); [WorkspaceScopeListener.TOPIC] is published after every move (project roots
  *   through [ModuleRootListener], project settings through [AnsibilitySettingsListener.projectSettingsChanged]).
  *
  * VFS-only and DumbAware; [current] is cheap from any thread. It narrows lists only, never resolution: no resolver,
@@ -125,7 +128,9 @@ class WorkspaceScopeServiceImpl(private val project: Project, private val cs: Co
     private val choiceTracker = SimpleModificationTracker()
     private val scopesTracker = SimpleModificationTracker()
 
-    override val modificationTracker: ModificationTracker = ModificationTracker { choiceTracker.modificationCount + coverageStamp() }
+    override val modificationTracker: ModificationTracker = ModificationTracker {
+        choiceTracker.modificationCount + coverageStamp() + AnsibilityProjectSettings.getInstance(project).driftModificationTracker.modificationCount
+    }
 
     @Volatile
     private var cached: WorkspaceScopeImpl? = null
@@ -258,7 +263,7 @@ class WorkspaceScopeServiceImpl(private val project: Project, private val cs: Co
     private fun build(stamp: Long): WorkspaceScopeImpl {
         val all = workspace().roots()
         val roots = WorkspaceSnapshotBuilder.displayOrder(all.filter { !it.detached })
-        val references = roots.filter { it.kind == RootKind.ROLE_LIBRARY }
+        val references = references(roots)
         return when (val choice = choice()) {
             ScopeChoice.AllRoots -> fixed(
                 choice, ScopeMembership.Everything, ScopeCoverage.all(roots), references,
@@ -390,6 +395,17 @@ class WorkspaceScopeServiceImpl(private val project: Project, private val cs: Co
         coverages[key] = CoverageEntry(stamp, text, coverage)
         return coverage
     }
+
+    /**
+     * The roots kept as drift references outside the scope (plan amendment R24, D177): none without a golden root,
+     * every role library for "first role library" (each name's reference may be in any of them), else the chosen root.
+     */
+    private fun references(roots: List<AnsibleRoot>): List<AnsibleRoot> =
+        when (val golden = AnsibilityProjectSettings.getInstance(project).settings.drift.golden) {
+            GoldenRoot.None -> emptyList()
+            GoldenRoot.FirstRoleLibrary -> roots.filter { it.kind == RootKind.ROLE_LIBRARY }
+            is GoldenRoot.Root -> listOfNotNull(GoldenRoots.resolve(project, golden, roots).root)
+        }
 
     private fun coverageStamp(): Long =
         scopesTracker.modificationCount +

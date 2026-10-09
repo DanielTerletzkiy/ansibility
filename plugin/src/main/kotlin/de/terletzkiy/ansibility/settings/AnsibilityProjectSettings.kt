@@ -23,14 +23,17 @@ import de.terletzkiy.ansibility.semantics.CoreVersion
  * so a teammate who clones the repo gets them, and sharing is on for them too. Turning sharing off copies the shared
  * settings back into the workspace file and empties the shared file.
  *
- * [settings] is an immutable snapshot, safe to read from any thread. Every change bumps [modificationTracker] and
- * publishes [AnsibilitySettingsListener.projectSettingsChanged] with the old and new effective settings.
+ * [settings] is an immutable snapshot, safe to read from any thread. Every change publishes
+ * [AnsibilitySettingsListener.projectSettingsChanged] with the old and new effective settings and bumps
+ * [modificationTracker], except a change of the role-drift settings alone ([DriftSettings], plan amendment R24,
+ * D177), which bumps only [driftModificationTracker]: the golden root re-tiers the drift without a rescan.
  */
 @Service(Service.Level.PROJECT)
 @State(name = "AnsibilityProjectSettings", storages = [Storage(StoragePathMacros.WORKSPACE_FILE)])
 class AnsibilityProjectSettings(private val project: Project) : PersistentStateComponent<ProjectSettingsBean> {
     private val lock = Any()
     private val tracker = SimpleModificationTracker()
+    private val driftTracker = SimpleModificationTracker()
 
     @Volatile
     private var local: ProjectSettings = ProjectSettings.DEFAULT
@@ -44,9 +47,16 @@ class AnsibilityProjectSettings(private val project: Project) : PersistentStateC
     val settings: ProjectSettings
         get() = shared.sharedSettings ?: local
 
-    /** Bumped on every change of the effective settings; a dependency for caches that read them. */
+    /**
+     * Bumped on every change of the effective settings except one of [ProjectSettings.drift] alone; a dependency for
+     * caches that read them. Caches that read the drift settings depend on [driftModificationTracker] too.
+     */
     val modificationTracker: ModificationTracker
         get() = tracker
+
+    /** Bumped whenever [ProjectSettings.drift] changes (the golden root, Ignore molecule/); see [modificationTracker]. */
+    val driftModificationTracker: ModificationTracker
+        get() = driftTracker
 
     /** Whether the settings are shared with the team through `.idea/ansibility.xml`. */
     val isSharedWithTeam: Boolean
@@ -149,7 +159,8 @@ class AnsibilityProjectSettings(private val project: Project) : PersistentStateC
     }
 
     private fun changed(old: ProjectSettings, new: ProjectSettings) {
-        tracker.incModificationCount()
+        if (!old.differsOnlyInDrift(new)) tracker.incModificationCount()
+        if (old.drift != new.drift) driftTracker.incModificationCount()
         if (!project.isDisposed) project.messageBus.syncPublisher(AnsibilitySettingsListener.TOPIC).projectSettingsChanged(old, new)
     }
 

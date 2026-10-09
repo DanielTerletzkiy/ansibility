@@ -44,7 +44,7 @@ import org.jetbrains.yaml.psi.YAMLSequenceItem
 class VaultLineMarkerProvider : LineMarkerProviderDescriptor(), DumbAware {
     override fun getName(): String = AnsibilityVaultUiBundle.message("gutter.name")
 
-    override fun getIcon(): Icon = AllIcons.Nodes.Locked
+    override fun getIcon(): Icon = AllIcons.Ide.Readonly
 
     override fun getLineMarkerInfo(element: PsiElement): LineMarkerInfo<*>? {
         val scalar = scalarFor(element) ?: return null
@@ -56,8 +56,8 @@ class VaultLineMarkerProvider : LineMarkerProviderDescriptor(), DumbAware {
         val label = status.identity?.label ?: status.header.labelOrDefault()
         val (icon, tooltip) = when (status.lockState) {
             VaultLockState.UNLOCKED -> AllIcons.Ide.Readwrite to AnsibilityVaultUiBundle.message("gutter.tooltip.unlocked", label)
-            VaultLockState.LOCKED -> AllIcons.Nodes.Locked to AnsibilityVaultUiBundle.message("gutter.tooltip.locked", label)
-            VaultLockState.NO_IDENTITY -> AllIcons.Nodes.Locked to AnsibilityVaultUiBundle.message("gutter.tooltip.none")
+            VaultLockState.LOCKED -> AllIcons.Ide.Readonly to AnsibilityVaultUiBundle.message("gutter.tooltip.locked", label)
+            VaultLockState.NO_IDENTITY -> AllIcons.Ide.Readonly to AnsibilityVaultUiBundle.message("gutter.tooltip.none")
         }
         return VaultLineMarkerInfo(element, icon, tooltip)
     }

@@ -2,6 +2,8 @@ package de.terletzkiy.ansibility.model.drift
 
 import de.terletzkiy.ansibility.api.VaultHeaderInfo
 import de.terletzkiy.ansibility.context.AnsibleLayout
+import de.terletzkiy.ansibility.semantics.secrets.KeyLikeNames
+import de.terletzkiy.ansibility.semantics.secrets.PrivateKeySignatures
 import java.security.MessageDigest
 
 /**
@@ -104,14 +106,17 @@ object DriftRules {
 
     /**
      * Whether the path (relative to the role directory) names key material or a secret: `*.key`, `*.pem`, `*.crt`,
-     * `*.password`, keystores, `.env*`, `.vault-pass`, names starting with `vault`, and anything below a `files/ssl`
-     * or `files/ssh` directory (also inside molecule scenarios). Such files are fingerprinted, never shown.
+     * `*.password`, keystores and DER keys (`PrivateKeySignatures.isKeystoreName`, also an extensionless `id_rsa` or
+     * `id_ed25519`), `.env*`, `.vault-pass`, names starting with `vault`, R21's key-like names (`KeyLikeNames`), and
+     * anything below a `files/ssl` or `files/ssh` directory (also inside molecule scenarios). Names and directories
+     * are compared ignoring case (`files/SSH/id_rsa`). Such files are fingerprinted, never shown.
      */
     fun isSensitivePath(relPath: String): Boolean {
-        val segments = relPath.split('/')
-        val name = segments.last().lowercase()
+        val segments = relPath.lowercase().split('/')
+        val name = segments.last()
         if (name in SENSITIVE_NAMES || name.startsWith(".env") || name.startsWith("vault")) return true
         if (name.substringAfterLast('.', "") in SENSITIVE_EXTENSIONS) return true
+        if (PrivateKeySignatures.isKeystoreName(name) || KeyLikeNames.of(segments.dropLast(1), name) != null) return true
         return (0 until segments.size - 2).any { segments[it] == "files" && segments[it + 1] in SENSITIVE_DIRS }
     }
 

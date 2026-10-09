@@ -10,6 +10,7 @@ import de.terletzkiy.ansibility.context.AnsibleStructureListener
 import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.settings.AnsibilityProjectSettings
 import de.terletzkiy.ansibility.settings.AnsibilityWorkspaceState
+import de.terletzkiy.ansibility.settings.GoldenRoot
 import de.terletzkiy.ansibility.settings.SettingsTestSupport
 
 /**
@@ -34,7 +35,7 @@ class WorkspaceScopeServiceTest : WorkspaceScopeTestCase() {
         assertSame("the registered implementation", service, WorkspaceScopeService.getInstance(project))
         assertEquals(allRoots, names(scope.roots))
         assertTrue(scope.partial.isEmpty())
-        assertEquals(listOf("golden"), names(scope.references))
+        assertEquals("plan amendment R24: no golden root by default, so no drift reference", emptyList<String>(), names(scope.references))
         assertNull(scope.problem)
         assertEquals("All roots", service.currentScope().label)
         assertTrue(scope.contains(vf("repos/falcon/ansible/roles/haproxy/tasks/main.yml")))
@@ -44,10 +45,41 @@ class WorkspaceScopeServiceTest : WorkspaceScopeTestCase() {
         assertFalse("files outside every root are not in a workspace scope", scope.contains(outside))
     }
 
+    // ------------------------------------------------------------------------------------------------ drift references (R24)
+
+    private fun golden(golden: GoldenRoot) {
+        AnsibilityProjectSettings.getInstance(project).update { it.copy(drift = it.drift.copy(golden = golden)) }
+    }
+
+    fun testReferencesFollowTheGoldenRootSetting() {
+        copyInfra()
+        addScope("falcon", "file:repos/falcon//*")
+        service.set(ScopeChoice.Named("falcon"))
+        assertEquals(emptyList<String>(), names(service.current().references))
+
+        val stamp = service.modificationTracker.modificationCount
+        golden(GoldenRoot.FirstRoleLibrary)
+        assertTrue("the golden root moves the tracker", service.modificationTracker.modificationCount > stamp)
+        assertEquals("every role library", listOf("golden"), names(service.current().references))
+
+        golden(GoldenRoot.Root("repos/heron/ansible"))
+        assertEquals("a chosen project root is the reference outside the scope", listOf("heron"), names(service.current().references))
+
+        golden(GoldenRoot.Root("repos/hawk/ansible"))
+        assertEquals("a chosen root that does not exist is no reference", emptyList<String>(), names(service.current().references))
+
+        golden(GoldenRoot.Root("$WORKTREE/golden"))
+        assertEquals("a detached worktree is never the reference", emptyList<String>(), names(service.current().references))
+
+        golden(GoldenRoot.None)
+        assertEquals(emptyList<String>(), names(service.current().references))
+    }
+
     // ------------------------------------------------------------------------------------------------ named scopes
 
     fun testNamedScopesCoverTheirRepoAndNestedRoots() {
         copyInfra()
+        golden(GoldenRoot.FirstRoleLibrary)
         addScope("falcon", "file:repos/falcon//*")
         addScope("pelican", "file:repos/pelican//*")
 

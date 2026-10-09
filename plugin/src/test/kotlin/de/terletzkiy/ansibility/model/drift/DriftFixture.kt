@@ -13,6 +13,8 @@ import de.terletzkiy.ansibility.api.VaultHeaderInfo
 import de.terletzkiy.ansibility.model.role.ModelFixture
 import de.terletzkiy.ansibility.model.role.RoleCatalog
 import de.terletzkiy.ansibility.model.role.RoleCopy
+import de.terletzkiy.ansibility.settings.AnsibilityProjectSettings
+import de.terletzkiy.ansibility.settings.GoldenRoot
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -88,6 +90,21 @@ object DriftFixture {
         file
     }
 
+    /** Gives [to]'s copy of `web` the content of [from]'s file at [path] (inside the role). */
+    fun copyFile(fixture: CodeInsightTestFixture, from: String, to: String, path: String) {
+        write(fixture, "${roleDir(to)}/$path", VfsUtil.loadText(file(fixture, "${roleDir(from)}/$path")))
+    }
+
+    /**
+     * Makes the `web` copies of specmol and tasks byte-identical to spec's (golden plus spec's `meta/argument_specs.yml`):
+     * their variant, three copies, is then the largest, ahead of mol and mol2's.
+     */
+    fun joinSpecsVariant(fixture: CodeInsightTestFixture) {
+        for (team in listOf("specmol", "tasks")) copyFile(fixture, "spec", team, "meta/argument_specs.yml")
+        for (path in listOf("defaults/main.yml", "molecule/default/verify.yml")) copyFile(fixture, "golden", "specmol", path)
+        copyFile(fixture, "golden", "tasks", "tasks/main.yml")
+    }
+
     fun delete(fixture: CodeInsightTestFixture, path: String) {
         WriteAction.runAndWait<Exception> { file(fixture, path).delete(this) }
     }
@@ -98,6 +115,17 @@ object DriftFixture {
      */
     fun syntheticVault(marker: String): String =
         "${VaultHeaderInfo.MAGIC};1.1;AES256\n" + marker.toByteArray().joinToString("") { "%02x".format(it) }.chunked(80).joinToString("\n") + "\n"
+
+    /**
+     * Sets the golden root to [golden] until [parent] is disposed (plan amendment R24: the default is None, which
+     * computes nothing in the background and marks no reference). R9's tests use the first role library.
+     */
+    fun useGolden(project: Project, parent: Disposable, golden: GoldenRoot = GoldenRoot.FirstRoleLibrary) {
+        val settings = AnsibilityProjectSettings.getInstance(project)
+        val before = settings.settings.drift
+        settings.update { it.copy(drift = it.drift.copy(golden = golden)) }
+        Disposer.register(parent) { settings.update { it.copy(drift = before) } }
+    }
 
     /** Waits (dispatching events) until [condition] holds. */
     fun waitFor(what: String, condition: () -> Boolean) = PlatformTestUtil.waitWithEventsDispatching(what, condition, 20)

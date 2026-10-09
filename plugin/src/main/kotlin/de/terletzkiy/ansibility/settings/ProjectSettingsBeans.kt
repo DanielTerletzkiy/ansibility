@@ -33,6 +33,12 @@ open class ProjectSettingsBean {
     /** [MoleculeSettings.showInNavigation]. */
     var moleculeShowInNavigation: Boolean = MoleculeSettings.DEFAULT.showInNavigation
 
+    /** [DriftSettings.golden] in [GoldenRoot.encode]'s form; null (not written) for [GoldenRoot.None]. */
+    var driftGoldenRoot: String? = null
+
+    /** [DriftSettings.ignoreMolecule]. */
+    var driftIgnoreMolecule: Boolean = DriftSettings.DEFAULT.ignoreMolecule
+
     fun toSettings(): ProjectSettings = ProjectSettings(
         roots = roots.filter { it.path.isNotBlank() }.associate { it.path to it.toSettings() },
         paths = PathSettings(
@@ -45,6 +51,7 @@ open class ProjectSettingsBean {
             schemaStoreExclusion = schemaStoreExclusion,
         ),
         molecule = MoleculeSettings(runTests = moleculeRunTests, showInNavigation = moleculeShowInNavigation),
+        drift = DriftSettings(golden = GoldenRoot.decode(driftGoldenRoot), ignoreMolecule = driftIgnoreMolecule),
     ).normalized()
 
     /** Copies [settings] into this bean. */
@@ -56,6 +63,8 @@ open class ProjectSettingsBean {
         schemaStoreExclusion = settings.paths.schemaStoreExclusion
         moleculeRunTests = settings.molecule.runTests
         moleculeShowInNavigation = settings.molecule.showInNavigation
+        driftGoldenRoot = GoldenRoot.encode(settings.drift.golden)
+        driftIgnoreMolecule = settings.drift.ignoreMolecule
     }
 }
 

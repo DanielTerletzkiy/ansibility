@@ -23,8 +23,12 @@ import de.terletzkiy.ansibility.context.AnsibleLayout
 import de.terletzkiy.ansibility.context.AnsibleWorkspaceImpl
 import de.terletzkiy.ansibility.context.TargetVersion
 import de.terletzkiy.ansibility.context.TargetVersionDetector
+import de.terletzkiy.ansibility.model.role.GoldenResolution
+import de.terletzkiy.ansibility.model.role.GoldenRoots
 import de.terletzkiy.ansibility.semantics.precedence.PrecedenceEntry
+import de.terletzkiy.ansibility.settings.AnsibilityProjectSettings
 import de.terletzkiy.ansibility.workspace.WorkspaceScopeImpl
+import org.jetbrains.annotations.Nls
 import java.io.IOException
 
 /**
@@ -169,10 +173,40 @@ fun WorkspaceScope.rootsKnown(): Boolean = this !is WorkspaceScopeImpl || covera
 class WorktreeSnapshot(val name: String, val dir: VirtualFile, val roots: List<AnsibleRoot>)
 
 /**
+ * The golden root as the tool window shows it (plan amendment R24, D177/D178): the setting resolved against the
+ * snapshot's roots ([GoldenRoots]), and the role library the Roles tab offers while none is set.
+ */
+class GoldenState(
+    val resolution: GoldenResolution,
+    /** The first role library by path, offered as the golden root while none is set (D178); null without one. */
+    val firstLibrary: AnsibleRoot?,
+) {
+    /** The golden root, or null: nothing set, the chosen root is missing, or "first role library" without one. */
+    val root: AnsibleRoot? get() = resolution.root
+
+    /** Whether drift is shown at all: only with a golden root (D178). */
+    val isSet: Boolean get() = resolution.root != null
+
+    /** The golden root's name for the wording (`= golden`), or null. */
+    @get:Nls
+    val name: String? get() = resolution.root?.displayName
+
+    companion object {
+        val NONE: GoldenState = GoldenState(GoldenResolution.NONE, null)
+    }
+}
+
+/**
  * Everything the tool window shows, captured in one read action; immutable. [project] is the project it was built for
  * (null for synthetic snapshots): nodes reach it through [AnsibleTreeNode.project] to ask the Ansible services.
  */
-class WorkspaceSnapshot(val roots: List<RootSnapshot>, val worktrees: List<WorktreeSnapshot>, val project: Project? = null) {
+class WorkspaceSnapshot(
+    val roots: List<RootSnapshot>,
+    val worktrees: List<WorktreeSnapshot>,
+    val project: Project? = null,
+    /** The golden root of the drift view (plan amendment R24); [GoldenState.NONE] hides every drift row and badge. */
+    val golden: GoldenState = GoldenState.NONE,
+) {
     val isEmpty: Boolean get() = roots.isEmpty() && worktrees.isEmpty()
 
     fun root(dir: VirtualFile): RootSnapshot? = roots.firstOrNull { it.dir == dir }
@@ -235,7 +269,11 @@ object WorkspaceSnapshotBuilder {
             ProgressManager.checkCanceled()
             rootSnapshot(project, workspace, root, all, hasTests)
         }
-        return WorkspaceSnapshot(roots, worktrees(project, all.filter { it.detached }), project)
+        val golden = GoldenState(
+            GoldenRoots.resolve(project, AnsibilityProjectSettings.getInstance(project).settings, all),
+            GoldenRoots.firstRoleLibrary(all),
+        )
+        return WorkspaceSnapshot(roots, worktrees(project, all.filter { it.detached }), project, golden)
     }
 
     /**

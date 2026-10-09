@@ -1,0 +1,139 @@
+<!-- Area fragment: golden roles (plan amendment R24: D182 compare, D183 last change, the shared sync engine of
+     Align D184-D187 and Push D188-D191). Included from plugin.xml; only the golden work units edit this file, each in
+     its own block. The settings and the Roles-pane drift view (D177-D181) live in their own fragments. -->
+<idea-plugin>
+    <!-- d183: the last committed change of a file or role directory. Implemented only by the optional
+         ansibility-vcs.xml (loaded with com.intellij.modules.vcs); golden.history.LastChanges is the gate other areas
+         call, and without an extension there is no last change. -->
+    <extensionPoints>
+        <extensionPoint qualifiedName="de.terletzkiy.ansibility.lastChangeLookup"
+                        interface="de.terletzkiy.ansibility.golden.history.LastChangeLookup" dynamic="true"/>
+    </extensionPoints>
+    <!-- /d183 -->
+
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- d182: the diff UI of Compare (DiffManager.showDiff, the copy popup, notices), replaced in tests -->
+        <applicationService serviceInterface="de.terletzkiy.ansibility.golden.compare.RoleDiffUi"
+                            serviceImplementation="de.terletzkiy.ansibility.golden.compare.DefaultRoleDiffUi"/>
+        <!-- /d182 -->
+    </extensions>
+
+    <!-- review fixes (U10): the golden actions sit in ONE "Ansibility Golden" submenu of the editor and Project-view
+         popups, next to the platform's Compare actions (like R19's "Ansibility Vault" submenu), and flat in the tool
+         window's popup. Each block below adds its actions to this group, in the final order. Hidden while none of them
+         applies; searchable="false": Find Action lists each action once, by its "Ansibility: …" text. The submenu shows
+         the short texts (golden.compare.GoldenActionTexts). Results that must not vanish (Push, Align) may use the
+         sticky "Ansibility Golden" notification group. -->
+    <actions resource-bundle="messages.AnsibilityGoldenBundle">
+        <group id="Ansibility.Golden.Menu" class="de.terletzkiy.ansibility.golden.compare.GoldenActionGroup" popup="true"
+               searchable="false">
+            <add-to-group group-id="EditorPopupMenu" anchor="after" relative-to-action="CompareClipboardWithSelection"/>
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="after" relative-to-action="CompareFileWithEditor"/>
+        </group>
+    </actions>
+    <extensions defaultExtensionNs="com.intellij">
+        <notificationGroup id="Ansibility Golden" displayType="STICKY_BALLOON"
+                           bundle="messages.AnsibilityGoldenBundle" key="notification.group.golden"/>
+    </extensions>
+    <!-- /review fixes -->
+    <!-- d182: Compare with Golden / Compare with… (copy and file rows of the tool window, the "Ansibility Golden"
+         submenu of the editor and the Project view). Find Action names them "Ansibility: …"; menus show the short
+         texts. -->
+    <actions resource-bundle="messages.AnsibilityGoldenBundle">
+        <action id="Ansibility.Golden.CompareWithGolden" class="de.terletzkiy.ansibility.golden.compare.CompareWithGoldenAction"
+                icon="AllIcons.Actions.Diff">
+            <add-to-group group-id="Ansibility.ToolWindow.Popup" anchor="last"/>
+            <add-to-group group-id="Ansibility.Golden.Menu" anchor="first"/>
+        </action>
+        <action id="Ansibility.Golden.CompareWith" class="de.terletzkiy.ansibility.golden.compare.CompareWithAction">
+            <add-to-group group-id="Ansibility.ToolWindow.Popup" anchor="after" relative-to-action="Ansibility.Golden.CompareWithGolden"/>
+            <add-to-group group-id="Ansibility.Golden.Menu" anchor="after" relative-to-action="Ansibility.Golden.CompareWithGolden"/>
+        </action>
+        <!-- Your Compare shortcut (Diff.ShowDiff) inside the Ansibility tool window only; in no menu. -->
+        <action id="Ansibility.Golden.CompareWithGolden.ToolWindowShortcut"
+                class="de.terletzkiy.ansibility.golden.compare.CompareWithGoldenShortcutAction"
+                use-shortcut-of="Diff.ShowDiff"/>
+    </actions>
+    <!-- /d182 -->
+    <!-- d184: Align (D184-D187): merges one copy of a role into another in a merge workspace. The window is an
+         extension: the platform's Conflicts dialog comes only from the optional ansibility-vcs.xml (loaded with
+         com.intellij.modules.vcs); without one, golden.align.AlignFallbackDialog. Tests register a window of their own.
+         Merge into Golden / Align with Golden / Align Role… sit next to the Compare actions; Find Action names them
+         "Ansibility: …", menus show the short texts. -->
+    <extensionPoints>
+        <extensionPoint qualifiedName="de.terletzkiy.ansibility.roleMergeDialog"
+                        interface="de.terletzkiy.ansibility.golden.align.RoleMergeDialog" dynamic="true"/>
+    </extensionPoints>
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- the opening step of Align Role…, notices and errors, replaced in tests -->
+        <applicationService serviceInterface="de.terletzkiy.ansibility.golden.align.AlignUi"
+                            serviceImplementation="de.terletzkiy.ansibility.golden.align.DefaultAlignUi"/>
+    </extensions>
+    <actions resource-bundle="messages.AnsibilityGoldenBundle">
+        <action id="Ansibility.Golden.AlignWithGolden" class="de.terletzkiy.ansibility.golden.align.AlignWithGoldenAction">
+            <add-to-group group-id="Ansibility.ToolWindow.Popup" anchor="after" relative-to-action="Ansibility.Golden.CompareWith"/>
+            <add-to-group group-id="Ansibility.Golden.Menu" anchor="after" relative-to-action="Ansibility.Golden.CompareWith"/>
+        </action>
+        <action id="Ansibility.Golden.MergeIntoGolden" class="de.terletzkiy.ansibility.golden.align.MergeIntoGoldenAction">
+            <add-to-group group-id="Ansibility.ToolWindow.Popup" anchor="after" relative-to-action="Ansibility.Golden.AlignWithGolden"/>
+            <add-to-group group-id="Ansibility.Golden.Menu" anchor="after" relative-to-action="Ansibility.Golden.AlignWithGolden"/>
+        </action>
+        <action id="Ansibility.Golden.AlignRole" class="de.terletzkiy.ansibility.golden.align.AlignRoleAction">
+            <add-to-group group-id="Ansibility.ToolWindow.Popup" anchor="after" relative-to-action="Ansibility.Golden.MergeIntoGolden"/>
+            <add-to-group group-id="Ansibility.Golden.Menu" anchor="after" relative-to-action="Ansibility.Golden.MergeIntoGolden"/>
+        </action>
+    </actions>
+    <!-- /d184 -->
+    <!-- d188: Push Role to Repos (D188-D191): the dialog's UI (replaced in tests), the uncommitted-changes lookup
+         (implemented only by the optional ansibility-vcs.xml; without it no warning shows) and the action, next to the
+         Compare actions. Find Action names it "Ansibility: Push Role to Repos…"; menus show the short text. -->
+    <extensionPoints>
+        <extensionPoint qualifiedName="de.terletzkiy.ansibility.localChangesLookup"
+                        interface="de.terletzkiy.ansibility.golden.history.LocalChangesLookup" dynamic="true"/>
+    </extensionPoints>
+    <extensions defaultExtensionNs="com.intellij">
+        <applicationService serviceInterface="de.terletzkiy.ansibility.golden.push.PushUi"
+                            serviceImplementation="de.terletzkiy.ansibility.golden.push.DefaultPushUi"/>
+    </extensions>
+    <actions resource-bundle="messages.AnsibilityGoldenBundle">
+        <action id="Ansibility.Golden.PushToRepos" class="de.terletzkiy.ansibility.golden.push.PushToReposAction">
+            <add-to-group group-id="Ansibility.ToolWindow.Popup" anchor="after" relative-to-action="Ansibility.Golden.AlignRole"/>
+            <add-to-group group-id="Ansibility.Golden.Menu" anchor="after" relative-to-action="Ansibility.Golden.AlignRole"/>
+        </action>
+    </actions>
+    <!-- /d188 -->
+    <!-- x120: the editor banner on a role file that differs from golden ("Differs from golden (…)" · Compare · Take
+         Golden's Version · Align with Golden… · Hide: a link that runs an action carries its menu text), shown from
+         the cached drift (it computes only its own role's) and refreshed by the role drift and the drift settings.
+         Hide is per user and file (golden.editor.GoldenBannerState, workspace file). -->
+    <extensions defaultExtensionNs="com.intellij">
+        <editorNotificationProvider implementation="de.terletzkiy.ansibility.golden.editor.GoldenBannerProvider"/>
+    </extensions>
+    <projectListeners>
+        <listener class="de.terletzkiy.ansibility.golden.editor.GoldenBannerRefresher"
+                  topic="de.terletzkiy.ansibility.model.drift.RoleDriftListener"/>
+        <listener class="de.terletzkiy.ansibility.golden.editor.GoldenBannerRefresher"
+                  topic="de.terletzkiy.ansibility.settings.AnsibilitySettingsListener"/>
+    </projectListeners>
+    <!-- /x120 -->
+    <!-- x121: Take Golden's Version / Take This into Golden: one file, one undoable command (a file row or a
+         "Differences from golden" row of the tool window, the editor, the Project view), right after Push in each
+         popup. Anchored to actions registered earlier in this file (the platform drops anchors to later ones). The
+         confirmations (delete, key or vault file) go through golden.take.TakeUi, replaced in tests. -->
+    <extensions defaultExtensionNs="com.intellij">
+        <applicationService serviceInterface="de.terletzkiy.ansibility.golden.take.TakeUi"
+                            serviceImplementation="de.terletzkiy.ansibility.golden.take.DefaultTakeUi"/>
+    </extensions>
+    <actions resource-bundle="messages.AnsibilityGoldenBundle">
+        <action id="Ansibility.Golden.TakeGoldens" class="de.terletzkiy.ansibility.golden.take.TakeGoldensAction">
+            <add-to-group group-id="Ansibility.ToolWindow.Popup" anchor="after" relative-to-action="Ansibility.Golden.PushToRepos"/>
+            <add-to-group group-id="Ansibility.Golden.Menu" anchor="after" relative-to-action="Ansibility.Golden.PushToRepos"/>
+        </action>
+        <action id="Ansibility.Golden.TakeIntoGolden" class="de.terletzkiy.ansibility.golden.take.TakeIntoGoldenAction">
+            <add-to-group group-id="Ansibility.ToolWindow.Popup" anchor="after" relative-to-action="Ansibility.Golden.TakeGoldens"/>
+            <add-to-group group-id="Ansibility.Golden.Menu" anchor="after" relative-to-action="Ansibility.Golden.TakeGoldens"/>
+        </action>
+    </actions>
+    <!-- /x121 -->
+</idea-plugin>

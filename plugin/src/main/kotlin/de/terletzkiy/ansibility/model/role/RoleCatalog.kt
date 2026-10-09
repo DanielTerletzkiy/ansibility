@@ -18,13 +18,14 @@ import de.terletzkiy.ansibility.api.RoleRef
 import de.terletzkiy.ansibility.api.RoleRegistry
 import de.terletzkiy.ansibility.api.RootKind
 import de.terletzkiy.ansibility.settings.AnsibilityProjectSettings
+import de.terletzkiy.ansibility.settings.GoldenRoot
 
 /**
  * One directory of a role, attributed to the root that owns it (plan amendment R9, F9.3).
  *
  * [ref] names the owning root ([RoleRef.rootDir] is [root]'s directory), even when the directory was found through
- * another root's roles path. [isReference] marks the drift reference of the role name: the copy in the first role
- * library (`golden`), never a project copy.
+ * another root's roles path. [isReference] marks the drift reference of the role name: the golden root's copy (plan
+ * amendment R24, D177; see [RoleCatalog] for the rule of each setting).
  */
 data class RoleCopy(val root: AnsibleRoot, val ref: RoleRef, val isReference: Boolean) {
     /** The role name (the directory name). */
@@ -37,10 +38,18 @@ data class RoleCopy(val root: AnsibleRoot, val ref: RoleRef, val isReference: Bo
 /**
  * The role copies of every non-detached root at one moment, grouped by role name. Immutable.
  *
- * Copies of a name are ordered like the Roles tab lists them: role libraries first (the reference leads), then
- * project roots, then nested playbook roots, each group by path, segment by segment.
+ * Copies of a name are ordered like the Roles tab lists them: the golden copy (the reference) first, then role
+ * libraries, project roots and nested playbook roots, each group by path, segment by segment.
  */
-class RoleCatalogSnapshot internal constructor(copies: List<RoleCopy>) {
+class RoleCatalogSnapshot internal constructor(
+    copies: List<RoleCopy>,
+    /**
+     * The golden root (plan amendment R24, D177): the root of the setting, or for "first role library" the first
+     * role library by path. Null when no golden root is set or the chosen one does not exist; then no copy is a
+     * reference.
+     */
+    val golden: AnsibleRoot? = null,
+) {
     private val byName: Map<String, List<RoleCopy>> =
         copies.groupBy { it.name }.toSortedMap().mapValues { (_, list) -> list.sortedWith(COPY_ORDER) }
     private val byDir: Map<VirtualFile, RoleCopy> = copies.associateBy { it.dir }
@@ -58,7 +67,7 @@ class RoleCatalogSnapshot internal constructor(copies: List<RoleCopy>) {
     /** The copies of [name] in display order, or an empty list. */
     fun copies(name: String): List<RoleCopy> = byName[name].orEmpty()
 
-    /** The reference copy of [name] (in a role library), or null when no role library has it. */
+    /** The reference copy of [name]: the golden root's copy, or null when it has none or no golden root is set. */
     fun reference(name: String): RoleCopy? = copies(name).firstOrNull { it.isReference }
 
     /** The copy whose role directory is [dir]. */
@@ -126,10 +135,13 @@ class RoleCatalogSnapshot internal constructor(copies: List<RoleCopy>) {
  *   also reaches its parent's `roles/` (and a project's `roles_path` may reach a role library), so each role
  *   directory is attributed once, to `AnsibleWorkspace.rootFor(dir)`, the innermost root containing it. Directories
  *   owned by a detached root (a worktree) are never listed.
- * - **Reference:** the copy in the first role library (`golden`) is the drift reference of its name
- *   ([RoleCopy.isReference]); names without a library copy have no reference.
- * - **Cache:** one snapshot until the Ansible structure, the project roots or the project settings change (role
- *   directories appear and disappear only through structure changes, which also cover every file below `roles/`).
+ * - **Reference** ([RoleCopy.isReference], plan amendment R24, D177) follows the golden-root setting
+ *   ([de.terletzkiy.ansibility.settings.DriftSettings.golden], resolved by [GoldenRoots]): *None* marks no copy;
+ *   *first role library* marks, per name, the copy in the first role library (by path) that has one (R9's rule);
+ *   a chosen root marks the copies that root owns, whatever its kind. A chosen root that no longer exists marks none.
+ * - **Cache:** one snapshot until the Ansible structure, the project roots or the project settings (including the
+ *   drift settings) change (role directories appear and disappear only through structure changes, which also cover
+ *   every file below `roles/`).
  *
  * Traversal only: resolution stays root-scoped (`RoleRegistry`), and nothing here is ever a Ctrl+B, completion or
  * inspection target. VFS-only and DumbAware; callable from any thread (it takes a read lock when the caller holds
@@ -144,16 +156,18 @@ class RoleCatalog(private val project: Project) {
                 AnsibleWorkspace.getInstance(project).structureTracker,
                 ProjectRootManager.getInstance(project),
                 AnsibilityProjectSettings.getInstance(project).modificationTracker,
+                AnsibilityProjectSettings.getInstance(project).driftModificationTracker,
             )
         },
         false,
     )
 
-    /** Bumps whenever the catalog may have changed (structure, project roots, settings). */
+    /** Bumps whenever the catalog may have changed (structure, project roots, settings, the golden root). */
     val modificationTracker: ModificationTracker = ModificationTracker {
         AnsibleWorkspace.getInstance(project).structureTracker.modificationCount +
             ProjectRootManager.getInstance(project).modificationCount +
-            AnsibilityProjectSettings.getInstance(project).modificationTracker.modificationCount
+            AnsibilityProjectSettings.getInstance(project).modificationTracker.modificationCount +
+            AnsibilityProjectSettings.getInstance(project).driftModificationTracker.modificationCount
     }
 
     /** The current catalog. */
@@ -165,7 +179,7 @@ class RoleCatalog(private val project: Project) {
     /** The copies of [name], reference first. */
     fun copies(name: String): List<RoleCopy> = snapshot().copies(name)
 
-    /** The reference copy of [name], or null. */
+    /** The reference copy of [name] (the golden root's), or null. */
     fun reference(name: String): RoleCopy? = snapshot().reference(name)
 
     /** The copy whose role directory is [dir]. */
@@ -188,12 +202,21 @@ class RoleCatalog(private val project: Project) {
                 owned[ref.dir] = owner to RoleRef(owner.dir, ref.name, ref.dir)
             }
         }
+        val setting = AnsibilityProjectSettings.getInstance(project).settings.drift.golden
+        val golden = GoldenRoots.resolve(project, setting, roots).root
         val referenceOf = HashMap<String, VirtualFile>()
-        owned.values
-            .filter { (owner, _) -> owner.kind == RootKind.ROLE_LIBRARY }
-            .sortedWith(compareBy(RoleCatalogSnapshot.ROOT_ORDER) { it.first })
-            .forEach { (_, ref) -> referenceOf.putIfAbsent(ref.name, ref.dir) }
-        return RoleCatalogSnapshot(owned.values.map { (owner, ref) -> RoleCopy(owner, ref, referenceOf[ref.name] == ref.dir) })
+        when (setting) {
+            GoldenRoot.None -> Unit
+            GoldenRoot.FirstRoleLibrary -> owned.values
+                .filter { (owner, _) -> owner.kind == RootKind.ROLE_LIBRARY }
+                .sortedWith(compareBy(RoleCatalogSnapshot.ROOT_ORDER) { it.first })
+                .forEach { (_, ref) -> referenceOf.putIfAbsent(ref.name, ref.dir) }
+            is GoldenRoot.Root -> if (golden != null) {
+                owned.values.filter { (owner, _) -> owner.dir == golden.dir }.forEach { (_, ref) -> referenceOf.putIfAbsent(ref.name, ref.dir) }
+            }
+        }
+        val copies = owned.values.map { (owner, ref) -> RoleCopy(owner, ref, referenceOf[ref.name] == ref.dir) }
+        return RoleCatalogSnapshot(copies, golden)
     }
 
     private fun <T> readLocked(action: () -> T): T =

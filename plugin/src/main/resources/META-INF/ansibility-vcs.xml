@@ -14,5 +14,17 @@
              with VCS support, so no always-loaded class touches a VCS class. -->
         <trackedStatusLookup implementation="de.terletzkiy.ansibility.vault.vcs.impl.VcsTrackedStatusLookup"/>
         <!-- /v108 -->
+        <!-- d183: the last committed change of a role file or role directory (plan amendment R24): VcsHistoryProviderEx /
+             VcsHistoryProvider of the file's VCS, public API only. -->
+        <lastChangeLookup implementation="de.terletzkiy.ansibility.golden.vcs.impl.VcsLastChangeLookup"/>
+        <!-- /d183 -->
+        <!-- d188: whether a role copy has uncommitted changes, for the Push dialog's warning (plan amendment R24):
+             ChangeListManager's changes and unversioned files below the directory, public API only. -->
+        <localChangesLookup implementation="de.terletzkiy.ansibility.golden.vcs.impl.PushLocalChangesLookup"/>
+        <!-- /d188 -->
+        <!-- d184: the merge workspace of Align (plan amendment R24, D185): the platform's Conflicts dialog through
+             AbstractVcsHelper.showMergeDialogWithResult with a MergeProvider2 and a MergeSessionEx (public API only). -->
+        <roleMergeDialog implementation="de.terletzkiy.ansibility.golden.vcs.impl.AlignVcsMergeDialog"/>
+        <!-- /d184 -->
     </extensions>
 </idea-plugin>

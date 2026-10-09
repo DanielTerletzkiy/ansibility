@@ -38,6 +38,7 @@ class RoleDriftServiceTest : BasePlatformTestCase() {
     override fun setUp() {
         super.setUp()
         DriftFixture.copy(myFixture)
+        DriftFixture.useGolden(project, testRootDisposable)
         service = DriftFixture.freshService(project, testRootDisposable)
     }
 
@@ -152,7 +153,7 @@ class RoleDriftServiceTest : BasePlatformTestCase() {
         val drift = web()
         val badges = drift.copies.map { DriftTexts.badge(drift, it) }
         assertEquals(
-            listOf("reference", "Δ tasks/templates", "≈ golden (molecule only)", "≈ golden (molecule only)", "= golden", "Δ spec/defaults", "Δ spec/defaults", "Δ tasks/templates"),
+            listOf("golden root", "Δ tasks/templates", "≈ molecule only", "≈ molecule only", "= golden", "Δ spec/defaults", "Δ spec/defaults", "Δ tasks/templates"),
             badges,
         )
         val solo = DriftFixture.drift(service, "solo")

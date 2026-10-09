@@ -245,4 +245,46 @@ class AnsibilityConfigurableTest : BasePlatformTestCase() {
         assertTrue(message("preset.help.runtime").contains("rejects"))
         assertTrue(message("root.toggle.certain.failures").contains("Claude's"))
     }
+
+    // ------------------------------------------------------------------ Role drift (plan amendment R24, D177)
+
+    private fun goldenItems(): List<GoldenRoot> = (0 until configurable.goldenCombo.itemCount).map { configurable.goldenCombo.getItemAt(it) }
+
+    fun testTheGoldenRootComboOffersNoneTheFirstLibraryAndEveryRootByName() {
+        val items = goldenItems()
+        assertEquals(listOf(GoldenRoot.None, GoldenRoot.FirstRoleLibrary), items.take(2))
+        assertEquals(listOf("None", "First role library (automatic)"), items.take(2).map(configurable::goldenLabel))
+        val expected = AnsibleWorkspaceImpl.getInstance(project)!!.roots().filter { !it.detached }.map { it.displayName }.sorted()
+        assertEquals("every non-detached root, by name", expected, items.drop(2).map(configurable::goldenLabel).sorted())
+        assertTrue("never a detached worktree", items.none { it is GoldenRoot.Root && "worktrees" in it.key })
+        assertEquals("None until the user picks", GoldenRoot.None, configurable.goldenCombo.selectedItem)
+        assertFalse(configurable.isModified)
+
+        configurable.goldenCombo.selectedItem = GoldenRoot.Root(FALCON)
+        assertTrue(configurable.isModified)
+        configurable.apply()
+        assertEquals(GoldenRoot.Root(FALCON), AnsibilityProjectSettings.getInstance(project).settings.drift.golden)
+        assertFalse(configurable.isModified)
+
+        configurable.goldenCombo.selectedItem = GoldenRoot.FirstRoleLibrary
+        configurable.reset()
+        assertEquals("reset shows the stored root", GoldenRoot.Root(FALCON), configurable.goldenCombo.selectedItem)
+        assertFalse(configurable.isModified)
+    }
+
+    fun testAStoredGoldenRootThatIsGoneShowsAsNotFound() {
+        AnsibilityProjectSettings.getInstance(project).update { it.copy(drift = it.drift.copy(golden = GoldenRoot.Root("repos/hawk/ansible"))) }
+        configurable.reset()
+        assertEquals(GoldenRoot.Root("repos/hawk/ansible"), configurable.goldenCombo.selectedItem)
+        assertEquals("repos/hawk/ansible (not found)", configurable.goldenLabel(GoldenRoot.Root("repos/hawk/ansible")))
+        assertEquals(GoldenRoot.Root("repos/hawk/ansible"), goldenItems().last())
+        assertFalse(configurable.isModified)
+    }
+
+    fun testIgnoreMoleculeInDriftIsApplied() {
+        checkBox("drift.ignore.molecule").doClick()
+        assertTrue(configurable.isModified)
+        configurable.apply()
+        assertEquals(DriftSettings(ignoreMolecule = true), AnsibilityProjectSettings.getInstance(project).settings.drift)
+    }
 }

@@ -103,14 +103,19 @@ class DriftCounters internal constructor() {
  * Every computation re-walks the copy, so a result is always as fresh as the VFS and the open documents; a warm walk
  * only checks stamps and rehashes edited files.
  *
- * **Tiers and variants** follow [DriftRules]; with [DriftOptions.ignoreMolecule] molecule files take no part.
+ * **Tiers and variants** follow [DriftRules]; with [DriftOptions.ignoreMolecule] molecule files take no part. The
+ * reference of a name is the golden root's copy ([RoleCatalog], plan amendment R24, D177); [options] follow the drift
+ * settings, and a new golden root drops every result ([cached] is null until the name is re-tiered).
  *
  * **Laziness.** Nothing is computed until a caller asks: [drift], [driftAll] and [compare] compute what they need;
- * [request] (the Roles tab, a Roles node, a drift action) starts the background worker, which computes the requested
- * names first and then every other name, role by role, publishing [RoleDriftListener.TOPIC] for each name whose result
- * changed. Afterwards it follows edits: its own `VFS_CHANGES_BG` listener and a document listener (debounced
+ * [request] (only the Roles tab while it is shown) starts the background worker, which computes the requested names
+ * first and then every other name, role by role, publishing [RoleDriftListener.TOPIC] for each name whose result
+ * changed. [requestNames] (the editor banner, a copy selected in the Repos tab) computes just the given names in the
+ * background and never starts that all-names pass. Without a golden root the worker computes nothing (D178).
+ * Afterwards it follows edits: its own `VFS_CHANGES_BG` listener and a document listener (debounced
  * [documentDebounce], 500 ms) mark only the owning copy dirty, structure and settings changes re-check the catalog,
- * and only names whose result changed are published.
+ * and only names whose result changed are published. Before [request] ran, only the names asked for through
+ * [requestNames] are followed (the watched names, while they have a result).
  *
  * **Threading.** All work runs on background dispatchers in the service's coroutine scope, one read action per role
  * copy with `checkCanceled()` per file; never on the EDT, never a process. Cancelled with the project. The
@@ -178,7 +183,14 @@ class RoleDriftService(private val project: Project, private val scope: Coroutin
     private data class OptionsState(val version: Long, val options: DriftOptions)
 
     /** What a name's result was computed from; a different value means the result is stale. */
-    private data class NameInputs(val copies: List<RoleCopy>, val generations: List<Long>, val optionsVersion: Long, val settingsStamp: Long)
+    private data class NameInputs(
+        val copies: List<RoleCopy>,
+        val generations: List<Long>,
+        val optionsVersion: Long,
+        val settingsStamp: Long,
+        /** [goldenGeneration] when the computation started: a result against an earlier golden root is stale. */
+        val golden: Long,
+    )
 
     private class NameResult(val inputs: NameInputs, val drift: RoleDrift?)
 
@@ -189,6 +201,16 @@ class RoleDriftService(private val project: Project, private val scope: Coroutin
     private val queue = ArrayDeque<String>()
     private val wake = Channel<Unit>(Channel.CONFLATED)
     private val active = AtomicBoolean()
+
+    /**
+     * The names asked for through [requestNames] (plan amendment R24, D179). While [request] never ran, edits, structure
+     * and option changes re-enqueue only these, and only while they have a result: the banner's role stays fresh
+     * without the all-names pass.
+     */
+    private val watched: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+    /** Bumped (under [lock]) when the golden root changes; a computation that started before stores nothing. */
+    private val goldenGeneration = AtomicLong()
     private val workerStarted = AtomicBoolean()
     private val pendingDocumentCopies: MutableSet<VirtualFile> = ConcurrentHashMap.newKeySet()
     private var documentFlush: Job? = null
@@ -208,6 +230,11 @@ class RoleDriftService(private val project: Project, private val scope: Coroutin
     /** How sensitive files are fingerprinted; corpus tests on the real repo use [SensitiveContent.SIZE_ONLY]. */
     @Volatile
     internal var sensitiveContent: SensitiveContent = SensitiveContent.HASH
+
+    /** Called with the name right before a computed result is stored; tests hold a computation there. */
+    @TestOnly
+    @Volatile
+    internal var beforeStoreForTests: (suspend (String) -> Unit)? = null
 
     /** Debug counters (files hashed, documents hashed, copies walked). */
     val counters: DriftCounters = DriftCounters()
@@ -241,9 +268,10 @@ class RoleDriftService(private val project: Project, private val scope: Coroutin
         connection.subscribe(
             AnsibilitySettingsListener.TOPIC,
             object : AnsibilitySettingsListener {
-                override fun projectSettingsChanged(old: ProjectSettings, new: ProjectSettings) = wakeWorker()
+                override fun projectSettingsChanged(old: ProjectSettings, new: ProjectSettings) = settingsChanged(old, new)
             },
         )
+        optionsState = OptionsState(0, optionsOf(AnsibilityProjectSettings.getInstance(project).settings))
         EditorFactory.getInstance().eventMulticaster.addDocumentListener(
             object : DocumentListener {
                 override fun documentChanged(event: DocumentEvent) = onDocumentChanged(event.document)
@@ -265,6 +293,13 @@ class RoleDriftService(private val project: Project, private val scope: Coroutin
     fun cached(copy: RoleCopy): CopyDrift? = cached(copy.name)?.copyOf(copy.dir)
 
     /**
+     * Whether [name] was computed (or tried) since the service started or the golden root last changed, so [cached]
+     * is an answer rather than "not known yet" (the Roles header's "12+ drifting" while the worker runs). Like [cached],
+     * never computes, never blocks.
+     */
+    fun isComputed(name: String): Boolean = results.containsKey(name)
+
+    /**
      * Whether [cached] of [name] reflects the current catalog, every edit seen so far and the current options (no
      * debounced document edit pending). Reads the catalog, so it may take a read lock; for tests and diagnostics.
      */
@@ -277,11 +312,26 @@ class RoleDriftService(private val project: Project, private val scope: Coroutin
 
     /**
      * Starts (or re-prioritises) the background computation: [names] first, in the given order (the visible rows),
-     * then every other role name. Never blocks; safe on the EDT.
+     * then every other role name. Only the shown Roles tab calls it (D179); other callers use [requestNames]. Never
+     * blocks; safe on the EDT.
      */
     fun request(names: Collection<String> = emptyList()) {
         if (project.isDisposed) return
         active.set(true)
+        enqueue(names)
+        ensureWorker()
+        wake.trySend(Unit)
+    }
+
+    /**
+     * Computes just [names] in the background, without the all-names pass of [request] (the editor banner asks for its
+     * file's role, the Repos tab for the selected copy's). The names are watched from now on: edits below their copies
+     * keep their results fresh even while [request] never ran. A name whose result is current is not computed again.
+     * Without a golden root nothing is computed (D178). Never blocks; safe on the EDT and inside read actions.
+     */
+    fun requestNames(names: Collection<String>) {
+        if (project.isDisposed || names.isEmpty()) return
+        watched += names
         enqueue(names)
         ensureWorker()
         wake.trySend(Unit)
@@ -316,25 +366,44 @@ class RoleDriftService(private val project: Project, private val scope: Coroutin
 
     // ---------------------------------------------------------------- computation
 
+    /**
+     * Computes and stores the drift of [name]. A golden root chosen while it runs ([goldenGeneration]) makes it start
+     * over: a result against the previous golden root is never stored after [settingsChanged] dropped the results.
+     */
     private suspend fun computeName(name: String): RoleDrift? = lockOf(name).withLock {
+        var attempt = computeOnce(name)
+        while (!attempt.stored) attempt = computeOnce(name)
+        attempt.drift
+    }
+
+    /** One computation of a name: its drift, and whether it was stored (false: the golden root changed meanwhile). */
+    private class Attempt(val drift: RoleDrift?, val stored: Boolean)
+
+    private suspend fun computeOnce(name: String): Attempt {
+        val golden = goldenGeneration.get()
         val catalog = catalog()
         val copies = catalog.copies(name)
         if (copies.isEmpty()) {
             if (results.remove(name) != null) changed(name)
-            return@withLock null
+            return Attempt(null, stored = true)
         }
         copies.forEach { stateOf(it.dir) }
         val options = optionsState
-        val inputs = inputsOf(copies, options)
+        val inputs = inputsOf(copies, options, golden)
         val fingerprints = copies.map { fingerprint(it).entries }
         val referenceIndex = copies.indexOfFirst { it.isReference }.takeIf { it >= 0 }
         val evaluations = DriftRules.evaluate(fingerprints, referenceIndex, options.options)
         val copyDrifts = copies.zip(evaluations) { copy, e -> CopyDrift(copy, e.tier, e.paths, e.variant, e.fileCount) }
         val variants = copyDrifts.groupBy { it.variant }.toSortedMap().map { (index, list) -> RoleVariant(index, list.map { it.copy }) }
-        val drift = RoleDrift(name, referenceIndex?.let(copies::get), copyDrifts, variants, options.options)
-        val previous = results.put(name, NameResult(inputs, drift))
+        val drift = RoleDrift(name, referenceIndex?.let(copies::get), copyDrifts, variants, options.options, catalog.golden)
+        beforeStoreForTests?.invoke(name)
+        // Checked and stored under the lock settingsChanged bumps the generation and drops the results under.
+        val previous = synchronized(lock) {
+            if (golden != goldenGeneration.get()) return Attempt(drift, stored = false)
+            results.put(name, NameResult(inputs, drift))
+        }
         if (previous?.drift != drift) changed(name)
-        drift
+        return Attempt(drift, stored = true)
     }
 
     /** The fingerprint of [copy]: a fresh walk, reusing every file hash whose stamp and length did not change. */
@@ -465,9 +534,17 @@ class RoleDriftService(private val project: Project, private val scope: Coroutin
         }
     }
 
-    /** The next name to compute: requested names first, then (once started) any stale name of the catalog. */
+    /**
+     * The next name to compute: requested names first, then (once started) any stale name of the catalog. Without a
+     * golden root ([RoleCatalogSnapshot.golden], plan amendment R24, D178) nothing is computed in the background; the
+     * requests are dropped, and a golden root set later wakes the worker through the settings event.
+     */
     private suspend fun nextStaleName(): String? {
         val catalog = catalog()
+        if (catalog.golden == null) {
+            synchronized(lock) { queue.clear() }
+            return null
+        }
         while (true) {
             val next = synchronized(lock) { queue.removeFirstOrNull() } ?: break
             if (isStale(next, catalog)) return next
@@ -480,13 +557,15 @@ class RoleDriftService(private val project: Project, private val scope: Coroutin
         val copies = catalog.copies(name)
         if (copies.isEmpty()) return results.containsKey(name)
         val result = results[name] ?: return true
-        return result.inputs != inputsOf(copies, optionsState)
+        return result.inputs != inputsOf(copies, optionsState, goldenGeneration.get())
     }
 
     /** Keeps the previous result of [name] but marks its inputs as tried, so a failing name is retried only after a change. */
     private fun recordFailure(name: String) {
         val copies = lastCatalog?.copies(name).orEmpty()
-        results[name] = NameResult(inputsOf(copies, optionsState), results[name]?.drift)
+        synchronized(lock) {
+            results[name] = NameResult(inputsOf(copies, optionsState, goldenGeneration.get()), results[name]?.drift)
+        }
     }
 
     private fun enqueue(names: Collection<String>) {
@@ -499,9 +578,46 @@ class RoleDriftService(private val project: Project, private val scope: Coroutin
         }
     }
 
-    /** Re-checks staleness in the background, if the worker was started. */
+    /**
+     * Follows the drift settings (plan amendment R24, D177): [options] from "Ignore molecule/", and a new golden root
+     * drops every result, so no row shows a tier against the previous golden root while the worker re-tiers (it rehashes
+     * nothing: the fingerprints stay).
+     */
+    private fun settingsChanged(old: ProjectSettings, new: ProjectSettings) {
+        if (old.drift.golden != new.drift.golden) {
+            synchronized(lock) {
+                goldenGeneration.incrementAndGet()
+                results.clear()
+            }
+        }
+        options = optionsOf(new)
+        wakeWorker()
+    }
+
+    /**
+     * Re-checks staleness in the background: every name once [request] started the worker, else the watched names that
+     * have a result ([requestNames]).
+     */
     private fun wakeWorker() {
-        if (active.get()) wake.trySend(Unit)
+        if (active.get()) {
+            wake.trySend(Unit)
+            return
+        }
+        val due = watched.filter(results::containsKey)
+        if (due.isEmpty()) return
+        enqueue(due)
+        wake.trySend(Unit)
+    }
+
+    /**
+     * Re-enqueues the role [names] an edit touched: all of them once [request] started the worker, else only the
+     * watched ones that have a result. Nothing is computed for a name nobody asked for.
+     */
+    private fun followUp(names: Collection<String>) {
+        val due = if (active.get()) names else names.filter { it in watched && results.containsKey(it) }
+        if (due.isEmpty()) return
+        enqueue(due)
+        wake.trySend(Unit)
     }
 
     // ---------------------------------------------------------------- invalidation
@@ -513,11 +629,7 @@ class RoleDriftService(private val project: Project, private val scope: Coroutin
             for (path in pathsOf(event)) catalog.copyContainingPath(path)?.let(dirty::add)
         }
         if (dirty.isEmpty()) return
-        val names = dirty.mapNotNull { markDirty(it.dir) }.distinct()
-        if (active.get()) {
-            enqueue(names)
-            wake.trySend(Unit)
-        }
+        followUp(dirty.mapNotNull { markDirty(it.dir) }.distinct())
     }
 
     private fun pathsOf(event: VFileEvent): List<String> = when (event) {
@@ -546,11 +658,7 @@ class RoleDriftService(private val project: Project, private val scope: Coroutin
     private fun flushDocuments() {
         val dirs = pendingDocumentCopies.toList()
         pendingDocumentCopies.removeAll(dirs.toSet())
-        val names = dirs.mapNotNull(::markDirty).distinct()
-        if (names.isNotEmpty() && active.get()) {
-            enqueue(names)
-            wake.trySend(Unit)
-        }
+        followUp(dirs.mapNotNull(::markDirty).distinct())
     }
 
     /** Marks the copy at [dir] dirty; returns its role name. */
@@ -572,6 +680,7 @@ class RoleDriftService(private val project: Project, private val scope: Coroutin
     /** Drops the state of copies and names the catalog no longer has, publishing the removed names. */
     private fun prune(catalog: RoleCatalogSnapshot) {
         states.keys.removeIf { catalog.copyOf(it) == null }
+        watched.removeIf { catalog.copies(it).isEmpty() }
         for (name in results.keys.toList()) {
             if (catalog.copies(name).isEmpty() && results.remove(name) != null) {
                 nameLocks.remove(name)
@@ -580,11 +689,12 @@ class RoleDriftService(private val project: Project, private val scope: Coroutin
         }
     }
 
-    private fun inputsOf(copies: List<RoleCopy>, options: OptionsState): NameInputs = NameInputs(
+    private fun inputsOf(copies: List<RoleCopy>, options: OptionsState, golden: Long): NameInputs = NameInputs(
         copies,
         copies.map { states[it.dir]?.generation?.get() ?: -1L },
         options.version,
         AnsibilityProjectSettings.getInstance(project).modificationTracker.modificationCount,
+        golden,
     )
 
     private fun stateOf(dir: VirtualFile): CopyState = states.computeIfAbsent(dir) { CopyState() }
@@ -603,6 +713,7 @@ class RoleDriftService(private val project: Project, private val scope: Coroutin
         }
         states.clear()
         results.clear()
+        watched.clear()
     }
 
     companion object {
@@ -615,6 +726,8 @@ class RoleDriftService(private val project: Project, private val scope: Coroutin
 
         /** Role copies hashed in parallel by [driftAll] (the cold pass is I/O-bound). */
         private const val HASH_PARALLELISM = 4
+
+        private fun optionsOf(settings: ProjectSettings): DriftOptions = DriftOptions(ignoreMolecule = settings.drift.ignoreMolecule)
 
         fun getInstance(project: Project): RoleDriftService = project.service()
     }

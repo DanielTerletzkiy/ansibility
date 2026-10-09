@@ -86,7 +86,7 @@ class VaultFoldingAndGutterTest : VaultUiTestCase() {
         val attempts = crypto.decryptAttempts
         val gutters = myFixture.findAllGutters().filter { it.tooltipText?.startsWith("Ansible Vault value") == true }
         assertEquals("the two keyed values, the sequence item and the quoted value", 4, gutters.size)
-        assertTrue(gutters.all { it.icon == AllIcons.Nodes.Locked })
+        assertTrue(gutters.all { it.icon == AllIcons.Ide.Readonly })
         assertTrue(gutters.first().tooltipText!!.contains("id default"))
         assertTrue(gutters.first().tooltipText!!.contains("locked"))
         assertEquals("rendering never decrypts", attempts, crypto.decryptAttempts)

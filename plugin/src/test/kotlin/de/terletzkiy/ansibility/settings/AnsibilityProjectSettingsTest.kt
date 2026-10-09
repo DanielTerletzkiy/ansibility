@@ -75,6 +75,7 @@ class AnsibilityProjectSettingsTest : BasePlatformTestCase() {
         roots = mapOf(FALCON to customRoot, GOLDEN to RootSettings(preset = Preset.STRICT)),
         paths = PathSettings(detachedRule = false, extraIgnoredPaths = listOf("vendor/**"), schemaStoreExclusion = false),
         molecule = MoleculeSettings(runTests = false, showInNavigation = true),
+        drift = DriftSettings(golden = GoldenRoot.Root(FALCON), ignoreMolecule = true),
     )
 
     // ------------------------------------------------------------------ defaults
@@ -143,6 +144,7 @@ class AnsibilityProjectSettingsTest : BasePlatformTestCase() {
         assertTrue(xml, xml.contains("path=\"$FALCON\""))
         assertTrue(xml, xml.contains("all_plugins_play, groups_plugins_play"))
         assertTrue(xml, xml.contains("moleculeRunTests") && xml.contains("moleculeShowInNavigation"))
+        assertTrue("R24: the golden root and Ignore molecule/", xml.contains("\"root:$FALCON\"") && xml.contains("driftIgnoreMolecule"))
     }
 
     fun testEachMoleculeSwitchSurvivesTheRoundTripAlone() {

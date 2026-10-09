@@ -62,4 +62,10 @@
             <add-to-group group-id="Ansibility.ToolWindow.Popup" anchor="last"/>
         </action>
     </actions>
+    <!-- R24 D177: a root row's "Use as Golden Root" (the setting is Settings › Ansibility › Role drift) -->
+    <actions resource-bundle="messages.AnsibilityDriftBundle">
+        <action id="Ansibility.Golden.SetGoldenRoot" class="de.terletzkiy.ansibility.toolwindow.UseAsGoldenRootAction">
+            <add-to-group group-id="Ansibility.ToolWindow.Popup" anchor="after" relative-to-action="Ansibility.UseAsAnsibleContext"/>
+        </action>
+    </actions>
 </idea-plugin>

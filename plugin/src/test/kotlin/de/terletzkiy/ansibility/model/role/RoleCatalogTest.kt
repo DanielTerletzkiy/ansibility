@@ -17,6 +17,12 @@ import de.terletzkiy.ansibility.model.drift.DriftFixture
 class RoleCatalogTest : BasePlatformTestCase() {
     override fun getTestDataPath(): String = ModelFixture.testDataPath
 
+    override fun setUp() {
+        super.setUp()
+        // R9's reference rule; plan amendment R24 makes it a choice of the golden-root setting (default None).
+        DriftFixture.useGolden(project, testRootDisposable)
+    }
+
     private val catalog: RoleCatalog get() = RoleCatalog.getInstance(project)
 
     private fun vf(path: String): VirtualFile = ModelFixture.file(myFixture, path)

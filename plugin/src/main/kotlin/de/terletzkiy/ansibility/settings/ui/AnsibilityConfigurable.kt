@@ -19,6 +19,7 @@ import com.intellij.ui.dsl.builder.bindText
 import com.intellij.ui.dsl.builder.columns
 import com.intellij.ui.dsl.builder.panel
 import com.intellij.ui.dsl.builder.rows
+import com.intellij.ui.dsl.listCellRenderer.textListCellRenderer
 import com.intellij.ui.layout.selected
 import com.intellij.ui.layout.selectedValueIs
 import com.intellij.util.concurrency.AppExecutorUtil
@@ -31,6 +32,7 @@ import de.terletzkiy.ansibility.settings.AnsibilitySettingsBundle.message
 import de.terletzkiy.ansibility.settings.AppSettings
 import de.terletzkiy.ansibility.settings.DocsWebBase
 import de.terletzkiy.ansibility.settings.ExecutableSettings
+import de.terletzkiy.ansibility.settings.GoldenRoot
 import de.terletzkiy.ansibility.settings.JinjaSettings
 import de.terletzkiy.ansibility.settings.ModuleNavigationTarget
 import de.terletzkiy.ansibility.settings.ProjectSettings
@@ -46,6 +48,11 @@ import org.jetbrains.concurrency.CancellablePromise
  * them, [apply] stores them through [AnsibilityAppSettings.update] and [AnsibilityProjectSettings.update], and
  * [reset] reloads them. The roots table lists the roots [AnsibleWorkspace] detects, loaded in a background read
  * action so opening the page never scans the project on the EDT.
+ *
+ * The "Role drift" group (plan amendment R24, D177) chooses the golden root from the same rows: None, the first role
+ * library (automatic) or any non-detached root by name; a stored root that no longer exists shows as
+ * "<key> (not found)". The combo fills when the rows arrive, so it is not a DSL binding: [isModified], [apply] and
+ * [reset] handle it by hand.
  */
 class AnsibilityConfigurable(private val project: Project) :
     BoundSearchableConfigurable(message("settings.display.name"), ID, ID) {
@@ -62,6 +69,13 @@ class AnsibilityConfigurable(private val project: Project) :
     private val rootEditor = RootSettingsEditor(::rootEditorChanged)
     private var uiDisposable: Disposable? = null
 
+    /** The golden root combo (D177); public for tests. */
+    internal val goldenCombo = ComboBox<GoldenRoot>()
+
+    /** The detected roots by key with their names, null until the background load finished. */
+    private var goldenNames: Map<String, String>? = null
+    private var fillingGolden = false
+
     /** The pending background load of the roots table; tests wait for it. */
     internal var rootsLoading: CancellablePromise<List<RootRow>>? = null
         private set
@@ -70,6 +84,11 @@ class AnsibilityConfigurable(private val project: Project) :
         roots.table.selectionModel.addListSelectionListener { event ->
             if (!event.valueIsAdjusting) loadRootEditor()
         }
+        goldenCombo.renderer = textListCellRenderer { golden: GoldenRoot? -> golden?.let(::goldenLabel).orEmpty() }
+        goldenCombo.addActionListener {
+            if (!fillingGolden) edited = edited.copy(drift = edited.drift.copy(golden = goldenCombo.item ?: GoldenRoot.None))
+        }
+        fillGoldenCombo()
     }
 
     override fun createPanel(): DialogPanel {
@@ -267,6 +286,54 @@ class AnsibilityConfigurable(private val project: Project) :
             }
             row { comment(message("molecule.ignore.comment")) }
         }
+        driftGroup()
+    }
+
+    /** Role drift (plan amendment R24, D177): the golden root and "Ignore molecule/ in drift" (R9's D41). */
+    private fun Panel.driftGroup() {
+        group(message("project.group.drift")) {
+            row(message("drift.golden")) {
+                cell(goldenCombo).comment(message("drift.golden.comment"))
+            }
+            row {
+                checkBox(message("drift.ignore.molecule"))
+                    .bindSelected({ edited.drift.ignoreMolecule }, { edited = edited.copy(drift = edited.drift.copy(ignoreMolecule = it)) })
+                    .comment(message("drift.ignore.molecule.comment"))
+            }
+        }
+    }
+
+    /** "None", "First role library (automatic)", a root's name, or "<key> (not found)" once the roots are known. */
+    internal fun goldenLabel(golden: GoldenRoot): String = when (golden) {
+        GoldenRoot.None -> message("drift.golden.none")
+        GoldenRoot.FirstRoleLibrary -> message("drift.golden.first.library")
+        is GoldenRoot.Root -> {
+            val names = goldenNames
+            when {
+                names == null -> golden.key
+                else -> names[golden.key] ?: message("drift.golden.missing", golden.key)
+            }
+        }
+    }
+
+    /** The combo's items (the known roots, plus a stored root that is not found) with the working copy's choice selected. */
+    private fun fillGoldenCombo() {
+        val current = edited.drift.golden
+        val roots = goldenNames.orEmpty().keys.map { GoldenRoot.Root(it) }
+        val items = buildList {
+            add(GoldenRoot.None)
+            add(GoldenRoot.FirstRoleLibrary)
+            addAll(roots)
+            if (current is GoldenRoot.Root && current !in roots) add(current)
+        }
+        fillingGolden = true
+        try {
+            goldenCombo.removeAllItems()
+            items.forEach(goldenCombo::addItem)
+            goldenCombo.selectedItem = current
+        } finally {
+            fillingGolden = false
+        }
     }
 
     /** No help page exists for this page, so no help button is shown. */
@@ -276,7 +343,8 @@ class AnsibilityConfigurable(private val project: Project) :
         rules.stopEditing()
         return super.isModified() ||
             rules.rules() != appService.settings.jinja.outerLanguageRules ||
-            edited.normalized().roots != projectService.settings.roots
+            edited.normalized().roots != projectService.settings.roots ||
+            edited.drift.golden != projectService.settings.drift.golden
     }
 
     override fun apply() {
@@ -290,6 +358,7 @@ class AnsibilityConfigurable(private val project: Project) :
         app = appService.settings
         edited = projectService.settings
         roots.refresh()
+        fillGoldenCombo()
     }
 
     override fun reset() {
@@ -300,6 +369,7 @@ class AnsibilityConfigurable(private val project: Project) :
         rules.reset(app.jinja.outerLanguageRules)
         roots.refresh()
         loadRootEditor()
+        fillGoldenCombo()
     }
 
     override fun disposeUIResources() {
@@ -333,6 +403,9 @@ class AnsibilityConfigurable(private val project: Project) :
             .finishOnUiThread(ModalityState.current()) { rows ->
                 roots.setRows(rows)
                 loadRootEditor()
+                // The golden root may be any non-detached root, listed by name (D177).
+                goldenNames = rows.filter { !it.root.detached }.associate { it.key to it.root.displayName }
+                fillGoldenCombo()
             }
             .submit(AppExecutorUtil.getAppExecutorService())
     }

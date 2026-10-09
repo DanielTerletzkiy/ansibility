@@ -1,10 +1,11 @@
 package de.terletzkiy.ansibility.model.drift
 
 import com.intellij.openapi.vfs.VirtualFile
+import de.terletzkiy.ansibility.api.AnsibleRoot
 import de.terletzkiy.ansibility.model.role.RoleCopy
 
-// The role-drift model (plan amendment R9, F9.5). It describes how role copies differ from the reference copy in the
-// role library (golden) by path only: no content, and no hash, ever leaves `RoleDriftService`. The wording is always
+// The role-drift model (plan amendments R9, F9.5, and R24). It describes how role copies differ from the reference copy,
+// the golden root's copy (the setting of R24, D177), by path only: no content, and no hash, ever leaves `RoleDriftService`. The wording is always
 // "differs from golden", never "outdated": the direction of a difference is unknown (the haproxy repo copies fix
 // golden's molecule check).
 
@@ -12,7 +13,7 @@ import de.terletzkiy.ansibility.model.role.RoleCopy
  * The drift tier of a role copy: the highest [DriftCategory] that any path differing from the reference touches.
  */
 enum class DriftTier {
-    /** The copy is the reference itself (the role library's copy). */
+    /** The copy is the reference itself (the golden root's copy). */
     REFERENCE,
 
     /** No path differs from the reference. */
@@ -27,7 +28,7 @@ enum class DriftTier {
     /** A difference anywhere else: `tasks/`, `handlers/`, `templates/`, `files/`, `meta/main.yml`, … */
     BEHAVIOUR,
 
-    /** The role name has no copy in a role library, so there is nothing to compare against (variants only). */
+    /** The golden root has no copy of the role name (or no golden root is set): nothing to compare against (variants only). */
     NO_REFERENCE,
     ;
 
@@ -96,12 +97,15 @@ data class CopyDrift(
 )
 
 /** Copies with byte-identical content (the same relative paths, lengths and content hashes). */
-data class RoleVariant(val index: Int, val copies: List<RoleCopy>)
+data class RoleVariant(val index: Int, val copies: List<RoleCopy>) {
+    /** The number of copies with this content. */
+    val size: Int get() = copies.size
+}
 
 /** The drift of one role name across all its copies. */
 data class RoleDrift(
     val name: String,
-    /** The reference copy (golden), or null when no role library has the role. */
+    /** The reference copy (the golden root's), or null when the golden root has no copy of the role or none is set. */
     val reference: RoleCopy?,
     /** Every copy in catalog order (reference first). */
     val copies: List<CopyDrift>,
@@ -109,9 +113,52 @@ data class RoleDrift(
     val variants: List<RoleVariant>,
     /** The options the drift was computed with. */
     val options: DriftOptions,
+    /**
+     * The golden root the drift was computed against (plan amendment R24, D177), also when it has no copy of this role;
+     * null when none is set.
+     */
+    val goldenRoot: AnsibleRoot? = null,
 ) {
     /** The drift of the copy whose role directory is [dir]. */
     fun copyOf(dir: VirtualFile): CopyDrift? = copies.firstOrNull { it.copy.dir == dir }
+
+    /**
+     * The name the wording uses for golden (`= heron`, `no heron copy`): the reference's root, else the golden root;
+     * null when neither is known.
+     */
+    val goldenName: String? get() = reference?.root?.displayName ?: goldenRoot?.displayName
+
+    /** The variant of [copy] (one of [variants]). */
+    fun variantOf(copy: CopyDrift): RoleVariant? = variants.firstOrNull { it.index == copy.variant }
+
+    /** The variant of the reference copy, or null without one. */
+    val referenceVariant: RoleVariant? get() = reference?.let { ref -> variants.firstOrNull { variant -> variant.copies.any { it.dir == ref.dir } } }
+
+    /**
+     * The variants in the order Group by Variant lists them (plan amendment R24, X123): the reference's variant first,
+     * then the larger before the smaller, then by the root name of their first copy (copies keep catalog order).
+     */
+    val rankedVariants: List<RoleVariant>
+        get() {
+            val referenceIndex = referenceVariant?.index
+            return variants.sortedWith(
+                compareBy<RoleVariant> { it.index != referenceIndex }
+                    .thenByDescending { it.size }
+                    .thenBy { it.copies.firstOrNull()?.root?.displayName?.lowercase().orEmpty() }
+                    .thenBy { it.index },
+            )
+        }
+
+    /**
+     * The variant most copies share (X122's "7 of 9 copies share falcon's variant"); on a tie the reference's, then the
+     * first in [rankedVariants]. Null when no two copies are byte-identical or every copy is (nothing to tell).
+     */
+    val majorityVariant: RoleVariant?
+        get() {
+            if (variants.size < 2) return null
+            val largest = rankedVariants.maxByOrNull { it.size } ?: return null
+            return largest.takeIf { it.size > 1 }
+        }
 
     /** Whether there is more than one copy and all are byte-identical. */
     val identicalEverywhere: Boolean get() = copies.size > 1 && variants.size == 1

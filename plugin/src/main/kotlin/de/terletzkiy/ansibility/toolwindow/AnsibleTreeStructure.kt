@@ -15,6 +15,7 @@ import de.terletzkiy.ansibility.toolwindow.model.TreeContext
 import de.terletzkiy.ansibility.toolwindow.model.TreeView
 import de.terletzkiy.ansibility.toolwindow.model.WorkspaceNode
 import de.terletzkiy.ansibility.toolwindow.model.WorkspaceSnapshot
+import java.awt.Color
 
 /**
  * The [AbstractTreeStructure] behind the tool window's `StructureTreeModel`. Elements are [AnsibleTreeNode]s over
@@ -30,11 +31,19 @@ class AnsibleTreeStructure(
     @Volatile
     var snapshot: WorkspaceSnapshot = WorkspaceSnapshot.EMPTY
 
-    override fun getRootElement(): Any = WorkspaceNode(snapshot, view)
+    /** The Roles tab's Drifted Only (plan amendment R24, D179); set on the EDT before the model is invalidated. */
+    @Volatile
+    var driftedOnly: Boolean = false
+
+    /** The Roles tab's Group by Variant (plan amendment R24, X123); set on the EDT before the model is invalidated. */
+    @Volatile
+    var groupByVariant: Boolean = false
+
+    override fun getRootElement(): Any = WorkspaceNode(snapshot, view, driftedOnly, groupByVariant)
 
     override fun getChildElements(element: Any): Array<Any> {
         // The root element is equal across snapshots; always expand the current one.
-        val node = if (element is WorkspaceNode) WorkspaceNode(snapshot, view) else element as? AnsibleTreeNode ?: return emptyArray()
+        val node = if (element is WorkspaceNode) WorkspaceNode(snapshot, view, driftedOnly, groupByVariant) else element as? AnsibleTreeNode ?: return emptyArray()
         return node.children(context).toTypedArray()
     }
 
@@ -63,8 +72,8 @@ class AnsibleTreeStructure(
 }
 
 /**
- * Renders one [AnsibleTreeNode]: icon, name (bold or struck through by [NodeStyle]), the badge, the grey extra text and
- * an HTML tooltip. Double-click expands only container nodes; nodes with a navigation target open it instead (plan
+ * Renders one [AnsibleTreeNode]: icon, name (bold or struck through by [NodeStyle], in a drift row's VCS status colour,
+ * [DriftColors]), the badge, the grey extra text and an HTML tooltip. Double-click expands only container nodes; nodes with a navigation target open it instead (plan
  * F6.3). [update] runs on the tree's background thread; [toString] (speed search) returns the name it computed, so the
  * EDT never computes a presentation.
  */
@@ -84,7 +93,7 @@ class AnsibleNodeDescriptor(
         val icon = AnsibilityToolWindowIcons.of(model.icon)
         presentation.setIcon(model.marker?.let { RowIcon(icon, AnsibilityToolWindowIcons.of(it)) } ?: icon)
         presentation.presentableText = model.name
-        presentation.addText(model.name, nameAttributes(model.style))
+        presentation.addText(model.name, nameAttributes(model.style, model.color?.let(DriftColors::of)))
         model.badge?.takeIf { it.isNotEmpty() }?.let { presentation.addText("  $it", SimpleTextAttributes.REGULAR_ATTRIBUTES) }
         model.extra?.takeIf { it.isNotEmpty() }?.let { presentation.addText("  $it", SimpleTextAttributes.GRAYED_ATTRIBUTES) }
         if (model.tooltip.isNotEmpty()) {
@@ -104,10 +113,21 @@ class AnsibleNodeDescriptor(
     private companion object {
         val STRUCK: SimpleTextAttributes = SimpleTextAttributes(SimpleTextAttributes.STYLE_STRIKEOUT, null)
 
-        fun nameAttributes(style: NodeStyle): SimpleTextAttributes = when (style) {
-            NodeStyle.NORMAL -> SimpleTextAttributes.REGULAR_ATTRIBUTES
-            NodeStyle.EMPHASIZED -> SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES
-            NodeStyle.STRUCK -> STRUCK
+        /** The name's attributes: [style], in [color] (a drift row's VCS status colour, plan amendment R24) when given. */
+        fun nameAttributes(style: NodeStyle, color: Color? = null): SimpleTextAttributes {
+            if (color != null) {
+                val flags = when (style) {
+                    NodeStyle.NORMAL -> SimpleTextAttributes.STYLE_PLAIN
+                    NodeStyle.EMPHASIZED -> SimpleTextAttributes.STYLE_BOLD
+                    NodeStyle.STRUCK -> SimpleTextAttributes.STYLE_STRIKEOUT
+                }
+                return SimpleTextAttributes(flags, color)
+            }
+            return when (style) {
+                NodeStyle.NORMAL -> SimpleTextAttributes.REGULAR_ATTRIBUTES
+                NodeStyle.EMPHASIZED -> SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES
+                NodeStyle.STRUCK -> STRUCK
+            }
         }
     }
 }

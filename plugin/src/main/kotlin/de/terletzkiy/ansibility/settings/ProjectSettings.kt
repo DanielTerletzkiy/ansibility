@@ -134,15 +134,70 @@ data class MoleculeSettings(
 }
 
 /**
+ * Which root holds the golden copies that role drift compares every other copy with (plan amendment R24, D177).
+ * Detached worktrees are never golden.
+ */
+sealed interface GoldenRoot {
+    /** No golden root: drift is not computed and the drift UI is hidden (the default, D178). */
+    data object None : GoldenRoot
+
+    /** Per role name, the copy in the first role library (by path) that has one: R9's implicit reference. */
+    data object FirstRoleLibrary : GoldenRoot
+
+    /** The copies owned by the root stored under [key] (`settings.RootKeys`), whatever its kind. */
+    data class Root(val key: String) : GoldenRoot
+
+    companion object {
+        private const val FIRST_ROLE_LIBRARY = "first-role-library"
+        private const val ROOT_PREFIX = "root:"
+
+        /** The stored form: null for [None], `first-role-library`, or `root:<key>`. */
+        fun encode(golden: GoldenRoot): String? = when (golden) {
+            None -> null
+            FirstRoleLibrary -> FIRST_ROLE_LIBRARY
+            is Root -> ROOT_PREFIX + golden.key
+        }
+
+        /** Reads [encode]'s form; anything else (blank, unknown, an empty key) is [None]. */
+        fun decode(text: String?): GoldenRoot {
+            val value = text?.trim().orEmpty()
+            return when {
+                value == FIRST_ROLE_LIBRARY -> FirstRoleLibrary
+                value.startsWith(ROOT_PREFIX) && value.length > ROOT_PREFIX.length -> Root(value.removePrefix(ROOT_PREFIX))
+                else -> None
+            }
+        }
+    }
+}
+
+/**
+ * Role drift (plan amendment R24, D177): the [golden] root and "Ignore `molecule/` in drift" (R9's D41). Changing them
+ * re-tiers the drift without a rescan and without restarting highlighting.
+ */
+data class DriftSettings(
+    val golden: GoldenRoot = GoldenRoot.None,
+    /** Molecule files take no part in tiers or variants. Off by default. */
+    val ignoreMolecule: Boolean = false,
+) {
+    companion object {
+        val DEFAULT = DriftSettings()
+    }
+}
+
+/**
  * The project's Ansibility settings: per-root [RootSettings] keyed by the root directory relative to the project
- * directory ([RootKeys]), plus the project-wide [PathSettings] and [MoleculeSettings]. Immutable.
+ * directory ([RootKeys]), plus the project-wide [PathSettings], [MoleculeSettings] and [DriftSettings]. Immutable.
  */
 data class ProjectSettings(
     /** Only roots whose settings differ from [RootSettings.DEFAULT]. */
     val roots: Map<String, RootSettings> = emptyMap(),
     val paths: PathSettings = PathSettings(),
     val molecule: MoleculeSettings = MoleculeSettings.DEFAULT,
+    val drift: DriftSettings = DriftSettings.DEFAULT,
 ) {
+    /** Whether [other] differs from these settings in [drift] only. */
+    fun differsOnlyInDrift(other: ProjectSettings): Boolean = drift != other.drift && copy(drift = other.drift) == other
+
     /** The settings of the root stored under [key], or the defaults. */
     fun root(key: String): RootSettings = roots[key] ?: RootSettings.DEFAULT
 
