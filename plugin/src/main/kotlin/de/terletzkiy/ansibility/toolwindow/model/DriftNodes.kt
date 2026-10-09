@@ -23,8 +23,11 @@ object GoldenActionIds {
     const val MERGE_INTO_GOLDEN: String = "Ansibility.Golden.MergeIntoGolden"
     const val PUSH_TO_REPOS: String = "Ansibility.Golden.PushToRepos"
 
+    /** Copy as Patch for Golden… (plan amendment R25, X126). */
+    const val COPY_AS_PATCH: String = "Ansibility.Golden.CopyAsPatch"
+
     /** The buttons of a copy's details, in order. */
-    val COPY_ACTIONS: List<String> = listOf(COMPARE_WITH_GOLDEN, ALIGN_WITH_GOLDEN, MERGE_INTO_GOLDEN, PUSH_TO_REPOS)
+    val COPY_ACTIONS: List<String> = listOf(COMPARE_WITH_GOLDEN, ALIGN_WITH_GOLDEN, MERGE_INTO_GOLDEN, PUSH_TO_REPOS, COPY_AS_PATCH)
 }
 
 /**

@@ -30,7 +30,7 @@ import javax.swing.JComponent
  * the background whenever the choice changes, with the vault-id warning.
  */
 internal class AlignRoleDialog(private val project: Project, private val setup: AlignSetup) : DialogWrapper(project) {
-    private val targetBox = ComboBox(setup.choices.toTypedArray()).apply {
+    private val targetBox = ComboBox(setup.targets.toTypedArray()).apply {
         renderer = choiceRenderer()
         selectedItem = setup.defaultTarget
     }
@@ -68,7 +68,7 @@ internal class AlignRoleDialog(private val project: Project, private val setup: 
         if (!showAndGet()) return null
         val target = selected(targetBox) ?: return null
         val source = selected(sourceBox) ?: return null
-        if (target.copy.dir == source.copy.dir || setup.linkedTo(target.copy) != null) return null
+        if (target.copy.dir == source.copy.dir || setup.linkedTo(target.copy) != null || target.copy.isExternal) return null
         return AlignRequest(target.copy, source.copy, includeBox.isSelected)
     }
 

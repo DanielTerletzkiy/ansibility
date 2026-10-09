@@ -15,6 +15,7 @@ import de.terletzkiy.ansibility.api.WorkspaceScopeService
 import de.terletzkiy.ansibility.context.AnsibleLayout
 import de.terletzkiy.ansibility.context.MoleculeView
 import de.terletzkiy.ansibility.context.MoleculeVisibility
+import de.terletzkiy.ansibility.golden.AnsibilityGoldenBundle
 import de.terletzkiy.ansibility.model.drift.AnsibilityDriftBundle
 import de.terletzkiy.ansibility.model.drift.DriftTexts
 import de.terletzkiy.ansibility.model.role.RoleLayout
@@ -66,6 +67,9 @@ class RolesNode(parent: AnsibleTreeNode, val root: RootSnapshot) : AnsibleTreeNo
  * the Roles tab while the drift is not known yet), and a copy that differs from golden gets a first child
  * "Differences from golden (n)" ([DifferencesNode]). The Repos tab shows the badge once the drift is known; only the
  * Roles tab starts computing it.
+ *
+ * The copy of the external golden root (plan amendment R25, [RootSnapshot.external]: "golden (git)", badge "golden
+ * root") has no Molecule marker and no test target, and its files are read-only (D198).
  */
 class RoleNode(parent: AnsibleTreeNode, val root: RootSnapshot, val role: RoleRef, private val applied: String?, private val label: String?) :
     AnsibleTreeNode(parent, "role:${role.dir.path}"), RoleCopyData {
@@ -73,8 +77,10 @@ class RoleNode(parent: AnsibleTreeNode, val root: RootSnapshot, val role: RoleRe
 
     override fun presentation(): NodePresentation {
         val path = root.relativePath(role.dir)
-        val marker = project?.let { NodeMarker.of(RoleTests.getInstance(it).stateOf(role.dir)) }
+        // R25 (D199): no Molecule runs on the external golden root, so no marker either.
+        val marker = if (root.external) null else project?.let { NodeMarker.of(RoleTests.getInstance(it).stateOf(role.dir)) }
         val tooltip = arrayListOf(role.dir.presentableUrl)
+        if (root.external) tooltip += AnsibilityGoldenBundle.message("external.readOnly.row")
         var badge: String? = null
         if (snapshot?.golden?.isSet == true) {
             val drift = DriftLookup.drift(this, role.name)
@@ -129,6 +135,9 @@ class RoleFileNode(
         var color: NodeColor? = null
         var extra: String? = null
         val path = rolePath
+        val tooltip = arrayListOf(file.presentableUrl)
+        // R25 (D198): the external golden root's listing is read-only.
+        if (generateSequence(parent) { it.parent }.filterIsInstance<RoleNode>().firstOrNull()?.root?.external == true) tooltip += AnsibilityGoldenBundle.message("external.readOnly.row")
         if (path != null && snapshot?.golden?.isSet == true) {
             val paths = DriftLookup.copy(this, roleName, roleDir)?.paths
             if (paths != null) {
@@ -140,7 +149,7 @@ class RoleFileNode(
                 if (color != null && path in paths.sensitive) extra = DriftTexts.contentNotShown()
             }
         }
-        return NodePresentation(file.name, extra, listOf(file.presentableUrl), icon(), color = color)
+        return NodePresentation(file.name, extra, tooltip, icon(), color = color)
     }
 
     /** A role's own directories by what Ansible loads from them (`tasks`, `defaults`, …); deeper ones a plain folder. */
@@ -196,9 +205,11 @@ class RoleNameNode(parent: AnsibleTreeNode, val name: String, val copies: List<P
     override fun presentation(): NodePresentation {
         val roots = copies.map { it.first.root.displayName }.distinct()
         val scope = project?.let { WorkspaceScopeService.getInstance(it).current() }
+        // The external golden root's copy (R25) is in no scope: "in scope" counts the project's copies only.
+        val local = copies.filter { (root, _) -> !root.external }
         val inScope = when {
-            scope == null -> copies
-            !scope.rootsKnown() && ApplicationManager.getApplication().isDispatchThread -> copies
+            scope == null -> local
+            !scope.rootsKnown() && ApplicationManager.getApplication().isDispatchThread -> local
             else -> copiesIn(scope)
         }
         val text = if (snapshot?.golden?.isSet == true) {
@@ -208,7 +219,7 @@ class RoleNameNode(parent: AnsibleTreeNode, val name: String, val copies: List<P
         } else {
             message("role.copies", copies.size, ToolWindowTexts.joinCapped(roots, MAX_ROOTS))
         }
-        val extra = if (inScope.size < copies.size) message("role.copies.scope", text, inScope.size) else text
+        val extra = if (inScope.size < local.size) message("role.copies.scope", text, inScope.size) else text
         return NodePresentation(name, extra, icon = NodeIcon.ROLE, marker = marker(inScope))
     }
 
@@ -246,18 +257,22 @@ class RoleNameNode(parent: AnsibleTreeNode, val name: String, val copies: List<P
 
         /** The row of one copy of a role name below [parent] (the name, or one of its variant groups): the same node and key either way. */
         internal fun copyRow(parent: AnsibleTreeNode, root: RootSnapshot, role: RoleRef): RoleNode =
-            RoleNode(parent, root, role, appliedText(parent, root, role), label = root.root.displayName)
+            RoleNode(parent, root, role, appliedText(parent, root, role), label = root.copyLabel)
 
         /**
          * Every role directory once, under the root it belongs to ([WorkspaceSnapshot.roleCopies]: the innermost root
-         * that lists and contains it, the one the scoped Molecule runs use too); role libraries first.
+         * that lists and contains it, the one the scoped Molecule runs use too); role libraries first. With an external
+         * golden root (plan amendment R25) its copies join ([GoldenState.external]), first, also for names no root of
+         * the project has.
          */
         fun all(parent: AnsibleTreeNode, snapshot: WorkspaceSnapshot): List<RoleNameNode> {
             val order = snapshot.librariesFirst.withIndex().associate { (index, root) -> root to index }
             val golden = snapshot.golden.root?.dir
-            val byName = snapshot.roleCopies.groupBy { it.second.name }
+            val external = snapshot.golden.external
+            val copies = snapshot.roleCopies + external?.roles?.map { external to it }.orEmpty()
+            val byName = copies.groupBy { it.second.name }
             // The golden root's copy leads (plan amendment R24, D177), then role libraries, then the other roots.
-            val copyOrder = compareBy<Pair<RootSnapshot, RoleRef>> { (root, _) -> root.dir != golden }.thenBy { (root, _) -> order.getValue(root) }
+            val copyOrder = compareBy<Pair<RootSnapshot, RoleRef>> { (root, _) -> root.dir != golden }.thenBy { (root, _) -> order[root] ?: -1 }
             return byName.keys.sorted().map { name -> RoleNameNode(parent, name, byName.getValue(name).sortedWith(copyOrder)) }
         }
     }

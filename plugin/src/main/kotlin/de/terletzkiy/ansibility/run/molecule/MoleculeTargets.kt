@@ -6,6 +6,7 @@ import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.RoleRef
 import de.terletzkiy.ansibility.api.RoleTests
 import de.terletzkiy.ansibility.api.WorkspaceScope
+import de.terletzkiy.ansibility.model.role.ExternalGoldenRoot
 import de.terletzkiy.ansibility.toolwindow.model.AnsibleTreeNode
 import de.terletzkiy.ansibility.toolwindow.model.RoleFileNode
 import de.terletzkiy.ansibility.toolwindow.model.RoleNameNode
@@ -68,9 +69,12 @@ object MoleculeTargets {
     /** The targets of folders selected in the Project view: a role, its `molecule` folder or a scenario. Read action. */
     fun ofFiles(project: Project, files: List<VirtualFile>): List<MoleculeTarget> {
         val tests = RoleTests.getInstance(project)
+        val external = ExternalGoldenRoot.getInstance(project)
         return distinct(
             files.filter { it.isDirectory }.mapNotNull { file ->
                 val roleDir = MoleculeRunContext.roleDirOf(file) ?: return@mapNotNull null
+                // R25 (D199): never a Molecule run on the external golden root.
+                if (external.isUnder(roleDir)) return@mapNotNull null
                 if (!tests.hasTests(roleDir)) return@mapNotNull null
                 val label = AnsibleWorkspace.getInstance(project).rootFor(roleDir)?.displayName ?: roleDir.parent?.name.orEmpty()
                 MoleculeTarget(MoleculeSpec(roleDir.path, scenarioOf(roleDir, file)), roleDir.name, label)

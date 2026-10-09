@@ -136,4 +136,55 @@
         </action>
     </actions>
     <!-- /x121 -->
+    <!-- x126: Copy as Patch for Golden… (plan amendment R25): a unified diff that turns the golden copy of a role into
+         the selected copy (a copy row, a "Differences from golden" row, a role file in the editor or the Project view),
+         to the clipboard or a .patch file, for git apply in the golden repository. Right after Take This into Golden in
+         each popup (anchored to an action registered earlier in this file). Its dialog and notices go through
+         golden.patch.PatchUi, replaced in tests. -->
+    <extensions defaultExtensionNs="com.intellij">
+        <applicationService serviceInterface="de.terletzkiy.ansibility.golden.patch.PatchUi"
+                            serviceImplementation="de.terletzkiy.ansibility.golden.patch.DefaultPatchUi"/>
+    </extensions>
+    <actions resource-bundle="messages.AnsibilityGoldenBundle">
+        <action id="Ansibility.Golden.CopyAsPatch" class="de.terletzkiy.ansibility.golden.patch.CopyAsPatchAction">
+            <add-to-group group-id="Ansibility.ToolWindow.Popup" anchor="after" relative-to-action="Ansibility.Golden.TakeIntoGolden"/>
+            <add-to-group group-id="Ansibility.Golden.Menu" anchor="after" relative-to-action="Ansibility.Golden.TakeIntoGolden"/>
+        </action>
+    </actions>
+    <!-- /x126 -->
+    <!-- r25:a golden root from a git repository (D193-D196, D201-D203) or a folder outside the project (X125).
+         golden.remote.GoldenMirrors is the project service the golden-root wiring reads; its git runs through the
+         transport extension: the optional ansibility-git.xml (loaded with Git4Idea) registers the Git plugin's (the
+         IDE's credentials); without one, golden.remote.SystemGitTransport (the system git, never prompts). The
+         consents (D203) are an application light service, per machine. -->
+    <extensionPoints>
+        <extensionPoint qualifiedName="de.terletzkiy.ansibility.goldenGitTransport"
+                        interface="de.terletzkiy.ansibility.golden.remote.GoldenGitTransport" dynamic="true"/>
+    </extensionPoints>
+    <extensions defaultExtensionNs="com.intellij">
+        <projectService serviceInterface="de.terletzkiy.ansibility.golden.remote.GoldenMirrors"
+                        serviceImplementation="de.terletzkiy.ansibility.golden.remote.GoldenMirrorService"/>
+        <postStartupActivity implementation="de.terletzkiy.ansibility.golden.remote.GoldenMirrorActivity"/>
+    </extensions>
+    <!-- /r25 -->
+    <!-- r25w: the external golden root as the golden root (R25 step 2: D197-D200, X127, X128). model.role.ExternalGoldenRoot
+         resolves the mirror's (or folder's) directories in the VFS after every state change of golden.remote.GoldenMirrors
+         (listener below) for the role catalog; it is never a root of the workspace (D199). Read-only (D198): every file
+         below it is denied writing and carries a banner. The golden side's last change comes from our own git in the
+         mirror (local, no VCS imports, order first: the IDE's VCS knows nothing of the mirror). X128 reports a new
+         commit that changed the tier of your copies. -->
+    <extensions defaultExtensionNs="com.intellij">
+        <writingAccessProvider implementation="de.terletzkiy.ansibility.golden.remote.GoldenMirrorWritingAccessProvider"/>
+        <editorNotificationProvider implementation="de.terletzkiy.ansibility.golden.remote.GoldenMirrorBannerProvider"/>
+    </extensions>
+    <extensions defaultExtensionNs="de.terletzkiy.ansibility">
+        <lastChangeLookup implementation="de.terletzkiy.ansibility.golden.remote.GoldenMirrorLastChangeLookup" order="first"/>
+    </extensions>
+    <projectListeners>
+        <listener class="de.terletzkiy.ansibility.model.role.ExternalGoldenStateListener"
+                  topic="de.terletzkiy.ansibility.golden.remote.GoldenMirrorListener"/>
+        <listener class="de.terletzkiy.ansibility.golden.remote.GoldenMovedListener"
+                  topic="de.terletzkiy.ansibility.model.role.ExternalGoldenListener"/>
+    </projectListeners>
+    <!-- /r25w -->
 </idea-plugin>

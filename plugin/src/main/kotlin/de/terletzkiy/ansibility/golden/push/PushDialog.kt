@@ -10,6 +10,7 @@ import com.intellij.ui.components.JBCheckBox
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBLoadingPanel
 import com.intellij.ui.components.JBScrollPane
+import com.intellij.ui.dsl.builder.Align
 import com.intellij.ui.dsl.builder.AlignX
 import com.intellij.ui.dsl.builder.Panel
 import com.intellij.ui.dsl.builder.panel
@@ -17,10 +18,12 @@ import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
 import de.terletzkiy.ansibility.golden.AnsibilityGoldenBundle.message
 import java.awt.BorderLayout
+import java.awt.Dimension
 import javax.swing.Action
 import javax.swing.JButton
 import javax.swing.JComponent
 import javax.swing.JLabel
+import javax.swing.JPanel
 
 /**
  * The Push dialog (plan amendment R24, D188):
@@ -74,8 +77,19 @@ class PushDialog(private val project: Project, private val model: PushModel) : D
     private lateinit var selectNoneButton: JButton
     private val loading = JBLoadingPanel(BorderLayout(), disposable).apply {
         setLoadingText(message("push.dialog.loading", model.roleName))
-        preferredSize = JBUI.size(PREFERRED_WIDTH, PREFERRED_ROWS_HEIGHT)
     }
+
+    /**
+     * The rows (or the loading state): at least [MIN_ROWS_HEIGHT] tall even while they load, as tall as they need up to
+     * [MAX_ROWS_HEIGHT], then it scrolls. A JBLoadingPanel reports its content's size, so its own preferred size never
+     * counted and the dialog opened at its smallest, hiding the choices (user report 2026-10-09).
+     */
+    internal val rowsArea: JPanel = object : JPanel(BorderLayout()) {
+        override fun getPreferredSize(): Dimension {
+            val content = super.getPreferredSize()
+            return Dimension(maxOf(content.width, JBUI.scale(PREFERRED_WIDTH)), content.height.coerceIn(JBUI.scale(MIN_ROWS_HEIGHT), JBUI.scale(MAX_ROWS_HEIGHT)))
+        }
+    }.apply { add(loading, BorderLayout.CENTER) }
 
     init {
         title = message("push.dialog.title")
@@ -114,7 +128,7 @@ class PushDialog(private val project: Project, private val model: PushModel) : D
             selectDifferingButton = button(message("push.dialog.selectDiffering")) { selectDiffering() }.align(AlignX.RIGHT).component
             selectNoneButton = button(message("push.dialog.selectNone")) { selectNone() }.align(AlignX.RIGHT).component
         }
-        row { cell(loading).align(AlignX.FILL) }.resizableRow()
+        row { cell(rowsArea).align(Align.FILL) }.resizableRow()
         row {
             deleteBox = checkBox(message("push.dialog.option.delete")).applyToComponent { isSelected = options.deleteExtra }
                 .onChanged { options = options.copy(deleteExtra = it.isSelected); updateState() }.component
@@ -155,7 +169,21 @@ class PushDialog(private val project: Project, private val model: PushModel) : D
         loading.revalidate()
         loading.repaint()
         updateState()
+        growToFit()
     }
+
+    /** Once the rows are in, makes an open dialog tall enough to show them (up to [MAX_ROWS_HEIGHT]); never shrinks it. */
+    private fun growToFit() {
+        val window = window ?: return
+        if (!window.isDisplayable) return
+        val wanted = window.preferredSize
+        if (wanted.width <= window.width && wanted.height <= window.height) return
+        window.size = Dimension(maxOf(wanted.width, window.width), maxOf(wanted.height, window.height))
+        window.validate()
+    }
+
+    /** Remembers the size you give the dialog. */
+    override fun getDimensionServiceKey(): String = "Ansibility.Golden.PushRoleToRepos"
 
     private fun Panel.rowOf(pushRow: PushRow) {
         row {
@@ -215,6 +243,7 @@ class PushDialog(private val project: Project, private val model: PushModel) : D
 
     private companion object {
         const val PREFERRED_WIDTH = 720
-        const val PREFERRED_ROWS_HEIGHT = 280
+        const val MIN_ROWS_HEIGHT = 200
+        const val MAX_ROWS_HEIGHT = 480
     }
 }

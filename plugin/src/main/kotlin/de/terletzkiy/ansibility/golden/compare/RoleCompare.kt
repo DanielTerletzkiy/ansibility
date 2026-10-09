@@ -28,6 +28,7 @@ import de.terletzkiy.ansibility.api.WorkspaceScopeService
 import de.terletzkiy.ansibility.golden.AnsibilityGoldenBundle.message
 import de.terletzkiy.ansibility.golden.GoldenTarget
 import de.terletzkiy.ansibility.golden.history.LastChange
+import de.terletzkiy.ansibility.golden.history.LastChangeTexts
 import de.terletzkiy.ansibility.golden.history.LastChanges
 import de.terletzkiy.ansibility.golden.sync.PlanEntry
 import de.terletzkiy.ansibility.golden.sync.PlanKind
@@ -37,6 +38,7 @@ import de.terletzkiy.ansibility.model.drift.DriftCategory
 import de.terletzkiy.ansibility.model.drift.DriftRules
 import de.terletzkiy.ansibility.model.drift.DriftTexts
 import de.terletzkiy.ansibility.model.drift.RoleDriftService
+import de.terletzkiy.ansibility.model.role.ExternalGoldenRoot
 import de.terletzkiy.ansibility.model.role.RoleCatalog
 import de.terletzkiy.ansibility.model.role.RoleCopy
 import kotlinx.coroutines.CoroutineScope
@@ -76,7 +78,8 @@ class RoleCompareChain internal constructor(
 
 /**
  * Compare with Golden and Compare with… (plan amendment R24, D182; R9's F9.6): a diff chain over the files in which two
- * copies of a role differ, as an editor tab.
+ * copies of a role differ, as an editor tab. A side in the external golden root (plan amendment R25) is read-only, and
+ * its title names the fetched commit (D200).
  *
  * - **Files**: [RoleFilePlan] (drift's skip rules, unsaved documents); only the differing ones, sorted by path; the
  *   chain starts at the selected file when one is given. With "Ignore molecule/ in drift" `molecule/` is left out,
@@ -197,8 +200,8 @@ class RoleCompare(private val project: Project, private val scope: CoroutineScop
         ProgressManager.checkCanceled()
         return SimpleDiffRequest(
             requestTitle(left, right, relPath),
-            contentOf(leftFile),
-            contentOf(rightFile),
+            contentOf(left, leftFile),
+            contentOf(right, rightFile),
             sideTitle(left, leftFile, changes[0]),
             sideTitle(right, rightFile, changes[1]),
         )
@@ -233,9 +236,16 @@ class RoleCompare(private val project: Project, private val scope: CoroutineScop
     private fun fileOf(copy: RoleCopy, relPath: String): VirtualFile? =
         copy.dir.takeIf { it.isValid }?.findFileByRelativePath(relPath)?.takeIf { it.isValid && !it.isDirectory }
 
-    private fun contentOf(file: VirtualFile?): DiffContent {
+    /**
+     * A side's content: the file itself (blame and in-place edits work), or empty when missing. A side in the external
+     * golden root (plan amendment R25, D198) is read-only ([DiffUserDataKeys.FORCE_READ_ONLY]): the mirror or folder
+     * is never edited here.
+     */
+    internal fun contentOf(copy: RoleCopy, file: VirtualFile?): DiffContent {
         val factory = DiffContentFactory.getInstance()
-        return if (file == null) factory.createEmpty() else factory.create(project, file)
+        val content = if (file == null) factory.createEmpty() else factory.create(project, file)
+        if (copy.isExternal || file != null && ExternalGoldenRoot.getInstance(project).isUnder(file)) content.putUserData(DiffUserDataKeys.FORCE_READ_ONLY, true)
+        return content
     }
 
     @Nls
@@ -245,6 +255,7 @@ class RoleCompare(private val project: Project, private val scope: CoroutineScop
     @Nls
     private fun sideTitle(copy: RoleCopy, file: VirtualFile?, change: LastChange?): String = when {
         file == null -> message("compare.side.missing", copy.root.displayName)
+        change != null && change.isUpperBound -> LastChangeTexts.side(copy.root.displayName, change)
         change != null -> message("compare.side.lastChange", copy.root.displayName, DATE.format(change.date), change.author)
         else -> copy.root.displayName
     }

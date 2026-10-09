@@ -405,6 +405,8 @@ class WorkspaceScopeServiceImpl(private val project: Project, private val cs: Co
             GoldenRoot.None -> emptyList()
             GoldenRoot.FirstRoleLibrary -> roots.filter { it.kind == RootKind.ROLE_LIBRARY }
             is GoldenRoot.Root -> listOfNotNull(GoldenRoots.resolve(project, golden, roots).root)
+            // R25: outside the project, so no root of it is kept as a reference.
+            GoldenRoot.Git, GoldenRoot.Folder -> emptyList()
         }
 
     private fun coverageStamp(): Long =

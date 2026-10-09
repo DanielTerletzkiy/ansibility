@@ -40,7 +40,8 @@ dependencies {
 
     intellijPlatform {
         pycharm(providers.gradleProperty("platformVersion"))
-        bundledPlugins("org.jetbrains.plugins.yaml", "com.intellij.modules.json")
+        // Git4Idea: an optional dependency (ansibility-git.xml), the golden mirror's credentials (plan amendment R25, D202).
+        bundledPlugins("org.jetbrains.plugins.yaml", "com.intellij.modules.json", "Git4Idea")
         testFramework(TestFrameworkType.Platform)
     }
 }

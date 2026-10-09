@@ -99,6 +99,8 @@ class TakeService(private val project: Project, private val scope: CoroutineScop
         val relPath = GoldenTargets.normalize(target.relPath) ?: return TakeOutcome(TakeOutcome.Status.NOT_APPLICABLE, null, null)
         val golden = readAction { RoleCatalog.getInstance(project).snapshot().reference(target.copy.name) }
         if (golden == null || golden.dir == target.copy.dir) return TakeOutcome(TakeOutcome.Status.NOT_APPLICABLE, null, null)
+        // R25, D198: the external golden root is read-only (the action is hidden; RoleWriter refuses it too).
+        if (direction == TakeDirection.INTO_GOLDEN && golden.isExternal) return TakeOutcome(TakeOutcome.Status.NOT_APPLICABLE, null, null)
         val source = if (direction == TakeDirection.FROM_GOLDEN) golden else target.copy
         val destination = if (direction == TakeDirection.FROM_GOLDEN) target.copy else golden
         val texts = TakeTexts(direction, relPath, source, destination)

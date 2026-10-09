@@ -15,6 +15,7 @@ import com.intellij.testFramework.LightVirtualFile
 import com.intellij.util.concurrency.annotations.RequiresEdt
 import de.terletzkiy.ansibility.golden.AnsibilityGoldenBundle.message
 import de.terletzkiy.ansibility.golden.history.LastChange
+import de.terletzkiy.ansibility.golden.history.LastChangeTexts
 import de.terletzkiy.ansibility.golden.sync.FileOp
 import de.terletzkiy.ansibility.golden.sync.FileStamp
 import de.terletzkiy.ansibility.golden.sync.OpContent
@@ -183,8 +184,12 @@ class AlignTexts internal constructor(private val request: AlignRequest, private
     @Nls
     fun sourcePanel(change: LastChange?): String = withChange(sourcePanel, change)
 
-    private fun withChange(@Nls panel: String, change: LastChange?): String =
-        if (change == null) panel else message("align.panel.lastChange", panel, DATE.format(change.date), change.author)
+    private fun withChange(@Nls panel: String, change: LastChange?): String = when {
+        change == null -> panel
+        // R25: the golden mirror's side is labelled ("fetched commit", "older than the fetched history").
+        change.isUpperBound -> LastChangeTexts.side(panel, change)
+        else -> message("align.panel.lastChange", panel, DATE.format(change.date), change.author)
+    }
 
     @get:Nls
     val targetColumn: String get() = message("align.column.target")

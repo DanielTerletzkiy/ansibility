@@ -23,10 +23,14 @@ import de.terletzkiy.ansibility.context.AnsibleLayout
 import de.terletzkiy.ansibility.context.AnsibleWorkspaceImpl
 import de.terletzkiy.ansibility.context.TargetVersion
 import de.terletzkiy.ansibility.context.TargetVersionDetector
+import de.terletzkiy.ansibility.model.role.ExternalGolden
 import de.terletzkiy.ansibility.model.role.GoldenResolution
 import de.terletzkiy.ansibility.model.role.GoldenRoots
+import de.terletzkiy.ansibility.model.role.RoleCatalog
+import de.terletzkiy.ansibility.model.role.RoleCatalogSnapshot
 import de.terletzkiy.ansibility.semantics.precedence.PrecedenceEntry
 import de.terletzkiy.ansibility.settings.AnsibilityProjectSettings
+import de.terletzkiy.ansibility.settings.GoldenRoot
 import de.terletzkiy.ansibility.workspace.WorkspaceScopeImpl
 import org.jetbrains.annotations.Nls
 import java.io.IOException
@@ -114,6 +118,13 @@ class RootSnapshot(
      * on), so the Molecule run UI decides without reading the VFS (plan amendments R19, D140, and R20, D152).
      */
     val testedRoles: Set<VirtualFile> = emptySet(),
+    /**
+     * The external golden root (plan amendment R25, D197–D199): never one of [WorkspaceSnapshot.roots] (the Repos tab),
+     * never in a scope ([isIn]), no tests ([testedRoles] empty), no plays; only the Roles tab lists its copies.
+     */
+    val external: Boolean = false,
+    /** How the Roles tab names a copy of this root: the root's name, "golden (git)" for the external golden root. */
+    val copyLabel: String = root.displayName,
 ) {
     val dir: VirtualFile get() = root.dir
 
@@ -136,7 +147,7 @@ class RootSnapshot(
      * D143). All roots covers every root without asking; any other scope reads [WorkspaceScope.roots], which for a
      * named scope walks the roots' files on first use unless its coverage is known ([rootsKnown]): off the EDT then.
      */
-    fun isIn(scope: WorkspaceScope): Boolean = scope.choice == ScopeChoice.AllRoots || scope.roots.any { it.dir == dir }
+    fun isIn(scope: WorkspaceScope): Boolean = !external && (scope.choice == ScopeChoice.AllRoots || scope.roots.any { it.dir == dir })
 
     val environments: List<EnvironmentView> by lazy { inventories.map { EnvironmentView(this, it) } }
 
@@ -174,22 +185,31 @@ class WorktreeSnapshot(val name: String, val dir: VirtualFile, val roots: List<A
 
 /**
  * The golden root as the tool window shows it (plan amendment R24, D177/D178): the setting resolved against the
- * snapshot's roots ([GoldenRoots]), and the role library the Roles tab offers while none is set.
+ * snapshot's roots ([GoldenRoots]), and the role library the Roles tab offers while none is set. For the external
+ * golden root of plan amendment R25 (a git repository or a folder outside the project), [external] holds its copies
+ * as a root of their own, which only the Roles tab lists.
  */
 class GoldenState(
     val resolution: GoldenResolution,
     /** The first role library by path, offered as the golden root while none is set (D178); null without one. */
     val firstLibrary: AnsibleRoot?,
+    /** R25: the external golden root's copies ([RootSnapshot.external]); null for a local golden root, or before the first fetch. */
+    val external: RootSnapshot? = null,
+    /** R25: the external golden root the catalog uses, or null. */
+    val mirror: ExternalGolden? = null,
 ) {
     /** The golden root, or null: nothing set, the chosen root is missing, or "first role library" without one. */
-    val root: AnsibleRoot? get() = resolution.root
+    val root: AnsibleRoot? get() = resolution.root ?: external?.root
 
     /** Whether drift is shown at all: only with a golden root (D178). */
-    val isSet: Boolean get() = resolution.root != null
+    val isSet: Boolean get() = root != null
+
+    /** Whether the setting is an external golden root (R25: Git repository, Folder outside the project), fetched or not. */
+    val isExternalSetting: Boolean get() = resolution.setting == GoldenRoot.Git || resolution.setting == GoldenRoot.Folder
 
     /** The golden root's name for the wording (`= golden`), or null. */
     @get:Nls
-    val name: String? get() = resolution.root?.displayName
+    val name: String? get() = root?.displayName
 
     companion object {
         val NONE: GoldenState = GoldenState(GoldenResolution.NONE, null)
@@ -269,11 +289,35 @@ object WorkspaceSnapshotBuilder {
             ProgressManager.checkCanceled()
             rootSnapshot(project, workspace, root, all, hasTests)
         }
-        val golden = GoldenState(
-            GoldenRoots.resolve(project, AnsibilityProjectSettings.getInstance(project).settings, all),
-            GoldenRoots.firstRoleLibrary(all),
-        )
+        val resolution = GoldenRoots.resolve(project, AnsibilityProjectSettings.getInstance(project).settings, all)
+        val catalog = if (resolution.setting == GoldenRoot.Git || resolution.setting == GoldenRoot.Folder) RoleCatalog.getInstance(project).snapshot() else null
+        val mirror = catalog?.external
+        val golden = GoldenState(resolution, GoldenRoots.firstRoleLibrary(all), mirror?.let { externalSnapshot(it, catalog) }, mirror)
         return WorkspaceSnapshot(roots, worktrees(project, all.filter { it.detached }), project, golden)
+    }
+
+    /**
+     * The external golden root's copies as a root of the Roles tab (plan amendment R25): its synthetic root, the golden
+     * copies the catalog lists, no inventories, playbooks or tests.
+     */
+    private fun externalSnapshot(mirror: ExternalGolden, catalog: RoleCatalogSnapshot): RootSnapshot {
+        val roles = catalog.copiesOf(mirror.root).filter { it.isExternal }.map { it.ref }.sortedBy { it.name }
+        return RootSnapshot(
+            root = mirror.root,
+            target = TargetVersion.UNKNOWN,
+            roleCount = roles.size,
+            inventories = emptyList(),
+            playbookVarFiles = emptyList(),
+            playbooks = emptyList(),
+            cfgFile = null,
+            connection = null,
+            precedence = PrecedenceEntry.DEFAULT,
+            parent = null,
+            roles = roles,
+            testedRoles = emptySet(),
+            external = true,
+            copyLabel = mirror.label,
+        )
     }
 
     /**

@@ -47,13 +47,81 @@ class DriftSettingsTest : BasePlatformTestCase() {
     }
 
     fun testGoldenRootEncoding() {
-        for (golden in listOf(GoldenRoot.None, GoldenRoot.FirstRoleLibrary, GoldenRoot.Root(GOLDEN), GoldenRoot.Root(FALCON), GoldenRoot.Root("/abs/path"))) {
+        for (golden in listOf(GoldenRoot.None, GoldenRoot.FirstRoleLibrary, GoldenRoot.Root(GOLDEN), GoldenRoot.Root(FALCON), GoldenRoot.Root("/abs/path"), GoldenRoot.Git, GoldenRoot.Folder)) {
             assertEquals(golden, GoldenRoot.decode(GoldenRoot.encode(golden)))
         }
         assertNull(GoldenRoot.encode(GoldenRoot.None))
-        for (text in listOf(null, "", "  ", "root:", "golden", "first-role-libraries")) {
+        for (text in listOf(null, "", "  ", "root:", "golden", "first-role-libraries", "gits", "folders")) {
             assertEquals("'$text' is no choice", GoldenRoot.None, GoldenRoot.decode(text))
         }
+        // R25 (D193, X125): the stored forms.
+        assertEquals("git", GoldenRoot.encode(GoldenRoot.Git))
+        assertEquals("folder", GoldenRoot.encode(GoldenRoot.Folder))
+        assertEquals("root:git", GoldenRoot.encode(GoldenRoot.Root("git")))
+        assertEquals(GoldenRoot.Root("git"), GoldenRoot.decode("root:git"))
+    }
+
+    fun testTheExternalGoldenRootsDefaultsAndTheirXmlRoundTrip() {
+        assertEquals(RemoteGolden(url = "", ref = "", rolesPath = "", refreshMinutes = 30, historyDepth = 1), DriftSettings.DEFAULT.remote)
+        assertEquals("", DriftSettings.DEFAULT.folder)
+        assertEquals(listOf(5, 10, 30, 60, 0), RemoteGolden.REFRESH_CHOICES)
+        val drift = DriftSettings(
+            golden = GoldenRoot.Git,
+            remote = RemoteGolden("git@git.example.org:infra/golden.git", "main", "ansible/roles", 0, 50),
+            folder = "~/src/golden",
+        )
+        val (xml, bean) = SettingsTestSupport.xmlRoundTrip(ProjectSettingsBean().apply { fill(ProjectSettings(drift = drift)) }, ProjectSettingsBean())
+        assertEquals(xml, drift, bean.toSettings().drift)
+        for (expected in listOf("driftGoldenRoot\" value=\"git\"", "driftRemoteUrl", "driftRemoteRef", "driftRemoteRolesPath", "driftRemoteRefreshMinutes", "driftRemoteHistoryDepth", "driftFolder")) {
+            assertTrue(xml, expected in xml)
+        }
+        val folder = DriftSettings(golden = GoldenRoot.Folder, folder = "/srv/golden")
+        val (folderXml, folderBean) = SettingsTestSupport.xmlRoundTrip(ProjectSettingsBean().apply { fill(ProjectSettings(drift = folder)) }, ProjectSettingsBean())
+        assertEquals(folderXml, folder, folderBean.toSettings().drift)
+        assertFalse("defaults are not written", "driftRemote" in folderXml)
+    }
+
+    fun testRemoteValuesAreNormalizedAndClamped() {
+        val remote = RemoteGolden("  https://git.example.org/golden.git ", " main ", "./roles/", refreshMinutes = -5, historyDepth = 0)
+        assertEquals(RemoteGolden("https://git.example.org/golden.git", "main", "roles", -5, 0), remote.normalized())
+        assertEquals(0, remote.effectiveRefreshMinutes)
+        assertEquals(1, remote.effectiveHistoryDepth)
+        assertEquals(10_000, remote.copy(historyDepth = 1_000_000).effectiveHistoryDepth)
+        settings.update { it.copy(drift = it.drift.copy(remote = remote, folder = " /srv/golden ")) }
+        assertEquals("stored normalized", remote.normalized(), settings.settings.drift.remote)
+        assertEquals("/srv/golden", settings.settings.drift.folder)
+    }
+
+    fun testTheFolderExpandsTheHome() {
+        val home = java.nio.file.Path.of(System.getProperty("user.home"))
+        assertEquals(home.resolve("src/golden"), DriftSettings(folder = "~/src/golden").folderPath())
+        assertEquals(home, DriftSettings(folder = "~").folderPath())
+        assertEquals(java.nio.file.Path.of("/srv/golden"), DriftSettings(folder = "/srv/x/../golden").folderPath())
+        assertNull("relative", DriftSettings(folder = "src/golden").folderPath())
+        assertNull(DriftSettings(folder = "  ").folderPath())
+    }
+
+    fun testTheExternalGoldenRootsAreSharedAndDriftOnly() {
+        val main = settings.modificationTracker.modificationCount
+        val drift = settings.driftModificationTracker.modificationCount
+        val workspace = AnsibleWorkspaceImpl.getInstance(project)!!
+        val roots = workspace.roots()
+        settings.update { it.copy(drift = it.drift.copy(golden = GoldenRoot.Git, remote = RemoteGolden("git@git.example.org:infra/golden.git"))) }
+        settings.update { it.copy(drift = it.drift.copy(remote = it.drift.remote.copy(ref = "main", refreshMinutes = 5, historyDepth = 3, rolesPath = "roles"))) }
+        settings.update { it.copy(drift = it.drift.copy(golden = GoldenRoot.Folder, folder = "/srv/golden")) }
+        assertEquals("no rescan, no restart", main, settings.modificationTracker.modificationCount)
+        assertEquals(drift + 3, settings.driftModificationTracker.modificationCount)
+        assertSame(roots, workspace.roots())
+        val base = ProjectSettings.DEFAULT
+        assertFalse(AnsibilitySettingsWiring.affectsHighlighting(base, base.copy(drift = DriftSettings(remote = RemoteGolden("https://git.example.org/x.git")))))
+        assertFalse(AnsibilitySettingsWiring.affectsHighlighting(base, base.copy(drift = DriftSettings(golden = GoldenRoot.Folder, folder = "/x"))))
+
+        settings.update { it.copy(drift = it.drift.copy(golden = GoldenRoot.Git)) }
+        settings.setSharedWithTeam(true)
+        val shared = project.service<AnsibilitySharedProjectSettings>().state.toSettings().drift
+        assertEquals(GoldenRoot.Git, shared.golden)
+        assertEquals(RemoteGolden("git@git.example.org:infra/golden.git", "main", "roles", 5, 3), shared.remote)
+        assertEquals("/srv/golden", shared.folder)
     }
 
     fun testEachDriftValueSurvivesTheXmlRoundTripAlone() {

@@ -13,6 +13,10 @@ import de.terletzkiy.ansibility.settings.RootKeys
  * [root] is null for [GoldenRoot.None], for [GoldenRoot.FirstRoleLibrary] without a role library, and for a
  * [GoldenRoot.Root] whose key no root has ([missing]; the settings page shows it as "<key> (not found)" and drift has
  * no reference). Never a detached root.
+ *
+ * The external golden roots of plan amendment R25 ([GoldenRoot.Git], [GoldenRoot.Folder]) are no root of the project:
+ * [root] is null and [missing] false. Their copies come from `golden.remote.GoldenMirrors` through [ExternalGoldenRoot]
+ * (the catalog's golden root is then [ExternalGolden.root], never a workspace root, D199).
  */
 data class GoldenResolution(val setting: GoldenRoot, val root: AnsibleRoot?, val missing: Boolean) {
     companion object {
@@ -36,6 +40,8 @@ object GoldenRoots {
                 val root = candidates.firstOrNull { RootKeys.keyOf(project, it.dir) == golden.key }
                 GoldenResolution(golden, root, missing = root == null)
             }
+            // R25: outside the project; no local golden root (the catalog uses ExternalGoldenRoot).
+            GoldenRoot.Git, GoldenRoot.Folder -> GoldenResolution(golden, null, missing = false)
         }
     }
 

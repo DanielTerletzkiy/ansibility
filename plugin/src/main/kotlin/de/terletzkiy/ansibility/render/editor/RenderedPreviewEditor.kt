@@ -77,6 +77,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.awt.BorderLayout
+import java.awt.Dimension
 import java.awt.event.HierarchyEvent
 import java.beans.PropertyChangeListener
 import javax.swing.JComponent
@@ -103,8 +104,17 @@ class RenderedPreviewEditor(private val project: Project, private val file: Virt
     }
     private val document: Document = FileDocumentManager.getInstance().getDocument(outputFile) ?: EditorFactory.getInstance().createDocument("")
     private val viewer = EditorFactory.getInstance().createViewer(document, project, EditorKind.PREVIEW) as EditorEx
-    private val headline = JBLabel(AnsibilityRenderBundle.message("preview.loading")).apply { border = JBUI.Borders.empty(2, 6) }
-    private val panel = JPanel(BorderLayout())
+    /**
+     * The status line under the preview. The preview sits in the split editor's splitter, so neither this line nor the
+     * toolbar may set its minimum width (a long line kept the pane from being made narrower, user report 2026-10-09):
+     * the text is cut with "…" and its tooltip shows it in full.
+     */
+    private val headline = object : JBLabel(AnsibilityRenderBundle.message("preview.loading")) {
+        override fun getMinimumSize(): Dimension = Dimension(0, super.getMinimumSize().height)
+    }.apply { border = JBUI.Borders.empty(2, 6) }
+    private val panel = object : JPanel(BorderLayout()) {
+        override fun getMinimumSize(): Dimension = Dimension(0, super.getMinimumSize().height)
+    }
     private val requests = MutableStateFlow(0L)
     private var job: Job? = null
 
@@ -270,6 +280,7 @@ class RenderedPreviewEditor(private val project: Project, private val file: Virt
                 AnsibilityRenderBundle.message("preview.vault.failed", next.headline, next.secretSources.size)
             else -> next.headline
         }
+        headline.toolTipText = headline.text
         val markup = viewer.markupModel
         markup.removeAllHighlighters()
         val rendered = next.rendered ?: return

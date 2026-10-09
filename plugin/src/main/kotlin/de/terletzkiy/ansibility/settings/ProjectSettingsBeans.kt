@@ -39,6 +39,24 @@ open class ProjectSettingsBean {
     /** [DriftSettings.ignoreMolecule]. */
     var driftIgnoreMolecule: Boolean = DriftSettings.DEFAULT.ignoreMolecule
 
+    /** [RemoteGolden.url] of [DriftSettings.remote] (plan amendment R25, D193); null (not written) when blank. */
+    var driftRemoteUrl: String? = null
+
+    /** [RemoteGolden.ref]; null when blank (the remote's default branch). */
+    var driftRemoteRef: String? = null
+
+    /** [RemoteGolden.rolesPath]; null when blank (automatic). */
+    var driftRemoteRolesPath: String? = null
+
+    /** [RemoteGolden.refreshMinutes] (D195); 0 = on demand only. */
+    var driftRemoteRefreshMinutes: Int = RemoteGolden.DEFAULT_REFRESH_MINUTES
+
+    /** [RemoteGolden.historyDepth] (X127). */
+    var driftRemoteHistoryDepth: Int = RemoteGolden.DEFAULT_HISTORY_DEPTH
+
+    /** [DriftSettings.folder] (X125); null when blank. */
+    var driftFolder: String? = null
+
     fun toSettings(): ProjectSettings = ProjectSettings(
         roots = roots.filter { it.path.isNotBlank() }.associate { it.path to it.toSettings() },
         paths = PathSettings(
@@ -51,7 +69,18 @@ open class ProjectSettingsBean {
             schemaStoreExclusion = schemaStoreExclusion,
         ),
         molecule = MoleculeSettings(runTests = moleculeRunTests, showInNavigation = moleculeShowInNavigation),
-        drift = DriftSettings(golden = GoldenRoot.decode(driftGoldenRoot), ignoreMolecule = driftIgnoreMolecule),
+        drift = DriftSettings(
+            golden = GoldenRoot.decode(driftGoldenRoot),
+            ignoreMolecule = driftIgnoreMolecule,
+            remote = RemoteGolden(
+                url = driftRemoteUrl.orEmpty(),
+                ref = driftRemoteRef.orEmpty(),
+                rolesPath = driftRemoteRolesPath.orEmpty(),
+                refreshMinutes = driftRemoteRefreshMinutes,
+                historyDepth = driftRemoteHistoryDepth,
+            ),
+            folder = driftFolder.orEmpty(),
+        ),
     ).normalized()
 
     /** Copies [settings] into this bean. */
@@ -65,6 +94,13 @@ open class ProjectSettingsBean {
         moleculeShowInNavigation = settings.molecule.showInNavigation
         driftGoldenRoot = GoldenRoot.encode(settings.drift.golden)
         driftIgnoreMolecule = settings.drift.ignoreMolecule
+        val remote = settings.drift.remote.normalized()
+        driftRemoteUrl = remote.url.nonBlank()
+        driftRemoteRef = remote.ref.nonBlank()
+        driftRemoteRolesPath = remote.rolesPath.nonBlank()
+        driftRemoteRefreshMinutes = remote.refreshMinutes
+        driftRemoteHistoryDepth = remote.historyDepth
+        driftFolder = settings.drift.folder.nonBlank()
     }
 }
 

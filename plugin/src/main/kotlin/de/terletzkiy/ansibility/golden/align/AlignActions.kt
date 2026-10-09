@@ -3,6 +3,7 @@ package de.terletzkiy.ansibility.golden.align
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.project.DumbAwareAction
+import com.intellij.openapi.project.Project
 import de.terletzkiy.ansibility.golden.AnsibilityGoldenBundle.message
 import de.terletzkiy.ansibility.golden.GoldenTarget
 import de.terletzkiy.ansibility.golden.GoldenTargets
@@ -14,21 +15,28 @@ import org.jetbrains.annotations.Nls
 /**
  * "Merge into Golden…" (plan amendment R24, D184): the selected copy (a role copy row or file of the tool window, the
  * editor's file, the Project view's selection) is merged into the golden copy of its role. Hidden without a golden
- * copy and on the golden copy itself. The Roles tab's details offer it as a button.
+ * copy, on the golden copy itself and when the golden copy is in the external golden root (plan amendment R25, D198:
+ * the mirror or folder is read-only). The Roles tab's details offer it as a button.
  */
 class MergeIntoGoldenAction : DumbAwareAction() {
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
 
     override fun update(e: AnActionEvent) {
-        val target = CompareWithGoldenAction.goldenTargetOf(e.project, e)
+        val target = targetOf(e.project, e)
         e.presentation.isEnabledAndVisible = target != null
         if (target != null) e.presentation.text = GoldenActionTexts.forPlace(e, message("action.align.mergeInto.menu"))
     }
 
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
-        val target = CompareWithGoldenAction.goldenTargetOf(project, e) ?: return
+        val target = targetOf(project, e) ?: return
         AlignService.getInstance(project).mergeIntoGolden(target)
+    }
+
+    private fun targetOf(project: Project?, e: AnActionEvent): GoldenTarget? {
+        val target = CompareWithGoldenAction.goldenTargetOf(project, e) ?: return null
+        val golden = RoleCatalog.getInstance(project ?: return null).snapshot().reference(target.copy.name) ?: return null
+        return target.takeIf { !golden.isExternal }
     }
 }
 

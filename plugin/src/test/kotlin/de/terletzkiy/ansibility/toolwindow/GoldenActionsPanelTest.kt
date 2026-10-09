@@ -46,7 +46,7 @@ import javax.swing.tree.TreePath
 /**
  * The Roles tab with the plugin's REAL golden actions (plan amendment R24, D180/D182/D188), headless: Enter on a
  * "Differences from golden" file row runs the registered Compare with Golden, whose diff chain starts at that file; a
- * drifting copy's details offer the four registered actions as buttons, and Push to Repos opens the Push dialog for
+ * drifting copy's details offer the five registered actions as buttons, and Push to Repos opens the Push dialog for
  * that copy. Only the windows are replaced ([RecordingDiffUi], [RecordingPushUi]); the actions, the tree and the data
  * contract are the production ones.
  */
@@ -145,8 +145,8 @@ class GoldenActionsPanelTest : BasePlatformTestCase() {
         val roles = rolesTab()
         select(roles, "web", "missing")
         assertEquals(
-            "a drifting copy offers all four, by their menu texts",
-            listOf("Compare with Golden", "Align with Golden…", "Merge into Golden…", "Push Role to Repos…"),
+            "a drifting copy offers all five, by their menu texts",
+            listOf("Compare with Golden", "Align with Golden…", "Merge into Golden…", "Push Role to Repos…", "Copy as Patch for Golden…"),
             buttons(roles).map { it.text },
         )
 

@@ -191,6 +191,25 @@ class TemplatePreviewServiceTest : HostContextTestCase() {
         }
     }
 
+    /** The status line and the toolbar never set the preview's minimum width, so the splitter can make it narrow (2026-10-09). */
+    fun testTheStatusLineNeverKeepsThePreviewWide() {
+        val report = render(TEMPLATE, host = "prod-prod1")
+        val editor = RenderedTemplateEditorProvider().createEditor(project, vf(TEMPLATE)) as TextEditorWithPreview
+        try {
+            editor.component
+            val preview = editor.previewEditor as RenderedPreviewEditor
+            preview.showForTests(report)
+            val status = com.intellij.util.ui.UIUtil.findComponentsOfType(preview.component, javax.swing.JLabel::class.java)
+                .single { it.text.orEmpty().startsWith("Rendered by Ansibility") }
+            assertTrue("the line itself is wide", status.preferredSize.width > 200)
+            assertEquals("but it can be cut", 0, status.minimumSize.width)
+            assertEquals("the preview can be made as narrow as the splitter wants", 0, preview.component.minimumSize.width)
+            assertEquals("the full line stays readable as the tooltip", status.text, status.toolTipText)
+        } finally {
+            Disposer.dispose(editor)
+        }
+    }
+
     private fun render(path: String, host: String, pick: PreviewPick? = null, source: String? = null, secrets: Map<String, String> = emptyMap()): PreviewReport {
         context.setSelection(root(FALCON), RootContext(EnvironmentChoice.Named("prod"), host))
         val file = vf(path)

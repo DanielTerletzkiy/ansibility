@@ -48,19 +48,23 @@ class AlignPreview internal constructor(
  * golden root, U7: a badge says how a copy differs from golden), in-scope copies first and never filtered (D44); by
  * default the golden copy is the target (else the selected copy) and the selected copy the source (else the first
  * other copy). A copy that is (or lies below) a symbolic link is never the default target and cannot be the target
- * ([linked], D191).
+ * ([linked], D191). A copy in the external golden root (plan amendment R25, D198) is a source only: [targets] leave it
+ * out.
  */
 class AlignSetup internal constructor(
     val project: Project,
     /** The role name. */
     val name: String,
-    /** Every copy of the role, in-scope first (catalog order within each group). */
+    /** Every copy of the role, in-scope first (catalog order within each group): the source choices. */
     val choices: List<CompareChoice>,
     val defaultTarget: CompareChoice,
     val defaultSource: CompareChoice,
     /** Where each linked copy's directory really is, by its directory (`RoleLinks.linkedTo`). */
     val linked: Map<VirtualFile, String> = emptyMap(),
 ) {
+    /** The target choices: [choices] without the external golden root's copy (read-only, R25 D198). */
+    val targets: List<CompareChoice> get() = choices.filter { !it.copy.isExternal }
+
     /** Where [copy] really is when it is (or lies below) a symbolic link, else null: such a copy cannot be the target. */
     fun linkedTo(copy: RoleCopy): String? = linked[copy.dir]
 
@@ -84,8 +88,9 @@ class AlignSetup internal constructor(
                 CompareChoice(copy, tier, inScope[index])
             }.sortedBy { !it.inScope }
             val selectedChoice = choices.first { it.copy.dir == selected.dir }
-            val writable = choices.filter { it.copy.dir !in linked }
-            val target = writable.firstOrNull { it.copy.isReference } ?: selectedChoice.takeIf { it in writable } ?: writable.firstOrNull() ?: selectedChoice
+            val writable = choices.filter { it.copy.dir !in linked && !it.copy.isExternal }
+            val target = writable.firstOrNull { it.copy.isReference } ?: selectedChoice.takeIf { it in writable } ?: writable.firstOrNull()
+                ?: choices.first { !it.copy.isExternal }
             val source = selectedChoice.takeIf { it !== target } ?: choices.first { it !== target }
             return AlignSetup(project, selected.name, choices, target, source, linked)
         }

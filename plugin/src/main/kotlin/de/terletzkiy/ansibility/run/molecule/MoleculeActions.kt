@@ -22,6 +22,7 @@ import com.intellij.psi.util.PsiTreeUtil
 import de.terletzkiy.ansibility.api.WorkspaceScope
 import de.terletzkiy.ansibility.api.WorkspaceScopeService
 import de.terletzkiy.ansibility.context.switching.UseAsAnsibleContextAction
+import de.terletzkiy.ansibility.model.role.ExternalGoldenRoot
 import de.terletzkiy.ansibility.run.AnsibilityRunBundle.message
 import de.terletzkiy.ansibility.toolwindow.AnsibleToolWindowPanel
 import de.terletzkiy.ansibility.toolwindow.AnsibleToolWindowScope
@@ -56,7 +57,7 @@ internal class MoleculeRunAction(private val roleDir: VirtualFile, private val s
  * The ▶ of Molecule scenario files, like those of a playbook: ▶▶ on the first line of `molecule.yml` (test, converge,
  * verify, idempotence, destroy, test keeping the instances), ▶ on the first line of `converge.yml` and `verify.yml`.
  * Only in a scenario (a `molecule.yml` next to the file: without it Molecule would not run it) and only with "Run
- * Molecule tests" on (plan amendments R19, D140, and R20, D152).
+ * Molecule tests" on (plan amendments R19, D140, and R20, D152); never in the external golden root (R25, D199).
  */
 class MoleculeRunLineMarkerContributor : RunLineMarkerContributor() {
     override fun getInfo(element: PsiElement): Info? {
@@ -66,6 +67,8 @@ class MoleculeRunLineMarkerContributor : RunLineMarkerContributor() {
         val commands = commandsOf(virtualFile.name) ?: return null
         if (firstLeaf(file) != element) return null
         if (!MoleculeScenarios.inScenario(virtualFile) || !MoleculeScenarios.runsTests(element.project)) return null
+        // R25 (D199): never on the external golden root (a git mirror or a folder outside the project).
+        if (ExternalGoldenRoot.getInstance(element.project).isUnder(virtualFile)) return null
         val scenario = MoleculeRunContext.scenarioOf(virtualFile) ?: return null
         val roleDir = MoleculeRunContext.roleDirOf(virtualFile) ?: return null
         val actions = commands.map { MoleculeRunAction(roleDir, scenario, it) }.toTypedArray<AnAction>()

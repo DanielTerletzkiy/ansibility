@@ -32,6 +32,8 @@
     <depends optional="true" config-file="ansibility-vault.xml">ru.sadv1r.ansible-vault-editor-idea-plugin</depends>
     <!-- VCS integrations (X99 commit check, M10): com.intellij.modules.vcs is a pluginAlias of the 262 product -->
     <depends optional="true" config-file="ansibility-vcs.xml">com.intellij.modules.vcs</depends>
+    <!-- The golden mirror through the IDE's Git integration (plan amendment R25, D202); without it, the system git -->
+    <depends optional="true" config-file="ansibility-git.xml">Git4Idea</depends>
 
     <resource-bundle>messages.AnsibilityBundle</resource-bundle>
 

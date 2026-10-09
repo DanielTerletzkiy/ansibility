@@ -44,10 +44,13 @@ import kotlinx.coroutines.withContext
  */
 @Service(Service.Level.PROJECT)
 class AlignService(private val project: Project, private val scope: CoroutineScope) {
-    /** Merge into Golden…: the golden copy is the target, [target]'s copy the source. Nothing on golden itself. */
+    /**
+     * Merge into Golden…: the golden copy is the target, [target]'s copy the source. Nothing on golden itself, nothing
+     * into the external golden root (plan amendment R25, D198).
+     */
     fun mergeIntoGolden(target: GoldenTarget): Job = scope.launch {
         val golden = readAction { RoleCatalog.getInstance(project).snapshot().reference(target.copy.name) }
-        if (golden == null || golden.dir == target.copy.dir) return@launch
+        if (golden == null || golden.dir == target.copy.dir || golden.isExternal) return@launch
         alignNow(AlignRequest(target = golden, source = target.copy))
     }
 
@@ -74,6 +77,13 @@ class AlignService(private val project: Project, private val scope: CoroutineSco
     private suspend fun alignNow(request: AlignRequest) {
         if (request.target.dir == request.source.dir) return
         val target = request.target
+        // R25, D198: the external golden root is read-only (never offered as a target; RoleWriter refuses it too).
+        if (target.isExternal) {
+            withContext(Dispatchers.EDT) {
+                if (!project.isDisposed) AlignUi.getInstance().inform(project, message("external.align.readOnly", target.name, target.root.displayName))
+            }
+            return
+        }
         // D191: never written through a symbolic link (a copy that links to another copy would write that one).
         RoleLinks.linkedTo(project, target.dir)?.let { real ->
             withContext(Dispatchers.EDT) {

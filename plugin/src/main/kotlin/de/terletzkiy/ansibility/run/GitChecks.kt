@@ -113,16 +113,31 @@ class GitChecks(private val git: Path, private val dir: Path, private val runner
      * process it started ([ProcessTrees.end]), and an interrupt is rethrown.
      */
     object ProcessRunner : Runner {
-        override fun run(command: List<String>, dir: Path, timeoutSeconds: Long): Output? {
+        override fun run(command: List<String>, dir: Path, timeoutSeconds: Long): Output? =
+            run(command, dir, timeoutSeconds, { env ->
+                env.putAll(EnvironmentUtil.getEnvironmentMap())
+                env["GIT_TERMINAL_PROMPT"] = "0"
+                env["LC_ALL"] = "C"
+            }, checkCanceled = null)
+
+        /**
+         * [run] with the environment [buildEnvironment] adjusts (it starts as this process's environment) and, when
+         * [checkCanceled] is given, a check every 50 ms while git runs: when it throws (a cancelled coroutine or
+         * progress indicator), git and its children end and the exception is rethrown. Used by the golden mirror's
+         * system git (plan amendment R25).
+         */
+        fun run(
+            command: List<String>,
+            dir: Path,
+            timeoutSeconds: Long,
+            buildEnvironment: (MutableMap<String, String>) -> Unit,
+            checkCanceled: (() -> Unit)?,
+        ): Output? {
             val process = try {
                 ProcessBuilder(command)
                     .directory(dir.toFile())
                     .redirectInput(ProcessBuilder.Redirect.from(File(if (File.separatorChar == '\\') "NUL" else "/dev/null")))
-                    .apply {
-                        environment().putAll(EnvironmentUtil.getEnvironmentMap())
-                        environment()["GIT_TERMINAL_PROMPT"] = "0"
-                        environment()["LC_ALL"] = "C"
-                    }
+                    .apply { buildEnvironment(environment()) }
                     .start()
             } catch (_: Exception) {
                 return null
@@ -134,7 +149,7 @@ class GitChecks(private val git: Path, private val dir: Path, private val runner
                 Thread { runCatching { err.append(process.errorStream.bufferedReader().readText()) } },
             ).onEach { it.isDaemon = true; it.start() }
             try {
-                if (!process.waitFor(timeoutSeconds, TimeUnit.SECONDS)) {
+                if (!waitFor(process, timeoutSeconds, checkCanceled)) {
                     ProcessTrees.end(process)
                     return null
                 }
@@ -143,9 +158,25 @@ class GitChecks(private val git: Path, private val dir: Path, private val runner
                 // it started (ssh, git-remote-https, credential helpers), which may wait for an approval.
                 ProcessTrees.end(process)
                 throw e
+            } catch (e: Throwable) {
+                // Cancelled (checkCanceled threw): the same.
+                ProcessTrees.end(process)
+                throw e
             }
             readers.forEach { it.join(TimeUnit.SECONDS.toMillis(2)) }
             return Output(process.exitValue(), out.toString(), err.toString())
         }
+
+        private fun waitFor(process: Process, timeoutSeconds: Long, checkCanceled: (() -> Unit)?): Boolean {
+            if (checkCanceled == null) return process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
+            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(timeoutSeconds)
+            while (true) {
+                checkCanceled()
+                if (process.waitFor(CANCEL_CHECK_MILLIS, TimeUnit.MILLISECONDS)) return true
+                if (System.nanoTime() > deadline) return false
+            }
+        }
+
+        private const val CANCEL_CHECK_MILLIS = 50L
     }
 }

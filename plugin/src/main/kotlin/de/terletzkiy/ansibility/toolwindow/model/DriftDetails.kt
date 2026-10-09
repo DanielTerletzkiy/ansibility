@@ -11,6 +11,7 @@ import de.terletzkiy.ansibility.context.MoleculeVisibility
 import de.terletzkiy.ansibility.golden.history.KnownLastChange
 import de.terletzkiy.ansibility.golden.history.LastChange
 import de.terletzkiy.ansibility.golden.history.LastChangeLookup
+import de.terletzkiy.ansibility.golden.history.LastChangeTexts
 import de.terletzkiy.ansibility.golden.history.LastChanges
 import de.terletzkiy.ansibility.model.drift.AnsibilityDriftBundle.message
 import de.terletzkiy.ansibility.model.drift.CopyDrift
@@ -87,7 +88,8 @@ object DriftDetails {
             DetailItem(message("drift.details.path", role.dir.presentableUrl), target = NavigationTarget(role.dir)),
             DetailItem(message(if (spec != null) "drift.details.spec.present" else "drift.details.spec.missing"), target = spec?.let { NavigationTarget(it) }),
         )
-        details.section(message("drift.details.section.plays"), plays(project, root, role))
+        // R25 (D199): no play applies the external golden root's copy (it is no root of the project).
+        if (!root.external) details.section(message("drift.details.section.plays"), plays(project, root, role))
         val reference = drift?.reference?.takeIf { it.dir != role.dir }
         val sides = listOfNotNull(reference?.let { Side(golden, it.dir, directory = true) }, Side(root.root.displayName, role.dir, directory = true))
         val lastChanged = lastChanged(project, sides, file = false, hint = copy?.tier?.differs == true)
@@ -97,16 +99,21 @@ object DriftDetails {
             details.section(message("drift.details.section.variant"), listOf(variantItem(drift, copy)) + majority)
         }
         val files = copy?.let { rows(it, golden) }.orEmpty()
-        return details.build(DriftDetailsContent(role.dir, golden, files, actionsFor(copy), lastChanged.requests))
+        val externalGolden = node.snapshot?.golden?.external != null
+        return details.build(DriftDetailsContent(role.dir, golden, files, actionsFor(copy, externalGolden, root.external), lastChanged.requests))
     }
 
     /**
-     * The buttons of a copy: all four while its drift is not known or when it differs from golden; only Push to Repos
-     * for the golden copy itself, an identical copy and a role without a golden copy (there is nothing to compare,
-     * align or merge with golden).
+     * The buttons of a copy: all of [GoldenActionIds.COPY_ACTIONS] while its drift is not known or when it differs from
+     * golden; only Push to Repos for the golden copy itself, an identical copy and a role without a golden copy (there
+     * is nothing to compare, align, merge or copy as a patch). With an external golden root (plan amendment R25, D198:
+     * read-only) never Merge into Golden; its own copy only Push.
      */
-    private fun actionsFor(copy: CopyDrift?): List<String> =
-        if (copy == null || copy.tier.differs) GoldenActionIds.COPY_ACTIONS else listOf(GoldenActionIds.PUSH_TO_REPOS)
+    private fun actionsFor(copy: CopyDrift?, externalGolden: Boolean = false, isExternal: Boolean = false): List<String> = when {
+        isExternal -> listOf(GoldenActionIds.PUSH_TO_REPOS)
+        copy == null || copy.tier.differs -> GoldenActionIds.COPY_ACTIONS.filter { !externalGolden || it != GoldenActionIds.MERGE_INTO_GOLDEN }
+        else -> listOf(GoldenActionIds.PUSH_TO_REPOS)
+    }
 
     /**
      * "Last changed" over [sides] (golden first): one line per side whose last change is known, and when both are
@@ -121,11 +128,12 @@ object DriftDetails {
             ProgressManager.checkCanceled()
             side to cache.known(side.file, side.directory)
         }
-        val items = known.mapNotNull { (side, change) -> change?.value?.let { DetailItem(DriftTexts.lastChange(side.name, it.date, it.author, it.subject)) } }
+        // R25: the golden mirror's side may be its fetched commit or "older than the fetched history" (D200, X127).
+        val items = known.mapNotNull { (side, change) -> change?.value?.let { DetailItem(LastChangeTexts.line(side.name, it)) } }
         val direction = if (hint && known.size == 2) {
             val firstChange = known[0].second?.value
             val secondChange = known[1].second?.value
-            if (firstChange != null && secondChange != null) DriftTexts.direction(known[0].first.name, firstChange.date, known[1].first.name, secondChange.date, file) else null
+            if (firstChange != null && secondChange != null) LastChangeTexts.direction(known[0].first.name, firstChange, known[1].first.name, secondChange, file) else null
         } else {
             null
         }
@@ -144,7 +152,7 @@ object DriftDetails {
             ProgressManager.checkCanceled()
             val copy = drift?.copyOf(role.dir)
             val badge = if (drift != null && copy != null) DriftTexts.rowBadge(drift, copy, golden) else DriftTexts.pending()
-            DetailItem(root.root.displayName, badge, NavigationTarget(role.dir))
+            DetailItem(root.copyLabel, badge, NavigationTarget(role.dir))
         })
         return details.build()
     }

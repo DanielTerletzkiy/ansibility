@@ -19,7 +19,8 @@ import org.jetbrains.annotations.Nls
  * only golden has), or the Project view's single selected file ([GoldenTargets.of]).
  *
  * Shown when the role has a golden copy and the selection is a file path (not a folder) that exists in this copy or in
- * golden; hidden on the golden copy itself. Texts by place like the other golden actions: short in menus,
+ * golden; hidden on the golden copy itself, and Take This into Golden when the golden copy is in the external golden
+ * root (plan amendment R25, D198: read-only). Texts by place like the other golden actions: short in menus,
  * "Ansibility: …" in Find Action.
  */
 abstract class TakeFileAction(private val direction: TakeDirection) : DumbAwareAction() {
@@ -29,14 +30,14 @@ abstract class TakeFileAction(private val direction: TakeDirection) : DumbAwareA
     protected abstract fun menuText(): String
 
     override fun update(e: AnActionEvent) {
-        val target = targetOf(e.project, e)
+        val target = targetOf(e.project, e, direction)
         e.presentation.isEnabledAndVisible = target != null
         if (target != null) e.presentation.text = GoldenActionTexts.forPlace(e, menuText())
     }
 
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
-        val target = targetOf(project, e) ?: return
+        val target = targetOf(project, e, direction) ?: return
         val service = TakeService.getInstance(project)
         if (direction == TakeDirection.FROM_GOLDEN) service.takeGoldens(target) else service.takeIntoGolden(target)
     }
@@ -46,13 +47,15 @@ abstract class TakeFileAction(private val direction: TakeDirection) : DumbAwareA
          * The selected file of a copy that has a golden copy other than itself, or null. VFS only (BGT `update`):
          * the path must name a file, not a folder, in this copy or in golden.
          */
-        fun targetOf(project: Project?, e: AnActionEvent): GoldenTarget? {
+        fun targetOf(project: Project?, e: AnActionEvent, direction: TakeDirection = TakeDirection.FROM_GOLDEN): GoldenTarget? {
             if (project == null || project.isDisposed) return null
             if (e.getData(GoldenDataKeys.ROLE_COPY) == null && (e.getData(CommonDataKeys.VIRTUAL_FILE_ARRAY)?.size ?: 1) > 1) return null
             val target = GoldenTargets.of(project, e.dataContext) ?: return null
             val relPath = target.relPath ?: return null
             val golden = RoleCatalog.getInstance(project).snapshot().reference(target.copy.name) ?: return null
             if (golden.dir == target.copy.dir) return null
+            // R25, D198: nothing is taken into the external golden root.
+            if (direction == TakeDirection.INTO_GOLDEN && golden.isExternal) return null
             val here = target.copy.dir.findFileByRelativePath(relPath)?.takeIf { it.isValid }
             val there = golden.dir.findFileByRelativePath(relPath)?.takeIf { it.isValid }
             if (here?.isDirectory == true || there?.isDirectory == true) return null

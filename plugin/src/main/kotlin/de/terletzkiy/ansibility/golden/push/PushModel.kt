@@ -195,7 +195,8 @@ object PushRows {
     /** The rows of [source]; on a background dispatcher, in read actions, cancellable. */
     suspend fun compute(project: Project, source: RoleCopy): List<PushRow> = withContext(Dispatchers.Default) {
         val catalog = readAction { RoleCatalog.getInstance(project).snapshot() }
-        val others = catalog.copies(source.name).filter { it.dir != source.dir && it.dir.isValid }
+        // R25, D198: the external golden root is never a target (pushing FROM it works).
+        val others = catalog.copies(source.name).filter { it.dir != source.dir && it.dir.isValid && !it.isExternal }
         val scope = WorkspaceScopeService.getInstance(project).current()
         val inScope = readAction { others.map { scope.contains(it.dir) } }
         // U4: a push mirrors molecule/ too, whatever "Ignore molecule/ in drift" says (that setting is drift's only).

@@ -21,6 +21,7 @@ import com.intellij.openapi.vfs.toNioPathOrNull
 import com.intellij.util.concurrency.ThreadingAssertions
 import de.terletzkiy.ansibility.golden.AnsibilityGoldenBundle.message
 import de.terletzkiy.ansibility.golden.GoldenTargets
+import de.terletzkiy.ansibility.model.role.ExternalGoldenRoot
 import de.terletzkiy.ansibility.model.role.RoleCatalog
 import org.jetbrains.annotations.Nls
 import org.jetbrains.annotations.TestOnly
@@ -138,8 +139,9 @@ class WriteResult internal constructor(
  *
  * **Preconditions**, checked before anything is written; any failure writes nothing:
  * - **the target** is a directory of its root, reached without a symbolic link ([RoleLinks.linkedTo]; D191: never
- *   write or delete through a link), and in [multi] no two roots are the same folder on disk
- *   ([WriteResult.Status.INVALID_TARGET]);
+ *   write or delete through a link), never inside the external golden root (plan amendment R25, D198: the git mirror
+ *   or the folder outside the project, [ExternalGoldenRoot.isUnder]), and in [multi] no two roots are the same folder
+ *   on disk ([WriteResult.Status.INVALID_TARGET]);
  * - every path is normalised and allowed (D191: never `.git`, `__pycache__`, `.DS_Store`, `*.pyc`, an ignored path, a
  *   path through a symbolic link or a link itself; those operations are [WriteResult.SkipReason.NEVER_TOUCHED]);
  * - **stale target**: each operation's [FileOp.expected] stamp must still match the file, and a file never replaces
@@ -245,6 +247,12 @@ object RoleWriter {
         if (!target.isValid || !target.isDirectory) {
             return Prepared(target, emptyList(), skipped, commandName).also {
                 it.failure = it.result(WriteResult.Status.INVALID_TARGET, message("writer.invalidTarget", target.presentableUrl))
+            }
+        }
+        // D198 (defence in depth): the actions never offer it, and nothing ever writes into the external golden root.
+        if (ExternalGoldenRoot.getInstance(project).isUnder(target)) {
+            return Prepared(target, emptyList(), skipped, commandName).also {
+                it.failure = it.result(WriteResult.Status.INVALID_TARGET, message("writer.externalGolden", target.presentableUrl))
             }
         }
         RoleLinks.linkedTo(project, target)?.let { real ->

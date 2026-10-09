@@ -255,7 +255,9 @@ class AnsibilityConfigurableTest : BasePlatformTestCase() {
         assertEquals(listOf(GoldenRoot.None, GoldenRoot.FirstRoleLibrary), items.take(2))
         assertEquals(listOf("None", "First role library (automatic)"), items.take(2).map(configurable::goldenLabel))
         val expected = AnsibleWorkspaceImpl.getInstance(project)!!.roots().filter { !it.detached }.map { it.displayName }.sorted()
-        assertEquals("every non-detached root, by name", expected, items.drop(2).map(configurable::goldenLabel).sorted())
+        assertEquals("every non-detached root, by name", expected, items.drop(2).dropLast(2).map(configurable::goldenLabel).sorted())
+        assertEquals("R25: the external golden roots last", listOf(GoldenRoot.Git, GoldenRoot.Folder), items.takeLast(2))
+        assertEquals(listOf("Git repository", "Folder outside the project"), items.takeLast(2).map(configurable::goldenLabel))
         assertTrue("never a detached worktree", items.none { it is GoldenRoot.Root && "worktrees" in it.key })
         assertEquals("None until the user picks", GoldenRoot.None, configurable.goldenCombo.selectedItem)
         assertFalse(configurable.isModified)
@@ -277,7 +279,7 @@ class AnsibilityConfigurableTest : BasePlatformTestCase() {
         configurable.reset()
         assertEquals(GoldenRoot.Root("repos/hawk/ansible"), configurable.goldenCombo.selectedItem)
         assertEquals("repos/hawk/ansible (not found)", configurable.goldenLabel(GoldenRoot.Root("repos/hawk/ansible")))
-        assertEquals(GoldenRoot.Root("repos/hawk/ansible"), goldenItems().last())
+        assertEquals(GoldenRoot.Root("repos/hawk/ansible"), goldenItems().dropLast(2).last())
         assertFalse(configurable.isModified)
     }
 
@@ -286,5 +288,142 @@ class AnsibilityConfigurableTest : BasePlatformTestCase() {
         assertTrue(configurable.isModified)
         configurable.apply()
         assertEquals(DriftSettings(ignoreMolecule = true), AnsibilityProjectSettings.getInstance(project).settings.drift)
+    }
+
+    // ------------------------------------------------------------------ External golden roots (plan amendment R25)
+
+    private fun stored(): DriftSettings = AnsibilityProjectSettings.getInstance(project).settings.drift
+
+    /** Whether [field] would show: it and every parent up to the page are visible. */
+    private fun shown(field: java.awt.Component): Boolean {
+        var current: java.awt.Component? = field
+        while (current != null && current !== component) {
+            if (!current.isVisible) return false
+            current = current.parent
+        }
+        return true
+    }
+
+    /** Apply's refusal (a ConfigurationException's message). */
+    private fun applyFails(): String {
+        try {
+            configurable.apply()
+        } catch (e: com.intellij.openapi.options.ConfigurationException) {
+            return e.message.orEmpty()
+        }
+        fail("Apply should refuse")
+        return ""
+    }
+
+    fun testTheRepositoryFieldsShowOnlyForTheirChoice() {
+        val gitFields = listOf(configurable.gitUrlField, configurable.gitRefField, configurable.gitRolesPathField, configurable.refreshCombo, configurable.historyDepthSpinner, configurable.testConnectionButton, configurable.fetchNowButton)
+        assertTrue(gitFields.none(::shown))
+        assertFalse(shown(configurable.folderField))
+        configurable.goldenCombo.selectedItem = GoldenRoot.Git
+        assertTrue(gitFields.all(::shown))
+        assertFalse(shown(configurable.folderField))
+        configurable.goldenCombo.selectedItem = GoldenRoot.Folder
+        assertTrue(shown(configurable.folderField))
+        assertTrue(gitFields.none(::shown))
+        assertTrue("the mirror's state shows for both", shown(configurable.mirrorStatus))
+        configurable.goldenCombo.selectedItem = GoldenRoot.None
+        assertFalse(shown(configurable.mirrorStatus))
+    }
+
+    fun testTheRefreshChoicesAndDefaults() {
+        val choices = (0 until configurable.refreshCombo.itemCount).map { configurable.refreshCombo.getItemAt(it) }
+        assertEquals(listOf(5, 10, 30, 60, 0), choices)
+        assertEquals(listOf("Every 5 minutes", "Every 10 minutes", "Every 30 minutes", "Every 60 minutes", "On demand only"), choices.map(configurable::refreshLabel))
+        assertEquals("every 30 minutes by default (approved)", 30, configurable.refreshCombo.item)
+        assertEquals("X127: 1 = newest commit only", 1, configurable.historyDepthSpinner.number)
+        assertEquals("", configurable.gitRefField.text)
+    }
+
+    fun testApplyStoresTheRepositoryAndCountsAsConsent() {
+        val url = "git@git.example.org:infra/golden.git"
+        de.terletzkiy.ansibility.golden.remote.GoldenMirrorConsents.getInstance().resetForTests()
+        configurable.goldenCombo.selectedItem = GoldenRoot.Git
+        configurable.gitUrlField.text = url
+        configurable.gitRefField.text = " main "
+        configurable.gitRolesPathField.text = "ansible/roles/"
+        configurable.refreshCombo.selectedItem = 0
+        configurable.historyDepthSpinner.number = 50
+        assertTrue(configurable.isModified)
+        assertFalse("Fetch Now works on the applied setting", configurable.fetchNowButton.isEnabled)
+        configurable.apply()
+        assertEquals(DriftSettings(golden = GoldenRoot.Git, remote = RemoteGolden(url, "main", "ansible/roles", 0, 50)), stored())
+        assertFalse(configurable.isModified)
+        assertTrue(configurable.fetchNowButton.isEnabled)
+        assertEquals("a URL chosen on this machine needs no question (D203)", true, de.terletzkiy.ansibility.golden.remote.GoldenMirrorConsents.getInstance().answer(url))
+
+        configurable.gitRefField.text = "develop"
+        assertTrue(configurable.isModified)
+        assertFalse(configurable.fetchNowButton.isEnabled)
+        configurable.reset()
+        assertEquals("main", configurable.gitRefField.text)
+        assertEquals(0, configurable.refreshCombo.item)
+        assertEquals(50, configurable.historyDepthSpinner.number)
+        assertFalse(configurable.isModified)
+        de.terletzkiy.ansibility.golden.remote.GoldenMirrorConsents.getInstance().resetForTests()
+    }
+
+    fun testInvalidRepositoryFieldsStopApply() {
+        configurable.goldenCombo.selectedItem = GoldenRoot.Git
+        for ((field, value) in listOf(
+            configurable.gitUrlField to "https://alice:token@git.example.org/golden.git",
+            configurable.gitUrlField to "ext::sh -c x",
+            configurable.gitUrlField to "",
+        )) {
+            field.text = value
+            val error = applyFails()
+            assertTrue(value, error.isNotBlank())
+            assertEquals("nothing stored", DriftSettings.DEFAULT, stored())
+        }
+        configurable.gitUrlField.text = "https://alice:token@git.example.org/golden.git"
+        val credentials = applyFails()
+        assertTrue(credentials, "contains credentials — they would be stored in the shared settings; use SSH or a credential helper" in credentials)
+        configurable.gitUrlField.text = "https://git.example.org/golden.git"
+        configurable.gitRefField.text = "refs/heads/main"
+        applyFails()
+        configurable.gitRefField.text = ""
+        configurable.gitRolesPathField.text = "../roles"
+        applyFails()
+        configurable.gitRolesPathField.text = ""
+        configurable.apply()
+        assertEquals(GoldenRoot.Git, stored().golden)
+        assertEquals("https://git.example.org/golden.git", stored().remote.url)
+
+        configurable.goldenCombo.selectedItem = GoldenRoot.Folder
+        configurable.folderField.text = "relative/golden"
+        applyFails()
+        configurable.folderField.text = "~/src/golden"
+        configurable.apply()
+        assertEquals(GoldenRoot.Folder, stored().golden)
+        assertEquals("an absolute path, ~ expanded", System.getProperty("user.home") + "/src/golden", stored().folder)
+        assertFalse(configurable.isModified)
+        assertEquals("the repository is kept", "https://git.example.org/golden.git", stored().remote.url)
+    }
+
+    fun testTestConnectionShowsItsResultInline() {
+        val temp = java.nio.file.Files.createTempDirectory("ansibility-settings-git").toRealPath()
+        try {
+            val golden = de.terletzkiy.ansibility.golden.remote.GitTestRepo.standard(temp.resolve("golden"))
+            configurable.goldenCombo.selectedItem = GoldenRoot.Git
+            configurable.gitUrlField.text = golden.url
+            configurable.testConnectionButton.doClick()
+            com.intellij.testFramework.PlatformTestUtil.waitWithEventsDispatching(
+                "the connection result",
+                { configurable.connectionTest?.isCompleted == true && configurable.connectionResult.text.startsWith("Connected") },
+                60,
+            )
+            assertEquals("Connected: default branch main at ${golden.head().take(7)}", configurable.connectionResult.text)
+            assertEquals("nothing is stored by a test", DriftSettings.DEFAULT, stored())
+
+            configurable.gitUrlField.text = "https://alice:token@git.example.org/golden.git"
+            configurable.testConnectionButton.doClick()
+            assertTrue(configurable.connectionResult.text, configurable.connectionResult.text.contains("contains credentials"))
+        } finally {
+            temp.toFile().deleteRecursively()
+        }
     }
 }

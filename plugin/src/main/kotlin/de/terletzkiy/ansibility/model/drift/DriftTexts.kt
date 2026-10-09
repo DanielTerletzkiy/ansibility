@@ -158,11 +158,12 @@ object DriftTexts {
 
     /**
      * One side's last change (D180): `golden: 2026-09-12 · alice · fix verify`, the subject cut at
-     * [MAX_SUBJECT] characters (`…` marks the cut); empty parts are left out.
+     * [MAX_SUBJECT] characters (`…` marks the cut); empty parts are left out. [label] goes first when given
+     * (plan amendment R25: `golden: fetched commit · 2026-09-12 · …`).
      */
     @Nls
-    fun lastChange(rootName: String, at: Instant, author: String, subject: String): String {
-        val parts = listOf(date(at), author.trim(), cut(subject.trim(), MAX_SUBJECT)).filter { it.isNotEmpty() }
+    fun lastChange(rootName: String, at: Instant, author: String, subject: String, label: String? = null): String {
+        val parts = listOfNotNull(label, date(at), author.trim(), cut(subject.trim(), MAX_SUBJECT)).filter { it.isNotEmpty() }
         return AnsibilityDriftBundle.message("drift.details.lastChange", rootName, parts.joinToString(SEPARATOR))
     }
 

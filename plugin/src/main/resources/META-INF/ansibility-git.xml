@@ -1,0 +1,9 @@
+<!-- Loaded only with the bundled Git plugin (Git4Idea): the golden mirror's git through the IDE's Git integration
+     (plan amendment R25, D202), which asks for credentials in the IDE's own dialogs and keeps them in the password
+     safe. Classes that import git4idea live in golden.remote.git4idea.impl and are named only here (GitIsolationTest),
+     so the plugin loads in an IDE without the Git plugin; golden.remote.SystemGitTransport is the fallback. -->
+<idea-plugin>
+    <extensions defaultExtensionNs="de.terletzkiy.ansibility">
+        <goldenGitTransport implementation="de.terletzkiy.ansibility.golden.remote.git4idea.impl.Git4IdeaGoldenGitTransport"/>
+    </extensions>
+</idea-plugin>

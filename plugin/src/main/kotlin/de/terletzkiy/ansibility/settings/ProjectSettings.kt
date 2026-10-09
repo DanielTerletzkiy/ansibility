@@ -2,6 +2,7 @@ package de.terletzkiy.ansibility.settings
 
 import de.terletzkiy.ansibility.semantics.CoreVersion
 import de.terletzkiy.ansibility.semantics.diagnostics.Preset
+import java.nio.file.Path
 
 /** Where a root's collection versions come from (plan A.11). */
 enum class CollectionsSource {
@@ -134,8 +135,8 @@ data class MoleculeSettings(
 }
 
 /**
- * Which root holds the golden copies that role drift compares every other copy with (plan amendment R24, D177).
- * Detached worktrees are never golden.
+ * Which root holds the golden copies that role drift compares every other copy with (plan amendment R24, D177; R25,
+ * D193 and X125). Detached worktrees are never golden.
  */
 sealed interface GoldenRoot {
     /** No golden root: drift is not computed and the drift UI is hidden (the default, D178). */
@@ -147,15 +148,28 @@ sealed interface GoldenRoot {
     /** The copies owned by the root stored under [key] (`settings.RootKeys`), whatever its kind. */
     data class Root(val key: String) : GoldenRoot
 
+    /**
+     * A git repository outside the project (plan amendment R25, D193): [DriftSettings.remote] says which; a shallow,
+     * sparse mirror of it in the IDE's cache (`golden.remote.GoldenMirrors`) holds the golden copies.
+     */
+    data object Git : GoldenRoot
+
+    /** A folder outside the project (X125): [DriftSettings.folder], read-only like the mirror, never fetched. */
+    data object Folder : GoldenRoot
+
     companion object {
         private const val FIRST_ROLE_LIBRARY = "first-role-library"
         private const val ROOT_PREFIX = "root:"
+        private const val GIT = "git"
+        private const val FOLDER = "folder"
 
-        /** The stored form: null for [None], `first-role-library`, or `root:<key>`. */
+        /** The stored form: null for [None], `first-role-library`, `root:<key>`, `git` or `folder`. */
         fun encode(golden: GoldenRoot): String? = when (golden) {
             None -> null
             FirstRoleLibrary -> FIRST_ROLE_LIBRARY
             is Root -> ROOT_PREFIX + golden.key
+            Git -> GIT
+            Folder -> FOLDER
         }
 
         /** Reads [encode]'s form; anything else (blank, unknown, an empty key) is [None]. */
@@ -163,6 +177,8 @@ sealed interface GoldenRoot {
             val value = text?.trim().orEmpty()
             return when {
                 value == FIRST_ROLE_LIBRARY -> FirstRoleLibrary
+                value == GIT -> Git
+                value == FOLDER -> Folder
                 value.startsWith(ROOT_PREFIX) && value.length > ROOT_PREFIX.length -> Root(value.removePrefix(ROOT_PREFIX))
                 else -> None
             }
@@ -171,16 +187,87 @@ sealed interface GoldenRoot {
 }
 
 /**
- * Role drift (plan amendment R24, D177): the [golden] root and "Ignore `molecule/` in drift" (R9's D41). Changing them
- * re-tiers the drift without a rescan and without restarting highlighting.
+ * The git repository of [GoldenRoot.Git] (plan amendment R25, D193–D195, X127). Stored with the other project
+ * settings (team-shareable), so [url] never carries credentials (`golden.remote.GoldenGitUrls.problem` refuses them).
+ */
+data class RemoteGolden(
+    /** ssh (`git@host:path`, `ssh://`), https, git, `file://` or a local path; blank until set. */
+    val url: String = "",
+    /** A branch or a tag; blank: the remote's default branch. */
+    val ref: String = "",
+    /**
+     * The directory inside the repository whose child directories are the roles; blank: automatic (`roles/`, else the
+     * first `roles_path` of the repository's `ansible.cfg`, else the top level).
+     */
+    val rolesPath: String = "",
+    /** Minutes between background refreshes: one of [REFRESH_CHOICES]; 0 = on demand only. */
+    val refreshMinutes: Int = DEFAULT_REFRESH_MINUTES,
+    /** X127: how many commits the mirror holds (`--depth`); 1 = only the newest commit, e.g. 50 gives per-file history. */
+    val historyDepth: Int = DEFAULT_HISTORY_DEPTH,
+) {
+    /** [refreshMinutes] clamped to 0 (on demand) .. one day. */
+    val effectiveRefreshMinutes: Int
+        get() = refreshMinutes.coerceIn(0, MAX_REFRESH_MINUTES)
+
+    /** [historyDepth] clamped to [HISTORY_DEPTH_RANGE]. */
+    val effectiveHistoryDepth: Int
+        get() = historyDepth.coerceIn(HISTORY_DEPTH_RANGE)
+
+    /** Trimmed text fields; the roles path without a leading `./` or trailing slashes. */
+    fun normalized(): RemoteGolden = copy(
+        url = url.trim(),
+        ref = ref.trim(),
+        rolesPath = rolesPath.trim().removePrefix("./").trimEnd('/'),
+    )
+
+    companion object {
+        const val DEFAULT_REFRESH_MINUTES: Int = 30
+        const val DEFAULT_HISTORY_DEPTH: Int = 1
+        const val MAX_REFRESH_MINUTES: Int = 24 * 60
+
+        /** The refresh choices of the settings page (D195); 0 is "on demand only". */
+        val REFRESH_CHOICES: List<Int> = listOf(5, 10, 30, 60, 0)
+        val HISTORY_DEPTH_RANGE: IntRange = 1..10_000
+        val DEFAULT = RemoteGolden()
+    }
+}
+
+/**
+ * Role drift (plan amendment R24, D177): the [golden] root and "Ignore `molecule/` in drift" (R9's D41), with the data
+ * of the external golden roots (plan amendment R25): the git repository [remote] (D193) and the [folder] (X125). They
+ * are kept when another golden root is chosen. Changing them re-tiers the drift without a rescan and without
+ * restarting highlighting.
  */
 data class DriftSettings(
     val golden: GoldenRoot = GoldenRoot.None,
     /** Molecule files take no part in tiers or variants. Off by default. */
     val ignoreMolecule: Boolean = false,
+    /** The repository of [GoldenRoot.Git]. */
+    val remote: RemoteGolden = RemoteGolden.DEFAULT,
+    /**
+     * The folder of [GoldenRoot.Folder]: an absolute path (the settings page stores it with `~` expanded; [folderPath]
+     * also expands a leading `~` of a hand-edited file); blank until set.
+     */
+    val folder: String = "",
 ) {
+    /** [folder] with a leading `~` expanded to the user's home; null when blank, relative or not a path. */
+    fun folderPath(): Path? = expandFolder(folder)
+
     companion object {
         val DEFAULT = DriftSettings()
+
+        /** [text] with a leading `~` expanded to the user's home, normalized; null when blank, relative or not a path. */
+        fun expandFolder(text: String): Path? {
+            val trimmed = text.trim()
+            if (trimmed.isEmpty()) return null
+            val expanded = when {
+                trimmed == "~" -> System.getProperty("user.home")
+                trimmed.startsWith("~/") || trimmed.startsWith("~\\") -> System.getProperty("user.home") + trimmed.substring(1)
+                else -> trimmed
+            }
+            val path = runCatching { Path.of(expanded) }.getOrNull() ?: return null
+            return path.takeIf { it.isAbsolute }?.normalize()
+        }
     }
 }
 
@@ -206,7 +293,10 @@ data class ProjectSettings(
         copy(roots = if (settings == RootSettings.DEFAULT) roots - key else roots + (key to settings))
 
     /** Only the root entries that differ from the defaults. */
-    fun normalized(): ProjectSettings = copy(roots = roots.filterValues { it != RootSettings.DEFAULT })
+    fun normalized(): ProjectSettings = copy(
+        roots = roots.filterValues { it != RootSettings.DEFAULT },
+        drift = drift.copy(remote = drift.remote.normalized(), folder = drift.folder.trim()),
+    )
 
     companion object {
         val DEFAULT = ProjectSettings()

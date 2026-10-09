@@ -27,6 +27,9 @@ import com.intellij.openapi.vfs.newvfs.events.VFileEvent
 import com.intellij.openapi.vfs.newvfs.events.VFileMoveEvent
 import com.intellij.openapi.vfs.newvfs.events.VFilePropertyChangeEvent
 import de.terletzkiy.ansibility.context.AnsibleStructureListener
+import de.terletzkiy.ansibility.golden.remote.GoldenMirrorState
+import de.terletzkiy.ansibility.model.role.ExternalGoldenChange
+import de.terletzkiy.ansibility.model.role.ExternalGoldenListener
 import de.terletzkiy.ansibility.model.role.RoleCatalog
 import de.terletzkiy.ansibility.model.role.RoleCatalogSnapshot
 import de.terletzkiy.ansibility.model.role.RoleCopy
@@ -116,6 +119,12 @@ class DriftCounters internal constructor() {
  * [documentDebounce], 500 ms) mark only the owning copy dirty, structure and settings changes re-check the catalog,
  * and only names whose result changed are published. Before [request] ran, only the names asked for through
  * [requestNames] are followed (the watched names, while they have a result).
+ *
+ * **External golden root** (plan amendment R25): its copies are fingerprinted like any copy. Another mirror or folder
+ * drops every result like a new golden root; a new commit of the same mirror marks its copies dirty
+ * ([ExternalGoldenListener], published once the VFS holds the fetched files). VFS events below a git mirror are not
+ * followed: the mirror changes only with a fetch, which that event reports (a folder outside the project is followed
+ * like a root).
  *
  * **Threading.** All work runs on background dispatchers in the service's coroutine scope, one read action per role
  * copy with `checkCanceled()` per file; never on the EDT, never a process. Cancelled with the project. The
@@ -265,6 +274,12 @@ class RoleDriftService(private val project: Project, private val scope: Coroutin
             },
         )
         connection.subscribe(AnsibleStructureListener.TOPIC, AnsibleStructureListener { wakeWorker() })
+        connection.subscribe(
+            ExternalGoldenListener.TOPIC,
+            object : ExternalGoldenListener {
+                override fun changed(change: ExternalGoldenChange) = externalGoldenChanged(change)
+            },
+        )
         connection.subscribe(
             AnsibilitySettingsListener.TOPIC,
             object : AnsibilitySettingsListener {
@@ -622,11 +637,37 @@ class RoleDriftService(private val project: Project, private val scope: Coroutin
 
     // ---------------------------------------------------------------- invalidation
 
+    /**
+     * The external golden root changed (plan amendment R25): another mirror or folder (or none) is a new golden root,
+     * like [settingsChanged]; a new commit of the same mirror re-fingerprints its copies.
+     */
+    private fun externalGoldenChanged(change: ExternalGoldenChange) {
+        if (change.locationChanged) {
+            synchronized(lock) {
+                goldenGeneration.incrementAndGet()
+                results.clear()
+            }
+            wakeWorker()
+            return
+        }
+        val external = change.new ?: return
+        val dirs = states.keys.filter { external.contains(it) }
+        dirs.forEach { states[it]?.generation?.incrementAndGet() }
+        val names = dirs.mapNotNull { lastCatalog?.copyOf(it)?.name }.distinct()
+        followUp(names)
+        wakeWorker()
+    }
+
     private fun onVfsEvents(events: List<VFileEvent>) {
         val catalog = lastCatalog ?: return
+        // A git mirror changes only with a fetch, which externalGoldenChanged follows.
+        val mirror = catalog.external?.takeIf { it.kind == GoldenMirrorState.Kind.GIT }
         val dirty = LinkedHashSet<RoleCopy>()
         for (event in events) {
-            for (path in pathsOf(event)) catalog.copyContainingPath(path)?.let(dirty::add)
+            for (path in pathsOf(event)) {
+                if (mirror != null && mirror.containsPath(path)) continue
+                catalog.copyContainingPath(path)?.let(dirty::add)
+            }
         }
         if (dirty.isEmpty()) return
         followUp(dirty.mapNotNull { markDirty(it.dir) }.distinct())

@@ -25,6 +25,8 @@ import com.intellij.openapi.vfs.newvfs.events.VFileMoveEvent
 import com.intellij.openapi.vfs.newvfs.events.VFilePropertyChangeEvent
 import de.terletzkiy.ansibility.context.AnsibleLayout
 import de.terletzkiy.ansibility.context.AnsibleStructureListener
+import de.terletzkiy.ansibility.model.role.ExternalGoldenChange
+import de.terletzkiy.ansibility.model.role.ExternalGoldenListener
 import de.terletzkiy.ansibility.settings.AnsibilitySettingsListener
 import de.terletzkiy.ansibility.settings.ProjectSettings
 import de.terletzkiy.ansibility.toolwindow.model.WorkspaceSnapshot
@@ -51,7 +53,8 @@ class AnsibleToolWindowScope(val scope: CoroutineScope) {
 /**
  * Keeps the tool window current (plan F6.4): whenever the Ansible structure changes
  * ([AnsibleStructureListener.TOPIC]), a VFS event or a document edit touches an inventory, a var file, `ansible.cfg`
- * or a playbook of a shown root ([RefreshFilter]), the project roots or the Ansibility project settings change, it
+ * or a playbook of a shown root ([RefreshFilter]), the project roots, the Ansibility project settings or the external
+ * golden root ([ExternalGoldenListener], plan amendment R25) change, it
  * rebuilds the [WorkspaceSnapshot] in a background read action (with all documents committed) and hands it to
  * [apply] on the EDT.
  *
@@ -109,6 +112,13 @@ class AnsibleTreeRefresher(
             AnsibilitySettingsListener.TOPIC,
             object : AnsibilitySettingsListener {
                 override fun projectSettingsChanged(old: ProjectSettings, new: ProjectSettings) = request()
+            },
+        )
+        // R25: the external golden root's roles (the Roles tab lists them) came, went or changed with a fetch.
+        connection.subscribe(
+            ExternalGoldenListener.TOPIC,
+            object : ExternalGoldenListener {
+                override fun changed(change: ExternalGoldenChange) = request()
             },
         )
         job = AnsibleToolWindowScope.getInstance(project).scope.launch(Dispatchers.Default) {

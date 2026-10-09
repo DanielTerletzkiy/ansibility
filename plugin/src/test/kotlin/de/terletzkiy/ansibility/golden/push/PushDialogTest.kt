@@ -15,6 +15,7 @@ import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.ExtensionTestUtil
 import com.intellij.testFramework.PlatformTestUtil
+import com.intellij.util.ui.JBUI
 import com.intellij.testFramework.TestActionEvent
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.testFramework.registerOrReplaceServiceInstance
@@ -241,10 +242,15 @@ class PushDialogTest : BasePlatformTestCase() {
         val dialog = PushDialog(project, PushModel(project, copy("golden"), pending))
         withDialog(dialog) {
             assertTrue("loading: no rows yet", dialog.checkBoxes.isEmpty())
+            // The choices are visible from the start: the rows area is never collapsed while it loads (2026-10-09).
+            assertTrue("loading keeps room for the rows", dialog.rowsArea.preferredSize.height >= JBUI.scale(200))
+            assertTrue(dialog.rowsArea.preferredSize.width >= JBUI.scale(720))
             pending.complete(rows())
             PlatformTestUtil.waitWithEventsDispatching("the rows are shown", { dialog.checkBoxes.isNotEmpty() }, 20)
             assertEquals(7, dialog.checkBoxes.size)
             assertTrue(dialog.tickedRows().isEmpty())
+            val height = dialog.rowsArea.preferredSize.height
+            assertTrue("the rows get their room, up to the cap: $height", height in JBUI.scale(200)..JBUI.scale(480))
         }
     }
 

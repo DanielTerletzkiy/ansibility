@@ -33,6 +33,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.SimpleToolWindowPanel
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.pom.Navigatable
 import com.intellij.ui.DoubleClickListener
 import com.intellij.ui.OnePixelSplitter
@@ -51,10 +52,14 @@ import de.terletzkiy.ansibility.api.RoleTests
 import de.terletzkiy.ansibility.api.WorkspaceScopeService
 import de.terletzkiy.ansibility.golden.GoldenDataKeys
 import de.terletzkiy.ansibility.golden.history.LastChanges
+import de.terletzkiy.ansibility.golden.remote.GoldenMirrorConsents
+import de.terletzkiy.ansibility.golden.remote.GoldenMirrorListener
+import de.terletzkiy.ansibility.golden.remote.GoldenMirrors
 import de.terletzkiy.ansibility.model.drift.AnsibilityDriftBundle
 import de.terletzkiy.ansibility.model.drift.DriftTexts
 import de.terletzkiy.ansibility.model.drift.RoleDriftListener
 import de.terletzkiy.ansibility.model.drift.RoleDriftService
+import de.terletzkiy.ansibility.model.role.ExternalGoldenRoot
 import de.terletzkiy.ansibility.settings.AnsibilitySettingsListener
 import de.terletzkiy.ansibility.settings.GoldenRoot
 import de.terletzkiy.ansibility.settings.WorkspaceState
@@ -93,6 +98,7 @@ import java.awt.BorderLayout
 import java.awt.event.HierarchyEvent
 import java.awt.event.InputEvent
 import java.awt.event.MouseEvent
+import java.time.Instant
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
@@ -100,6 +106,7 @@ import java.util.concurrent.atomic.AtomicLong
 import javax.swing.JComponent
 import javax.swing.JPanel
 import javax.swing.JTree
+import javax.swing.Timer
 import javax.swing.ToolTipManager
 import javax.swing.event.TreeExpansionEvent
 import javax.swing.event.TreeExpansionListener
@@ -144,6 +151,9 @@ import javax.swing.tree.TreeSelectionModel
  * - "Last changed" (D180): the details read only the cache of [LastChanges]; the sides they still miss
  *   ([DriftDetailsContent.lastChanges]) are looked up in the background, outside the read action, and the details
  *   are computed again once an answer arrives ([fetchLastChanges]).
+ * - External golden root (plan amendment R25): the header follows the mirror's state ([GoldenMirrorListener]; Fetch
+ *   Now, Retry, the consent's Fetch and Not on this machine, Allow background refreshes) and renders its relative
+ *   times again every [ExternalGoldenHeader.TICK_MS] while the tab is shown ([ExternalGoldenHeader]).
  */
 class AnsibleToolWindowPanel(private val project: Project, val view: TreeView = TreeView.REPOS) : SimpleToolWindowPanel(true, true), Disposable {
     private val structure = AnsibleTreeStructure(project, TreeContext { PlayGraph.getInstance(project).playsOf(it) }, view)
@@ -163,6 +173,12 @@ class AnsibleToolWindowPanel(private val project: Project, val view: TreeView = 
     internal var openSettings: () -> Unit = {
         ShowSettingsUtil.getInstance().showSettingsDialog(project, AnsibilityConfigurable::class.java)
     }
+
+    /** The clock of the header's relative times ("fetched 2 min ago"); replaced in tests. */
+    internal var headerClock: () -> Instant = Instant::now
+
+    /** Renders the Roles header again while the tab is shown: the relative times move on (R25). */
+    private val headerTimer: Timer? = if (view == TreeView.ROLES) Timer(ExternalGoldenHeader.TICK_MS) { if (tabShown) updateHeader() } else null
 
     /**
      * Whether this tab is on screen: drift is computed only for a shown Roles tab (plan amendment R24, D179). Follows
@@ -308,6 +324,14 @@ class AnsibleToolWindowPanel(private val project: Project, val view: TreeView = 
         // R24: the drift of a role name was computed or changed (background thread): its rows and the header follow.
         if (view != TreeView.ENVIRONMENTS) connection.subscribe(RoleDriftListener.TOPIC, RoleDriftListener(::driftChanged))
         if (view == TreeView.ROLES) {
+            // R25: the external golden root's state (fetching, errors, pauses, consent) shows in the header at once.
+            connection.subscribe(
+                GoldenMirrorListener.TOPIC,
+                GoldenMirrorListener { ApplicationManager.getApplication().invokeLater({ updateHeader() }, ModalityState.any()) { isDisposed } },
+            )
+            headerTimer?.start()
+        }
+        if (view == TreeView.ROLES) {
             // R24, D179: drift is computed only while the Roles tab is on screen, visible names first.
             addHierarchyListener { event ->
                 if (event.changeFlags and HierarchyEvent.SHOWING_CHANGED.toLong() != 0L) tabShown = isShowing
@@ -434,6 +458,7 @@ class AnsibleToolWindowPanel(private val project: Project, val view: TreeView = 
 
     override fun dispose() {
         isDisposed = true
+        headerTimer?.stop()
         detailsJob?.cancel()
         scopeRootsJob?.cancel()
     }
@@ -588,7 +613,7 @@ class AnsibleToolWindowPanel(private val project: Project, val view: TreeView = 
      * be used. Without a golden root (the default) there is no header at all: drift is opt-in, and Settings › Ansibility
      * › Role drift or a root row's "Use as Golden Root" is where it starts (user feedback 2026-10-09: no reminder).
      */
-    private fun updateHeader() {
+    internal fun updateHeader() {
         if (view != TreeView.ROLES || isDisposed) return
         val current = snapshot
         val golden = current.golden
@@ -596,6 +621,7 @@ class AnsibleToolWindowPanel(private val project: Project, val view: TreeView = 
         val choose = HeaderLink(AnsibilityDriftBundle.message("drift.header.choose")) { openSettings() }
         val setting = golden.resolution.setting
         val text = when {
+            golden.isExternalSetting -> externalHeader(current, links)
             golden.isSet -> {
                 val names = current.roleCopies.map { it.second.name }.distinct()
                 val service = RoleDriftService.getInstance(project)
@@ -621,6 +647,39 @@ class AnsibleToolWindowPanel(private val project: Project, val view: TreeView = 
         }
         if (text != null) rolesHeader.update(text, links) else rolesHeader.update("", emptyList())
         rolesHeader.component.isVisible = text != null && !current.isEmpty
+    }
+
+    /**
+     * The header of an external golden root (plan amendment R25): [ExternalGoldenHeader] over the mirror's current
+     * state, the names of the project's and the golden root's copies and how many drift. Fills [links]. EDT.
+     */
+    private fun externalHeader(current: WorkspaceSnapshot, links: MutableList<HeaderLink>): String {
+        val state = GoldenMirrors.getInstance(project).state()
+        val external = current.golden.external
+        val counted = if (external == null) null else {
+            val names = (current.roleCopies.map { it.second.name } + external.roles.map { it.name }).distinct()
+            val service = RoleDriftService.getInstance(project)
+            val drifting = names.count { (service.cached(it)?.differingCount ?: 0) > 0 }
+            names.size to ExternalGoldenHeader.drifting(drifting, names.all(service::isComputed))
+        }
+        val line = ExternalGoldenHeader.compose(state, counted?.first, counted?.second, ExternalGoldenRoot.getInstance(project).errorSince(), headerClock())
+        for (link in line.links) links += HeaderLink(ExternalGoldenHeader.text(link)) { runHeaderLink(link) }
+        return line.text
+    }
+
+    /** What an external golden root's header link does: user actions only (D202: they may ask for credentials). */
+    private fun runHeaderLink(link: ExternalGoldenHeader.Link) {
+        val mirrors = GoldenMirrors.getInstance(project)
+        when (link) {
+            ExternalGoldenHeader.Link.FETCH_NOW, ExternalGoldenHeader.Link.RETRY -> mirrors.fetchNow(interactive = true)
+            ExternalGoldenHeader.Link.CONSENT -> mirrors.consent(true)
+            ExternalGoldenHeader.Link.DECLINE -> mirrors.consent(false)
+            ExternalGoldenHeader.Link.ALLOW_SSH_AGENT -> {
+                GoldenMirrorConsents.getInstance().sshAgentRefresh = true
+                mirrors.sshAgentRefreshChanged()
+            }
+            ExternalGoldenHeader.Link.CHANGE -> openSettings()
+        }
     }
 
     /**
@@ -876,5 +935,20 @@ class AnsibleToolWindowPanel(private val project: Project, val view: TreeView = 
         /** Creates a panel owned by [parent]. */
         fun create(project: Project, parent: Disposable): AnsibleToolWindowPanel =
             AnsibleToolWindowPanel(project).also { Disposer.register(parent, it) }
+
+        /**
+         * Activates the Ansibility tool window on its Roles tab with Drifted Only on (plan amendment R25, X128's Show).
+         * EDT.
+         */
+        fun showDriftedRoles(project: Project) {
+            if (project.isDisposed) return
+            val window = ToolWindowManager.getInstance(project).getToolWindow(AnsibleToolWindowFactory.ID) ?: return
+            window.activate({
+                val manager = window.contentManager
+                val content = manager.contents.firstOrNull { (it.component as? AnsibleToolWindowPanel)?.view == TreeView.ROLES } ?: return@activate
+                manager.setSelectedContent(content, true)
+                (content.component as AnsibleToolWindowPanel).driftedOnly = true
+            }, true)
+        }
     }
 }

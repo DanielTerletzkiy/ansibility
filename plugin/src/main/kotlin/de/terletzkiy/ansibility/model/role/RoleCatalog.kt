@@ -26,8 +26,12 @@ import de.terletzkiy.ansibility.settings.GoldenRoot
  * [ref] names the owning root ([RoleRef.rootDir] is [root]'s directory), even when the directory was found through
  * another root's roles path. [isReference] marks the drift reference of the role name: the golden root's copy (plan
  * amendment R24, D177; see [RoleCatalog] for the rule of each setting).
+ *
+ * [isExternal] marks a copy in the external golden root (plan amendment R25: a git mirror or a folder outside the
+ * project, [ExternalGolden]): read-only (D198), never a target of Align, Merge, Push or a take, and its [root] is the
+ * synthetic [ExternalGolden.root], never a root of the workspace (D199).
  */
-data class RoleCopy(val root: AnsibleRoot, val ref: RoleRef, val isReference: Boolean) {
+data class RoleCopy(val root: AnsibleRoot, val ref: RoleRef, val isReference: Boolean, val isExternal: Boolean = false) {
     /** The role name (the directory name). */
     val name: String get() = ref.name
 
@@ -45,10 +49,12 @@ class RoleCatalogSnapshot internal constructor(
     copies: List<RoleCopy>,
     /**
      * The golden root (plan amendment R24, D177): the root of the setting, or for "first role library" the first
-     * role library by path. Null when no golden root is set or the chosen one does not exist; then no copy is a
-     * reference.
+     * role library by path, or the external golden root's synthetic [ExternalGolden.root] (plan amendment R25). Null
+     * when no golden root is set or the chosen one does not exist (or is not fetched yet); then no copy is a reference.
      */
     val golden: AnsibleRoot? = null,
+    /** The external golden root (plan amendment R25, D197) whose copies this catalog lists, or null. */
+    val external: ExternalGolden? = null,
 ) {
     private val byName: Map<String, List<RoleCopy>> =
         copies.groupBy { it.name }.toSortedMap().mapValues { (_, list) -> list.sortedWith(COPY_ORDER) }
@@ -139,9 +145,13 @@ class RoleCatalogSnapshot internal constructor(
  *   ([de.terletzkiy.ansibility.settings.DriftSettings.golden], resolved by [GoldenRoots]): *None* marks no copy;
  *   *first role library* marks, per name, the copy in the first role library (by path) that has one (R9's rule);
  *   a chosen root marks the copies that root owns, whatever its kind. A chosen root that no longer exists marks none.
- * - **Cache:** one snapshot until the Ansible structure, the project roots or the project settings (including the
- *   drift settings) change (role directories appear and disappear only through structure changes, which also cover
- *   every file below `roles/`).
+ * - **External golden root** (plan amendment R25, D197–D199): with a git repository or a folder outside the project
+ *   as the golden root, the role directories below its roles directory ([ExternalGoldenRoot.current]) are the golden
+ *   copies ([RoleCopy.isExternal], reference of their names), owned by the synthetic [ExternalGolden.root]; every other
+ *   copy comes from the workspace as before. Until the mirror is fetched there is no golden root.
+ * - **Cache:** one snapshot until the Ansible structure, the project roots, the project settings (including the
+ *   drift settings) or the external golden root ([ExternalGoldenRoot.modificationTracker]) change (role directories
+ *   appear and disappear only through structure changes, which also cover every file below `roles/`).
  *
  * Traversal only: resolution stays root-scoped (`RoleRegistry`), and nothing here is ever a Ctrl+B, completion or
  * inspection target. VFS-only and DumbAware; callable from any thread (it takes a read lock when the caller holds
@@ -157,6 +167,7 @@ class RoleCatalog(private val project: Project) {
                 ProjectRootManager.getInstance(project),
                 AnsibilityProjectSettings.getInstance(project).modificationTracker,
                 AnsibilityProjectSettings.getInstance(project).driftModificationTracker,
+                ExternalGoldenRoot.getInstance(project).modificationTracker,
             )
         },
         false,
@@ -167,7 +178,8 @@ class RoleCatalog(private val project: Project) {
         AnsibleWorkspace.getInstance(project).structureTracker.modificationCount +
             ProjectRootManager.getInstance(project).modificationCount +
             AnsibilityProjectSettings.getInstance(project).modificationTracker.modificationCount +
-            AnsibilityProjectSettings.getInstance(project).driftModificationTracker.modificationCount
+            AnsibilityProjectSettings.getInstance(project).driftModificationTracker.modificationCount +
+            ExternalGoldenRoot.getInstance(project).modificationTracker.modificationCount
     }
 
     /** The current catalog. */
@@ -203,7 +215,9 @@ class RoleCatalog(private val project: Project) {
             }
         }
         val setting = AnsibilityProjectSettings.getInstance(project).settings.drift.golden
-        val golden = GoldenRoots.resolve(project, setting, roots).root
+        val external = if (setting == GoldenRoot.Git || setting == GoldenRoot.Folder) ExternalGoldenRoot.getInstance(project).current() else null
+        val externalDirs = external?.roleDirs().orEmpty()
+        val golden = GoldenRoots.resolve(project, setting, roots).root ?: external?.root
         val referenceOf = HashMap<String, VirtualFile>()
         when (setting) {
             GoldenRoot.None -> Unit
@@ -214,9 +228,17 @@ class RoleCatalog(private val project: Project) {
             is GoldenRoot.Root -> if (golden != null) {
                 owned.values.filter { (owner, _) -> owner.dir == golden.dir }.forEach { (_, ref) -> referenceOf.putIfAbsent(ref.name, ref.dir) }
             }
+            // R25 (D197): the golden copies are the role directories of the mirror or folder.
+            GoldenRoot.Git, GoldenRoot.Folder -> externalDirs.forEach { referenceOf.putIfAbsent(it.name, it) }
         }
-        val copies = owned.values.map { (owner, ref) -> RoleCopy(owner, ref, referenceOf[ref.name] == ref.dir) }
-        return RoleCatalogSnapshot(copies, golden)
+        val copies = owned.values.map { (owner, ref) ->
+            RoleCopy(owner, ref, referenceOf[ref.name] == ref.dir, isExternal = external?.contains(ref.dir) == true)
+        }
+        // A folder inside the project is listed by its workspace root already; never twice.
+        val externalCopies = if (external == null) emptyList() else externalDirs.filter { it !in owned }.map { dir ->
+            RoleCopy(external.root, RoleRef(external.baseDir, dir.name, dir), isReference = referenceOf[dir.name] == dir, isExternal = true)
+        }
+        return RoleCatalogSnapshot(copies + externalCopies, golden, external)
     }
 
     private fun <T> readLocked(action: () -> T): T =

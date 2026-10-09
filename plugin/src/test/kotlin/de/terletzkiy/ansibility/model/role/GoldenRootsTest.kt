@@ -69,6 +69,17 @@ class GoldenRootsTest : BasePlatformTestCase() {
         assertEquals(mapOf("app-same" to null, "base" to "golden", "solo" to null, "web" to "golden"), references())
     }
 
+    fun testTheExternalGoldenRootsAreNoRootOfTheProjectYet() {
+        // Plan amendment R25, step 1: a git mirror or a folder outside the project resolves to no local root, not missing.
+        val roots = AnsibleWorkspace.getInstance(project).roots()
+        for (external in listOf(GoldenRoot.Git, GoldenRoot.Folder)) {
+            golden(external)
+            assertEquals(GoldenResolution(external, null, missing = false), GoldenRoots.resolve(project, external, roots))
+            assertNull(catalog.golden)
+            assertTrue(references().values.all { it == null })
+        }
+    }
+
     fun testAMissingRootMarksNoReference() {
         golden(GoldenRoot.Root("repos/hawk/ansible"))
         val resolution = GoldenRoots.resolve(project, AnsibilityProjectSettings.getInstance(project).settings, AnsibleWorkspace.getInstance(project).roots())
