@@ -51,7 +51,7 @@ object InventoryVarSources {
      *
      * [playbookAdjacent] selects the playbook layers (5, 7, 10) instead of the inventory layers (4, 6, 9).
      * [load] returns the loaded YAML of a file given its path relative to [base] (null when unreadable);
-     * [originId] turns that path into the source id.
+     * [originId] turns that path into the source id; [include] drops files by that path (a playbook-level scope, R26).
      */
     fun adjacent(
         graph: InventoryGraph,
@@ -61,10 +61,11 @@ object InventoryVarSources {
         originId: (relativePath: String) -> String = { it },
         sourceIndex: Int = 0,
         extensions: List<String> = VarsFileLayout.DEFAULT_EXTENSIONS,
+        include: (relativePath: String) -> Boolean = { true },
     ): List<VarSource> {
         val out = ArrayList<VarSource>()
         for (group in graph.groups.keys) {
-            val files = VarsFileLayout.findVarsFiles(base, VarsFileLayout.GROUP_VARS, group, extensions)
+            val files = VarsFileLayout.findVarsFiles(base, VarsFileLayout.GROUP_VARS, group, extensions).filter(include)
             files.forEachIndexed { order, path ->
                 VarSource.fromDocument(
                     VarLayer.groupVars(group, playbookAdjacent), VarOwner.group(group), originId(path), order, load(path), sourceIndex,
@@ -72,7 +73,7 @@ object InventoryVarSources {
             }
         }
         for (host in graph.hosts.keys) {
-            val files = VarsFileLayout.findVarsFiles(base, VarsFileLayout.HOST_VARS, host, extensions)
+            val files = VarsFileLayout.findVarsFiles(base, VarsFileLayout.HOST_VARS, host, extensions).filter(include)
             files.forEachIndexed { order, path ->
                 VarSource.fromDocument(
                     VarLayer.hostVars(playbookAdjacent), VarOwner.Host(host), originId(path), order, load(path), sourceIndex,

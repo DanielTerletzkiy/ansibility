@@ -2,6 +2,7 @@ package de.terletzkiy.ansibility.vars.gutter
 
 import com.intellij.openapi.project.Project
 import de.terletzkiy.ansibility.api.AnsibleRoot
+import de.terletzkiy.ansibility.api.ProjectLayoutService
 import de.terletzkiy.ansibility.api.VarDefinition
 import de.terletzkiy.ansibility.context.host.symbols.HostSymbols
 
@@ -13,6 +14,7 @@ import de.terletzkiy.ansibility.context.host.symbols.HostSymbols
  */
 internal class HostReach(project: Project, root: AnsibleRoot) {
     private val environments = HostSymbols.environments(project, root).associateBy { it.name }
+    private val layout = ProjectLayoutService.getInstance(project).layout(root)
 
     fun overlaps(a: VarDefinition, b: VarDefinition): Boolean {
         val reachA = reach(a) ?: return true
@@ -27,8 +29,9 @@ internal class HostReach(project: Project, root: AnsibleRoot) {
         val environment = definition.environment
         if (group == null && host == null) return environment?.let { env -> hostsIn(env, ALL) ?: setOf(env + SEPARATOR + WILDCARD) }
         if (environment == null) {
-            if (host == null && group == ALL) return null
-            return environments.keys.flatMapTo(HashSet()) { env -> hostsIn(env, group, host).orEmpty() }
+            val loading = environments.keys.filter { env -> layout.loadsPlaybookVars(env, definition.location.file) }
+            if (host == null && group == ALL && loading.size == environments.size) return null
+            return loading.flatMapTo(HashSet()) { env -> hostsIn(env, group, host).orEmpty() }
         }
         return hostsIn(environment, group, host) ?: setOf(environment + SEPARATOR + WILDCARD)
     }

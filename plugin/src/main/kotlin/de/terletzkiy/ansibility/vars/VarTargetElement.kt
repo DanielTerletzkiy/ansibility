@@ -1,7 +1,7 @@
 package de.terletzkiy.ansibility.vars
 
+import de.terletzkiy.ansibility.navigation.EditorJumps
 import com.intellij.icons.AllIcons
-import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
@@ -54,7 +54,7 @@ class VarTargetElement internal constructor(
     override fun canNavigateToSource(): Boolean = canNavigate()
 
     override fun navigate(requestFocus: Boolean) {
-        OpenFileDescriptor(anchor.project, location.file, location.offset).navigate(requestFocus)
+        EditorJumps.open(anchor.project, location.file, location.offset, requestFocus)
     }
 
     override fun equals(other: Any?): Boolean = this === other || other is VarTargetElement && other.location == location

@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### Added
+
+- **Playbook Vars per Environment**: each custom inventory in Settings › Ansibility › Layout has a "Playbook vars" cell that limits which `group_vars`/`host_vars` next to the playbooks the environment loads.
+  - Blank loads all of them, as Ansible does (the default, so existing layouts are unchanged); `none` loads none.
+  - Otherwise, list paths relative to the playbook directory, comma-separated, e.g. `group_vars/platform, group_vars/all.yml`. A directory takes every file below it.
+  - The scope applies to effective variables, undefined-variable checks, hover cards, rendering, override gutter icons, per-file host scopes and the tool window. Show Detected Layout lists it per environment.
+
+### Changed
+
+- "Shared (playbook-level) vars" in the Repos tab shows which environments each file actually applies to (`L7 · applies to platform build, platform ops`). Labels no longer claim playbook vars beat "every env": a `group_vars/<group>` file only reaches hosts of that group.
+
+### Fixed
+
+- Navigate › Back and Forward now work after jumping with Go to Declaration, gutter icons, Find Usages, Go to Symbol, the "in all repos" panel and the tool window.
+- The Layout settings page no longer grows wider than the dialog when a root has many detected environments. The detected list sits below "Auto (detected)", capped at six lines, with the rest in a tooltip.
+
 ## 0.0.4 - 2026-10-09
 
 ### Added

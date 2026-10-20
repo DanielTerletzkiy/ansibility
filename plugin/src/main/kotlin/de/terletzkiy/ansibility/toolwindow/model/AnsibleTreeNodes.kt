@@ -1,5 +1,6 @@
 package de.terletzkiy.ansibility.toolwindow.model
 
+import de.terletzkiy.ansibility.api.VarFile
 import de.terletzkiy.ansibility.api.RoleTestState
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.project.Project
@@ -461,7 +462,7 @@ class LayerSourceNode(
     override fun presentation(): NodePresentation = when (source) {
         is LayerSource.File -> NodePresentation(
             root.displayPath(source.varFile),
-            LayerTexts.label(source),
+            if (env == null && source.varFile.environment == null) reach(source.varFile) else LayerTexts.label(source),
             listOf(LayerTexts.tooltip(source), source.varFile.file.presentableUrl),
             if (source.isVault) NodeIcon.VAULT_FILE else NodeIcon.VAR_FILE,
         )
@@ -490,6 +491,17 @@ class LayerSourceNode(
     override val isLeaf: Boolean get() = true
 
     override fun children(context: TreeContext): List<AnsibleTreeNode> = emptyList()
+
+    /** Under Shared vars: the level and the environments a playbook-level file reaches (R26), `L7 · platform build, platform ops`. */
+    private fun reach(varFile: VarFile): String {
+        val envs = root.playbookVarsReach(varFile)
+        val level = "L${varFile.layer.level}"
+        return when {
+            envs.isEmpty() -> message("shared.reach.none", level)
+            envs.size == root.inventories.size && root.inventories.size > 1 -> message("shared.reach.all", level)
+            else -> message("shared.reach", level, joinCapped(envs, MAX_REACH_ENVS))
+        }
+    }
 
     /** The source's details; a var file's also say what it achieves on its hosts (HA7b) when the services are there. */
     override fun details(): NodeDetails {
@@ -570,6 +582,7 @@ private val CONTRIBUTION_LOG = logger<AnsibleTreeNode>()
 private const val SEPARATOR = " · "
 private const val MAX_INLINE = 3
 private const val MAX_INLINE_KEYS = 4
+private const val MAX_REACH_ENVS = 4
 private const val MAX_HOSTS = 3
 private const val MAX_GROUPS = 4
 private const val ANSIBLE_HOST = "ansible_host"

@@ -4,6 +4,7 @@ import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.text.HtmlChunk
+import de.terletzkiy.ansibility.api.ProjectLayoutService
 import de.terletzkiy.ansibility.api.AnsibleContextService
 import de.terletzkiy.ansibility.api.AnsibleRoot
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
@@ -151,8 +152,9 @@ class DefinitionCardSection : CardSection {
             val origin = impl.allHostsScope(definition.location.file).origin as? HostScopeOrigin.GroupVars ?: return null
             val inventoryRoot = impl.inventoryRoot(root)
             val rootKey = RootKeys.keyOf(project, inventoryRoot.dir)
+            val layout = ProjectLayoutService.getInstance(project).layout(inventoryRoot)
             val environments = InventoryModels.getInstance(project).environments(inventoryRoot)
-                .filter { origin.environment == null || it.name == origin.environment }
+                .filter { if (origin.environment == null) layout.loadsPlaybookVars(it.name, definition.location.file) else it.name == origin.environment }
             val hosts = LinkedHashSet<HostKey>()
             val via = LinkedHashSet<String>()
             for (environment in environments) {

@@ -1,10 +1,10 @@
 package de.terletzkiy.ansibility.workspace.search
 
+import de.terletzkiy.ansibility.navigation.EditorJumps
 import com.intellij.icons.AllIcons
 import com.intellij.navigation.ChooseByNameContributorEx
 import com.intellij.navigation.ItemPresentation
 import com.intellij.navigation.NavigationItem
-import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
@@ -121,7 +121,7 @@ internal class AnsibleSymbolItem(
     }
 
     override fun navigate(requestFocus: Boolean) {
-        OpenFileDescriptor(project, location.file, location.offset).navigate(requestFocus)
+        EditorJumps.open(project, location.file, location.offset, requestFocus)
     }
 
     override fun canNavigate(): Boolean = location.file.isValid

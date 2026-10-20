@@ -1,5 +1,6 @@
 package de.terletzkiy.ansibility.toolwindow
 
+import de.terletzkiy.ansibility.navigation.EditorJumps
 import com.intellij.icons.AllIcons
 import com.intellij.ide.CommonActionsManager
 import com.intellij.ide.DefaultTreeExpander
@@ -400,7 +401,7 @@ class AnsibleToolWindowPanel(private val project: Project, val view: TreeView = 
         if (!target.file.isValid) return false
         val descriptor = target.descriptor(project)
         if (!descriptor.canNavigate()) return false
-        descriptor.navigate(true)
+        if (target.file.isDirectory) descriptor.navigate(true) else EditorJumps.open(project, descriptor)
         return true
     }
 

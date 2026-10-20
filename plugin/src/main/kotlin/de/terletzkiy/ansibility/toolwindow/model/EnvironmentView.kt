@@ -141,10 +141,10 @@ class EnvironmentView(val root: RootSnapshot, val inventory: Inventory) {
     fun inventoryFilesOf(group: String): List<VarFile> = inventory.varFiles.filter { it.group == group }
 
     /** The playbook-level var files for [group] (levels 5, 7) in load order. */
-    fun playbookFilesOf(group: String): List<VarFile> = root.playbookVarFiles.filter { it.group == group }
+    fun playbookFilesOf(group: String): List<VarFile> = root.playbookVarFiles.filter { it.group == group && root.loadsPlaybookVars(name, it) }
 
     /** Whether [group] has a group_vars file next to the inventory or the playbook. */
-    fun hasFiles(group: String): Boolean = inventory.varFiles.any { it.group == group } || root.playbookVarFiles.any { it.group == group }
+    fun hasFiles(group: String): Boolean = inventory.varFiles.any { it.group == group } || playbookFilesOf(group).isNotEmpty()
 
     /**
      * What [group] contributes, in load order: for `all` the `ansible.cfg` connection settings (L1), then the
@@ -191,7 +191,7 @@ class EnvironmentView(val root: RootSnapshot, val inventory: Inventory) {
         }
         if (host.inlineVarKeys.isNotEmpty()) out += LayerSource.HostInline(host, inventory.hostsFile)
         inventory.varFiles.filter { it.host == host.name }.mapTo(out, LayerSource::File)
-        root.playbookVarFiles.filter { it.host == host.name }.mapTo(out, LayerSource::File)
+        root.playbookVarFiles.filter { it.host == host.name && root.loadsPlaybookVars(name, it) }.mapTo(out, LayerSource::File)
         return out.distinct()
     }
 

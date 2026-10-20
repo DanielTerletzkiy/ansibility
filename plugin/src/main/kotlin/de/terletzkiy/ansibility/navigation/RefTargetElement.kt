@@ -1,7 +1,6 @@
 package de.terletzkiy.ansibility.navigation
 
 import com.intellij.icons.AllIcons
-import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.util.TextRange
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiElement
@@ -52,7 +51,7 @@ class RefTargetElement internal constructor(
     override fun canNavigateToSource(): Boolean = canNavigate()
 
     override fun navigate(requestFocus: Boolean) {
-        OpenFileDescriptor(anchor.project, file, offset).navigate(requestFocus)
+        EditorJumps.open(anchor.project, file, offset, requestFocus)
     }
 
     override fun equals(other: Any?): Boolean = this === other || other is RefTargetElement && other.file == file && other.offset == offset

@@ -112,7 +112,8 @@ class InventoryModels(private val project: Project) {
         }
     }
 
-    private fun layout(root: AnsibleRoot): RootLayout? {
+    /** The layout of [root], registered as an input of the model entry being computed. */
+    internal fun layout(root: AnsibleRoot): RootLayout? {
         if (root.kind == RootKind.ROLE_LIBRARY) return null
         val service = ProjectLayoutService.getInstance(project)
         val layout = service.layout(root)

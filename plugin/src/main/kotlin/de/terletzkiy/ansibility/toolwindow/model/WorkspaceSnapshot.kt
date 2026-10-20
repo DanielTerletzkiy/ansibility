@@ -5,6 +5,8 @@ import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
+import de.terletzkiy.ansibility.api.PlaybookVarsScope
+import de.terletzkiy.ansibility.api.ProjectLayoutService
 import de.terletzkiy.ansibility.api.AnsibleRoot
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.FileKind
@@ -123,6 +125,8 @@ class RootSnapshot(
      * never in a scope ([isIn]), no tests ([testedRoles] empty), no plays; only the Roles tab lists its copies.
      */
     val external: Boolean = false,
+    /** The environments whose Layout settings scope the playbook-level vars (plan amendment R26); others load all. */
+    val playbookVarsScopes: Map<String, PlaybookVarsScope> = emptyMap(),
     /** How the Roles tab names a copy of this root: the root's name, "golden (git)" for the external golden root. */
     val copyLabel: String = root.displayName,
 ) {
@@ -165,6 +169,22 @@ class RootSnapshot(
         val base = environment(varFile.environment)?.inventory?.hostsFile?.parent ?: root.dir.parent ?: root.dir
         return VfsUtilCore.getRelativePath(varFile.file, base) ?: varFile.file.name
     }
+
+    /** Whether [environment] loads the playbook-level [varFile] by its Layout settings scope (R26; no scope: all). */
+    fun loadsPlaybookVars(environment: String, varFile: VarFile): Boolean =
+        playbookVarsScopes[environment]?.includes(relativePath(varFile.file)) ?: true
+
+    /**
+     * The environments the playbook-level [varFile] reaches: those that load it by their scope and have its group
+     * (any for `all`) or host. In Ansible, `group_vars/<g>` only reaches hosts of group `<g>`.
+     */
+    fun playbookVarsReach(varFile: VarFile): List<String> = inventories.filter { inventory ->
+        loadsPlaybookVars(inventory.environment, varFile) && when {
+            varFile.host != null -> varFile.host in inventory.hosts
+            varFile.group == null || varFile.group == "all" -> true
+            else -> varFile.group in inventory.groups
+        }
+    }.map { it.environment }
 
     /** [file] relative to the root directory (its name when outside). */
     fun relativePath(file: VirtualFile): String = VfsUtilCore.getRelativePath(file, root.dir) ?: file.name
@@ -362,6 +382,8 @@ object WorkspaceSnapshotBuilder {
             roleCount = roles.size,
             inventories = inventories.inventories(root),
             playbookVarFiles = inventories.playbookVarFiles(root),
+            playbookVarsScopes = ProjectLayoutService.getInstance(project).layout(root).inventories
+                .mapNotNull { def -> def.playbookVars?.let { def.id to it } }.toMap(),
             playbooks = playbooks,
             cfgFile = cfgFile,
             connection = cfgText?.let { ConnectionSettings.parse(cfgFile, it) },

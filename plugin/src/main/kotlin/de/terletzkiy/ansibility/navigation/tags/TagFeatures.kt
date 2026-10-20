@@ -1,12 +1,12 @@
 package de.terletzkiy.ansibility.navigation.tags
 
+import de.terletzkiy.ansibility.navigation.EditorJumps
 import com.intellij.codeInsight.completion.CompletionParameters
 import com.intellij.codeInsight.completion.CompletionResultSet
 import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.icons.AllIcons
 import com.intellij.lang.documentation.DocumentationMarkup
 import com.intellij.model.Pointer
-import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.TextRange
 import com.intellij.openapi.util.text.StringUtil
@@ -265,7 +265,7 @@ private class TagTargetElement(private val anchor: PsiElement, private val occur
     override fun canNavigateToSource(): Boolean = canNavigate()
 
     override fun navigate(requestFocus: Boolean) {
-        OpenFileDescriptor(anchor.project, occurrence.file, occurrence.offset).navigate(requestFocus)
+        EditorJumps.open(anchor.project, occurrence.file, occurrence.offset, requestFocus)
     }
 
     override fun equals(other: Any?): Boolean =

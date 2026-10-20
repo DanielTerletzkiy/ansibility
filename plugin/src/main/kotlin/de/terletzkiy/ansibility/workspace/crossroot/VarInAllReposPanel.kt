@@ -1,5 +1,6 @@
 package de.terletzkiy.ansibility.workspace.crossroot
 
+import de.terletzkiy.ansibility.navigation.EditorJumps
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.actionSystem.ActionManager
@@ -9,7 +10,6 @@ import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.application.EDT
 import com.intellij.openapi.application.smartReadAction
 import com.intellij.openapi.fileEditor.FileDocumentManager
-import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
@@ -133,7 +133,7 @@ class VarInAllReposPanel(
         val definition = (tree.lastSelectedPathComponent as? DefaultMutableTreeNode)?.userObject as? DefinitionRow ?: return false
         val location = definition.item.definition.location
         if (!location.file.isValid) return false
-        OpenFileDescriptor(project, location.file, location.offset).navigate(true)
+        EditorJumps.open(project, location.file, location.offset)
         return true
     }
 

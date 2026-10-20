@@ -1,9 +1,9 @@
 package de.terletzkiy.ansibility.vars.usages
 
+import de.terletzkiy.ansibility.navigation.EditorJumps
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.application.ReadAction
-import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
@@ -124,7 +124,7 @@ class VarSymbolElement internal constructor(
             .inSmartMode(project)
             .expireWith(project)
             .finishOnUiThread(ModalityState.defaultModalityState()) { location ->
-                if (location != null && location.file.isValid) OpenFileDescriptor(project, location.file, location.offset).navigate(requestFocus)
+                if (location != null && location.file.isValid) EditorJumps.open(project, location.file, location.offset, requestFocus)
             }
             .submit(AppExecutorUtil.getAppExecutorService())
     }

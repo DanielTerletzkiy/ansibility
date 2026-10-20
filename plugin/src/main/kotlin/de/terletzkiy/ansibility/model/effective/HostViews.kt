@@ -157,7 +157,10 @@ class HostViews(private val project: Project) {
         val sources = ArrayList<VarSource>()
         sources += InventoryVarSources.inline(model.graph) { index -> origin(model.sourceFiles.getOrNull(index) ?: model.hostsFile) }
         for (dir in model.varsDirs) sources += adjacent(model.graph, dir, playbookAdjacent = false, config, ::origin)
-        if (key.playbookDir != null) sources += adjacent(model.graph, key.playbookDir, playbookAdjacent = true, config, ::origin)
+        if (key.playbookDir != null) {
+            val def = models.layout(root)?.inventory(key.environment)
+            sources += adjacent(model.graph, key.playbookDir, playbookAdjacent = true, config, ::origin) { def?.loadsPlaybookVars(it) ?: true }
+        }
         val engine = PrecedenceEngine(config.hashBehaviour, config.precedence)
         val views = LinkedHashMap<String, HostView>()
         for (host in model.graph.hosts.keys) {
@@ -175,6 +178,7 @@ class HostViews(private val project: Project) {
         playbookAdjacent: Boolean,
         config: VarsConfig,
         origin: (VirtualFile) -> String,
+        include: (relativePath: String) -> Boolean = { true },
     ): List<VarSource> = InventoryVarSources.adjacent(
         graph = graph,
         base = VarsDirectories.lister(base),
@@ -182,6 +186,7 @@ class HostViews(private val project: Project) {
         load = { relativePath -> VarsDocuments.load(project, base.findFileByRelativePath(relativePath)) },
         originId = { relativePath -> base.findFileByRelativePath(relativePath)?.let(origin) ?: "${base.url}/$relativePath" },
         extensions = config.extensions,
+        include = include,
     )
 
     /** Whether [dir] belongs to [root] or, for a nested root, to its parent (whose playbooks it may import). */

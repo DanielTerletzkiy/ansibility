@@ -6,6 +6,7 @@ import com.intellij.openapi.vfs.VirtualFile
 import de.terletzkiy.ansibility.api.AnsibleRoot
 import de.terletzkiy.ansibility.api.InventoryDef
 import de.terletzkiy.ansibility.api.InventorySource
+import de.terletzkiy.ansibility.api.PlaybookVarsScope
 import de.terletzkiy.ansibility.api.LayoutOrigin
 import de.terletzkiy.ansibility.api.LayoutSource
 import de.terletzkiy.ansibility.api.RootKind
@@ -41,7 +42,13 @@ class LayoutResolver(
     private val isPlaybook: (VirtualFile) -> Boolean,
     private val onRead: (VirtualFile) -> Unit = {},
 ) {
-    private class Found(val candidate: EnvironmentIds.Candidate, val sources: List<InventorySource>, val source: LayoutSource, val isConvention: Boolean)
+    private class Found(
+        val candidate: EnvironmentIds.Candidate,
+        val sources: List<InventorySource>,
+        val source: LayoutSource,
+        val isConvention: Boolean,
+        val playbookVars: PlaybookVarsScope? = null,
+    )
 
     fun resolve(
         root: AnsibleRoot,
@@ -66,7 +73,7 @@ class LayoutResolver(
         }
         val ids = EnvironmentIds.assign(found.map { it.candidate })
         val inventories = found.mapIndexed { i, f ->
-            InventoryDef(ids[i].id, ids[i].label, f.sources, f.source, isDefault = i in defaults, isConvention = f.isConvention)
+            InventoryDef(ids[i].id, ids[i].label, f.sources, f.source, isDefault = i in defaults, isConvention = f.isConvention, playbookVars = f.playbookVars)
         }
         return RootLayout(root, cfgFile, inventories, notFollowed)
     }
@@ -82,7 +89,7 @@ class LayoutResolver(
             }
             val idSources = sources.map { EnvironmentIds.Source(it.path, it.isDirectory) }
             if (inventory.isDefault) defaults += found.size
-            found += Found(EnvironmentIds.Candidate.settings(inventory.name, idSources), sources, origin, false)
+            found += Found(EnvironmentIds.Candidate.settings(inventory.name, idSources), sources, origin, false, inventory.playbookVars?.let(::PlaybookVarsScope))
         }
     }
 

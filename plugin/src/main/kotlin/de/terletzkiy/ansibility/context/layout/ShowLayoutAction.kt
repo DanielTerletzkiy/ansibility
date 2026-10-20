@@ -68,6 +68,9 @@ object LayoutReport {
                 }
                 if (vars.isNotEmpty()) lines += message("report.vars", vars.joinToString(" · "))
                 if (def.varsDirs.any { it == root.dir }) lines += message("report.vars.playbook")
+                def.playbookVars?.let { scope ->
+                    lines += message("report.playbookVars", scope.toString().ifEmpty { message("report.playbookVars.none") })
+                }
             }
         }
         if (layout.notFollowed.isNotEmpty()) lines += message("report.notFollowed", layout.notFollowed.joinToString(", "))

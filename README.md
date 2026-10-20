@@ -23,6 +23,7 @@ Instead of treating Ansible as plain YAML, Ansibility understands your entire An
 * **Per-File Scope Inference:** Automatically infers which hosts and plays a file applies to (e.g. playbook-level vs environment-level vars, role tasks, or Molecule scenarios).
 * **Molecule & Golden Role Support:** Understands Molecule scenario directories and pseudo-inventories when developing standalone roles.
 * **Layout Detection:** Recognizes your project layout (environments, inventories, `ansible.cfg`), flags layout problems in an editor banner, and shows what it detected via Tools | Ansibility: Show Detected Layout.
+* **Layout Settings per Root:** Override the detected inventories (one environment per row, sources in `-i` order), the roles path, and which playbook-level `group_vars`/`host_vars` each environment loads, shared with the team in `.idea/ansibility-layout.xml` or kept personal.
 
 ### 2. Variable Resolution & "Explain Precedence"
 * **Effective Variables:** Computes exact variable values according to Ansible’s 22-step precedence order.

@@ -13,7 +13,9 @@ import com.intellij.openapi.ui.DialogPanel
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.ui.ToolbarDecorator
+import com.intellij.openapi.util.text.StringUtil
 import com.intellij.ui.components.JBCheckBox
+import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBRadioButton
 import com.intellij.ui.dsl.listCellRenderer.textListCellRenderer
 import com.intellij.ui.dsl.builder.Align
@@ -22,6 +24,7 @@ import com.intellij.ui.table.TableView
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.intellij.util.ui.ColumnInfo
 import com.intellij.util.ui.ListTableModel
+import com.intellij.util.ui.UIUtil
 import de.terletzkiy.ansibility.api.AnsibleRoot
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.ProjectLayoutService
@@ -39,12 +42,12 @@ import javax.swing.JButton
  */
 class LayoutConfigurable(private val project: Project) : BoundSearchableConfigurable(message("settings.layout.name"), ID, ID) {
     /** One root as the page shows it: its key, name and what the resolver detects without overrides. */
-    internal data class RootEntry(val key: String, val name: String, val detected: List<LayoutInventory>, val summary: String, val roles: List<String> = emptyList())
+    internal data class RootEntry(val key: String, val name: String, val detected: List<LayoutInventory>, val roles: List<String> = emptyList())
 
     /** The edited, not yet applied settings of one root. */
     private data class Edited(val override: LayoutOverride, val storage: LayoutStorage, val follow: Boolean)
 
-    internal class Row(var name: String = "", var sources: String = "", var isDefault: Boolean = false)
+    internal class Row(var name: String = "", var sources: String = "", var isDefault: Boolean = false, var playbookVars: String = "")
 
     private val settings = LayoutSettings.getInstance(project)
     private val edits = LinkedHashMap<String, Edited>()
@@ -59,16 +62,19 @@ class LayoutConfigurable(private val project: Project) : BoundSearchableConfigur
     }
     private val projectStorage = JBRadioButton(message("settings.layout.storage.project"))
     private val personalStorage = JBRadioButton(message("settings.layout.storage.personal"))
-    private val auto = JBRadioButton()
+    private val auto = JBRadioButton(message("settings.layout.inventories.auto"))
+    private val autoDetected = detectedLabel()
     private val custom = JBRadioButton(message("settings.layout.inventories.custom"))
     private val onePerFile = JBCheckBox(message("settings.layout.onePerFile"))
     private val follow = JBCheckBox(message("settings.layout.follow"))
-    private val rolesAuto = JBRadioButton()
+    private val rolesAuto = JBRadioButton(message("settings.layout.roles.auto"))
+    private val rolesDetected = detectedLabel()
     private val rolesCustom = JBRadioButton(message("settings.layout.roles.custom"))
     private val rolesField = com.intellij.ui.components.JBTextField()
     private val model = ListTableModel<Row>(
         column(message("settings.layout.column.name"), { it.name }) { row, value -> row.name = value as String },
         column(message("settings.layout.column.sources"), { it.sources }) { row, value -> row.sources = value as String },
+        column(message("settings.layout.column.playbookVars"), { it.playbookVars }) { row, value -> row.playbookVars = value as String },
         object : ColumnInfo<Row, Boolean>(message("settings.layout.column.default")) {
             override fun valueOf(item: Row): Boolean = item.isDefault
             override fun isCellEditable(item: Row): Boolean = true
@@ -126,15 +132,18 @@ class LayoutConfigurable(private val project: Project) : BoundSearchableConfigur
             group(message("settings.layout.inventories")) {
                 buttonsGroup {
                     row { cell(auto) }
+                    indent { row { cell(autoDetected) } }
                     row { cell(custom) }
                 }
                 row { cell(decorated).align(Align.FILL) }.resizableRow()
                 row { comment(message("settings.layout.inventories.comment")) }
+                row { comment(message("settings.layout.playbookVars.comment")) }
                 row { cell(onePerFile).comment(message("settings.layout.onePerFile.comment")) }
             }
             group(message("settings.layout.roles")) {
                 buttonsGroup {
                     row { cell(rolesAuto) }
+                    indent { row { cell(rolesDetected) } }
                     row { cell(rolesCustom) }
                 }
                 row { cell(rolesField).align(Align.FILL).comment(message("settings.layout.roles.comment")) }
@@ -170,12 +179,10 @@ class LayoutConfigurable(private val project: Project) : BoundSearchableConfigur
             val base = baseOf(root)
             val layout = layouts.layout(root)
             val detected = layout.inventories.map { def ->
-                LayoutInventory(def.id, def.sources.map { s -> s.file?.let { VfsUtilCore.getRelativePath(it, base, '/') } ?: s.path }, def.isDefault)
+                LayoutInventory(def.id, def.sources.map { s -> s.file?.let { VfsUtilCore.getRelativePath(it, base, '/') } ?: s.path }, def.isDefault, def.playbookVars?.entries)
             }
-            val shown = if (detected.isEmpty()) message("settings.layout.detected.none")
-            else detected.joinToString(" · ") { "${it.name} ← ${it.sources.joinToString(", ")}" }
             val roles = root.rolesDirs.map { VfsUtilCore.getRelativePath(it, root.dir, '/') ?: it.path }
-            RootEntry(key, root.displayName, detected, shown, roles)
+            RootEntry(key, root.displayName, detected, roles)
         }
     }
 
@@ -185,17 +192,17 @@ class LayoutConfigurable(private val project: Project) : BoundSearchableConfigur
         val edited = entry?.let(::editedOf) ?: Edited(LayoutOverride(), LayoutStorage.PROJECT, false)
         loading = true
         try {
-            auto.text = message("settings.layout.inventories.auto", entry?.summary ?: "")
+            showDetected(autoDetected, entry?.detected.orEmpty().map { "${it.name} \u2190 ${it.sources.joinToString(", ")}" })
             projectStorage.isSelected = edited.storage == LayoutStorage.PROJECT
             personalStorage.isSelected = edited.storage == LayoutStorage.ONLY_ME
             val inventories = edited.override.inventories
             custom.isSelected = inventories != null
             auto.isSelected = inventories == null
             table.isEnabled = inventories != null
-            model.items = inventories.orEmpty().map { Row(it.name, it.sources.joinToString(", "), it.isDefault) }.toMutableList()
+            model.items = inventories.orEmpty().map { Row(it.name, it.sources.joinToString(", "), it.isDefault, playbookVarsText(it.playbookVars)) }.toMutableList()
             onePerFile.isSelected = edited.override.onePerFile == true
             val roles = edited.override.rolesPath
-            rolesAuto.text = message("settings.layout.roles.auto", entry?.roles?.joinToString(", ")?.ifEmpty { null } ?: message("settings.layout.detected.none"))
+            showDetected(rolesDetected, entry?.roles.orEmpty())
             rolesAuto.isSelected = roles == null
             rolesCustom.isSelected = roles != null
             rolesField.isEnabled = roles != null
@@ -204,6 +211,18 @@ class LayoutConfigurable(private val project: Project) : BoundSearchableConfigur
         } finally {
             loading = false
         }
+    }
+
+    /**
+     * Shows what Auto detects below its radio button, one entry per line and at most [DETECTED_LINES] lines (the rest
+     * in the tooltip), so a root with many environments never widens the page past the dialog.
+     */
+    private fun showDetected(label: JBLabel, lines: List<String>) {
+        val escaped = lines.map(StringUtil::escapeXmlEntities)
+        val shown = if (escaped.size <= DETECTED_LINES) escaped
+        else escaped.take(DETECTED_LINES - 1) + message("settings.layout.detected.more", escaped.size - DETECTED_LINES + 1)
+        label.text = if (lines.isEmpty()) message("settings.layout.detected.none.line") else "<html>${shown.joinToString("<br>")}</html>"
+        label.toolTipText = if (escaped.size > DETECTED_LINES) "<html>${escaped.joinToString("<br>")}</html>" else null
     }
 
     private fun editedOf(entry: RootEntry): Edited = edits[entry.key] ?: stored(entry.key)
@@ -216,7 +235,7 @@ class LayoutConfigurable(private val project: Project) : BoundSearchableConfigur
         if (loading) return
         val entry = current ?: return
         val inventories = if (custom.isSelected) {
-            model.items.map { row -> LayoutInventory(row.name.trim(), splitSources(row.sources), row.isDefault) }
+            model.items.map { row -> LayoutInventory(row.name.trim(), splitSources(row.sources), row.isDefault, parsePlaybookVars(row.playbookVars)) }
         } else {
             null
         }
@@ -231,7 +250,7 @@ class LayoutConfigurable(private val project: Project) : BoundSearchableConfigur
         val entry = current ?: return
         custom.isSelected = true
         table.isEnabled = true
-        model.items = entry.detected.map { Row(it.name, it.sources.joinToString(", "), it.isDefault) }.toMutableList()
+        model.items = entry.detected.map { Row(it.name, it.sources.joinToString(", "), it.isDefault, playbookVarsText(it.playbookVars)) }.toMutableList()
         capture()
     }
 
@@ -302,6 +321,28 @@ class LayoutConfigurable(private val project: Project) : BoundSearchableConfigur
         private fun normalSource(source: String): String = source.trim().trimEnd('/')
 
         internal fun splitSources(text: String): List<String> = text.split(',').map(String::trim).filter(String::isNotEmpty)
+
+        /** The scope cell (R26): blank loads all playbook-level vars (null), `none` loads none, else the listed paths. */
+        internal fun parsePlaybookVars(text: String): List<String>? = when {
+            text.isBlank() -> null
+            text.trim().equals(NONE, ignoreCase = true) -> emptyList()
+            else -> splitSources(text)
+        }
+
+        internal fun playbookVarsText(scope: List<String>?): String = when {
+            scope == null -> ""
+            scope.isEmpty() -> NONE
+            else -> scope.joinToString(", ")
+        }
+
+        private const val NONE = "none"
+
+        private const val DETECTED_LINES = 6
+
+        private fun detectedLabel() = JBLabel().apply {
+            componentStyle = UIUtil.ComponentStyle.SMALL
+            foreground = UIUtil.getContextHelpForeground()
+        }
 
         private fun baseOf(root: AnsibleRoot) = if (root.kind == RootKind.NESTED_PLAYBOOK) root.parentDir ?: root.dir else root.dir
 

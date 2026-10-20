@@ -17,6 +17,7 @@ import de.terletzkiy.ansibility.api.TemplateContextService
 import de.terletzkiy.ansibility.context.AnsibleLayout
 import de.terletzkiy.ansibility.context.MoleculeVisibility
 import de.terletzkiy.ansibility.model.inventory.EnvironmentModel
+import de.terletzkiy.ansibility.model.inventory.InventoryModels
 import de.terletzkiy.ansibility.model.inventory.ModelInputs
 import de.terletzkiy.ansibility.model.task.TaskFileKind
 import de.terletzkiy.ansibility.model.task.TaskFileModels
@@ -32,7 +33,7 @@ import org.jetbrains.yaml.psi.YAMLFile
  * |---|---|
  * | `environments/E/host_vars/H` | E/H, in each play that hits H |
  * | `environments/E/group_vars/G` | the hosts of G in E, children included (`all`: every host of E) |
- * | playbook-level `group_vars`/`host_vars` | the same in every environment, only in plays of that playbook dir |
+ * | playbook-level `group_vars`/`host_vars` | the same in every environment that loads it (Layout scope, R26), only in plays of that playbook dir |
  * | `environments/E/hosts.yml` | the group block or host entry at the caret, else every host of E |
  * | role file | the role's reach ([RoleReach]); the role is the running role |
  * | template | as a role file, through the roles of its render contexts |
@@ -96,9 +97,12 @@ internal class FileScopes(
     private fun hostVarsScope(root: AnsibleRoot, file: VirtualFile, context: FileContext, host: String): FileScope {
         val environment = context.environment
         val playbookDir = if (environment == null) varsOwnerDir(file) else null
-        val environments = model.environments(root).filter { (environment == null || it.name in context.environments) && it.graph.host(host) != null }
+        val withHost = model.environments(root).filter { (environment == null || it.name in context.environments) && it.graph.host(host) != null }
+        val environments = withHost.filter { loadsPlaybookVars(root, it.name, playbookDir, file) }
         if (environments.isEmpty()) {
-            val reason = if (environment != null) {
+            val reason = if (withHost.isNotEmpty()) {
+                AnsibilityHostBundle.message("scope.empty.playbook.vars.scoped", file.name)
+            } else if (environment != null) {
                 AnsibilityHostBundle.message("scope.empty.host.not.in.environment", host, environment)
             } else {
                 AnsibilityHostBundle.message("scope.empty.host.not.in.inventory", host, root.displayName)
@@ -113,10 +117,13 @@ internal class FileScopes(
     private fun groupVarsScope(root: AnsibleRoot, file: VirtualFile, context: FileContext, group: String): FileScope {
         val environment = context.environment
         val playbookDir = if (environment == null) varsOwnerDir(file) else null
-        val environments = model.environments(root).filter { (environment == null || it.name in context.environments) && it.graph.group(group) != null }
+        val withGroup = model.environments(root).filter { (environment == null || it.name in context.environments) && it.graph.group(group) != null }
+        val environments = withGroup.filter { loadsPlaybookVars(root, it.name, playbookDir, file) }
         val origin = HostScopeOrigin.GroupVars(environment, group)
         if (environments.isEmpty()) {
-            val reason = if (environment != null) {
+            val reason = if (withGroup.isNotEmpty()) {
+                AnsibilityHostBundle.message("scope.empty.playbook.vars.scoped", file.name)
+            } else if (environment != null) {
                 AnsibilityHostBundle.message("scope.empty.group.not.in.environment", group, environment)
             } else {
                 AnsibilityHostBundle.message("scope.empty.group.not.in.inventory", group, root.displayName)
@@ -162,6 +169,10 @@ internal class FileScopes(
         }
         return targets
     }
+
+    /** Whether [environment] loads the playbook-level vars [file] of [playbookDir] (Layout settings scope, R26). */
+    private fun loadsPlaybookVars(root: AnsibleRoot, environment: String, playbookDir: VirtualFile?, file: VirtualFile): Boolean =
+        playbookDir == null || InventoryModels.getInstance(project).layout(root)?.loadsPlaybookVars(environment, playbookDir, file) ?: true
 
     /** The playbook dir of a playbook-level vars file: the parent of its `group_vars`/`host_vars` directory. */
     private fun varsOwnerDir(file: VirtualFile): VirtualFile? =

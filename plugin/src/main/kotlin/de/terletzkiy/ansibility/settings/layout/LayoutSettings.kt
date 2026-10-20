@@ -16,8 +16,11 @@ import com.intellij.util.xmlb.annotations.XCollection
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.settings.RootKeys
 
-/** One environment of a custom inventory list: its id and its sources in `-i` order, root-relative and `/`-separated. */
-data class LayoutInventory(val name: String, val sources: List<String>, val isDefault: Boolean = false)
+/**
+ * One environment of a custom inventory list: its id and its sources in `-i` order, root-relative and `/`-separated,
+ * and the playbook-level vars it loads ([de.terletzkiy.ansibility.api.PlaybookVarsScope] entries; null = all, R26).
+ */
+data class LayoutInventory(val name: String, val sources: List<String>, val isDefault: Boolean = false, val playbookVars: List<String>? = null)
 
 /** The layout overrides of one root; null fields are Auto. */
 data class LayoutOverride(
@@ -207,7 +210,7 @@ class RootLayoutBean {
     var rolesPath: MutableList<String> = ArrayList()
 
     fun toOverride(): LayoutOverride = LayoutOverride(
-        inventories = if (custom) inventories.map { LayoutInventory(it.name, it.sources.map(String::trim).filter(String::isNotEmpty), it.isDefault) } else null,
+        inventories = if (custom) inventories.map { it.toInventory() } else null,
         onePerFile = onePerFile,
         rolesPath = if (customRoles) rolesPath.map(String::trim).filter(String::isNotEmpty) else null,
     )
@@ -236,11 +239,27 @@ class InventoryBean {
     @get:XCollection(style = XCollection.Style.v2, elementName = "source")
     var sources: MutableList<String> = ArrayList()
 
+    /** True when [playbookVars] is a scope (even an empty one); false loads all playbook-level vars (R26). */
+    @get:Attribute("scopedPlaybookVars")
+    var scopedPlaybookVars: Boolean = false
+
+    @get:XCollection(style = XCollection.Style.v2, propertyElementName = "playbookVars", elementName = "path")
+    var playbookVars: MutableList<String> = ArrayList()
+
+    fun toInventory(): LayoutInventory = LayoutInventory(
+        name,
+        sources.map(String::trim).filter(String::isNotEmpty),
+        isDefault,
+        if (scopedPlaybookVars) playbookVars.map(String::trim).filter(String::isNotEmpty) else null,
+    )
+
     companion object {
         fun of(inventory: LayoutInventory): InventoryBean = InventoryBean().apply {
             name = inventory.name
             isDefault = inventory.isDefault
             sources = inventory.sources.toMutableList()
+            scopedPlaybookVars = inventory.playbookVars != null
+            playbookVars = inventory.playbookVars.orEmpty().toMutableList()
         }
     }
 }
