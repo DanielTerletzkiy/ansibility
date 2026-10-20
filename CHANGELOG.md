@@ -2,13 +2,14 @@
 
 ## Unreleased
 
+## 0.0.5 - 2026-10-20
+
 ### Added
 
 - **Playbook Vars per Environment**: each custom inventory in Settings › Ansibility › Layout has a "Playbook vars" cell that limits which `group_vars`/`host_vars` next to the playbooks the environment loads.
   - Blank loads all of them, as Ansible does (the default, so existing layouts are unchanged); `none` loads none.
   - Otherwise, list paths relative to the playbook directory, comma-separated, e.g. `group_vars/platform, group_vars/all.yml`. A directory takes every file below it.
   - The scope applies to effective variables, undefined-variable checks, hover cards, rendering, override gutter icons, per-file host scopes and the tool window. Show Detected Layout lists it per environment.
-
 - **Settings from Sub-Repositories**: when a root lives in a sub-repository with its own `.idea` (e.g. a submodule at `repos/platform`), its committed `.idea/ansibility-layout.xml` and `.idea/ansibility-vault.xml` now apply when you open the super-repo, with paths re-based automatically.
   - Layout settings get a third storage choice, "Repository — repos/platform/.idea/ansibility-layout.xml", which writes back into the sub-repository's file. The same settings then apply whether the sub-repository is opened alone or inside the super-repo.
   - Precedence per field: Only me, then the opened project's `.idea`, then the sub-repository's file.
