@@ -59,6 +59,16 @@ internal object RoleFiles {
 
         /** Bytes read as heads ([Content.head]). */
         val headBytes = AtomicLong()
+
+        /**
+         * Whole-file reads per path while [recordPaths] is on (tests only): background work such as the drift scan reads
+         * other files of the same roles at the same time, so a test asks about the one file it cares about.
+         */
+        val fullReadsByPath = java.util.concurrent.ConcurrentHashMap<String, AtomicLong>()
+
+        @Volatile
+        @org.jetbrains.annotations.TestOnly
+        var recordPaths: Boolean = false
     }
 
     /**
@@ -180,6 +190,7 @@ internal object RoleFiles {
     fun bytes(project: Project, file: VirtualFile): ByteArray? {
         if (!file.isValid) return null
         Counters.fullReads.incrementAndGet()
+        if (Counters.recordPaths) Counters.fullReadsByPath.computeIfAbsent(file.path) { AtomicLong() }.incrementAndGet()
         unsavedDocument(file)?.let { return encode(project, file, it) }
         return try {
             file.contentsToByteArray(false)

@@ -102,13 +102,19 @@ class RoleFilePlanReviewFixesTest : GoldenLocalTestCase() {
         val big = ByteArray(5 * 1024 * 1024) { 'a'.code.toByte() }
         writeOnDisk("golden", "files/big.txt", big)
         writeOnDisk("same", "files/big.txt", big + 'b'.code.toByte())
-        val fullReads = RoleFiles.Counters.fullReads.get()
         val compared = RoleFiles.Counters.comparedBytes.get()
         val heads = RoleFiles.Counters.headBytes.get()
-
-        val plan = plan("golden", "same")
+        RoleFiles.Counters.fullReadsByPath.clear()
+        RoleFiles.Counters.recordPaths = true
+        val plan = try {
+            plan("golden", "same")
+        } finally {
+            RoleFiles.Counters.recordPaths = false
+        }
         assertEquals(listOf("files/big.txt"), plan.entries.map { it.relPath })
-        assertEquals("no file is read whole", 0, RoleFiles.Counters.fullReads.get() - fullReads)
+        // Only the big files: the background drift scan may read the fixture's small files at the same time (CI).
+        val bigReads = RoleFiles.Counters.fullReadsByPath.filterKeys { it.endsWith("/files/big.txt") }.values.sumOf { it.get() }
+        assertEquals("the big files are never read whole", 0L, bigReads)
         assertTrue("only the heads of the differing file", RoleFiles.Counters.headBytes.get() - heads <= 2L * RoleFiles.HEAD)
         val read = RoleFiles.Counters.comparedBytes.get() - compared
         assertTrue("the identical files of the same length are compared, the big ones never: $read", read < big.size)
