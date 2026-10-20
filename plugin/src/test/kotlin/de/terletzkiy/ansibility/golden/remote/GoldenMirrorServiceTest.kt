@@ -81,6 +81,23 @@ class GoldenMirrorServiceTest : BasePlatformTestCase() {
 
     private fun repo(name: String = "golden"): GitTestRepo = GitTestRepo.standard(temp.resolve(name))
 
+    /**
+     * Waits (bounded) until [path] is gone, reconciling again in between: on slow CI machines the light project's
+     * background refresh of the previous test or setting can still hold the mutex when the setting changes. The
+     * failure message lists what the cache holds, so a CI failure says what stayed.
+     */
+    private fun awaitGone(path: Path, timeoutMillis: Long = 15_000) {
+        val deadline = System.currentTimeMillis() + timeoutMillis
+        while (Files.exists(path) && System.currentTimeMillis() < deadline) {
+            GoldenTestSupport.await { service.reconcileForTests() }
+            Thread.sleep(100)
+        }
+        if (Files.exists(path)) {
+            val inside = Files.list(path).use { it.map(Path::name).sorted().toList() }
+            fail("the old mirror is deleted on change; cache: ${cacheEntries()}, still in ${path.name}: $inside, state: ${service.state()}")
+        }
+    }
+
     private fun cacheEntries(): List<String> = Files.list(cache).use { it.map(Path::name).sorted().toList() }
 
     private fun failNetwork(vararg lines: String) {
@@ -544,7 +561,7 @@ class GoldenMirrorServiceTest : BasePlatformTestCase() {
         fetchNow()
         val old = state().baseDir!!
         useGit(second.url)
-        assertFalse("the old mirror is deleted on change", Files.exists(old))
+        awaitGone(old)
         fetchNow()
         assertEquals(listOf(".no-hooks", ".template", GoldenGitUrls.mirrorKey(second.url, "")), cacheEntries())
         val current = state().baseDir!!

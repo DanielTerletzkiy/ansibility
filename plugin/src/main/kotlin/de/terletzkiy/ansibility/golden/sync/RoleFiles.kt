@@ -61,14 +61,19 @@ internal object RoleFiles {
         val headBytes = AtomicLong()
 
         /**
-         * Whole-file reads per path while [recordPaths] is on (tests only): background work such as the drift scan reads
-         * other files of the same roles at the same time, so a test asks about the one file it cares about.
+         * The same counts per file, only for reads made where [recording] is true (tests only): `full:<path>`,
+         * `head:<path>` and `compared:<path>`. A test sets it for its own computation with
+         * `recording.asContextElement(true)`, so background work such as the drift scan, which reads the same roles at
+         * the same time on slow CI machines, is never counted.
          */
-        val fullReadsByPath = java.util.concurrent.ConcurrentHashMap<String, AtomicLong>()
+        val byPath = java.util.concurrent.ConcurrentHashMap<String, AtomicLong>()
 
-        @Volatile
         @org.jetbrains.annotations.TestOnly
-        var recordPaths: Boolean = false
+        val recording: ThreadLocal<Boolean> = ThreadLocal.withInitial { false }
+
+        internal fun record(kind: String, file: VirtualFile, amount: Long) {
+            if (recording.get()) byPath.computeIfAbsent("$kind:${file.path}") { AtomicLong() }.addAndGet(amount)
+        }
     }
 
     /**
@@ -190,7 +195,7 @@ internal object RoleFiles {
     fun bytes(project: Project, file: VirtualFile): ByteArray? {
         if (!file.isValid) return null
         Counters.fullReads.incrementAndGet()
-        if (Counters.recordPaths) Counters.fullReadsByPath.computeIfAbsent(file.path) { AtomicLong() }.incrementAndGet()
+        Counters.record("full", file, 1)
         unsavedDocument(file)?.let { return encode(project, file, it) }
         return try {
             file.contentsToByteArray(false)
@@ -225,7 +230,10 @@ internal object RoleFiles {
         fun head(limit: Int): ByteArray? {
             encoded?.let { return it.copyOf(minOf(it.size, limit)) }
             return try {
-                file.inputStream.use { it.readNBytes(limit) }.also { Counters.headBytes.addAndGet(it.size.toLong()) }
+                file.inputStream.use { it.readNBytes(limit) }.also {
+                    Counters.headBytes.addAndGet(it.size.toLong())
+                    Counters.record("head", file, it.size.toLong())
+                }
             } catch (e: IOException) {
                 LOG.debug("Cannot read ${file.path} (${e.javaClass.simpleName})")
                 null
@@ -253,6 +261,7 @@ internal object RoleFiles {
                 val n = a.readNBytes(left, 0, CHUNK)
                 val m = b.readNBytes(right, 0, CHUNK)
                 Counters.comparedBytes.addAndGet((n + m).toLong())
+                Counters.record("compared", file, (n + m).toLong())
                 if (n != m) return false
                 if (n == 0) return true
                 if (!left.copyOf(n).contentEquals(right.copyOf(m))) return false

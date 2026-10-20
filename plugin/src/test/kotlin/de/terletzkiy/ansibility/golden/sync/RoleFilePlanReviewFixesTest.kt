@@ -1,5 +1,7 @@
 package de.terletzkiy.ansibility.golden.sync
 
+import kotlinx.coroutines.asContextElement
+import kotlinx.coroutines.withContext
 import de.terletzkiy.ansibility.golden.GoldenLocalTestCase
 import de.terletzkiy.ansibility.golden.GoldenTestSupport
 import de.terletzkiy.ansibility.golden.compare.RoleCompare
@@ -102,22 +104,19 @@ class RoleFilePlanReviewFixesTest : GoldenLocalTestCase() {
         val big = ByteArray(5 * 1024 * 1024) { 'a'.code.toByte() }
         writeOnDisk("golden", "files/big.txt", big)
         writeOnDisk("same", "files/big.txt", big + 'b'.code.toByte())
-        val compared = RoleFiles.Counters.comparedBytes.get()
-        val heads = RoleFiles.Counters.headBytes.get()
-        RoleFiles.Counters.fullReadsByPath.clear()
-        RoleFiles.Counters.recordPaths = true
-        val plan = try {
-            plan("golden", "same")
-        } finally {
-            RoleFiles.Counters.recordPaths = false
+        RoleFiles.Counters.byPath.clear()
+        val plan = GoldenTestSupport.await {
+            withContext(RoleFiles.Counters.recording.asContextElement(true)) {
+                RoleFilePlan.compute(project, roleDir("golden"), roleDir("same"), PlanOptions())
+            }
         }
         assertEquals(listOf("files/big.txt"), plan.entries.map { it.relPath })
-        // Only the big files: the background drift scan may read the fixture's small files at the same time (CI).
-        val bigReads = RoleFiles.Counters.fullReadsByPath.filterKeys { it.endsWith("/files/big.txt") }.values.sumOf { it.get() }
-        assertEquals("the big files are never read whole", 0L, bigReads)
-        assertTrue("only the heads of the differing file", RoleFiles.Counters.headBytes.get() - heads <= 2L * RoleFiles.HEAD)
-        val read = RoleFiles.Counters.comparedBytes.get() - compared
-        assertTrue("the identical files of the same length are compared, the big ones never: $read", read < big.size)
+        // Only this computation's reads count: the background drift scan reads the same roles meanwhile (slow CI machines).
+        assertTrue("the computation's reads were recorded", RoleFiles.Counters.byPath.isNotEmpty())
+        fun big(kind: String) = RoleFiles.Counters.byPath.filterKeys { it.startsWith("$kind:") && it.endsWith("/files/big.txt") }.values.sumOf { it.get() }
+        assertEquals("the big files are never read whole", 0L, big("full"))
+        assertTrue("only the heads of the differing file: ${big("head")}", big("head") <= 2L * RoleFiles.HEAD)
+        assertEquals("files of different lengths are never compared", 0L, big("compared"))
         assertEquals(5L * 1024 * 1024, plan.entries.single().sourceSize)
         assertFalse(plan.entries.single().binary)
     }
