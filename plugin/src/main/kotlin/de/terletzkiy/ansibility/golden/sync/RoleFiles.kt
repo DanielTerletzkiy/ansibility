@@ -62,7 +62,7 @@ internal object RoleFiles {
 
         /**
          * The same counts per file, only for reads made where [recording] is true (tests only): `full:<path>`,
-         * `head:<path>` and `compared:<path>`. A test sets it for its own computation with
+         * `head:<path>` (bytes), `heads:<path>` (calls) and `compared:<path>`. A test sets it for its own computation with
          * `recording.asContextElement(true)`, so background work such as the drift scan, which reads the same roles at
          * the same time on slow CI machines, is never counted.
          */
@@ -233,6 +233,7 @@ internal object RoleFiles {
                 file.inputStream.use { it.readNBytes(limit) }.also {
                     Counters.headBytes.addAndGet(it.size.toLong())
                     Counters.record("head", file, it.size.toLong())
+                    Counters.record("heads", file, 1)
                 }
             } catch (e: IOException) {
                 LOG.debug("Cannot read ${file.path} (${e.javaClass.simpleName})")

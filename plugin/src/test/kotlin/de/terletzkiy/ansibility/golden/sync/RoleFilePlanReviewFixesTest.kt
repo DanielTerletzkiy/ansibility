@@ -1,5 +1,7 @@
 package de.terletzkiy.ansibility.golden.sync
 
+import com.intellij.testFramework.PlatformTestUtil
+import com.intellij.testFramework.IndexingTestUtil
 import kotlinx.coroutines.asContextElement
 import kotlinx.coroutines.withContext
 import de.terletzkiy.ansibility.golden.GoldenLocalTestCase
@@ -104,6 +106,10 @@ class RoleFilePlanReviewFixesTest : GoldenLocalTestCase() {
         val big = ByteArray(5 * 1024 * 1024) { 'a'.code.toByte() }
         writeOnDisk("golden", "files/big.txt", big)
         writeOnDisk("same", "files/big.txt", big + 'b'.code.toByte())
+        // Let the VFS events and indexing of the 5 MB files finish: their write actions would restart the computation's
+        // read action (each attempt reads the heads again).
+        IndexingTestUtil.waitUntilIndexesAreReady(project)
+        PlatformTestUtil.dispatchAllEventsInIdeEventQueue()
         RoleFiles.Counters.byPath.clear()
         val plan = GoldenTestSupport.await {
             withContext(RoleFiles.Counters.recording.asContextElement(true)) {
@@ -115,7 +121,8 @@ class RoleFilePlanReviewFixesTest : GoldenLocalTestCase() {
         assertTrue("the computation's reads were recorded", RoleFiles.Counters.byPath.isNotEmpty())
         fun big(kind: String) = RoleFiles.Counters.byPath.filterKeys { it.startsWith("$kind:") && it.endsWith("/files/big.txt") }.values.sumOf { it.get() }
         assertEquals("the big files are never read whole", 0L, big("full"))
-        assertTrue("only the heads of the differing file: ${big("head")}", big("head") <= 2L * RoleFiles.HEAD)
+        // Every head read is short, however often a slow machine restarts the computation's read action.
+        assertTrue("heads are short: ${big("head")} bytes in ${big("heads")} reads", big("heads") > 0 && big("head") <= big("heads") * RoleFiles.HEAD)
         assertEquals("files of different lengths are never compared", 0L, big("compared"))
         assertEquals(5L * 1024 * 1024, plan.entries.single().sourceSize)
         assertFalse(plan.entries.single().binary)
