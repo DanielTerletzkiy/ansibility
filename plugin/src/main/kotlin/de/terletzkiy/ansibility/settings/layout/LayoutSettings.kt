@@ -14,7 +14,9 @@ import com.intellij.util.xmlb.annotations.Attribute
 import com.intellij.util.xmlb.annotations.Tag
 import com.intellij.util.xmlb.annotations.XCollection
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
+import com.intellij.util.xmlb.XmlSerializer
 import de.terletzkiy.ansibility.settings.RootKeys
+import de.terletzkiy.ansibility.settings.nested.NestedRepoSettings
 
 /**
  * One environment of a custom inventory list: its id and its sources in `-i` order, root-relative and `/`-separated,
@@ -46,10 +48,21 @@ enum class LayoutStorage {
 
     /** Per user, outside the project directory. */
     ONLY_ME,
+
+    /** The `.idea/ansibility-layout.xml` of the sub-repository the root lives in (plan amendment R27). */
+    REPOSITORY,
 }
 
-/** The effective layout settings of one root: the personal override wins per field over the shared one (D54). */
-data class EffectiveLayoutSettings(val override: LayoutOverride, val storage: LayoutStorage, val follow: Boolean) {
+/**
+ * The effective layout settings of one root: the personal override wins per field over the project's, which wins over
+ * the sub-repository's (D54, R27). [repository] is the root's sub-repository file (`repos/platform/.idea/…`), if any.
+ */
+data class EffectiveLayoutSettings(
+    val override: LayoutOverride,
+    val storage: LayoutStorage,
+    val follow: Boolean,
+    val repository: String? = null,
+) {
     companion object {
         val AUTO = EffectiveLayoutSettings(LayoutOverride(), LayoutStorage.PROJECT, follow = false)
     }
@@ -70,6 +83,11 @@ class LayoutSettings(private val project: Project) {
 
     private val shared: SharedLayoutSettings get() = project.service()
     private val personal: PersonalLayoutSettings get() = project.service()
+    private val nested: NestedRepoSettings get() = NestedRepoSettings.getInstance(project)
+
+    init {
+        NestedRepoSettings.getInstance(project).addListener { name -> if (name == NestedRepoSettings.LAYOUT_FILE) changed() }
+    }
 
     fun of(rootDir: VirtualFile): EffectiveLayoutSettings = of(RootKeys.keyOf(project, rootDir))
 
@@ -77,9 +95,38 @@ class LayoutSettings(private val project: Project) {
         val mine = personal.overrides[key]
         val team = shared.overrides[key]
         val follow = key in personal.follow
-        if (mine == null && team == null && !follow) return EffectiveLayoutSettings.AUTO
-        val storage = if (mine != null && !mine.isEmpty) LayoutStorage.ONLY_ME else LayoutStorage.PROJECT
-        return EffectiveLayoutSettings((mine ?: LayoutOverride()).orElse(team), storage, follow)
+        val repo = nested.repoOf(key)
+        val inRepo = repo?.let { repositoryOverride(it, key) }
+        if (mine == null && team == null && inRepo == null && !follow) {
+            return if (repo == null) EffectiveLayoutSettings.AUTO else EffectiveLayoutSettings.AUTO.copy(repository = repo.display(NestedRepoSettings.LAYOUT_FILE))
+        }
+        val storage = when {
+            mine != null && !mine.isEmpty -> LayoutStorage.ONLY_ME
+            team != null && !team.isEmpty -> LayoutStorage.PROJECT
+            inRepo != null -> LayoutStorage.REPOSITORY
+            else -> LayoutStorage.PROJECT
+        }
+        val override = (mine ?: LayoutOverride()).orElse(team).orElse(inRepo)
+        return EffectiveLayoutSettings(override, storage, follow, repo?.display(NestedRepoSettings.LAYOUT_FILE))
+    }
+
+    /** The override of the root [key] in the `.idea/ansibility-layout.xml` of its sub-repository [repo] (R27). */
+    private fun repositoryOverride(repo: NestedRepoSettings.Repo, key: String): LayoutOverride? {
+        val element = nested.read(repo, NestedRepoSettings.LAYOUT_FILE, COMPONENT) ?: return null
+        val bean = runCatching { XmlSerializer.deserialize(element, LayoutSettingsBean::class.java) }.getOrNull() ?: return null
+        return bean.overrides()[nested.localKey(repo, key)]
+    }
+
+    /** Writes [override] for the root [key] into its sub-repository's file, keeping the other roots there (R27). */
+    private fun putRepository(key: String, override: LayoutOverride?) {
+        val repo = nested.repoOf(key) ?: return
+        val element = nested.read(repo, NestedRepoSettings.LAYOUT_FILE, COMPONENT)
+        val current = element?.let { runCatching { XmlSerializer.deserialize(it, LayoutSettingsBean::class.java) }.getOrNull() }?.overrides().orEmpty()
+        val local = nested.localKey(repo, key)
+        val updated = if (override == null) current - local else current + (local to override)
+        if (updated == current) return
+        val state = if (updated.isEmpty()) null else NestedRepoSettings.serialize(LayoutSettingsBean.of(updated, emptySet()))
+        nested.write(repo, NestedRepoSettings.LAYOUT_FILE, COMPONENT, state)
     }
 
     /** Stores [override] for the root [key] in [storage], removing it from the other storage. */
@@ -95,6 +142,11 @@ class LayoutSettings(private val project: Project) {
                 personal.put(key, stored)
                 shared.put(key, null)
             }
+            LayoutStorage.REPOSITORY -> {
+                putRepository(key, stored)
+                shared.put(key, null)
+                personal.put(key, null)
+            }
         }
         personal.setFollow(key, follow)
         if (of(key) != before) changed()
@@ -106,6 +158,9 @@ class LayoutSettings(private val project: Project) {
     }
 
     companion object {
+        /** The component name of the layout settings in `ansibility-layout.xml`. */
+        const val COMPONENT: String = "AnsibilityLayout"
+
         fun getInstance(project: Project): LayoutSettings = project.service()
     }
 }

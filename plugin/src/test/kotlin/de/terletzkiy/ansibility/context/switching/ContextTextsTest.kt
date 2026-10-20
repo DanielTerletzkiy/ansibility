@@ -52,7 +52,7 @@ class ContextTextsTest : ContextSwitchingTestCase() {
 
     fun testTheFileScopeSegmentAndItsAppliesToLine() {
         val template = context.hostScope(vf(postfixTemplate))
-        assertEquals("file: postfix → 4 hosts", ContextTexts.fileSegment(template))
+        assertEquals("file: postfix → 4 hosts in ops, prod, test", ContextTexts.fileSegment(template))
         assertEquals("role postfix → 4 hosts in ops, prod, test via playbook-setup-system.yml › System", ContextTexts.appliesTo(template))
 
         val hostVars = context.hostScope(vf(prod1Vars))
@@ -60,14 +60,14 @@ class ContextTextsTest : ContextSwitchingTestCase() {
         assertEquals("host_vars of prod-prod1", ContextTexts.appliesTo(hostVars))
 
         val group = context.hostScope(vf("repos/platform/ansible/environments/prod/group_vars/contracting/mysql_users.yml"))
-        assertEquals("file: contracting → 2 hosts", ContextTexts.fileSegment(group))
+        assertEquals("file: contracting → 2 hosts in prod", ContextTexts.fileSegment(group))
         assertEquals("group_vars/contracting → prod-mlflow1, prod-training1", ContextTexts.appliesTo(group))
 
         val hostsYml = context.hostScope(vf(falconProdHosts), offsetOf(falconProdHosts, "keepalived:"))
         assertEquals("group keepalived of prod → prod-prod1, prod-prod2", ContextTexts.appliesTo(hostsYml))
 
         val keepalived = context.hostScope(vf(systemPlaybook), offsetOf(systemPlaybook, "hosts: keepalived"))
-        assertEquals("file: KeepAliveD → 2 hosts", ContextTexts.fileSegment(keepalived))
+        assertEquals("file: KeepAliveD → 2 hosts in prod", ContextTexts.fileSegment(keepalived))
         assertEquals("play playbook-setup-system.yml › KeepAliveD → prod-prod1, prod-prod2", ContextTexts.appliesTo(keepalived))
 
         val cfg = context.hostScope(vf("repos/falcon/ansible/ansible.cfg"))

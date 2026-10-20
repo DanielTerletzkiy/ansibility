@@ -47,7 +47,7 @@ class ToolWindowModelUnitTest : ToolWindowTestCase() {
         }
         assertEquals("L5 playbook group_vars/all — beats env group_vars/all (L4)", LayerTexts.label(VarsLayer.PLAYBOOK_GROUP_VARS_ALL, "all"))
         assertEquals("L6 env group_vars/web — beats group_vars/all (L4, L5)", LayerTexts.label(VarsLayer.INVENTORY_GROUP_VARS, "web"))
-        assertEquals("L7 playbook group_vars/web — beats every env group_vars file (L6)", LayerTexts.label(VarsLayer.PLAYBOOK_GROUP_VARS, "web"))
+        assertEquals("L7 playbook group_vars/web — beats the env group_vars files (L4–L6)", LayerTexts.label(VarsLayer.PLAYBOOK_GROUP_VARS, "web"))
         assertTrue(LayerTexts.tooltip(VarsLayer.INVENTORY_GROUP_VARS, "web").contains("sort_groups order (depth, then ansible_group_priority, then name)"))
     }
 

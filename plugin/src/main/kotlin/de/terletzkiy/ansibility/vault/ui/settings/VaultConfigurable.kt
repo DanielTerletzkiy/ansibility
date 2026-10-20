@@ -114,6 +114,10 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
     )
     private val envTable = TableView(envModel)
     private val discoveredLabel = JBLabel()
+    private val storedInLabel = JBLabel().apply {
+        componentStyle = com.intellij.util.ui.UIUtil.ComponentStyle.SMALL
+        foreground = com.intellij.util.ui.UIUtil.getContextHelpForeground()
+    }
     private val managerLabels = PasswordManager.entries.associateWith { JBLabel() }
 
     override fun createPanel(): DialogPanel {
@@ -129,7 +133,10 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
             .createPanel()
         val envs = ToolbarDecorator.createDecorator(envTable).disableAddAction().disableRemoveAction().disableUpDownActions().createPanel()
         val panel = panel {
-            row(message("settings.vault.root")) { cell(rootCombo) }
+            row(message("settings.vault.root")) {
+                cell(rootCombo)
+                cell(storedInLabel)
+            }
             group(message("settings.vault.ids")) {
                 row { cell(ids).align(Align.FILL) }.resizableRow()
                 row { comment(message("settings.vault.ids.comment")) }
@@ -257,6 +264,7 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
             val edited = entry?.let(::editedOf)
             idModel.items = edited?.ids.orEmpty().toMutableList()
             envModel.items = edited?.envs.orEmpty().toMutableList()
+            storedInLabel.text = entry?.let { settings.repositoryFileOf(it.key) }?.let { message("settings.vault.storedIn", it) }.orEmpty()
             discoveredLabel.text = if (entry == null || entry.discovered.isEmpty()) message("settings.vault.discovered.none")
             else message("settings.vault.discovered", entry.discovered.joinToString("<br>"))
         } finally {

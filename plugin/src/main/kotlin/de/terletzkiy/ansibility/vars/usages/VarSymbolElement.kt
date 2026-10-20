@@ -28,7 +28,20 @@ internal sealed interface VarScope {
      * their own group. [home] is presentation only: symbols differing only in it are equal. [view] is what the search
      * sees of Molecule content ([MoleculeView.of] [home], plan amendment R20, D153): part of the target's identity.
      */
-    class Root(val home: VirtualFile?, val view: MoleculeView) : VarScope
+    class Root(val home: VirtualFile?, val view: MoleculeView, val reach: VirtualFile? = null) : VarScope
+
+    companion object {
+        /**
+         * A root variable searched from [home]. When [home] is a playbook-level `group_vars`/`host_vars` file, [Root.reach]
+         * is [home]: Find Usages then lists only the definitions and vars-file reads that can meet it on some host (plan
+         * amendment R27; `group_vars/alias` and `group_vars/platform` never do). From an environment's own vars files
+         * every environment's definitions stay listed, to compare them. Part of the identity.
+         */
+        fun root(project: com.intellij.openapi.project.Project, home: VirtualFile?, view: MoleculeView): Root {
+            val context = home?.let { de.terletzkiy.ansibility.api.AnsibleWorkspace.getInstance(project).contextOf(it) }
+            return Root(home, view, home.takeIf { context != null && context.environment == null && (context.group != null || context.host != null) })
+        }
+    }
 
     /**
      * A loop variable (`item`, a `loop_var`, an `index_var`, `ansible_loop`): the bodies of the looping [tasks] (their
@@ -135,7 +148,7 @@ class VarSymbolElement internal constructor(
      */
     private val identity: Any
         get() = when (scope) {
-            is VarScope.Root -> RootIdentity(scope.view)
+            is VarScope.Root -> RootIdentity(scope.view, scope.reach)
             is VarScope.Member -> scope.path to scope.view
             is VarScope.Loop, is VarScope.Local -> scope
         }
@@ -147,8 +160,8 @@ class VarSymbolElement internal constructor(
 
     override fun toString(): String = "VarSymbolElement($varName @ ${root.dir.name}, ${scope.javaClass.simpleName})"
 
-    /** The identity of a root variable: one per Molecule view. */
-    private data class RootIdentity(val view: MoleculeView)
+    /** The identity of a root variable: one per Molecule view and, from a vars file, per reach file (R27). */
+    private data class RootIdentity(val view: MoleculeView, val reach: VirtualFile?)
 
     internal companion object {
         /** `host_ips['ops-pxe1']`: the variable with its member path as subscripts. */

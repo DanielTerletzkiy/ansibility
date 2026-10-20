@@ -58,9 +58,9 @@ class ContextWidgetTest : ContextSwitchingTestCase() {
     fun testTheBuiltInTextFollowsTheEditorAndTheSelection() {
         myFixture.configureFromExistingVirtualFile(vf(postfixTemplate))
         val widget = widget()
-        waitForText(widget, status("falcon", " · All envs · core 2.18.8 · file: postfix → 4 hosts"))
+        waitForText(widget, status("falcon", " · All envs · core 2.18.8 · file: postfix → 4 hosts in ops, prod, test"))
         context.setSelection(root("repos/falcon/ansible"), RootContext(EnvironmentChoice.Named("prod"), "prod-prod1"))
-        waitForText(widget, status("falcon", " · prod › prod-prod1 · core 2.18.8 · file: postfix → 4 hosts"))
+        waitForText(widget, status("falcon", " · prod › prod-prod1 · core 2.18.8 · file: postfix → 4 hosts in ops, prod, test"))
         val tooltip = widget.shownTooltip.orEmpty()
         assertTrue(tooltip, tooltip.contains("Ansible context of falcon: env prod · host prod-prod1 · play auto"))
         assertTrue(tooltip, tooltip.contains("Applies to: role postfix → 4 hosts in ops, prod, test via playbook-setup-system.yml › System"))
@@ -113,14 +113,14 @@ class ContextWidgetTest : ContextSwitchingTestCase() {
     fun testEditingAnInventoryRefreshesTheFileScopeSegment() {
         myFixture.configureFromExistingVirtualFile(vf(postfixTemplate))
         val widget = widget()
-        waitForText(widget, status("falcon", " · All envs · core 2.18.8 · file: postfix → 4 hosts"))
+        waitForText(widget, status("falcon", " · All envs · core 2.18.8 · file: postfix → 4 hosts in ops, prod, test"))
         val document = FileDocumentManager.getInstance().getDocument(vf(falconProdHosts))!!
         WriteCommandAction.runWriteCommandAction(project) {
             document.insertString(document.text.indexOf("app_services:"), "    prod-prod3:\n")
             document.insertString(document.text.indexOf("    prod-prod2:\n      ansible_host"), "    prod-prod3:\n")
         }
         PsiDocumentManager.getInstance(project).commitAllDocuments()
-        waitForText(widget, status("falcon", " · All envs · core 2.18.8 · file: postfix → 5 hosts"))
+        waitForText(widget, status("falcon", " · All envs · core 2.18.8 · file: postfix → 5 hosts in ops, prod, test"))
     }
 
     fun testANewTargetVersionShowsAfterTheNextHighlightingPass() {
@@ -146,12 +146,12 @@ class ContextWidgetTest : ContextSwitchingTestCase() {
 
         val state = AnsibleContextWidget.computeState(project, vf(postfixTemplate), withSegments = true)!!
         val wide = state.render(narrow = false)
-        assertEquals(status("falcon", " · All envs · core 2.18.8 · file: postfix → 4 hosts"), wide.text)
+        assertEquals(status("falcon", " · All envs · core 2.18.8 · file: postfix → 4 hosts in ops, prod, test"), wide.text)
         assertFalse("the segment text itself is not repeated", wide.tooltip.contains("<b>file: postfix"))
 
         val narrow = state.render(narrow = true)
         assertEquals(status("falcon", " · All envs · core 2.18.8"), narrow.text)
-        assertTrue(narrow.tooltip, narrow.tooltip.contains("<b>file: postfix → 4 hosts</b>"))
+        assertTrue(narrow.tooltip, narrow.tooltip.contains("<b>file: postfix → 4 hosts in ops, prod, test</b>"))
         assertTrue(narrow.tooltip, narrow.tooltip.contains("Applies to: role postfix"))
         assertTrue(narrow.tooltip, narrow.tooltip.contains("Click to switch the Ansible context"))
     }
@@ -167,7 +167,7 @@ class ContextWidgetTest : ContextSwitchingTestCase() {
         assertEquals(WidgetTexts.PartKind.ENVIRONMENT, at("prod ›")?.kind)
         assertEquals(WidgetTexts.PartKind.HOST, at("prod-prod1")?.kind)
         assertEquals(WidgetTexts.PartKind.CORE, at("core")?.kind)
-        assertEquals(WidgetTexts.Part("file: postfix → 4 hosts", WidgetTexts.PartKind.SEGMENT, 0), at("file:"))
+        assertEquals(WidgetTexts.Part("file: postfix → 4 hosts in ops, prod, test", WidgetTexts.PartKind.SEGMENT, 0), at("file:"))
         assertNull("past the end", WidgetTexts.partAt(parts, text.length + 5) { it.length })
         assertNull("left of the text", WidgetTexts.partAt(parts, -1) { it.length })
 

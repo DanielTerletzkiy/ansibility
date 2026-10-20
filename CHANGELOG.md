@@ -9,13 +9,21 @@
   - Otherwise, list paths relative to the playbook directory, comma-separated, e.g. `group_vars/platform, group_vars/all.yml`. A directory takes every file below it.
   - The scope applies to effective variables, undefined-variable checks, hover cards, rendering, override gutter icons, per-file host scopes and the tool window. Show Detected Layout lists it per environment.
 
+- **Settings from Sub-Repositories**: when a root lives in a sub-repository with its own `.idea` (e.g. a submodule at `repos/platform`), its committed `.idea/ansibility-layout.xml` and `.idea/ansibility-vault.xml` now apply when you open the super-repo, with paths re-based automatically.
+  - Layout settings get a third storage choice, "Repository — repos/platform/.idea/ansibility-layout.xml", which writes back into the sub-repository's file. The same settings then apply whether the sub-repository is opened alone or inside the super-repo.
+  - Precedence per field: Only me, then the opened project's `.idea`, then the sub-repository's file.
+  - Vault ids and environment mappings that exist only in the sub-repository's file are edited there. The Vault page shows where they are stored.
+
 ### Changed
 
+- Find Usages and Show Usages started in a playbook-level `group_vars`/`host_vars` file list only the definitions and vars-file reads that can meet it on a host: usages of `department_key` in `group_vars/alias/all.yml` no longer list the one in `group_vars/platform/all.yml`. Templates, roles and playbooks are always listed; searches from an environment's own vars files still list every environment's definitions; Rename still changes every occurrence.
+- The status bar's file segment names the environments the file narrows to (`file: alias → 5 hosts in alias test, alias prod`).
 - "Shared (playbook-level) vars" in the Repos tab shows which environments each file actually applies to (`L7 · applies to platform build, platform ops`). Labels no longer claim playbook vars beat "every env": a `group_vars/<group>` file only reaches hosts of that group.
 
 ### Fixed
 
 - Navigate › Back and Forward now work after jumping with Go to Declaration, gutter icons, Find Usages, Go to Symbol, the "in all repos" panel and the tool window.
+- With the project opened on a git worktree, its checked-out submodules were all shown as "Detached worktree" and could not be configured (empty root list in the Layout settings). They are regular roots again; worktrees inside the project stay detached.
 - The Layout settings page no longer grows wider than the dialog when a root has many detected environments. The detected list sits below "Auto (detected)", capped at six lines, with the rest in a tooltip.
 
 ## 0.0.4 - 2026-10-09

@@ -1,5 +1,6 @@
 package de.terletzkiy.ansibility.vars.usages
 
+import de.terletzkiy.ansibility.vars.gutter.HostReach
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
@@ -83,9 +84,18 @@ internal object VarOccurrences {
      * Every occurrence of [symbol] inside [scope] (null: the whole scope of the symbol), in file and offset order, as
      * [view] sees them (the symbol's own view by default; rename passes [MoleculeView.INCLUDE]).
      */
-    fun of(project: Project, symbol: VarSymbolElement, scope: GlobalSearchScope?, view: MoleculeView = symbol.view): List<VarOccurrence> {
+    fun of(
+        project: Project,
+        symbol: VarSymbolElement,
+        scope: GlobalSearchScope?,
+        view: MoleculeView = symbol.view,
+        byReach: Boolean = false,
+    ): List<VarOccurrence> {
         val found = when (val symbolScope = symbol.scope) {
-            is VarScope.Root -> root(project, symbol.root, symbol.name, scope, view)
+            is VarScope.Root -> root(project, symbol.root, symbol.name, scope, view).let { all ->
+                val reachFile = symbolScope.reach
+                if (byReach && reachFile != null) meeting(project, symbol.root, symbol.name, reachFile, all) else all
+            }
             is VarScope.Member -> member(project, symbol.root, symbol.name, symbolScope.path, scope, null, view)
             is VarScope.Loop -> loop(project, symbol.root, symbol.name, symbolScope, scope, null)
             is VarScope.Local -> if (scope == null || scope.contains(symbolScope.file)) local(project, symbolScope, symbol.name) else emptyList()
@@ -213,6 +223,33 @@ internal object VarOccurrences {
     private val QUOTES = setOf('\'', '"')
 
     // -------------------------------------------------------------------------------------------- root variables
+
+    /**
+     * Of [all], what can meet the vars file [home] on some host (R27, Find Usages only): definitions whose hosts overlap
+     * [home]'s ([HostReach], the override gutter's rule), and reads everywhere except in other `group_vars`/`host_vars`
+     * files that never meet it. Rename keeps every occurrence.
+     */
+    private fun meeting(project: Project, root: AnsibleRoot, name: String, home: VirtualFile, all: List<VarOccurrence>): List<VarOccurrence> {
+        val workspace = AnsibleWorkspace.getInstance(project)
+        val reach = HostReach(project, root)
+        val homeDefinition = varsFileDefinition(workspace, name, home) ?: return all
+        val meets = HashMap<VirtualFile, Boolean>()
+        return all.filter { occurrence ->
+            val definition = occurrence.definition
+            if (definition != null) return@filter reach.overlaps(homeDefinition, definition)
+            meets.getOrPut(occurrence.file) {
+                varsFileDefinition(workspace, name, occurrence.file)?.let { reach.overlaps(homeDefinition, it) } ?: true
+            }
+        }
+    }
+
+    /** A stand-in definition of [name] in the `group_vars`/`host_vars` [file], for [HostReach]; null for other files. */
+    private fun varsFileDefinition(workspace: AnsibleWorkspace, name: String, file: VirtualFile): VarDefinition? {
+        val context = workspace.contextOf(file) ?: return null
+        if (context.group == null && context.host == null) return null
+        val kind = if (context.host != null) VarDefKind.HOST_VARS else VarDefKind.GROUP_VARS
+        return VarDefinition(name, kind, SourceLocation(file, 0), context.layer, environment = context.environment, group = context.group, host = context.host)
+    }
 
     private fun root(project: Project, root: AnsibleRoot, name: String, scope: GlobalSearchScope?, view: MoleculeView): List<VarOccurrence> {
         val result = ArrayList<VarOccurrence>()

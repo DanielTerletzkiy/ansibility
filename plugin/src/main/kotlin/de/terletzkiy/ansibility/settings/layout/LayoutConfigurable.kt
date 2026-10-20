@@ -42,7 +42,14 @@ import javax.swing.JButton
  */
 class LayoutConfigurable(private val project: Project) : BoundSearchableConfigurable(message("settings.layout.name"), ID, ID) {
     /** One root as the page shows it: its key, name and what the resolver detects without overrides. */
-    internal data class RootEntry(val key: String, val name: String, val detected: List<LayoutInventory>, val roles: List<String> = emptyList())
+    internal data class RootEntry(
+        val key: String,
+        val name: String,
+        val detected: List<LayoutInventory>,
+        val roles: List<String> = emptyList(),
+        /** The root's sub-repository settings file (`repos/platform/.idea/ansibility-layout.xml`, R27), if any. */
+        val repository: String? = null,
+    )
 
     /** The edited, not yet applied settings of one root. */
     private data class Edited(val override: LayoutOverride, val storage: LayoutStorage, val follow: Boolean)
@@ -62,6 +69,7 @@ class LayoutConfigurable(private val project: Project) : BoundSearchableConfigur
     }
     private val projectStorage = JBRadioButton(message("settings.layout.storage.project"))
     private val personalStorage = JBRadioButton(message("settings.layout.storage.personal"))
+    private val repositoryStorage = JBRadioButton()
     private val auto = JBRadioButton(message("settings.layout.inventories.auto"))
     private val autoDetected = detectedLabel()
     private val custom = JBRadioButton(message("settings.layout.inventories.custom"))
@@ -93,7 +101,7 @@ class LayoutConfigurable(private val project: Project) : BoundSearchableConfigur
         private set
 
     init {
-        listOf(projectStorage, personalStorage, auto, custom, onePerFile, follow, rolesAuto, rolesCustom).forEach { it.addActionListener { capture() } }
+        listOf(projectStorage, personalStorage, repositoryStorage, auto, custom, onePerFile, follow, rolesAuto, rolesCustom).forEach { it.addActionListener { capture() } }
         rolesCustom.addActionListener { rolesField.isEnabled = rolesCustom.isSelected }
         rolesAuto.addActionListener { rolesField.isEnabled = rolesCustom.isSelected }
         rolesField.document.addDocumentListener(object : com.intellij.ui.DocumentAdapter() {
@@ -105,6 +113,14 @@ class LayoutConfigurable(private val project: Project) : BoundSearchableConfigur
     }
 
     private fun model(): ListTableModel<Row> = model
+
+    private val repositoryVisible = com.intellij.openapi.observable.properties.AtomicBooleanProperty(false)
+
+    /** The Repository choice shows only for a root inside a sub-repository with its own `.idea` (R27). */
+    private inner class RepositoryVisible : com.intellij.ui.layout.ComponentPredicate() {
+        override fun invoke(): Boolean = repositoryVisible.get()
+        override fun addListener(listener: (Boolean) -> Unit) = repositoryVisible.afterChange { listener(it) }
+    }
 
     override fun createPanel(): DialogPanel {
         uiDisposable?.let(Disposer::dispose)
@@ -126,6 +142,7 @@ class LayoutConfigurable(private val project: Project) : BoundSearchableConfigur
                 cell(show)
             }
             buttonsGroup(message("settings.layout.storage")) {
+                row { cell(repositoryStorage) }.visibleIf(RepositoryVisible())
                 row { cell(projectStorage) }
                 row { cell(personalStorage) }
             }
@@ -182,7 +199,7 @@ class LayoutConfigurable(private val project: Project) : BoundSearchableConfigur
                 LayoutInventory(def.id, def.sources.map { s -> s.file?.let { VfsUtilCore.getRelativePath(it, base, '/') } ?: s.path }, def.isDefault, def.playbookVars?.entries)
             }
             val roles = root.rolesDirs.map { VfsUtilCore.getRelativePath(it, root.dir, '/') ?: it.path }
-            RootEntry(key, root.displayName, detected, roles)
+            RootEntry(key, root.displayName, detected, roles, settings.of(key).repository)
         }
     }
 
@@ -193,8 +210,12 @@ class LayoutConfigurable(private val project: Project) : BoundSearchableConfigur
         loading = true
         try {
             showDetected(autoDetected, entry?.detected.orEmpty().map { "${it.name} \u2190 ${it.sources.joinToString(", ")}" })
-            projectStorage.isSelected = edited.storage == LayoutStorage.PROJECT
-            personalStorage.isSelected = edited.storage == LayoutStorage.ONLY_ME
+            repositoryStorage.text = message("settings.layout.storage.repository", entry?.repository ?: "")
+            repositoryVisible.set(entry?.repository != null)
+            val storage = if (edited.storage == LayoutStorage.REPOSITORY && entry?.repository == null) LayoutStorage.PROJECT else edited.storage
+            repositoryStorage.isSelected = storage == LayoutStorage.REPOSITORY
+            projectStorage.isSelected = storage == LayoutStorage.PROJECT
+            personalStorage.isSelected = storage == LayoutStorage.ONLY_ME
             val inventories = edited.override.inventories
             custom.isSelected = inventories != null
             auto.isSelected = inventories == null
@@ -241,7 +262,11 @@ class LayoutConfigurable(private val project: Project) : BoundSearchableConfigur
         }
         edits[entry.key] = Edited(
             LayoutOverride(inventories, onePerFile.isSelected.takeIf { it }, if (rolesCustom.isSelected) splitSources(rolesField.text) else null),
-            if (personalStorage.isSelected) LayoutStorage.ONLY_ME else LayoutStorage.PROJECT,
+            when {
+                personalStorage.isSelected -> LayoutStorage.ONLY_ME
+                repositoryStorage.isSelected && entry.repository != null -> LayoutStorage.REPOSITORY
+                else -> LayoutStorage.PROJECT
+            },
             follow.isSelected,
         )
     }
@@ -295,7 +320,7 @@ class LayoutConfigurable(private val project: Project) : BoundSearchableConfigur
         EnvironmentIds.nameProblems(inventories.map { it.name }).entries.firstOrNull()?.let { (i, problem) ->
             throw ConfigurationException(message("settings.layout.invalid.${problem.name.lowercase()}", name, inventories[i].name))
         }
-        if (edited.storage == LayoutStorage.PROJECT) {
+        if (edited.storage != LayoutStorage.ONLY_ME) {
             val outside = (inventories.flatMap { it.sources } + edited.override.rolesPath.orEmpty()).firstOrNull(::leavesProject)
             if (outside != null) throw ConfigurationException(message("settings.layout.invalid.outside", name, outside))
         }

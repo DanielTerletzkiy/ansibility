@@ -83,11 +83,11 @@ class AnsibleTreeModelTest : ToolWindowTestCase() {
 
     fun testSharedPlaybookLevelVars() {
         val shared = path("falcon", "Shared (playbook-level) vars")
-        assertEquals("Shared (playbook-level) vars  ansible/group_vars · 2 files · beat the group_vars and host_vars of every environment", shared.presentation().text)
+        assertEquals("Shared (playbook-level) vars  ansible/group_vars · 2 files · beat the env group_vars and host_vars where they apply", shared.presentation().text)
         assertEquals(
             listOf(
-                "ansible/group_vars/all/vars.yml  L5 playbook group_vars/all — beats env group_vars/all (L4)",
-                "ansible/group_vars/all/vault.yml  L5 playbook group_vars/all — beats env group_vars/all (L4)",
+                "ansible/group_vars/all/vars.yml  L5 · applies to every environment",
+                "ansible/group_vars/all/vault.yml  L5 · applies to every environment",
             ),
             texts(shared),
         )

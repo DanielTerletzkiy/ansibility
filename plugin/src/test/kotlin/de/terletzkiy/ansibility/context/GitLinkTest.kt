@@ -22,8 +22,12 @@ class GitLinkTest {
     }
 
     @Test
-    fun submoduleInsideAWorktreeIsDetached() {
-        assertEquals(GitLink.WORKTREE, GitLink.classify("gitdir: /r/.git/worktrees/wt/modules/repos/falcon"))
+    fun submoduleCheckedOutInsideAWorktreeIsASubmodule() {
+        // repos/falcon/.git when the project is opened on a linked worktree: the submodule's git dir lives below the
+        // worktree's git dir. Whether its roots are detached depends on the worktree's own .git file (RootDetector).
+        assertEquals(GitLink.SUBMODULE, GitLink.classify("gitdir: /r/.git/worktrees/wt/modules/repos/falcon"))
+        assertEquals(GitLink.SUBMODULE, GitLink.classify("gitdir: ../../../../r/.git/worktrees/r@main/modules/repos/falcon"))
+        assertEquals(GitLink.WORKTREE, GitLink.classify("gitdir: /r/.git/worktrees/wt/"))
     }
 
     @Test

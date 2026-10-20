@@ -125,7 +125,7 @@ internal object VarUsageSearch {
             offset >= it.location.offset && offset <= it.location.offset + it.name.length
         } ?: return null
         val anchor = file.findElementAt(definition.location.offset) ?: file
-        return VarSymbolElement(anchor, context.root, definition.name, VarScope.Root(virtualFile, MoleculeView.of(file.project, virtualFile)))
+        return VarSymbolElement(anchor, context.root, definition.name, VarScope.root(file.project, virtualFile, MoleculeView.of(file.project, virtualFile)))
     }
 
     /**
@@ -140,7 +140,7 @@ internal object VarUsageSearch {
         val keySite = VarKeySites.of(keyValue, context, virtualFile) ?: return null
         val path = keySite.site.keyPath
         val view = MoleculeView.of(keyValue.project, virtualFile)
-        if (path.size == 1 && keySite.variable == keyValue) return VarSymbolElement(file, context.root, keySite.name, VarScope.Root(virtualFile, view))
+        if (path.size == 1 && keySite.variable == keyValue) return VarSymbolElement(file, context.root, keySite.name, VarScope.root(keyValue.project, virtualFile, view))
         if (path.size < 2 || keySite.site.kind in SPEC_KINDS || keyValue.keyText != path.last()) return null
         return VarSymbolElement(file, context.root, keySite.name, VarScope.Member(virtualFile, path.drop(1), view))
     }
@@ -162,7 +162,7 @@ internal object VarUsageSearch {
         val psi = PsiManager.getInstance(project).findFile(file) ?: return null
         if (offset >= 0) symbolAt(psi, offset)?.takeIf { it.name == name }?.let { return it }
         val root = AnsibleWorkspace.getInstance(project).contextOf(file)?.root ?: return null
-        return VarSymbolElement(psi, root, name, VarScope.Root(file, MoleculeView.of(project, file)))
+        return VarSymbolElement(psi, root, name, VarScope.root(project, file, MoleculeView.of(project, file)))
     }
 
     /**
@@ -174,7 +174,7 @@ internal object VarUsageSearch {
     fun process(project: Project, symbol: VarSymbolElement, scope: SearchScope, processor: Processor<in UsageInfo>): Boolean {
         val global = scope as? GlobalSearchScope
         val prepared = inSmartReadAction(project) {
-            val occurrences = VarOccurrences.of(project, symbol, global)
+            val occurrences = VarOccurrences.of(project, symbol, global, byReach = true)
             Prepared(occurrences, runtimeHome(project, symbol))
         }
         symbol.kinds.clear()
@@ -252,7 +252,7 @@ internal object VarUsageSearch {
             }
         }
         if (name in LOOP_ONLY_NAMES) return caret.symbol(name, VarScope.Loop(emptyList(), caret.file))
-        return caret.symbol(name, VarScope.Root(caret.file, caret.view))
+        return caret.symbol(name, VarScope.root(caret.host.project, caret.file, caret.view))
     }
 
     /**
@@ -281,7 +281,7 @@ internal object VarUsageSearch {
 
     private fun indirectMember(caret: Caret, analysis: JinjaTextSites.Analysis, member: JinjaIndirectRef): VarSymbolElement? = when (member.via) {
         // Some host's variable: never the loop's, and `item` is never searched across the root.
-        JinjaIndirection.HOSTVARS -> if (member.name in LOOP_ONLY_NAMES) null else caret.symbol(member.name, VarScope.Root(caret.file, caret.view))
+        JinjaIndirection.HOSTVARS -> if (member.name in LOOP_ONLY_NAMES) null else caret.symbol(member.name, VarScope.root(caret.host.project, caret.file, caret.view))
         JinjaIndirection.VARS -> nameSymbol(caret, member.name, analysis.toHost(member.nameRange.startOffset))
     }
 
@@ -310,7 +310,7 @@ internal object VarUsageSearch {
 
     private fun keySymbol(caret: Caret, site: AnsibleSite.VarKey): VarSymbolElement? {
         val keySite = VarKeySites.at(caret.host, site.range.startOffset, caret.context) ?: return null
-        if (site.keyPath.size == 1) return caret.symbol(keySite.name, VarScope.Root(caret.file, caret.view))
+        if (site.keyPath.size == 1) return caret.symbol(keySite.name, VarScope.root(caret.host.project, caret.file, caret.view))
         if (site.kind in SPEC_KINDS) return null
         return caret.symbol(keySite.name, VarScope.Member(caret.file, site.keyPath.drop(1), caret.view))
     }
@@ -326,7 +326,7 @@ internal object VarUsageSearch {
         val offset = caret.offset
         val task = TaskFileModels.of(yaml).itemAt(offset) as? TaskNode ?: return null
         task.register?.takeIf { it.range.containsOffset(offset) }?.let {
-            return caret.symbol(it.text, VarScope.Root(caret.file, caret.view))
+            return caret.symbol(it.text, VarScope.root(caret.host.project, caret.file, caret.view))
         }
         val control = task.loopControl ?: return null
         val name = listOfNotNull(control.loopVar, control.indexVar).firstOrNull { it.range.containsOffset(offset) } ?: return null

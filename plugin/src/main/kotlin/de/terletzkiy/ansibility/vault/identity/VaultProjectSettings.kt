@@ -13,7 +13,9 @@ import com.intellij.util.xmlb.annotations.MapAnnotation
 import com.intellij.util.xmlb.annotations.Tag
 import com.intellij.util.xmlb.annotations.XCollection
 import de.terletzkiy.ansibility.api.VaultSourceKind
+import com.intellij.util.xmlb.XmlSerializer
 import de.terletzkiy.ansibility.settings.PathGlob
+import de.terletzkiy.ansibility.settings.nested.NestedRepoSettings
 
 /**
  * One vault id configured explicitly for a root (step 1 of the discovery chain, F7.9): a label and where its secret
@@ -83,8 +85,16 @@ class VaultProjectSettings : PersistentStateComponent<VaultProjectSettings.State
     @Volatile
     private var roots: Map<String, VaultRootSettings> = emptyMap()
 
-    /** Bumped on every change. */
-    val modificationTracker: ModificationTracker get() = tracker
+    /** The sub-repository files (plan amendment R27); null until [getInstance] attaches the project, and in unit tests. */
+    @Volatile
+    private var nested: NestedRepoSettings? = null
+
+    /** Bumped on every change, also of a sub-repository's `.idea/ansibility-vault.xml`. */
+    val modificationTracker: ModificationTracker = ModificationTracker { tracker.modificationCount + (nested?.modificationTracker?.modificationCount ?: 0) }
+
+    private fun attach(project: Project) {
+        if (nested == null && !project.isDisposed) nested = NestedRepoSettings.getInstance(project)
+    }
 
     /** Decrypted tabs are encrypted into the real file only by an explicit save (Cmd+S), never by autosave. Off by default. */
     @Volatile
@@ -126,11 +136,48 @@ class VaultProjectSettings : PersistentStateComponent<VaultProjectSettings.State
         return globs
     }
 
-    /** The settings of the root stored under [rootKey], or the defaults. */
-    fun rootSettings(rootKey: String): VaultRootSettings = roots[rootKey] ?: VaultRootSettings.DEFAULT
+    /**
+     * The settings of the root stored under [rootKey]: the project's entry, else the entry of the root's sub-repository
+     * file (`repos/platform/.idea/ansibility-vault.xml`, R27), else the defaults.
+     */
+    fun rootSettings(rootKey: String): VaultRootSettings = roots[rootKey] ?: repositorySettings(rootKey)?.second ?: VaultRootSettings.DEFAULT
 
-    /** Replaces the settings of [rootKey] with [transform] applied to them; default settings remove the entry. */
+    /** Where the settings of [rootKey] come from when not from the project: its sub-repository file, as shown (R27). */
+    fun repositoryFileOf(rootKey: String): String? =
+        if (rootKey in roots) null else repositorySettings(rootKey)?.let { (repo, _) -> repo.display(NestedRepoSettings.VAULT_FILE) }
+
+    private fun repositoryState(repo: NestedRepoSettings.Repo): StateBean? {
+        val element = nested?.read(repo, NestedRepoSettings.VAULT_FILE, COMPONENT) ?: return null
+        return runCatching { XmlSerializer.deserialize(element, StateBean::class.java) }.getOrNull()
+    }
+
+    private fun repositorySettings(rootKey: String): Pair<NestedRepoSettings.Repo, VaultRootSettings>? {
+        val nested = nested ?: return null
+        val repo = nested.repoOf(rootKey) ?: return null
+        val local = nested.localKey(repo, rootKey)
+        val bean = repositoryState(repo)?.roots?.firstOrNull { it.key == local } ?: return null
+        return repo to bean.toSettings()
+    }
+
+    /**
+     * Replaces the settings of [rootKey] with [transform] applied to them; default settings remove the entry. An entry
+     * that lives only in the root's sub-repository file is written back there (R27); everything else in the project.
+     */
     fun update(rootKey: String, transform: (VaultRootSettings) -> VaultRootSettings) {
+        val inRepository = if (rootKey in roots) null else repositorySettings(rootKey)
+        if (inRepository != null) {
+            val (repo, current) = inRepository
+            val new = transform(current)
+            if (new == current) return
+            val state = repositoryState(repo) ?: StateBean()
+            val local = nested!!.localKey(repo, rootKey)
+            val others = state.roots.filter { it.key != local }
+            state.roots = (others + listOfNotNull(new.takeIf { it != VaultRootSettings.DEFAULT }?.let { RootBean.of(local, it) }))
+                .sortedBy { it.key }.toMutableList()
+            nested!!.write(repo, NestedRepoSettings.VAULT_FILE, COMPONENT, NestedRepoSettings.serialize(state))
+            tracker.incModificationCount()
+            return
+        }
         synchronized(this) {
             val new = transform(rootSettings(rootKey))
             val updated = if (new == VaultRootSettings.DEFAULT) roots - rootKey else roots + (rootKey to new)
@@ -231,7 +278,10 @@ class VaultProjectSettings : PersistentStateComponent<VaultProjectSettings.State
         /** The default allowlist of ANS-V108: Molecule's scenario folders, whose keys are throwaway test keys. */
         val DEFAULT_KEY_ALLOWLIST: List<String> = listOf("**/molecule/**")
 
-        fun getInstance(project: Project): VaultProjectSettings = project.service()
+        /** The component name in `ansibility-vault.xml`. */
+        const val COMPONENT: String = "AnsibilityVault"
+
+        fun getInstance(project: Project): VaultProjectSettings = project.service<VaultProjectSettings>().also { it.attach(project) }
 
         /** [globs] trimmed, without blank lines and duplicates, in their order. */
         /** Paths of every shape: a glob that matches all of them matches every path of the project. */

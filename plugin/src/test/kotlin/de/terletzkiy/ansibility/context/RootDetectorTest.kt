@@ -27,6 +27,25 @@ class RootDetectorTest : BasePlatformTestCase() {
         assertFalse("a project opened on a worktree is not detached", scan.roots.single().detached)
     }
 
+    fun testSubmodulesOfAProjectOpenedOnAWorktreeAreNotDetached() {
+        myFixture.tempDirFixture.createFile(".git", "gitdir: /r/.git/worktrees/r@main\n")
+        myFixture.tempDirFixture.createFile("repos/falcon/.git", "gitdir: ../../../r/.git/worktrees/r@main/modules/repos/falcon\n")
+        myFixture.tempDirFixture.createFile("repos/falcon/ansible/ansible.cfg", "[defaults]\n")
+        val scan = RootDetector().detect(listOf(base()))
+        assertFalse(scan.roots.single().detached)
+        assertEquals("falcon", scan.roots.single().displayName)
+        assertEquals(emptyList<DetachedWorktree>(), scan.worktrees)
+    }
+
+    fun testSubmodulesOfAWorktreeInsideTheProjectStayDetached() {
+        myFixture.tempDirFixture.createFile("wt/.git", "gitdir: /r/.git/worktrees/wt\n")
+        myFixture.tempDirFixture.createFile("wt/repos/falcon/.git", "gitdir: /r/.git/worktrees/wt/modules/repos/falcon\n")
+        myFixture.tempDirFixture.createFile("wt/repos/falcon/ansible/ansible.cfg", "[defaults]\n")
+        val scan = RootDetector().detect(listOf(base()))
+        assertTrue(scan.roots.single().detached)
+        assertEquals(listOf("wt"), scan.worktrees.map { it.name })
+    }
+
     fun testRolesPathFromAnsibleCfg() {
         myFixture.tempDirFixture.createFile("site/ansible.cfg", "[defaults]\nroles_path = ./galaxy_roles:./missing:../shared_roles:~/roles\n")
         myFixture.tempDirFixture.createFile("site/roles/own/tasks/main.yml", "- ansible.builtin.ping:\n")

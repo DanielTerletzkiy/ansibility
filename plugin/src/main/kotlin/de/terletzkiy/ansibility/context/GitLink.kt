@@ -16,8 +16,14 @@ enum class GitLink {
     ;
 
     companion object {
-        private val WORKTREE_PATH = Regex("""(^|/)\.git/worktrees/[^/]+""")
-        private val SUBMODULE_PATH = Regex("""(^|/)\.git/modules/""")
+        /** The git dir of a linked worktree itself: `.git/worktrees/<name>`, nothing below it. */
+        private val WORKTREE_PATH = Regex("""(^|/)\.git/worktrees/[^/]+/?$""")
+
+        /**
+         * A submodule's git dir: `.git/modules/<path>`, also below a linked worktree's git dir
+         * (`.git/worktrees/<name>/modules/<path>`: a submodule checked out inside a worktree).
+         */
+        private val SUBMODULE_PATH = Regex("""(^|/)\.git/(worktrees/[^/]+/)?modules/""")
 
         /** The `gitdir:` target of a `.git` file's text, or null when there is none. */
         fun gitdirOf(text: CharSequence): String? =

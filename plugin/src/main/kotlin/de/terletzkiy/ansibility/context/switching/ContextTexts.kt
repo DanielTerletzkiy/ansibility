@@ -121,6 +121,8 @@ object ContextTexts {
 
     /** `prod-prod1, prod-prod2 +3 more`. */
     @NlsSafe
+    private const val MAX_SEGMENT_ENVIRONMENTS = 3
+
     fun names(names: List<String>): String {
         if (names.size <= MAX_NAMES) return names.joinToString(", ")
         return message("names.more", names.take(MAX_NAMES).joinToString(", "), names.size - MAX_NAMES)
@@ -157,7 +159,11 @@ object ContextTexts {
     fun fileSegment(scope: HostScope): String? {
         val name = scopeName(scope.origin) ?: return null
         val hosts = scope.fileHosts.size
-        return if (hosts == 0) message("segment.file.empty", name) else message("segment.file", name, hostCount(hosts))
+        if (hosts == 0) return message("segment.file.empty", name)
+        // Follow editor narrows without rewriting the selection (D33): name the environments it narrowed to (R27).
+        val environments = scope.fileHosts.filterNot { it.isMolecule }.map { it.environment }.distinct()
+        return if (hosts == 1 || environments.isEmpty() || environments.size > MAX_SEGMENT_ENVIRONMENTS) message("segment.file", name, hostCount(hosts))
+        else message("segment.file.environments", name, hostCount(hosts), environments.joinToString(", "))
     }
 
     /**
