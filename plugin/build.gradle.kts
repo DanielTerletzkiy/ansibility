@@ -192,3 +192,23 @@ intellijPlatformTesting.runIde.register("runLocalPyCharm") {
 intellijPlatformTesting.runIde.register("runLocalWebStorm") {
     localPath = file(localIdePath("localWebStormPath", "/Applications/WebStorm.app"))
 }
+
+// Marketplace screenshots: a sandbox IDE with JetBrains' Robot Server plugin (HTTP on port 8082), driven by
+// tools/screenshots. Separate sandbox so the regular runIde state stays untouched.
+intellijPlatformTesting.runIde.register("runIdeForScreenshots") {
+    task {
+        jvmArgumentProviders += CommandLineArgumentProvider {
+            listOf(
+                "-Drobot-server.port=8082",
+                "-Dide.mac.message.dialogs.as.sheets=false",
+                "-Djb.privacy.policy.text=<!--999.999-->",
+                "-Djb.consents.confirmation.enabled=false",
+                "-Didea.trust.all.projects=true",
+                "-Dide.show.tips.on.startup.default.value=false",
+            )
+        }
+    }
+    plugins {
+        robotServerPlugin()
+    }
+}

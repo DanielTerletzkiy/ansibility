@@ -1,0 +1,13 @@
+[Unit]
+Description=ACME application {{ app_release }}
+After=network.target
+
+[Service]
+User={{ app_user }}
+ExecStart=/opt/acme/bin/server --port {{ app_port }} --workers {{ app_workers }}
+Restart=on-failure
+Environment=SENTRY_DSN={{ app_sentry_dsn }}
+Environment=TZ={{ timezone }}
+
+[Install]
+WantedBy=multi-user.target

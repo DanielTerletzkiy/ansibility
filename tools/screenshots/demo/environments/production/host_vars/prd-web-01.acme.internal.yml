@@ -1,0 +1,2 @@
+---
+nginx_worker_connections: 8192

@@ -1,0 +1,48 @@
+---
+argument_specs:
+  main:
+    short_description: Install and configure nginx as a reverse proxy.
+    options:
+      domain:
+        type: str
+        required: true
+        description: Public domain name served by this host.
+      nginx_tls_key:
+        type: str
+        no_log: true
+        description: PEM private key for I(domain), kept in the vault.
+      nginx_listen_port:
+        type: int
+        default: 80
+        description: Port nginx listens on.
+      nginx_tls_enabled:
+        type: bool
+        default: false
+        description: Serve HTTPS with the certificate from the vault.
+      nginx_worker_processes:
+        type: str
+        default: auto
+        description: Number of worker processes, or C(auto).
+      nginx_worker_connections:
+        type: int
+        default: 512
+        description: Maximum simultaneous connections per worker.
+      nginx_client_max_body_size:
+        type: str
+        default: 1m
+        description: Largest accepted request body.
+      nginx_upstreams:
+        type: list
+        elements: dict
+        default: []
+        description: Upstream groups proxied by nginx.
+        options:
+          name:
+            type: str
+            required: true
+            description: Upstream name.
+          servers:
+            type: list
+            elements: str
+            required: true
+            description: C(host:port) of each backend.

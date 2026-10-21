@@ -1,0 +1,7 @@
+---
+nginx_listen_port: 8443
+nginx_tls_enabled: false
+nginx_upstreams:
+  - name: app
+    servers:
+      - 127.0.0.1:8080

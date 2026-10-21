@@ -1,0 +1,11 @@
+---
+# PostgreSQL primary for the production cluster
+postgresql_version: 18
+postgresql_port: 5432
+postgresql_max_connections: "500"
+postgresql_databases:
+  - name: acme
+    owner: "{{ app_user }}"
+  - name: acme_reporting
+    owner: reporting
+    encoding: UTF8

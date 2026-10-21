@@ -7,6 +7,9 @@
              aware; public API only (no BooleanCommitOption: its switch is on the Vault settings page). -->
         <checkinHandlerFactory implementation="de.terletzkiy.ansibility.vault.vcs.impl.SecretCheckinHandlerFactory"/>
         <!-- /d167 -->
+        <!-- r28: the optional ansible-lint commit check (plan amendment R28, D-L4): off by default, late, errors only. -->
+        <checkinHandlerFactory implementation="de.terletzkiy.ansibility.lint.vcs.LintCheckinHandlerFactory"/>
+        <!-- /r28 -->
     </extensions>
     <extensions defaultExtensionNs="de.terletzkiy.ansibility">
         <!-- v108: the VCS status of files for ANS-V108 (plan amendment R21, D162): ProjectLevelVcsManager,

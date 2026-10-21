@@ -61,4 +61,17 @@ internal class FindingText(private val semantics: CoreSemantics) {
     /** The closest candidate within [maxDistance] edits (ties: first in order), if any. */
     fun nearest(text: String, candidates: Collection<String>, maxDistance: Int): String? =
         candidates.map { it to distance(text, it) }.filter { it.second <= maxDistance }.minByOrNull { it.second }?.first
+
+    /**
+     * The choice to suggest for [text]: a number goes to the numerically closest numeric choice (`18` among 14–17 is
+     * `17`, though `14` is as few edits away), anything else to [nearest].
+     */
+    fun nearestChoice(text: String, choices: Collection<String>, maxDistance: Int): String? {
+        val number = text.trim().toBigDecimalOrNull()
+        if (number != null) {
+            val numeric = choices.mapNotNull { choice -> choice.trim().toBigDecimalOrNull()?.let { choice to (it - number).abs() } }
+            numeric.minByOrNull { it.second }?.let { return it.first }
+        }
+        return nearest(text, choices, maxDistance)
+    }
 }

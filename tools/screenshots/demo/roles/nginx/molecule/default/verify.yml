@@ -1,0 +1,14 @@
+---
+- name: Verify
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Nginx config is valid
+      ansible.builtin.command: nginx -t
+      become: true
+      changed_when: false
+
+    - name: Nginx listens on port 80
+      ansible.builtin.wait_for:
+        port: 80
+        timeout: 10

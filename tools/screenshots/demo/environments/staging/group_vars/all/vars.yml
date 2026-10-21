@@ -1,0 +1,6 @@
+---
+env_name: staging
+domain: staging.acme.example
+app_release: "2.14.0-rc.3"
+nginx_worker_connections: 1024
+monitoring_enabled: false

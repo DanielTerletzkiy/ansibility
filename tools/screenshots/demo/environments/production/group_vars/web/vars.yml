@@ -1,0 +1,9 @@
+---
+nginx_listen_port: 443
+nginx_tls_enabled: true
+nginx_upstreams:
+  - name: app
+    servers:
+      - 127.0.0.1:8080
+      - 127.0.0.1:8081
+nginx_client_max_body_size: 25m

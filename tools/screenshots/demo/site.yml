@@ -1,0 +1,21 @@
+---
+- name: Database servers
+  hosts: db
+  become: true
+  tags: [db]
+  roles:
+    - postgresql
+
+- name: Web servers
+  hosts: web
+  become: true
+  tags: [web]
+  roles:
+    - role: nginx
+      tags: [nginx]
+    - role: app
+      tags: [app]
+  tasks:
+    - name: Show the deployed release
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }} runs {{ app_release }} on {{ domain }}"

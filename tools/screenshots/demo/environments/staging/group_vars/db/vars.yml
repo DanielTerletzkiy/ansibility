@@ -1,0 +1,5 @@
+---
+postgresql_version: 16
+postgresql_databases:
+  - name: acme
+    owner: "{{ app_user }}"

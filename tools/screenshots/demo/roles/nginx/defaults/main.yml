@@ -1,0 +1,7 @@
+---
+nginx_listen_port: 80
+nginx_tls_enabled: false
+nginx_worker_processes: auto
+nginx_worker_connections: 512
+nginx_client_max_body_size: 1m
+nginx_upstreams: []

@@ -1,0 +1,20 @@
+---
+- name: Create the {{ app_user }} user
+  ansible.builtin.user:
+    name: "{{ app_user }}"
+    system: true
+    create_home: false
+
+- name: Create the release directory
+  ansible.builtin.file:
+    path: "/opt/acme/{{ app_release }}"
+    state: directory
+    owner: "{{ app_user }}"
+    mode: "0755"
+
+- name: Render systemd unit
+  ansible.builtin.template:
+    src: acme.service.j2
+    dest: /etc/systemd/system/acme.service
+    mode: "0644"
+  notify: Restart app

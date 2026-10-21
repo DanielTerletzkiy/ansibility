@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Added
+
+- **ansible-lint**: Ansibility runs ansible-lint itself, so the separate Ansible Lint plugin is no longer needed.
+  - Files are linted when opened and after each save. Findings stay on their lines while you edit.
+  - Runs in the repository's Compose service with "lint" in its name when one mounts the root (the team's pinned versions), else with a local `ansible-lint`. The config is found automatically: `ansible-lint.yml`, `.ansible-lint`, `.config/ansible-lint.yml`, next to the root or above it.
+  - ansible-lint errors show as warnings, everything else as weak warnings. They can also show as ansible-lint reports them, or all as weak warnings.
+  - Quick fixes: `# noqa: <rule>` on the line, add to `.ansible-lint-ignore`, add to `skip_list`, Fix with ansible-lint (for its auto-fixable rules, as one undo step), open the rule documentation, copy the message.
+  - Settings › Ansibility › Lint, per root: on/off, where it runs, executable, config, extra arguments, offline, how findings show. Where it runs and the executable stay on this machine; the rest is shared in `.idea/ansibility.xml`.
+  - Optional commit check (off by default): ansible-lint errors in the changed files stop the commit, with Commit Anyway.
+  - Offers once to disable the Ansible Lint plugin, so findings are not shown twice.
+
 ## 0.0.5 - 2026-10-20
 
 ### Added

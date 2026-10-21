@@ -1,0 +1,13 @@
+---
+- name: Converge
+  hosts: all
+  become: true
+  roles:
+    - role: nginx
+      vars:
+        domain: molecule.test
+        nginx_tls_key: test-key
+        nginx_upstreams:
+          - name: app
+            servers:
+              - 127.0.0.1:8080

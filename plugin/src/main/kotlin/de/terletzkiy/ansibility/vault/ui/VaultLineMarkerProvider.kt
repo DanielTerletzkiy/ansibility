@@ -5,6 +5,7 @@ import com.intellij.codeInsight.daemon.LineMarkerInfo
 import com.intellij.codeInsight.daemon.LineMarkerProviderDescriptor
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.ActionGroup
+import com.intellij.openapi.actionSystem.ActionPlaces
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
@@ -65,6 +66,10 @@ class VaultLineMarkerProvider : LineMarkerProviderDescriptor(), DumbAware {
     /**
      * The marker, with the X93 action menu on right-click: Reveal, Copy, Edit…, Rekey to id…, Change id…, Decrypt to
      * plain value…, and Unlock vault ids… while the value's ids are locked.
+     *
+     * Alt+Enter lists a marker's menu next to the intentions (GutterIntentionMenuContributor, place
+     * [ActionPlaces.INTENTION_MENU]); the entries that have a value intention of their own stay out of it there, so
+     * each shows once. Unlock has none, so Alt+Enter keeps it.
      */
     private class VaultLineMarkerInfo(element: PsiElement, icon: Icon, tooltip: String) : LineMarkerInfo<PsiElement>(
         element, element.textRange, icon, { tooltip }, REVEAL, GutterIconRenderer.Alignment.LEFT,
@@ -80,13 +85,17 @@ class VaultLineMarkerProvider : LineMarkerProviderDescriptor(), DumbAware {
                 ValueAction("intention.change.id") { project, ref, editor -> VaultValueActions.getInstance(project).changeId(ref, editor) },
                 ValueAction("intention.decrypt") { project, ref, editor -> VaultValueActions.getInstance(project).decryptToPlain(ref, editor) },
                 Separator.getInstance(),
-                ValueAction("gutter.unlock", shownFor = { project, scalar -> isLocked(project, scalar) }) { project, ref, editor -> VaultValueActions.getInstance(project).unlock(ref, editor) },
+                ValueAction("gutter.unlock", hasIntention = false, shownFor = { project, scalar -> isLocked(project, scalar) }) { project, ref, editor -> VaultValueActions.getInstance(project).unlock(ref, editor) },
             )
         }
 
-        /** One menu entry: runs [perform] for the marker's value; shown while [shownFor] holds for it (status only, never decrypting). */
+        /**
+         * One menu entry: runs [perform] for the marker's value; shown while [shownFor] holds for it (status only, never
+         * decrypting), and not in the Alt+Enter list when [hasIntention] (the value intention shows there already).
+         */
         private inner class ValueAction(
             key: String,
+            private val hasIntention: Boolean = true,
             private val shownFor: (Project, YAMLScalar) -> Boolean = { _, _ -> true },
             private val perform: (Project, VaultValueRef, Editor?) -> Unit,
         ) : DumbAwareAction(AnsibilityVaultUiBundle.message(key)) {
@@ -94,6 +103,10 @@ class VaultLineMarkerProvider : LineMarkerProviderDescriptor(), DumbAware {
 
             override fun update(event: AnActionEvent) {
                 val element = this@VaultLineMarkerInfo.element
+                if (hasIntention && event.place == ActionPlaces.INTENTION_MENU) {
+                    event.presentation.isEnabledAndVisible = false
+                    return
+                }
                 event.presentation.isEnabledAndVisible = element != null && runReadActionBlocking {
                     element.isValid && scalarFor(element)?.let { shownFor(element.project, it) } == true
                 }

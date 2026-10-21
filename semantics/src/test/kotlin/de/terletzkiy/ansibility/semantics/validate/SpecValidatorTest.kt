@@ -200,6 +200,9 @@ class SpecValidatorTest {
         assertEquals(T004_CHOICE_MISMATCH, mode.code)
         assertEquals("wrte", values.at(mode.range))
         assertEquals(listOf("nearest-choice=write"), mode.fixHints)
+        // Numbers go to the numerically closest choice, not the first one an edit away (`18` → `17`, not `14`).
+        val version = check("version: {type: int, choices: [14, 15, 16, 17]}", "version: 18").single()
+        assertEquals(listOf("nearest-choice=17"), version.fixHints)
         // Module regressions: the bool rescue, dict choices and raw values are never rejected. (`false` for a
         // str option is still a documented-type coercion, which the plugin's module policy keeps silent.)
         val rescued = check(

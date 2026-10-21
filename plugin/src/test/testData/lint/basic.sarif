@@ -1,0 +1,305 @@
+{
+ "$schema": "https://schemastore.azurewebsites.net/schemas/json/sarif-2.1.0-rtm.5.json",
+ "version": "2.1.0",
+ "runs": [
+  {
+   "tool": {
+    "driver": {
+     "name": "ansible-lint",
+     "version": "25.9.2",
+     "informationUri": "https://github.com/ansible/ansible-lint",
+     "rules": [
+      {
+       "id": "command-instead-of-shell",
+       "name": "command-instead-of-shell",
+       "shortDescription": {
+        "text": "Use shell only when shell functionality is required."
+       },
+       "defaultConfiguration": {
+        "level": "error"
+       },
+       "help": {
+        "text": "Shell should only be used when piping, redirecting or chaining commands (and Ansible would be preferred for some of those!)"
+       },
+       "helpUri": "https://ansible.readthedocs.io/projects/lint/rules/command-instead-of-shell/",
+       "properties": {
+        "tags": [
+         "command-shell",
+         "idiom"
+        ]
+       }
+      },
+      {
+       "id": "name[casing]",
+       "name": "name[casing]",
+       "shortDescription": {
+        "text": "All names should start with an uppercase letter."
+       },
+       "defaultConfiguration": {
+        "level": "warning"
+       },
+       "help": {
+        "text": "All tasks and plays should have a distinct name for readability and for ``--start-at-task`` to work"
+       },
+       "helpUri": "https://ansible.readthedocs.io/projects/lint/rules/name/",
+       "properties": {
+        "tags": [
+         "idiom"
+        ]
+       }
+      },
+      {
+       "id": "no-changed-when",
+       "name": "no-changed-when",
+       "shortDescription": {
+        "text": "Commands should not change things if nothing needs doing."
+       },
+       "defaultConfiguration": {
+        "level": "error"
+       },
+       "help": {
+        "text": ""
+       },
+       "helpUri": "https://ansible.readthedocs.io/projects/lint/rules/no-changed-when/",
+       "properties": {
+        "tags": [
+         "command-shell",
+         "idempotency"
+        ]
+       }
+      },
+      {
+       "id": "fqcn[action-core]",
+       "name": "fqcn[action-core]",
+       "shortDescription": {
+        "text": "Use FQCN for builtin module actions (shell)."
+       },
+       "defaultConfiguration": {
+        "level": "warning"
+       },
+       "help": {
+        "text": "Check whether actions are using using full qualified collection names."
+       },
+       "helpUri": "https://ansible.readthedocs.io/projects/lint/rules/fqcn/",
+       "properties": {
+        "tags": [
+         "formatting"
+        ]
+       }
+      },
+      {
+       "id": "name[missing]",
+       "name": "name[missing]",
+       "shortDescription": {
+        "text": "All tasks should be named."
+       },
+       "defaultConfiguration": {
+        "level": "warning"
+       },
+       "help": {
+        "text": "All tasks and plays should have a distinct name for readability and for ``--start-at-task`` to work"
+       },
+       "helpUri": "https://ansible.readthedocs.io/projects/lint/rules/name/",
+       "properties": {
+        "tags": [
+         "idiom"
+        ]
+       }
+      },
+      {
+       "id": "yaml[truthy]",
+       "name": "yaml[truthy]",
+       "shortDescription": {
+        "text": "Truthy value should be one of [false, true]"
+       },
+       "defaultConfiguration": {
+        "level": "warning"
+       },
+       "help": {
+        "text": ""
+       },
+       "helpUri": "https://ansible.readthedocs.io/projects/lint/rules/yaml/",
+       "properties": {
+        "tags": [
+         "formatting",
+         "yaml"
+        ]
+       }
+      }
+     ]
+    }
+   },
+   "columnKind": "utf16CodeUnits",
+   "results": [
+    {
+     "ruleId": "command-instead-of-shell",
+     "level": "error",
+     "message": {
+      "text": "Task/Handler: install"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "roles/web/tasks/main.yml",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 1
+        }
+       }
+      }
+     ]
+    },
+    {
+     "ruleId": "name[casing]",
+     "level": "error",
+     "message": {
+      "text": "Task/Handler: install"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "roles/web/tasks/main.yml",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 1,
+         "startColumn": 9
+        }
+       }
+      }
+     ]
+    },
+    {
+     "ruleId": "no-changed-when",
+     "level": "error",
+     "message": {
+      "text": "Task/Handler: install"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "roles/web/tasks/main.yml",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 1
+        }
+       }
+      }
+     ]
+    },
+    {
+     "ruleId": "fqcn[action-core]",
+     "level": "error",
+     "message": {
+      "text": "Use `ansible.builtin.shell` or `ansible.legacy.shell` instead."
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "roles/web/tasks/main.yml",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 2,
+         "startColumn": 3
+        }
+       }
+      }
+     ]
+    },
+    {
+     "ruleId": "fqcn[action-core]",
+     "level": "error",
+     "message": {
+      "text": "Use `ansible.builtin.command` or `ansible.legacy.command` instead."
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "roles/web/tasks/main.yml",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 3,
+         "startColumn": 3
+        }
+       }
+      }
+     ]
+    },
+    {
+     "ruleId": "name[missing]",
+     "level": "error",
+     "message": {
+      "text": "Task/Handler: command ls"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "roles/web/tasks/main.yml",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 3
+        }
+       }
+      }
+     ]
+    },
+    {
+     "ruleId": "no-changed-when",
+     "level": "error",
+     "message": {
+      "text": "Task/Handler: command ls"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "roles/web/tasks/main.yml",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 3
+        }
+       }
+      }
+     ]
+    },
+    {
+     "ruleId": "yaml[truthy]",
+     "level": "error",
+     "message": {
+      "text": "Truthy value should be one of [false, true]"
+     },
+     "locations": [
+      {
+       "physicalLocation": {
+        "artifactLocation": {
+         "uri": "roles/web/tasks/main.yml",
+         "uriBaseId": "SRCROOT"
+        },
+        "region": {
+         "startLine": 4
+        }
+       }
+      }
+     ]
+    }
+   ],
+   "originalUriBaseIds": {
+    "SRCROOT": {
+     "uri": "file:///project/"
+    }
+   }
+  }
+ ]
+}

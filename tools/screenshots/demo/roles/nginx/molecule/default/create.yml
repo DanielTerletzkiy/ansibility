@@ -1,0 +1,15 @@
+---
+- name: Create
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Start the test containers
+      ansible.builtin.command: docker run -d --name {{ item.name }} --hostname {{ item.name }} {{ item.image }}
+      loop: "{{ molecule_yml.platforms }}"
+      changed_when: true
+
+    - name: Write the instance config
+      ansible.builtin.copy:
+        content: "{{ molecule_yml.platforms | map(attribute='name') | map('community.general.dict_kv', 'instance') | list | to_yaml }}"
+        dest: "{{ molecule_instance_config }}"
+        mode: "0600"

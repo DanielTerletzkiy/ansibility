@@ -1,0 +1,10 @@
+<!-- ansible-lint inside Ansibility (plan amendment R28): editor findings on open and save, quick fixes, settings page.
+     The commit check is in ansibility-vcs.xml (VCS support only). -->
+<idea-plugin>
+    <extensions defaultExtensionNs="com.intellij">
+        <externalAnnotator language="yaml" implementationClass="de.terletzkiy.ansibility.lint.LintAnnotator"/>
+        <projectConfigurable parentId="de.terletzkiy.ansibility.settings" id="de.terletzkiy.ansibility.settings.lint"
+                             instance="de.terletzkiy.ansibility.lint.LintConfigurable"
+                             bundle="messages.AnsibilityLintBundle" key="settings.lint.name"/>
+    </extensions>
+</idea-plugin>

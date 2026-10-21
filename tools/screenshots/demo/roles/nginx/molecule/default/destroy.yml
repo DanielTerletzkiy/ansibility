@@ -1,0 +1,11 @@
+---
+- name: Destroy
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Remove the test containers
+      ansible.builtin.command: docker rm -f {{ item.name }}
+      loop: "{{ molecule_yml.platforms }}"
+      register: removed
+      changed_when: removed.rc == 0
+      failed_when: false

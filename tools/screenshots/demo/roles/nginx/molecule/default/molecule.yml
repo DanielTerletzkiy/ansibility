@@ -1,0 +1,29 @@
+---
+driver:
+  name: default
+  options:
+    managed: true
+platforms:
+  - name: molecule-nginx
+    image: acme-demo-host
+provisioner:
+  name: ansible
+  env:
+    ANSIBLE_ROLES_PATH: ${MOLECULE_PROJECT_DIRECTORY}/..
+  inventory:
+    host_vars:
+      molecule-nginx:
+        ansible_connection: community.docker.docker
+        ansible_user: deploy
+        ansible_python_interpreter: /usr/bin/python3
+verifier:
+  name: ansible
+scenario:
+  test_sequence:
+    - destroy
+    - syntax
+    - create
+    - converge
+    - idempotence
+    - verify
+    - destroy

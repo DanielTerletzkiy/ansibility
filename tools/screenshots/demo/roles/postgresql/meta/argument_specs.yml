@@ -1,0 +1,30 @@
+---
+argument_specs:
+  main:
+    short_description: Install PostgreSQL and create application databases.
+    options:
+      postgresql_version:
+        type: int
+        default: 16
+        choices: [14, 15, 16, 17]
+        description: Major PostgreSQL version.
+      postgresql_port:
+        type: int
+        default: 5432
+        description: TCP port.
+      postgresql_max_connections:
+        type: int
+        default: 200
+        description: Value of C(max_connections).
+      postgresql_databases:
+        type: list
+        elements: dict
+        default: []
+        description: Databases to create.
+        options:
+          name:
+            type: str
+            required: true
+          owner:
+            type: str
+            required: true

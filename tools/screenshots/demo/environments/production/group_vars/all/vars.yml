@@ -1,0 +1,7 @@
+---
+env_name: production
+domain: acme.example
+app_release: "2.13.4"
+nginx_worker_connections: 4096
+monitoring_enabled: true
+app_sentry_dsn: "https://key@sentry.acme.example/12"

@@ -1,0 +1,14 @@
+---
+- name: Install PostgreSQL {{ postgresql_version }}
+  ansible.builtin.package:
+    name: "postgresql-{{ postgresql_version }}"
+    state: present
+
+- name: Create databases
+  community.postgresql.postgresql_db:
+    name: "{{ item.name }}"
+    owner: "{{ item.owner }}"
+    port: "{{ postgresql_port }}"
+  loop: "{{ postgresql_databases }}"
+  become: true
+  become_user: postgres

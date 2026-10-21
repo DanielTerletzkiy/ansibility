@@ -239,7 +239,7 @@ class SpecValidator(
         }
         return targets.map { (target, path) ->
             val shown = (target as? YScalar)?.text
-            val hint = shown?.let { text.nearest(it, choiceTexts, maxOf(2, it.length / 2)) }
+            val hint = shown?.let { text.nearestChoice(it, choiceTexts, maxOf(2, it.length / 2)) }
             Finding(
                 DiagnosticCode.T004_CHOICE_MISMATCH,
                 "${text.core} would reject `${text.path(path)}`$ownerText: ${error.message}",

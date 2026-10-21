@@ -1,0 +1,37 @@
+---
+- name: Install nginx
+  ansible.builtin.apt:
+    name: nginx
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Render nginx.conf
+  ansible.builtin.template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/nginx.conf
+    owner: root
+    mode: "0644"
+    validate: nginx -t -c %s
+  notify: Reload nginx
+
+- name: Create the TLS directory
+  ansible.builtin.file:
+    path: /etc/nginx/tls
+    state: directory
+    mode: "0700"
+  when: nginx_tls_enabled
+
+- name: Install TLS certificate
+  ansible.builtin.copy:
+    content: "{{ nginx_tls_key }}"
+    dest: "/etc/nginx/tls/{{ domain }}.key"
+    mode: "0600"
+  when: nginx_tls_enabled
+  notify: Reload nginx
+
+- name: Ensure nginx is running
+  ansible.builtin.service:
+    name: nginx
+    state: started
+    enabled: true

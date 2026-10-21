@@ -1,6 +1,8 @@
 package de.terletzkiy.ansibility.vault.ui
 
 import com.intellij.codeInsight.daemon.LineMarkerInfo
+import com.intellij.codeInsight.daemon.impl.ShowIntentionsPass
+import com.intellij.codeInsight.intention.impl.CachedIntentions
 import com.intellij.icons.AllIcons
 import com.intellij.lang.folding.LanguageFolding
 import com.intellij.openapi.actionSystem.ActionManager
@@ -141,6 +143,20 @@ class VaultFoldingAndGutterTest : VaultUiTestCase() {
         awaitAction()
         assertEquals("hello world", CopyPasteManager.getInstance().getContents<String>(DataFlavor.stringFlavor))
         scheduler.advance(VaultUiTimings.CLIPBOARD_MILLIS)
+    }
+
+    fun testAltEnterListsEachValueActionOnce() {
+        myFixture.editor.caretModel.moveToOffset(myFixture.editor.document.text.indexOf("!vault"))
+        myFixture.doHighlighting()
+        // The Alt+Enter list as the editor builds it: intentions plus the line's gutter menus (availableIntentions leaves those out)
+        val info = runReadActionBlocking { ShowIntentionsPass.getActionsToShow(myFixture.editor, myFixture.file) }
+        val cached = CachedIntentions.createAndUpdateActions(project, myFixture.file, myFixture.editor, info)
+        cached.wrapAndUpdateGutters()
+        val texts = cached.allActions.map { it.text }
+        for (text in listOf("Reveal vault value", "Copy decrypted vault value", "Edit vault value\u2026", "Rekey vault value to id\u2026", "Change vault id\u2026", "Decrypt to plain value\u2026")) {
+            assertEquals("$text in $texts", 1, texts.count { it == text })
+        }
+        assertEquals("Unlock has no intention, so the marker's entry stays: $texts", 1, texts.count { it == "Unlock vault ids\u2026" })
     }
 
     fun testUnlockShowsWhileLockedAndUnlocksWithoutDecrypting() {

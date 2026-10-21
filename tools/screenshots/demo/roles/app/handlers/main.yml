@@ -1,0 +1,4 @@
+---
+- name: Restart app
+  ansible.builtin.debug:
+    msg: "Restarting acme {{ app_release }} (systemd is not available in this demo)"
