@@ -1,0 +1,2 @@
+# Generated at setup (README step 2): a private key must never be committed (PrivateKeySignaturesTest).
+demo/roles/nginx/files/staging.key
