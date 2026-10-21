@@ -8,7 +8,7 @@
         <checkinHandlerFactory implementation="de.terletzkiy.ansibility.vault.vcs.impl.SecretCheckinHandlerFactory"/>
         <!-- /d167 -->
         <!-- r28: the optional ansible-lint commit check (plan amendment R28, D-L4): off by default, late, errors only. -->
-        <checkinHandlerFactory implementation="de.terletzkiy.ansibility.lint.vcs.LintCheckinHandlerFactory"/>
+        <checkinHandlerFactory implementation="de.terletzkiy.ansibility.lint.vcs.impl.LintCheckinHandlerFactory"/>
         <!-- /r28 -->
     </extensions>
     <extensions defaultExtensionNs="de.terletzkiy.ansibility">

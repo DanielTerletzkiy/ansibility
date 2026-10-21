@@ -1,4 +1,4 @@
-package de.terletzkiy.ansibility.lint.vcs
+package de.terletzkiy.ansibility.lint.vcs.impl
 
 import com.intellij.openapi.application.readAction
 import com.intellij.openapi.diagnostic.logger
