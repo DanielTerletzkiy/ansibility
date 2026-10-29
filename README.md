@@ -36,6 +36,7 @@ Instead of treating Ansible as plain YAML, Ansibility understands your entire An
   * Timed and masked plaintext reveal popups.
   * In-place edit, copy plaintext, encrypt, decrypt, rekey, and change Vault ID.
   * Automatic folding for `!vault |` YAML blocks.
+* **Regenerate Secrets:** New random values for chosen `!vault` values of a file, folder or repository, encrypted directly with the same vault id and header (no plaintext on disk), with per-root generation rules (importable from a rotation script), equal values kept equal, one undo step, and the roles and templates that use each value in the summary.
 * **Whole-File Vault Editing:** Seamlessly open and edit whole-file encrypted vaults in dedicated, color-coded editor tabs with automatic background sync protection (vetoing accidental plaintext writes to disk).
 * **Password Manager CLIs:** Read vault passwords straight from **1Password** (`op`), **Bitwarden** (`bw`), **KeePassXC** (`keepassxc-cli`) or **Proton Pass** (`pass-cli`). Other sources: the IDE password store, a password file, an environment variable, a script, or a prompt. Each source can be tested from Settings.
 * **Password-Free Envelope Linting:** Static inspections detecting malformed vault envelopes (ANS-V101), folded values (ANS-V102), and trailing whitespace (ANS-V103) without requiring vault passwords.

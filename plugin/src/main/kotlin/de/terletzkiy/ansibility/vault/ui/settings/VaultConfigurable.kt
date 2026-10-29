@@ -42,6 +42,20 @@ import de.terletzkiy.ansibility.vault.keys.PlaintextKeyExclusions
 import de.terletzkiy.ansibility.vault.secrets.VaultSecretsService
 import de.terletzkiy.ansibility.vault.secrets.VaultUserState
 import de.terletzkiy.ansibility.vault.ui.AnsibilityVaultUiBundle.message
+import de.terletzkiy.ansibility.semantics.vault.GenerationRule
+import de.terletzkiy.ansibility.semantics.vault.GeneratorKind
+import de.terletzkiy.ansibility.semantics.vault.RotationScriptRules
+import de.terletzkiy.ansibility.semantics.vault.SecretGenerator
+import de.terletzkiy.ansibility.vault.regenerate.RegeneratePrompts
+import de.terletzkiy.ansibility.vault.regenerate.RegenerateTexts
+import de.terletzkiy.ansibility.vault.vcs.TrackedStatuses
+import com.intellij.openapi.vfs.VfsUtilCore
+import com.intellij.openapi.vfs.VirtualFile
+import java.io.IOException
+import javax.swing.DefaultCellEditor
+import javax.swing.table.DefaultTableCellRenderer
+import javax.swing.table.TableCellEditor
+import javax.swing.table.TableCellRenderer
 
 /**
  * Settings › Languages & Frameworks › Ansibility › Vault (plan amendment R7/R8, F7.9): per root, the vault ids and
@@ -49,7 +63,9 @@ import de.terletzkiy.ansibility.vault.ui.AnsibilityVaultUiBundle.message
  * prompt), and the environment → id mapping. Ids, kinds and locations go to the shared vault settings; typed
  * passwords go to the IDE password store only, written on Apply off the EDT and zeroed afterwards. Also ANS-V108's
  * allowlist (plan amendment R21, D162), one glob per line, shared with the project, and the commit check's switch
- * (D167), stored per user (`VaultUserState`), so a repository cannot turn it off.
+ * (D167), stored per user (`VaultUserState`), so a repository cannot turn it off. Per root also the secret generation
+ * rules of Regenerate Secrets… (plan amendment R29, D218), shared with the project, with Import from Script… (X131),
+ * which reads a rotation script's `case` arms without running it.
  */
 class VaultConfigurable(private val project: Project) : BoundSearchableConfigurable(message("settings.vault.name"), ID, ID) {
     internal data class RootEntry(
@@ -71,7 +87,18 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
 
     internal class EnvRow(val environment: String, var identity: String)
 
-    private class Edited(val ids: List<IdRow>, val envs: List<EnvRow>)
+    /** One secret generation rule as the table shows it (plan amendment R29, D218). */
+    internal class RuleRow(var pattern: String, var kind: GeneratorKind, var length: Int) {
+        fun toRule(): GenerationRule = GenerationRule(pattern.trim(), kind, length)
+
+        val isValid: Boolean get() = pattern.isNotBlank() && length in SecretGenerator.lengths(kind)
+
+        companion object {
+            fun of(rule: GenerationRule) = RuleRow(rule.pattern, rule.kind, rule.length)
+        }
+    }
+
+    private class Edited(val ids: List<IdRow>, val envs: List<EnvRow>, val rules: List<RuleRow>)
 
     private val settings = VaultProjectSettings.getInstance(project)
     private val edits = LinkedHashMap<String, Edited>()
@@ -113,6 +140,38 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
         },
     )
     private val envTable = TableView(envModel)
+    private val ruleModel = ListTableModel<RuleRow>(
+        object : ColumnInfo<RuleRow, String>(message("settings.vault.column.pattern")) {
+            override fun valueOf(item: RuleRow): String = item.pattern
+            override fun isCellEditable(item: RuleRow): Boolean = true
+            override fun setValue(item: RuleRow, value: String) {
+                item.pattern = value.trim()
+                capture()
+            }
+        },
+        object : ColumnInfo<RuleRow, GeneratorKind>(message("settings.vault.column.generator")) {
+            override fun valueOf(item: RuleRow): GeneratorKind = item.kind
+            override fun isCellEditable(item: RuleRow): Boolean = true
+            override fun setValue(item: RuleRow, value: GeneratorKind) {
+                item.kind = value
+                capture()
+            }
+            override fun getRenderer(item: RuleRow): TableCellRenderer = KindRenderer
+            override fun getEditor(item: RuleRow): TableCellEditor = DefaultCellEditor(ComboBox(GeneratorKind.entries.toTypedArray()).apply {
+                renderer = textListCellRenderer { it?.let(RegenerateTexts::kind) }
+            })
+        },
+        object : ColumnInfo<RuleRow, Int>(message("settings.vault.column.length")) {
+            override fun valueOf(item: RuleRow): Int = item.length
+            override fun isCellEditable(item: RuleRow): Boolean = true
+            override fun getColumnClass(): Class<*> = Int::class.javaObjectType
+            override fun setValue(item: RuleRow, value: Int) {
+                item.length = value
+                capture()
+            }
+        },
+    )
+    private val ruleTable = TableView(ruleModel)
     private val discoveredLabel = JBLabel()
     private val storedInLabel = JBLabel().apply {
         componentStyle = com.intellij.util.ui.UIUtil.ComponentStyle.SMALL
@@ -132,6 +191,12 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
             .setMoveDownAction { move(1) }
             .createPanel()
         val envs = ToolbarDecorator.createDecorator(envTable).disableAddAction().disableRemoveAction().disableUpDownActions().createPanel()
+        val rules = ToolbarDecorator.createDecorator(ruleTable)
+            .setAddAction { addRule() }
+            .setRemoveAction { removeRule() }
+            .setMoveUpAction { moveRule(-1) }
+            .setMoveDownAction { moveRule(1) }
+            .createPanel()
         val panel = panel {
             row(message("settings.vault.root")) {
                 cell(rootCombo)
@@ -145,6 +210,14 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
             group(message("settings.vault.envs")) {
                 row { cell(envs).align(Align.FILL) }
                 row { comment(message("settings.vault.envs.comment")) }
+            }
+            // Regenerate Secrets… (plan amendment R29, D218, X131): shared with the project.
+            group(message("settings.vault.rules")) {
+                row { cell(rules).align(Align.FILL) }
+                row {
+                    button(message("settings.vault.rules.import")) { importRules() }.applyToComponent { name = IMPORT_RULES_COMPONENT }
+                }
+                row { comment(message("settings.vault.rules.comment")) }
             }
             group(message("settings.vault.managers")) {
                 for (manager in PasswordManager.entries) {
@@ -264,6 +337,7 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
             val edited = entry?.let(::editedOf)
             idModel.items = edited?.ids.orEmpty().toMutableList()
             envModel.items = edited?.envs.orEmpty().toMutableList()
+            ruleModel.items = edited?.rules.orEmpty().toMutableList()
             storedInLabel.text = entry?.let { settings.repositoryFileOf(it.key) }?.let { message("settings.vault.storedIn", it) }.orEmpty()
             discoveredLabel.text = if (entry == null || entry.discovered.isEmpty()) message("settings.vault.discovered.none")
             else message("settings.vault.discovered", entry.discovered.joinToString("<br>"))
@@ -279,13 +353,13 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
         val ids = root.identities.map { IdRow(it.label, it.kind, it.location.orEmpty(), stored = it.label in entry.stored) }
         val environments = (entry.environments + root.environmentIdentities.keys.filter { it != VaultRootSettings.ANY_ENVIRONMENT }).distinct() +
             VaultRootSettings.ANY_ENVIRONMENT
-        return Edited(ids, environments.map { EnvRow(it, root.environmentIdentities[it].orEmpty()) })
+        return Edited(ids, environments.map { EnvRow(it, root.environmentIdentities[it].orEmpty()) }, root.generationRules.map(RuleRow::of))
     }
 
     private fun capture() {
         if (loading) return
         val entry = current ?: return
-        edits[entry.key] = Edited(idModel.items.toList(), envModel.items.toList())
+        edits[entry.key] = Edited(idModel.items.toList(), envModel.items.toList(), ruleModel.items.toList())
     }
 
     private fun edit(row: IdRow?) {
@@ -328,6 +402,57 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
         idModel.exchangeRows(index, target)
         idTable.selection = listOf(row)
         capture()
+    }
+
+    private fun addRule() {
+        if (current == null) return
+        ruleModel.addRow(RuleRow(GenerationRule.ANY, SecretGenerator.DEFAULT.kind, SecretGenerator.DEFAULT.length))
+        capture()
+    }
+
+    private fun removeRule() {
+        val row = ruleTable.selectedObject ?: return
+        ruleModel.removeRow(ruleModel.indexOf(row))
+        capture()
+    }
+
+    private fun moveRule(delta: Int) {
+        val row = ruleTable.selectedObject ?: return
+        val index = ruleModel.indexOf(row)
+        val target = index + delta
+        if (target !in 0 until ruleModel.rowCount) return
+        ruleModel.exchangeRows(index, target)
+        ruleTable.selection = listOf(row)
+        capture()
+    }
+
+    /**
+     * Import from Script… (X131): a rotation script chosen with [RegeneratePrompts.chooseScript] (starting at a
+     * `bin/<name>rotate<name>.sh` of the root's repository) is read as text, never run; the rules of its `case` arms
+     * are appended, and the arms it did not understand are named. EDT.
+     */
+    internal fun importRules() {
+        val entry = current ?: return
+        val prompts = RegeneratePrompts.getInstance()
+        val script = prompts.chooseScript(project, rootOf(entry.key)?.let(::rotationScriptOf)) ?: return
+        val text = try {
+            VfsUtilCore.loadText(script)
+        } catch (_: IOException) {
+            return prompts.importResult(project, 0, emptyList())
+        }
+        val parsed = RotationScriptRules.parse(text)
+        for (rule in parsed.rules) ruleModel.addRow(RuleRow.of(rule))
+        capture()
+        prompts.importResult(project, parsed.rules.size, parsed.skipped)
+    }
+
+    /** A `bin/<name>rotate<name>.sh` in [root]'s repository (or a folder above the root), or null. */
+    private fun rotationScriptOf(root: AnsibleRoot): VirtualFile? {
+        val repository = TrackedStatuses.getInstance(project).repositoryOf(root.dir)
+        val folders = listOfNotNull(repository) + generateSequence(root.dir) { it.parent }.take(ROTATION_SCRIPT_DEPTH)
+        return folders.firstNotNullOfOrNull { folder ->
+            folder.findChild("bin")?.children?.filter { !it.isDirectory && it.name.endsWith(".sh") && "rotate" in it.name }?.minByOrNull { it.name }
+        }
     }
 
     override fun isModified(): Boolean = super.isModified() || forgotten.values.any { it.isNotEmpty() } ||
@@ -375,6 +500,7 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
             ExplicitIdentity(row.label, row.kind, row.location.trim().takeIf { it.isNotEmpty() && row.kind != VaultSourceKind.PROMPT })
         },
         environmentIdentities = edited.envs.filter { it.identity.isNotBlank() }.associateTo(LinkedHashMap()) { it.environment to it.identity },
+        generationRules = edited.rules.filter { it.isValid }.map { it.toRule() },
     )
 
     private fun validate(key: String, edited: Edited) {
@@ -386,6 +512,9 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
         val known = labels.toSet() + rootEntries.firstOrNull { it.key == key }?.discovered.orEmpty().map { it.substringBefore(" \u00B7 ") }
         edited.envs.firstOrNull { it.identity.isNotBlank() && it.identity !in known }?.let {
             throw ConfigurationException(message("settings.vault.invalid.env.id", name, it.environment, it.identity))
+        }
+        edited.rules.firstOrNull { !it.isValid }?.let {
+            throw ConfigurationException(message("settings.vault.invalid.rule", name, it.pattern.ifBlank { "-" }))
         }
     }
 
@@ -414,6 +543,21 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
 
         /** The component name of the commit check's checkbox (tests find it by name). */
         const val COMMIT_CHECK_COMPONENT = "ansibility.vault.checkCommits"
+
+        /** The component name of Import from Script… (X131; tests find it by name). */
+        const val IMPORT_RULES_COMPONENT = "ansibility.vault.importRules"
+
+        /** How many folders up from a root Import from Script… looks for `bin/`. */
+        private const val ROTATION_SCRIPT_DEPTH = 4
+
+        /** Renders a generator kind by its name. */
+        private object KindRenderer : DefaultTableCellRenderer() {
+            private fun readResolve(): Any = KindRenderer
+
+            override fun setValue(value: Any?) {
+                text = (value as? GeneratorKind)?.let(RegenerateTexts::kind).orEmpty()
+            }
+        }
 
         private const val ALLOWLIST_ROWS = 3
 

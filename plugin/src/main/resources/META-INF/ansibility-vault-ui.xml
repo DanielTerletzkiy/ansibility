@@ -164,6 +164,40 @@
                             serviceImplementation="de.terletzkiy.ansibility.vault.monitor.SecretTabDialogPrompts"/>
     </extensions>
     <!-- /d165-d166 -->
+    <!-- r29: plan amendment R29, Part 2 (D215-D222, X97, X130, X131): Regenerate Secrets… on the re-encryption engine
+         (vault.reencrypt), the intentions "Regenerate secret" and "Generate and encrypt", and the questions of both
+         (tests replace them). Ansibility.Vault.Rotation is the separator group the menus get after Change Vault Id…;
+         Part 1's Rotate Vault Password… joins it. -->
+    <extensions defaultExtensionNs="com.intellij">
+        <applicationService serviceInterface="de.terletzkiy.ansibility.vault.regenerate.RegeneratePrompts"
+                            serviceImplementation="de.terletzkiy.ansibility.vault.regenerate.RegenerateDialogPrompts"/>
+        <intentionAction>
+            <language>yaml</language>
+            <className>de.terletzkiy.ansibility.vault.regenerate.VaultRegenerateIntention</className>
+            <bundleName>messages.AnsibilityVaultUiBundle</bundleName>
+            <categoryKey>intention.category</categoryKey>
+            <skipBeforeAfter>true</skipBeforeAfter>
+        </intentionAction>
+        <intentionAction>
+            <language>yaml</language>
+            <className>de.terletzkiy.ansibility.vault.regenerate.VaultGenerateAndEncryptIntention</className>
+            <bundleName>messages.AnsibilityVaultUiBundle</bundleName>
+            <categoryKey>intention.category</categoryKey>
+            <skipBeforeAfter>true</skipBeforeAfter>
+        </intentionAction>
+    </extensions>
+    <actions resource-bundle="messages.AnsibilityVaultUiBundle">
+        <action id="Ansibility.Vault.RegenerateSecrets" class="de.terletzkiy.ansibility.vault.actions.RegenerateSecretsAction">
+            <synonym key="action.Ansibility.Vault.RegenerateSecrets.synonym"/>
+        </action>
+        <group id="Ansibility.Vault.Rotation" searchable="false">
+            <separator/>
+            <reference ref="Ansibility.Vault.RegenerateSecrets"/>
+            <add-to-group group-id="Ansibility.Vault.FileMenu" anchor="last"/>
+            <add-to-group group-id="Ansibility.Vault.ToolsMenu" anchor="last"/>
+        </group>
+    </actions>
+    <!-- /r29 -->
     <!-- F7.9: Settings › Ansibility › Vault: ids per root, IDE password store, 1Password, env → id -->
     <extensions defaultExtensionNs="com.intellij">
         <projectConfigurable parentId="de.terletzkiy.ansibility.settings"

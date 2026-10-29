@@ -129,6 +129,15 @@ internal object VaultValuePsi {
     }
 
     /**
+     * The end offset of an anchor written inside [scalar]'s own range (`vault_x: &pw placeholder`), or null when it has
+     * none there. A writer that replaces the value starts after it, so the anchor stays (plan amendment R29, D220).
+     */
+    fun anchorEnd(scalar: YAMLScalar): Int? {
+        PsiTreeUtil.getChildOfType(scalar, YAMLAnchor::class.java)?.let { return it.textRange.endOffset }
+        return generateSequence(scalar.firstChild) { it.nextSibling }.firstOrNull { it.elementType == YAMLTokenTypes.ANCHOR }?.textRange?.endOffset
+    }
+
+    /**
      * The comment that belongs to [scalar]'s first line: after a one-line value (`password: s3cret  # rotate`, outside
      * the scalar) or after a block indicator (`cert: |  # PEM`, inside it). Returns the range to replace together with
      * the value (null when the comment lies inside the value's own range) and the comment text.

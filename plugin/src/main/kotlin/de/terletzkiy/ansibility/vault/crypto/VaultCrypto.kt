@@ -135,6 +135,18 @@ class VaultCrypto : Disposable {
         idle.isNotEmpty()
     }
 
+    /**
+     * Zeroes and drops the cached plaintexts of [fingerprint] in [rootKey], whatever id decrypted them: after Regenerate
+     * Secrets… replaced the value (plan amendment R29), its old plaintext has no reason to stay in memory.
+     */
+    fun forgetPlaintexts(rootKey: String, fingerprint: String) {
+        val prefix = "$rootKey\u0000$fingerprint\u0000"
+        synchronized(plaintexts) {
+            val gone = plaintexts.keys.filter { it.startsWith(prefix) }
+            for (key in gone) plaintexts.remove(key)?.bytes?.fill(0)
+        }
+    }
+
     /** Zeroes and drops every cached plaintext (root change, lock, project close). */
     fun clearPlaintexts() {
         synchronized(plaintexts) {

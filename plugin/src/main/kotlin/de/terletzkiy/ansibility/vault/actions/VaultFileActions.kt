@@ -8,8 +8,10 @@ import com.intellij.openapi.fileTypes.FileTypeRegistry
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
+import de.terletzkiy.ansibility.vault.regenerate.RegenerateService
 import de.terletzkiy.ansibility.vault.envelope.VaultEnvelopes
 import de.terletzkiy.ansibility.vault.ui.AnsibilityVaultUiBundle.message
 import org.jetbrains.annotations.Nls
@@ -31,6 +33,19 @@ internal object VaultFileSelection {
     fun inRoots(project: Project, selection: List<VirtualFile>): List<VirtualFile> {
         val workspace = AnsibleWorkspace.getInstance(project)
         return selection.asSequence().take(INSPECTED).filter { it.isValid && it.isInLocalFileSystem && workspace.rootFor(it) != null }.toList()
+    }
+
+    /**
+     * The items of [selection] inside an Ansible root, and folders that hold one (a repository folder with its
+     * `ansible` root; plan amendment R29, D215), of the first [INSPECTED]. Read action.
+     */
+    fun inOrAboveRoots(project: Project, selection: List<VirtualFile>): List<VirtualFile> {
+        val workspace = AnsibleWorkspace.getInstance(project)
+        val roots by lazy { workspace.roots().filter { !it.detached }.map { it.dir } }
+        return selection.asSequence().take(INSPECTED).filter { item ->
+            item.isValid && item.isInLocalFileSystem &&
+                (workspace.rootFor(item) != null || item.isDirectory && roots.any { VfsUtilCore.isAncestor(item, it, false) })
+        }.toList()
     }
 
     fun isYaml(file: VirtualFile): Boolean = FileTypeRegistry.getInstance().isFileOfType(file, YAMLFileType.YML)
@@ -61,7 +76,7 @@ abstract class VaultFileAction : DumbAwareAction() {
 
     final override fun update(e: AnActionEvent) {
         val project = e.project
-        val relevant = project?.let { VaultFileSelection.inRoots(it, VaultFileSelection.of(e)).filter(::accepts) }.orEmpty()
+        val relevant = project?.let { relevant(it, VaultFileSelection.of(e)) }.orEmpty()
         e.presentation.isEnabledAndVisible = relevant.isNotEmpty()
         if (relevant.isNotEmpty()) e.presentation.text = VaultActionTexts.forPlace(e, text(relevant) ?: message(menuKey))
     }
@@ -72,17 +87,24 @@ abstract class VaultFileAction : DumbAwareAction() {
     final override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
         val selection = VaultFileSelection.of(e).filter { it.isValid }
-        if (selection.isNotEmpty()) perform(VaultFileOperations.getInstance(project), selection)
+        if (selection.isNotEmpty()) perform(project, selection)
     }
 
     /** True when the action applies to [file] (a file or folder inside a root). */
     protected abstract fun accepts(file: VirtualFile): Boolean
 
+    /** The items of [selection] the action applies to (inside roots, by [accepts]). Read action. */
+    protected open fun relevant(project: Project, selection: List<VirtualFile>): List<VirtualFile> =
+        VaultFileSelection.inRoots(project, selection).filter(::accepts)
+
+    /** Runs the action on [selection] (EDT); the R18 actions hand it to [VaultFileOperations]. */
+    protected open fun perform(project: Project, selection: List<VirtualFile>) = perform(VaultFileOperations.getInstance(project), selection)
+
     /** The short text for the [relevant] items when it differs from the one-file text (counts), or null. */
     @Nls
     protected open fun text(relevant: List<VirtualFile>): String? = null
 
-    protected abstract fun perform(operations: VaultFileOperations, selection: List<VirtualFile>)
+    protected open fun perform(operations: VaultFileOperations, selection: List<VirtualFile>) = Unit
 
     /** [many] with the number of files when several are selected, [folder] when a folder is, else null (the one-file text). */
     @Nls
@@ -138,6 +160,22 @@ class ChangeFileIdAction : VaultFileAction() {
 }
 
 /**
+ * Ansibility Vault › Regenerate Secrets… (plan amendment R29, D215): YAML files (their `!vault` values and plaintext
+ * `vault_*` values), folders, roots and repository folders that hold roots; new random values, encrypted directly
+ * ([RegenerateService]).
+ */
+class RegenerateSecretsAction : VaultFileAction() {
+    override val menuKey: String get() = "file.action.regenerate"
+
+    override fun accepts(file: VirtualFile): Boolean = file.isDirectory || VaultFileSelection.isYaml(file) && !VaultEnvelopes.isWholeFileVault(file)
+
+    override fun relevant(project: Project, selection: List<VirtualFile>): List<VirtualFile> =
+        VaultFileSelection.inOrAboveRoots(project, selection).filter(::accepts)
+
+    override fun perform(project: Project, selection: List<VirtualFile>) = RegenerateService.getInstance(project).regenerate(selection)
+}
+
+/**
  * New › Ansibility Vault File (an Ansible Vault file), in a directory of an Ansible root (or the directory of a selected
  * file); Find Action and the Keymap call it `Ansibility Vault: New Vault File` (D142).
  */
@@ -161,13 +199,16 @@ class NewVaultFileAction : DumbAwareAction() {
     private fun directoryOf(e: AnActionEvent): VirtualFile? = e.getData(CommonDataKeys.VIRTUAL_FILE)?.let { if (it.isDirectory) it else it.parent }
 }
 
-/** The "Ansibility Vault" menus (context menus and Tools): shown for a selection inside an Ansible root; the actions decide the rest. */
+/**
+ * The "Ansibility Vault" menus (context menus and Tools): shown for a selection inside an Ansible root or a folder that
+ * holds one (R29: Regenerate Secrets… works on repository folders); the actions decide the rest.
+ */
 class VaultFileActionGroup : DefaultActionGroup(), DumbAware {
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
 
     override fun update(e: AnActionEvent) {
         val project = e.project
-        e.presentation.isVisible = project != null && VaultFileSelection.inRoots(project, VaultFileSelection.of(e)).isNotEmpty()
+        e.presentation.isVisible = project != null && VaultFileSelection.inOrAboveRoots(project, VaultFileSelection.of(e)).isNotEmpty()
         e.presentation.isHideGroupIfEmpty = true
     }
 }

@@ -2,17 +2,11 @@ package de.terletzkiy.ansibility.vault.actions
 
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.EDT
-import com.intellij.openapi.application.ReadConstraint
-import com.intellij.openapi.application.constrainedReadAction
 import com.intellij.openapi.application.readAction
 import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.openapi.command.WriteCommandAction
-import com.intellij.openapi.command.undo.BasicUndoableAction
-import com.intellij.openapi.command.undo.UndoManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
-import com.intellij.openapi.editor.Document
-import com.intellij.openapi.editor.ex.DocumentEx
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileTypes.FileTypeManager
 import com.intellij.openapi.fileTypes.FileTypeRegistry
@@ -20,15 +14,12 @@ import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ProjectFileIndex
 import com.intellij.openapi.util.Disposer
-import com.intellij.openapi.util.text.StringUtil
 import com.intellij.openapi.vfs.VFileProperty
 import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.toNioPathOrNull
 import com.intellij.platform.ide.progress.withBackgroundProgress
-import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiManager
-import com.intellij.ui.EditorNotifications
 import com.intellij.util.concurrency.ThreadingAssertions
 import de.terletzkiy.ansibility.api.AnsibleRoot
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
@@ -36,24 +27,30 @@ import de.terletzkiy.ansibility.api.SourceLocation
 import de.terletzkiy.ansibility.api.VaultDecryptResult
 import de.terletzkiy.ansibility.api.VaultEncryptResult
 import de.terletzkiy.ansibility.api.VaultFailure
-import de.terletzkiy.ansibility.api.VaultLockState
 import de.terletzkiy.ansibility.api.VaultOperations
 import de.terletzkiy.ansibility.api.VaultPurpose
 import de.terletzkiy.ansibility.api.VaultRootConfig
 import de.terletzkiy.ansibility.api.VaultStatusService
-import de.terletzkiy.ansibility.api.VaultUnlockResult
 import de.terletzkiy.ansibility.semantics.vault.EncryptIdentity
-import de.terletzkiy.ansibility.semantics.vault.EnvelopeParse
 import de.terletzkiy.ansibility.semantics.vault.VaultEnvelope
+import de.terletzkiy.ansibility.semantics.vault.VaultShapeKind
 import de.terletzkiy.ansibility.vault.AnsibilityVaultBundle
 import de.terletzkiy.ansibility.vault.VaultCorpusGuardException
 import de.terletzkiy.ansibility.vault.VaultLog
-import de.terletzkiy.ansibility.semantics.vault.VaultShapeKind
 import de.terletzkiy.ansibility.vault.envelope.VaultEnvelopes
 import de.terletzkiy.ansibility.vault.envelope.WholeFileShapes
 import de.terletzkiy.ansibility.vault.identity.SecretPlan
 import de.terletzkiy.ansibility.vault.identity.VaultIdentityRegistry
-import de.terletzkiy.ansibility.vault.secrets.VaultSecretsService
+import de.terletzkiy.ansibility.vault.reencrypt.Decryption
+import de.terletzkiy.ansibility.vault.reencrypt.Encryption
+import de.terletzkiy.ansibility.vault.reencrypt.FileOutcome
+import de.terletzkiy.ansibility.vault.reencrypt.ItemOutcome
+import de.terletzkiy.ansibility.vault.reencrypt.NewPlaintext
+import de.terletzkiy.ansibility.vault.reencrypt.ReencryptItem
+import de.terletzkiy.ansibility.vault.reencrypt.ReencryptTarget
+import de.terletzkiy.ansibility.vault.reencrypt.ReencryptionEngine
+import de.terletzkiy.ansibility.vault.reencrypt.ReencryptionRun
+import de.terletzkiy.ansibility.vault.reencrypt.ReencryptionWriter
 import de.terletzkiy.ansibility.vault.tab.DecryptedVaultTabs
 import de.terletzkiy.ansibility.vault.ui.AnsibilityVaultUiBundle.message
 import de.terletzkiy.ansibility.vault.ui.VaultUiFeedback
@@ -69,7 +66,6 @@ import kotlinx.coroutines.withContext
 import org.jetbrains.annotations.Nls
 import org.jetbrains.annotations.TestOnly
 import org.jetbrains.yaml.YAMLFileType
-import org.jetbrains.yaml.psi.YAMLScalar
 import java.io.IOException
 import java.nio.file.FileSystems
 import java.nio.file.Files
@@ -106,6 +102,10 @@ import java.nio.file.attribute.PosixFilePermissions
  *
  * Plaintext lives in short-lived arrays that are zeroed when done; only Decrypt File in Place, after its confirmation,
  * writes it, and the undo stack of an encrypted file holds its old text (in memory, as for any edit).
+ *
+ * Since plan amendment R29 the crypto and write mechanics live in the re-encryption engine
+ * (`vault.reencrypt.ReencryptionEngine`, `ReencryptionWriter`), shared with Regenerate Secrets… and Rotate Vault
+ * Password…; Rekey and Change Id run on it per file (write mode 1), with unchanged behaviour.
  */
 @Service(Service.Level.PROJECT)
 class VaultFileOperations(private val project: Project, private val scope: CoroutineScope) {
@@ -114,6 +114,10 @@ class VaultFileOperations(private val project: Project, private val scope: Corou
 
     @Volatile
     private var modes: FileModes = FileModes.POSIX
+
+    /** The re-encryption engine (plan amendment R29) and its writer, which hold R18's mechanics now. */
+    private val engine = ReencryptionEngine(project)
+    private val writer = ReencryptionWriter(project) { modes }
 
     /** The running or last operation, for tests that wait for it. */
     @get:TestOnly
@@ -244,12 +248,12 @@ class VaultFileOperations(private val project: Project, private val scope: Corou
             }
             if (planned.isEmpty()) return@launch onEdt { finishNothing(message("file.encrypt.none"), skipped) }
             val labels = onEdt { encryptLabels(planned) } ?: return@launch
-            val unlocks = Unlocks()
+            val run = ReencryptionRun(FileOperation.ENCRYPT.purpose)
             runBatch(Batch(skipped, history = true) { message("file.encrypt.done", it.size, it.joinToString(", ")) }) { batch ->
                 for (plan in planned) {
                     currentCoroutineContext().ensureActive()
                     val label = labels.getValue(plan.file)
-                    batch.record(encryptFile(plan.file, plan.root, label, unlocks), plan.file) { message("file.name.with.id", plan.file.name, label) }
+                    batch.record(encryptFile(plan.file, plan.root, label, run), plan.file) { message("file.name.with.id", plan.file.name, label) }
                 }
             }
         }
@@ -312,8 +316,8 @@ class VaultFileOperations(private val project: Project, private val scope: Corou
     }
 
     /** Encrypts [file] with [label]'s secret and writes the envelope over it, provided it did not change meanwhile. */
-    private suspend fun encryptFile(file: VirtualFile, root: AnsibleRoot, label: String, unlocks: Unlocks): FileOutcome {
-        ensureUnlocked(root, label, unlocks)?.let { return FileOutcome.Failed(it) }
+    private suspend fun encryptFile(file: VirtualFile, root: AnsibleRoot, label: String, run: ReencryptionRun): FileOutcome {
+        engine.ensureUnlocked(root, label, run)?.let { return FileOutcome.Failed(it) }
         val stamp = readAction { file.modificationStamp }
         val bytes = try {
             withContext(Dispatchers.IO) { file.contentsToByteArray() }
@@ -325,7 +329,7 @@ class VaultFileOperations(private val project: Project, private val scope: Corou
             return when (val result = VaultOperations.getInstance(project).encrypt(root, bytes, label, file)) {
                 is VaultEncryptResult.Failed -> FileOutcome.Failed(result.failure)
                 is VaultEncryptResult.Encrypted -> onEdt {
-                    write(file, stamp, Content.Envelope(result.envelope), message(FileOperation.ENCRYPT.commandKey), private = true)
+                    writer.write(file, stamp, ReencryptionWriter.Content.Envelope(result.envelope), message(FileOperation.ENCRYPT.commandKey), private = true)
                 }
             }
         } finally {
@@ -343,12 +347,12 @@ class VaultFileOperations(private val project: Project, private val scope: Corou
             val (planned, skipped) = readAction { vaultFiles(filesOf(selection)) }
             if (planned.isEmpty()) return@launch onEdt { finishNothing(message("file.decrypt.none"), skipped) }
             if (!onEdt { VaultActionPrompts.getInstance().confirmFiles(project, FileOperation.DECRYPT, planned.map { it.first.name }) }) return@launch
-            val unlocks = Unlocks()
+            val run = ReencryptionRun(FileOperation.DECRYPT.purpose)
             runBatch(Batch(skipped) { message("file.decrypt.done", it.size, it.joinToString(", ")) }) { batch ->
                 for ((file, root) in planned) {
                     currentCoroutineContext().ensureActive()
-                    val outcome = withWholeFile(file, root, FileOperation.DECRYPT.purpose, unlocks) { stamp, _, plaintext, _ ->
-                        onEdt { write(file, stamp, Content.Plain(plaintext), message(FileOperation.DECRYPT.commandKey), private = true) }
+                    val outcome = withWholeFile(file, root, run) { stamp, plaintext ->
+                        onEdt { writer.write(file, stamp, ReencryptionWriter.Content.Plain(plaintext), message(FileOperation.DECRYPT.commandKey), private = true) }
                     }
                     batch.record(outcome, file) { file.name }
                 }
@@ -383,7 +387,7 @@ class VaultFileOperations(private val project: Project, private val scope: Corou
                 for ((root, target) in targets) {
                     for (item in byRoot.getValue(root)) {
                         currentCoroutineContext().ensureActive()
-                        val outcome = run.unlocks.ids[root to target]?.let { FileOutcome.Failed(it) } ?: when (item) {
+                        val outcome = run.engineRun.failedIds[root to target]?.let { FileOutcome.Failed(it) } ?: when (item) {
                             is Target.WholeFile -> reencryptWholeFile(item.file, root, target, run)
                             is Target.Values -> reencryptValues(item.file, root, target, run)
                         }
@@ -423,118 +427,44 @@ class VaultFileOperations(private val project: Project, private val scope: Corou
     }
 
     /** The answers and unlocks of one rekey or change id run (on its coroutine). */
-    private class Reencryption(val operation: FileOperation) {
-        val relabelOnly: Boolean get() = operation == FileOperation.CHANGE_ID
+    private inner class Reencryption(val operation: FileOperation) {
+        /** The engine's run: a root whose id could not be unlocked (or whose unlock you cancelled) is not asked again. */
+        val engineRun = ReencryptionRun(operation.purpose)
 
         /**
          * Change id: re-encrypt what the target's secret does not decrypt? By root and the id that does, asked once each:
          * the same id in another root is another secret, and that root has its own target.
          */
-        val agreed = HashMap<Pair<AnsibleRoot, String>, Boolean>()
+        private val agreed = HashMap<Pair<AnsibleRoot, String>, Boolean>()
 
-        /** A root whose target id could not be unlocked (or whose unlock you cancelled): its other files are not tried. */
-        val unlocks = Unlocks()
+        /** How the engine encrypts for [target]: Rekey with its secret, Change Id relabelling where it can (D131). */
+        fun encryption(target: String): Encryption =
+            if (operation == FileOperation.CHANGE_ID) Encryption.ChangeId(target) { root, identity -> confirm(root, target, identity) }
+            else Encryption.ConfiguredId(target)
+
+        private suspend fun confirm(root: AnsibleRoot, target: String, identity: String): Boolean = agreed.getOrPut(root to identity) {
+            onEdt { VaultActionPrompts.getInstance().confirmRekeyFilesForChangeId(project, root.displayName, target, identity) }
+        }
     }
 
-    private suspend fun reencryptWholeFile(file: VirtualFile, root: AnsibleRoot, target: String, run: Reencryption): FileOutcome =
-        withWholeFile(file, root, run.operation.purpose, run.unlocks) { stamp, envelope, plaintext, identity ->
-            when (val next = newEnvelope(run, root, file, envelope, plaintext, identity, target)) {
-                is NewEnvelope.Ready -> onEdt { write(file, stamp, Content.Envelope(next.text), message(run.operation.commandKey), private = false) }
-                NewEnvelope.Same -> FileOutcome.Unchanged
-                NewEnvelope.Declined -> FileOutcome.Cancelled
-                is NewEnvelope.Failed -> FileOutcome.Failed(next.failure)
-            }
-        }
+    private suspend fun reencryptWholeFile(file: VirtualFile, root: AnsibleRoot, target: String, run: Reencryption): FileOutcome {
+        val item = ReencryptItem(root, ReencryptTarget.WholeFile(file), Decryption.RootSecrets, NewPlaintext.Keep, run.encryption(target))
+        val prepared = engine.prepare(listOf(item), run.engineRun).items.single()
+        val ready = prepared.ready ?: return FileOutcome.of(prepared.outcome)
+        val stamp = prepared.stamp ?: return FileOutcome.Changed
+        return onEdt { writer.write(file, stamp, ReencryptionWriter.Content.Envelope(ready.envelope.format()), message(run.operation.commandKey), private = false) }
+    }
 
     /** All `!vault` values of [file] to [target]: decrypted and encrypted first, then written in one command (or not at all). */
     private suspend fun reencryptValues(file: VirtualFile, root: AnsibleRoot, target: String, run: Reencryption): FileOutcome {
         val refs = readAction { PsiManager.getInstance(project).findFile(file)?.let(VaultValuePsi::vaultScalars).orEmpty().mapNotNull(VaultValueRef::of) }
         if (refs.isEmpty()) return FileOutcome.Unchanged
-        val replacements = ArrayList<Pair<VaultValueRef, VaultEnvelope>>()
-        for (ref in refs) {
-            currentCoroutineContext().ensureActive()
-            val envelope = ref.envelope ?: return FileOutcome.Failed(VaultFailure.FORMAT)
-            val decrypted = when (val result = decryptValue(ref, root, envelope, run)) {
-                null -> return FileOutcome.Changed
-                is VaultDecryptResult.Failed -> return FileOutcome.Failed(result.failure)
-                is VaultDecryptResult.Decrypted -> result
-            }
-            val next = decrypted.plaintext.use { plaintext ->
-                val bytes = plaintext.read { it.copyOf() }
-                try {
-                    newEnvelope(run, root, file, envelope, bytes, decrypted.identity, target)
-                } finally {
-                    bytes.fill(0)
-                }
-            }
-            when (next) {
-                is NewEnvelope.Ready -> replacements += ref to (parse(next.text) ?: return FileOutcome.Failed(VaultFailure.FORMAT))
-                NewEnvelope.Same -> Unit
-                NewEnvelope.Declined -> return FileOutcome.Cancelled
-                is NewEnvelope.Failed -> return FileOutcome.Failed(next.failure)
-            }
-        }
+        val items = refs.map { ReencryptItem(root, ReencryptTarget.Value(it), Decryption.RootSecrets, NewPlaintext.Keep, run.encryption(target)) }
+        val plan = engine.prepare(items, run.engineRun, stopAtFirstFailure = true)
+        plan.items.firstOrNull { it.ready == null && it.outcome != ItemOutcome.Unchanged }?.let { return FileOutcome.of(it.outcome) }
+        val replacements = plan.items.mapNotNull { prepared -> prepared.ready?.let { (prepared.item.target as ReencryptTarget.Value).ref to it.envelope } }
         if (replacements.isEmpty()) return FileOutcome.Unchanged
-        return onEdt { writeValues(file, replacements, message(run.operation.commandKey)) }
-    }
-
-    /**
-     * Decrypts the `!vault` value [ref] captured and no other. The vault services resolve an offset, and an edit above the
-     * value moves it, so the value is found again through its smart pointer right before each try (documents committed),
-     * and a try counts only when the document did not change until it returned; otherwise it is tried again. Null when
-     * the value changed or is gone, or its document kept changing.
-     */
-    private suspend fun decryptValue(ref: VaultValueRef, root: AnsibleRoot, envelope: VaultEnvelope, run: Reencryption): VaultDecryptResult? {
-        repeat(VALUE_ATTEMPTS) {
-            val pinned = constrainedReadAction(ReadConstraint.withDocumentsCommitted(project)) { pin(ref) } ?: return null
-            val result = decryptUnlocking(pinned.location, root, envelope, run.operation.purpose, run.unlocks)
-            if (readAction { pinned.document.modificationSequence } == pinned.sequence) return result
-            when (result) {
-                is VaultDecryptResult.Decrypted -> result.plaintext.close()
-                // A cancelled prompt stays cancelled; any other failure may be another value's.
-                is VaultDecryptResult.Failed -> if (result.failure == VaultFailure.CANCELLED) return result
-            }
-        }
-        return null
-    }
-
-    /** Where [ref]'s value is now, with its document and the document's modification sequence; null when the value changed or is gone. Read action. */
-    private fun pin(ref: VaultValueRef): Pinned? {
-        val scalar = ref.scalar?.takeIf { it.isValid && it.textValue == ref.envelopeText } ?: return null
-        val document = FileDocumentManager.getInstance().getDocument(ref.file) as? DocumentEx ?: return null
-        return Pinned(SourceLocation(ref.file, VaultValuePsi.valueStart(scalar)), document, document.modificationSequence)
-    }
-
-    /**
-     * A `!vault` value found again right before a decrypt. The modification sequence grows with every change of the
-     * document, undo included (the modification stamp goes back on undo), so an unchanged one means the decrypt resolved
-     * [location] in the same text.
-     */
-    private class Pinned(val location: SourceLocation, val document: DocumentEx, val sequence: Int)
-
-    /**
-     * The envelope [plaintext] gets under [target]: for change id, the same envelope relabelled when [identity] (the id
-     * that decrypted it) is the target, else encrypted again with the target's secret (for change id after one
-     * question per decrypting id).
-     */
-    private suspend fun newEnvelope(
-        run: Reencryption, root: AnsibleRoot, file: VirtualFile, envelope: VaultEnvelope, plaintext: ByteArray, identity: String, target: String,
-    ): NewEnvelope {
-        if (run.relabelOnly && identity == target) {
-            val relabelled = envelope.withLabel(target)
-            return if (relabelled == envelope) NewEnvelope.Same else NewEnvelope.Ready(relabelled.format())
-        }
-        if (run.relabelOnly) {
-            val yes = run.agreed.getOrPut(root to identity) {
-                onEdt { VaultActionPrompts.getInstance().confirmRekeyFilesForChangeId(project, root.displayName, target, identity) }
-            }
-            if (!yes) return NewEnvelope.Declined
-        }
-        ensureUnlocked(root, target, run.unlocks)?.let { return NewEnvelope.Failed(it) }
-        return when (val result = VaultOperations.getInstance(project).encrypt(root, plaintext, target, file)) {
-            is VaultEncryptResult.Failed -> NewEnvelope.Failed(result.failure)
-            is VaultEncryptResult.Encrypted -> NewEnvelope.Ready(result.envelope)
-        }
+        return onEdt { writer.writeValues(file, replacements, message(run.operation.commandKey)) }
     }
 
     // ------------------------------------------------------------------------------------------------ new file
@@ -564,7 +494,7 @@ class VaultFileOperations(private val project: Project, private val scope: Corou
         // A YAML vault starts as a YAML document; anything else starts empty.
         val start = if (name.endsWith(".yml") || name.endsWith(".yaml")) "---\n" else ""
         launch(message("file.progress.new")) {
-            ensureUnlocked(root, label, Unlocks())?.let { failure -> return@launch onEdt { VaultUiFeedback.failure(project, null, failure) } }
+            engine.ensureUnlocked(root, label, ReencryptionRun(FileOperation.ENCRYPT.purpose))?.let { failure -> return@launch onEdt { VaultUiFeedback.failure(project, null, failure) } }
             val envelope = when (val result = VaultOperations.getInstance(project).encrypt(root, start.toByteArray(Charsets.UTF_8), label, null)) {
                 is VaultEncryptResult.Failed -> return@launch onEdt { VaultUiFeedback.failure(project, null, result.failure) }
                 is VaultEncryptResult.Encrypted -> result.envelope
@@ -575,7 +505,7 @@ class VaultFileOperations(private val project: Project, private val scope: Corou
                 val file = WriteCommandAction.writeCommandAction(project).withName(message("file.command.new")).compute<VirtualFile, IOException> {
                     directory.createChildData(this, name).also {
                         // The mode before the content (an envelope, so the file is kept when the mode cannot be set).
-                        private = makePrivate(it)
+                        private = writer.makePrivate(it)
                         it.setBinaryContent(envelope.toByteArray(Charsets.US_ASCII))
                     }
                 }
@@ -642,248 +572,30 @@ class VaultFileOperations(private val project: Project, private val scope: Corou
     // ------------------------------------------------------------------------------------------------ crypto
 
     /**
-     * Decrypts the whole-file vault [file] (unlocking its root lazily) and runs [block] with the stamp it was read at,
-     * its envelope, the plaintext (zeroed afterwards) and the id that decrypted it.
+     * Decrypts the whole-file vault [file] (unlocking its root lazily, once per [run]) and runs [block] with the stamp
+     * it was read at and the plaintext (zeroed afterwards).
      */
-    private suspend fun withWholeFile(
-        file: VirtualFile, root: AnsibleRoot, purpose: VaultPurpose, unlocks: Unlocks, block: suspend (Long, VaultEnvelope, ByteArray, String) -> FileOutcome,
-    ): FileOutcome {
+    private suspend fun withWholeFile(file: VirtualFile, root: AnsibleRoot, run: ReencryptionRun, block: suspend (Long, ByteArray) -> FileOutcome): FileOutcome {
         val (stamp, envelope) = readAction { file.modificationStamp to VaultEnvelopes.ofFile(file)?.envelope }
         envelope ?: return FileOutcome.Failed(VaultFailure.FORMAT)
-        val decrypted = when (val result = decryptUnlocking(SourceLocation(file, 0), root, envelope, purpose, unlocks)) {
+        val decrypted = when (val result = engine.decryptUnlocking(SourceLocation(file, 0), root, envelope, run)) {
             is VaultDecryptResult.Failed -> return FileOutcome.Failed(result.failure)
             is VaultDecryptResult.Decrypted -> result
         }
         return decrypted.plaintext.use { plaintext ->
             val bytes = plaintext.read { it.copyOf() }
             try {
-                block(stamp, envelope, bytes, decrypted.identity)
+                block(stamp, bytes)
             } finally {
                 bytes.fill(0)
             }
         }
     }
 
-    /**
-     * Decrypts at [location]; a locked root is unlocked first (consent, password safe, a prompt checked against
-     * [envelope]), once per run: when that failed or you cancelled it, or the root is still locked afterwards, its later
-     * files fail at once without asking again.
-     */
-    private suspend fun decryptUnlocking(location: SourceLocation, root: AnsibleRoot, envelope: VaultEnvelope, purpose: VaultPurpose, unlocks: Unlocks): VaultDecryptResult {
-        val operations = VaultOperations.getInstance(project)
-        val first = operations.decrypt(location, purpose)
-        if (first !is VaultDecryptResult.Failed || first.failure != VaultFailure.LOCKED) return first
-        unlocks.decrypting[root]?.let { return VaultDecryptResult.Failed(it, first.tried) }
-        val failure = (VaultSecretsService.getInstance(project).unlock(root, label = null, verify = envelope) as? VaultUnlockResult.Failed)?.failure
-        unlocks.decrypting[root] = failure ?: VaultFailure.LOCKED
-        if (failure != null) return VaultDecryptResult.Failed(failure, first.tried)
-        return operations.decrypt(location, purpose)
-    }
-
-    /** Unlocks [label] of [root] when it is locked, once per run; the failure, or null when it is unlocked now. */
-    private suspend fun ensureUnlocked(root: AnsibleRoot, label: String, unlocks: Unlocks): VaultFailure? {
-        unlocks.ids[root to label]?.let { return it }
-        val identity = readAction { VaultStatusService.getInstance(project).config(root).identities.firstOrNull { it.label == label } }
-            ?: return VaultFailure.NO_IDENTITY
-        if (identity.lockState == VaultLockState.UNLOCKED) return null
-        val failure = when (val result = VaultOperations.getInstance(project).unlock(root, label)) {
-            is VaultUnlockResult.Unlocked -> if (label in result.identities) null else VaultFailure.LOCKED
-            is VaultUnlockResult.Failed -> result.failure
-        }
-        failure?.let { unlocks.ids[root to label] = it }
-        return failure
-    }
-
-    /**
-     * The unlocks of one run, so a root asks for its passwords at most once: an id whose unlock failed (or whose prompt
-     * you cancelled) is not unlocked again, nor a root unlocked once for decrypting; their later files fail at once with
-     * that failure.
-     */
-    private class Unlocks {
-        /** The failed unlocks of ids to encrypt with, by root and id. */
-        val ids = HashMap<Pair<AnsibleRoot, String>, VaultFailure>()
-
-        /** The roots unlocked once for decrypting, with the failure their files get while they are still locked. */
-        val decrypting = HashMap<AnsibleRoot, VaultFailure>()
-    }
-
     // ------------------------------------------------------------------------------------------------ writing
 
-    private sealed interface Content {
-        /** An envelope: ASCII lines, LF, no byte order mark (Ansible reads `$ANSIBLE_VAULT` from the first byte). */
-        class Envelope(val text: String) : Content
-
-        /** Decrypted bytes (the caller zeroes them): UTF-8 text through the document, anything else as it is. */
-        class Plain(val bytes: ByteArray) : Content
-    }
-
-    /**
-     * Writes [content] over [file] when it is still at [stamp], in one undoable command (Edit › Undo restores the old
-     * text, byte order mark and line separator): text through its document, saved at once; binary content as bytes. When
-     * the saved bytes differ from [content]'s exact bytes (a charset of the file, the trailing-space stripper, mixed line
-     * separators), the exact bytes are written over them in the same command. With [private] the file gets 0600 before
-     * anything is written, and is left alone when that fails. EDT.
-     */
-    private fun write(file: VirtualFile, stamp: Long, content: Content, @Nls commandName: String, private: Boolean): FileOutcome {
-        ThreadingAssertions.assertEventDispatchThread()
-        if (!file.isValid) return FileOutcome.Changed
-        val documents = FileDocumentManager.getInstance()
-        if (file.modificationStamp != stamp || documents.getCachedDocument(file)?.let(documents::isDocumentUnsaved) == true) return FileOutcome.Changed
-        if (!file.isWritable) return FileOutcome.ReadOnly
-        if (!DecryptedVaultTabs.getInstance(project).closeBeforeRewrite(file)) return FileOutcome.TabModified
-        // D29 before the first byte: decrypted content is never readable by others, not even until the mode is set.
-        if (private && !makePrivate(file)) return FileOutcome.NotPrivate
-        val exact = when (content) {
-            is Content.Envelope -> content.text.toByteArray(Charsets.US_ASCII)
-            is Content.Plain -> content.bytes
-        }
-        val rewrite = rewriteOf(file, content)
-        val document = rewrite?.let { documents.getDocument(file) }
-        var written = false
-        WriteCommandAction.writeCommandAction(project).withName(commandName).withGlobalUndo().run<RuntimeException> {
-            written = if (rewrite == null || document == null) writeBytes(file, exact) else writeText(file, document, rewrite, exact, content is Content.Plain)
-        }
-        if (!written) return FileOutcome.NotWritten
-        EditorNotifications.getInstance(project).updateNotifications(file)
-        return FileOutcome.Written
-    }
-
-    /** The byte order mark and line separator a file is saved with (its document holds the text, with LF). */
-    private class FileForm(val bom: ByteArray?, val separator: String?) {
-        fun applyTo(file: VirtualFile) {
-            file.bom = bom
-            file.detectedLineSeparator = separator
-        }
-
-        companion object {
-            fun of(file: VirtualFile) = FileForm(file.bom, file.detectedLineSeparator)
-        }
-    }
-
-    /** A document text and the [FileForm] it is saved with. */
-    private class Rewrite(val text: CharSequence, val form: FileForm)
-
-    /** Undo and redo of a [FileForm] change, in the command of the text change it goes with (the document's undo has the text). */
-    private class FileFormUndo(document: Document, private val file: VirtualFile, private val before: FileForm, private val after: FileForm) :
-        BasicUndoableAction(document) {
-        override fun undo() = before.applyTo(file)
-
-        override fun redo() = after.applyTo(file)
-    }
-
-    /** [content] as the text of [file]'s document, or null when it is no text (a binary file type, bytes that are no UTF-8). */
-    private fun rewriteOf(file: VirtualFile, content: Content): Rewrite? {
-        if (file.fileType.isBinary) return null
-        return when (content) {
-            is Content.Envelope -> Rewrite(content.text, FileForm(null, "\n"))
-            is Content.Plain -> {
-                val bytes = content.bytes
-                val hasBom = bytes.size >= UTF8_BOM.size && UTF8_BOM.indices.all { bytes[it] == UTF8_BOM[it] }
-                val body = if (hasBom) bytes.copyOfRange(UTF8_BOM.size, bytes.size) else bytes
-                val decoded = try {
-                    VaultValueText.decode(body)
-                } finally {
-                    if (hasBom) body.fill(0)
-                } ?: return null
-                val form = FileForm(if (hasBom) UTF8_BOM.copyOf() else null, if ("\r\n" in decoded) "\r\n" else "\n")
-                Rewrite(StringUtil.convertLineSeparators(decoded), form)
-            }
-        }
-    }
-
-    /**
-     * Gives [document] the text of [rewrite] and saves it, then writes [exact] over the saved bytes when they differ
-     * ([secret]: they are zeroed afterwards). When either fails (an I/O error the save reported, a vetoer), the old text
-     * goes back and is saved, so nothing new (no plaintext) waits in the document for autosave; false then. Inside the
-     * caller's command.
-     */
-    private fun writeText(file: VirtualFile, document: Document, rewrite: Rewrite, exact: ByteArray, secret: Boolean): Boolean {
-        val documents = FileDocumentManager.getInstance()
-        val old = Rewrite(document.immutableCharSequence, FileForm.of(file))
-        replace(file, document, rewrite)
-        documents.saveDocument(document)
-        if (!documents.isDocumentUnsaved(document) && (savedExactly(file, exact, secret) || writeBytes(file, exact))) return true
-        replace(file, document, old)
-        documents.saveDocument(document)
-        return false
-    }
-
-    /** [document] gets [rewrite]'s text, [file] its form, undoably. Inside a command. */
-    private fun replace(file: VirtualFile, document: Document, rewrite: Rewrite) {
-        UndoManager.getInstance(project).undoableActionPerformed(FileFormUndo(document, file, FileForm.of(file), rewrite.form))
-        rewrite.form.applyTo(file)
-        document.setText(rewrite.text)
-    }
-
-    /** True when [file] holds exactly [exact] ([secret]: the bytes read are zeroed afterwards). */
-    private fun savedExactly(file: VirtualFile, exact: ByteArray, secret: Boolean): Boolean {
-        val saved = try {
-            file.contentsToByteArray()
-        } catch (_: IOException) {
-            return false
-        }
-        try {
-            return saved.contentEquals(exact)
-        } finally {
-            if (secret) saved.fill(0)
-        }
-    }
-
-    /**
-     * Writes [exact] as [file]'s bytes, as they are (a local file's `setBinaryContent` adds no byte order mark; one in
-     * [exact] is written once). False on an I/O error. Write action.
-     */
-    private fun writeBytes(file: VirtualFile, exact: ByteArray): Boolean {
-        return try {
-            file.setBinaryContent(exact)
-            true
-        } catch (e: IOException) {
-            VaultLog.failure(VaultLog.Operation.ENCRYPT, e, file.path)
-            false
-        }
-    }
-
-    /** Replaces the `!vault` values of [file] with their new envelopes in one command, or nothing when one of them changed. EDT. */
-    private fun writeValues(file: VirtualFile, replacements: List<Pair<VaultValueRef, VaultEnvelope>>, @Nls commandName: String): FileOutcome {
-        ThreadingAssertions.assertEventDispatchThread()
-        if (!file.isValid) return FileOutcome.Changed
-        if (!file.isWritable) return FileOutcome.ReadOnly
-        val documents = PsiDocumentManager.getInstance(project)
-        documents.commitAllDocuments()
-        val document = FileDocumentManager.getInstance().getDocument(file) ?: return FileOutcome.NotWritten
-        val changes = replacements.map { (ref, envelope) ->
-            val scalar = ref.scalar?.takeIf(YAMLScalar::isValid) ?: return FileOutcome.Changed
-            if (scalar.textValue != ref.envelopeText) return FileOutcome.Changed
-            VaultValueText.envelopeReplacement(scalar, document.charsSequence, envelope)
-        }.sortedByDescending { it.range.startOffset }
-        var written = false
-        WriteCommandAction.writeCommandAction(project, PsiManager.getInstance(project).findFile(file)).withName(commandName).withGlobalUndo().run<RuntimeException> {
-            for (change in changes) document.replaceString(change.range.startOffset, change.range.endOffset, change.text)
-            documents.commitDocument(document)
-            written = true
-        }
-        if (!written) return FileOutcome.ReadOnly
-        FileDocumentManager.getInstance().saveDocument(document)
-        return FileOutcome.Written
-    }
-
-    /**
-     * 0600, like ansible-vault's encrypt and decrypt in place (D29); file systems without POSIX modes are left alone.
-     * False when the mode could not be set (a file of another user, a mount that refuses it).
-     */
-    private fun makePrivate(file: VirtualFile): Boolean {
-        val path: Path = file.toNioPathOrNull() ?: return true
-        return try {
-            modes.makePrivate(path)
-            true
-        } catch (e: IOException) {
-            VaultLog.failure(VaultLog.Operation.ENCRYPT, e, file.path)
-            false
-        }
-    }
-
     /** Saves the unsaved documents of [selection]'s files and of the files below its folders: the operations read what is on disk. EDT. */
-    private fun saveDocuments(selection: List<VirtualFile>) {
+    internal fun saveDocuments(selection: List<VirtualFile>) {
         val documents = FileDocumentManager.getInstance()
         for (document in documents.unsavedDocuments) {
             val file = documents.getFile(document) ?: continue
@@ -891,50 +603,11 @@ class VaultFileOperations(private val project: Project, private val scope: Corou
         }
     }
 
-    private fun parse(text: String): VaultEnvelope? = (VaultEnvelope.parse(text) as? EnvelopeParse.Ok)?.envelope
-
     /** The ids of [config] that may encrypt, once per label, in Ansible's order. */
     private fun choices(config: VaultRootConfig): List<VaultIdentityChoice> =
         config.identities.distinctBy { it.label }.map { VaultIdentityChoice(it.label, it.lockState) }
 
     // ------------------------------------------------------------------------------------------------ outcome
-
-    /** How one file of a batch ended. Carries no data beyond a failure class. */
-    private sealed interface FileOutcome {
-        data object Written : FileOutcome
-
-        /** Nothing to write: no vault in it, or already labelled with the target id. */
-        data object Unchanged : FileOutcome
-
-        /** The file (or its document) changed while the crypto ran. */
-        data object Changed : FileOutcome
-
-        /** Its decrypted tab has unsaved edits. */
-        data object TabModified : FileOutcome
-
-        data object ReadOnly : FileOutcome
-
-        /** Its mode could not be set to 0600 (D29), so nothing was written. */
-        data object NotPrivate : FileOutcome
-
-        /** Writing failed; its document has the old text again. */
-        data object NotWritten : FileOutcome
-
-        /** You declined a question about it. */
-        data object Cancelled : FileOutcome
-
-        data class Failed(val failure: VaultFailure) : FileOutcome
-    }
-
-    private sealed interface NewEnvelope {
-        class Ready(val text: String) : NewEnvelope
-
-        data object Same : NewEnvelope
-
-        data object Declined : NewEnvelope
-
-        class Failed(val failure: VaultFailure) : NewEnvelope
-    }
 
     /** What one batch did, for its summary: file names and failure classes only. */
     private class Batch(val skipped: List<String>, val history: Boolean = false, val doneText: (List<String>) -> String) {
@@ -955,6 +628,7 @@ class VaultFileOperations(private val project: Project, private val scope: Corou
                 FileOutcome.ReadOnly -> failed += message("file.failed.read.only", file.name)
                 FileOutcome.NotPrivate -> failed += message("file.failed.private", file.name)
                 FileOutcome.NotWritten -> failed += message("file.failed.write", file.name)
+                FileOutcome.NotVerified -> failed += message("file.failed.verify", file.name)
                 is FileOutcome.Failed ->
                     if (outcome.failure == VaultFailure.CANCELLED) declined += file.name
                     else failed += message("file.failed", file.name, AnsibilityVaultBundle.failure(outcome.failure))
@@ -1022,12 +696,7 @@ class VaultFileOperations(private val project: Project, private val scope: Corou
         /** Larger YAML files are not searched for `!vault` values. */
         private const val MAX_SCANNED_BYTES = 16L * 1024 * 1024
 
-        /** How often a `!vault` value is decrypted again while its document keeps changing. */
-        private const val VALUE_ATTEMPTS = 3
         private val MAGIC = VaultEnvelope.MAGIC.toByteArray(Charsets.US_ASCII)
-
-        /** The UTF-8 byte order mark (the platform's constant is internal API). */
-        private val UTF8_BOM = byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte())
 
         fun getInstance(project: Project): VaultFileOperations = project.service()
     }

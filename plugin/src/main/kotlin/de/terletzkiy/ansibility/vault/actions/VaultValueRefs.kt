@@ -115,11 +115,35 @@ internal class PlainValueRef private constructor(
             return PlainValueRef(project, file, context.root, pointer, keyValue.keyText, context.environments, scalar.textValue, plain)
         }
 
-        /** The context of [scalar]'s file when [accepts] holds, else null. */
-        fun fileContext(scalar: YAMLScalar): FileContext? {
+        /**
+         * A plaintext `vault_*` value that Regenerate Secrets… and Generate and encrypt may replace with a new random
+         * value in a `!vault |` block (plan amendment R29, D216): like [of], but the key must start with `vault_`, and
+         * the value may be empty or carry an anchor, because it is replaced, never encrypted as it is (the anchor stays).
+         * Call in a read action.
+         */
+        fun placeholder(scalar: YAMLScalar): PlainValueRef? {
+            val context = fileContext(scalar, placeholder = true) ?: return null
+            val keyValue = scalar.parent as YAMLKeyValue
+            if (!keyValue.keyText.startsWith(VAULT_PREFIX)) return null
+            val file = scalar.containingFile.originalFile.viewProvider.virtualFile
+            val project = scalar.project
+            val pointer = SmartPointerManager.getInstance(project).createSmartPsiElementPointer(scalar)
+            val plain = YamlPsi.contentStart(scalar)?.let(YamlPsi::styleOf) == ScalarStyle.PLAIN
+            return PlainValueRef(project, file, context.root, pointer, keyValue.keyText, context.environments, scalar.textValue, plain)
+        }
+
+        /** True when [scalar] is a value [placeholder] accepts. PSI and file classification only. Call in a read action. */
+        fun acceptsPlaceholder(scalar: YAMLScalar): Boolean =
+            (scalar.parent as? YAMLKeyValue)?.keyText?.startsWith(VAULT_PREFIX) == true && fileContext(scalar, placeholder = true) != null
+
+        /** The prefix of the variables Ansible users keep vaulted (`vault_db_password`). */
+        const val VAULT_PREFIX: String = "vault_"
+
+        /** The context of [scalar]'s file when [accepts] holds (with [placeholder]: when [acceptsPlaceholder] holds), else null. */
+        fun fileContext(scalar: YAMLScalar, placeholder: Boolean = false): FileContext? {
             val keyValue = scalar.parent as? YAMLKeyValue ?: return null
-            if (keyValue.value != scalar || VaultValuePsi.tagOf(scalar) != null || VaultValuePsi.hasAnchor(scalar)) return null
-            if (scalar is YAMLScalarText || scalar.textValue.isEmpty()) return null
+            if (keyValue.value != scalar || VaultValuePsi.tagOf(scalar) != null || !placeholder && VaultValuePsi.hasAnchor(scalar)) return null
+            if (scalar is YAMLScalarText || !placeholder && scalar.textValue.isEmpty()) return null
             val psiFile = scalar.containingFile ?: return null
             val file = psiFile.originalFile.viewProvider.virtualFile
             val context = AnsibleWorkspace.getInstance(psiFile.project).contextOf(file) ?: return null

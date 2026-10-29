@@ -47,6 +47,12 @@ internal object VaultLog {
          * R21): plaintext key findings and notifications keep waiting for them.
          */
         STATUSES_LATE,
+
+        /**
+         * A new envelope did not decrypt again with the secret it was encrypted with (plan amendment R29): the item is
+         * left out and nothing of it is written.
+         */
+        NOT_VERIFIED,
     }
 
     /** How a password manager read ended. */
@@ -66,11 +72,12 @@ internal object VaultLog {
 
     /**
      * The events logged at INFO (plan amendment R19, D139): every dialog vault code shows and every password manager
-     * read, so a report of an unexpected prompt can be traced in idea.log. They carry names and labels only.
+     * read, so a report of an unexpected prompt can be traced in idea.log; and a new envelope that failed its
+     * verification (plan amendment R29). They carry names and labels only.
      */
     private val NOTABLE = setOf(
         Event.CONSENT_ASKED, Event.PASSWORD_PROMPTED, Event.MASTER_PASSWORD_PROMPTED, Event.MANAGER_READ_STARTED, Event.MANAGER_READ_SKIPPED,
-        Event.STATUSES_LATE,
+        Event.STATUSES_LATE, Event.NOT_VERIFIED,
     )
 
     /** A vault operation failed for a reason Ansible would report too (wrong secret, malformed envelope, …). */

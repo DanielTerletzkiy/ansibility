@@ -13,6 +13,9 @@ import com.intellij.util.xmlb.annotations.MapAnnotation
 import com.intellij.util.xmlb.annotations.Tag
 import com.intellij.util.xmlb.annotations.XCollection
 import de.terletzkiy.ansibility.api.VaultSourceKind
+import de.terletzkiy.ansibility.semantics.vault.GenerationRule
+import de.terletzkiy.ansibility.semantics.vault.GeneratorKind
+import de.terletzkiy.ansibility.semantics.vault.SecretGenerator
 import com.intellij.util.xmlb.XmlSerializer
 import de.terletzkiy.ansibility.settings.PathGlob
 import de.terletzkiy.ansibility.settings.nested.NestedRepoSettings
@@ -36,6 +39,11 @@ data class VaultRootSettings(
     val environmentIdentities: Map<String, String> = emptyMap(),
     /** D31: decrypted values of unlocked ids may feed the analysis (derived facts only). Off by default. */
     val analyzeDecryptedValues: Boolean = false,
+    /**
+     * How Regenerate Secrets… makes new values for keys of this root (plan amendment R29, D218 rule 1, X131): key-name
+     * globs and generators, first match wins. None by default.
+     */
+    val generationRules: List<GenerationRule> = emptyList(),
 ) {
     /** The id the env → id mapping gives a file of [environment] (exact name first, then `*`), or null. */
     fun identityForEnvironment(environment: String?): String? =
@@ -231,10 +239,15 @@ class VaultProjectSettings : PersistentStateComponent<VaultProjectSettings.State
         @get:MapAnnotation(surroundWithTag = false, entryTagName = "environment", keyAttributeName = "name", valueAttributeName = "identity")
         var environmentIdentities: MutableMap<String, String> = LinkedHashMap()
 
+        /** Plan amendment R29 (D218): written only when there are rules; older files without it read as none. */
+        @get:XCollection(propertyElementName = "generationRules", elementName = "rule")
+        var generationRules: MutableList<RuleBean> = ArrayList()
+
         fun toSettings(): VaultRootSettings = VaultRootSettings(
             identities = identities.mapNotNull { it.toIdentity() },
             environmentIdentities = LinkedHashMap(environmentIdentities),
             analyzeDecryptedValues = analyzeDecryptedValues,
+            generationRules = generationRules.mapNotNull { it.toRule() },
         )
 
         companion object {
@@ -243,6 +256,36 @@ class VaultProjectSettings : PersistentStateComponent<VaultProjectSettings.State
                 analyzeDecryptedValues = settings.analyzeDecryptedValues
                 identities = settings.identities.map(IdentityBean::of).toMutableList()
                 environmentIdentities = LinkedHashMap(settings.environmentIdentities)
+                generationRules = settings.generationRules.map(RuleBean::of).toMutableList()
+            }
+        }
+    }
+
+    /** XML form of one [GenerationRule]: a key glob, the generator's name and its length. */
+    @Tag("rule")
+    class RuleBean {
+        @get:Attribute("pattern")
+        var pattern: String? = null
+
+        @get:Attribute("generator")
+        var generator: String? = null
+
+        @get:Attribute("length")
+        var length: Int = 0
+
+        /** The rule, or null for an entry this version cannot read (no pattern, an unknown generator, a length out of range). */
+        fun toRule(): GenerationRule? {
+            val pattern = pattern?.takeIf { it.isNotEmpty() } ?: return null
+            val kind = GeneratorKind.entries.firstOrNull { it.name == generator } ?: return null
+            if (length !in SecretGenerator.lengths(kind)) return null
+            return GenerationRule(pattern, kind, length)
+        }
+
+        companion object {
+            fun of(rule: GenerationRule): RuleBean = RuleBean().apply {
+                pattern = rule.pattern
+                generator = rule.kind.name
+                length = rule.length
             }
         }
     }

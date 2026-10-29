@@ -12,6 +12,20 @@
   - Settings › Ansibility › Lint, per root: on/off, where it runs, executable, config, extra arguments, offline, how findings show. Where it runs and the executable stay on this machine; the rest is shared in `.idea/ansibility.xml`.
   - Optional commit check (off by default): ansible-lint errors in the changed files stop the commit, with Commit Anyway.
   - Offers once to disable the Ansible Lint plugin, so findings are not shown twice.
+- **Regenerate Secrets…** (Ansibility Vault menu of files, folders, roots and repository folders; Tools; Find Action): new random values for chosen `!vault` values, encrypted directly with the vault id and header each value has now. No plaintext reaches the disk at any moment.
+  - Every value is decrypted in memory first. A dialog lists them as repository › root › file › key, all checked, so "everything in this file" or "everything in this repo" is one click. It never shows a value.
+  - Values that do not look like a password (several lines, a PEM block, JSON or YAML, spaces, longer than 512 characters) start unchecked with the reason. Values shorter than 16 characters are marked "short" and keep their length. Whole-file vaults are listed but never regenerated.
+  - How a new value is made: a rule of the root first, then "same as now" (the current alphabet and length: alphanumeric, hex, base64 with its byte count, URL-safe base64, alphanumeric with symbols), then 32 alphanumeric. Generator and length can be changed for selected rows. Always `SecureRandom`.
+  - Values that are equal now get one new value together (for example a database password stored for the app and for the database host); a group can be split.
+  - Plaintext `vault_*` values (placeholders) get their first envelope, with the vault id Ansible's rule picks (environment mapping included; asked once per root when there is a choice).
+  - All files are written in one undoable step, all or nothing, with Local History labels. A file that changed after the values were decrypted stops the write and is named.
+  - The summary names, per variable, the roles and templates that use it, so you know what to deploy.
+  - Intentions on a value: "Regenerate secret" (one `!vault` value, with a small generator chooser) and "Generate and encrypt" (a plaintext `vault_*` value).
+- **Secret generation rules** in Settings › Ansibility › Vault, per root: key pattern (`vault_*_cookie_secret`), generator and length, first match wins. Shared in `.idea/ansibility-vault.xml`. "Import from Script…" reads the `case` patterns of a rotation script such as `bin/rotate-secrets.sh` (without running it) and lists the arms it did not understand.
+
+### Changed
+
+- Rekey… and Change Vault Id… run on the new re-encryption engine, which also checks that every new envelope decrypts again with its secret before anything is written.
 
 ## 0.0.5 - 2026-10-20
 
