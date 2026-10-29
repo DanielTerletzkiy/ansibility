@@ -27,6 +27,15 @@ object VaultPasswordSafeKeys {
     /** The service name for an entry key of Ansibility's namespace (an explicit id's shared entry, e.g. `team#prod`). */
     fun ownServiceName(key: String): String = generateServiceName(SUBSYSTEM, key)
 
+    /**
+     * The service name of the password id [label] of the root at [canonicalRootPath] had before Rotate Vault Password…
+     * (plan amendment R29, D212). Discovery never lists it, so no unlock ever reads it; Check and Forget do.
+     */
+    fun previousServiceName(canonicalRootPath: String, label: String): String =
+        generateServiceName(SUBSYSTEM, "$canonicalRootPath#$label#$PREVIOUS_SUFFIX")
+
+    private const val PREVIOUS_SUFFIX = "before-rotation"
+
     /** True when [serviceName] belongs to Ansibility's vault namespace. */
     fun isOwn(serviceName: String): Boolean = serviceName.startsWith(PREFIX)
 }

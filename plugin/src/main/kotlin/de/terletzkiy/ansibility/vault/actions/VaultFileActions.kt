@@ -11,7 +11,9 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
+import de.terletzkiy.ansibility.vault.monitor.SecretHealthPanel
 import de.terletzkiy.ansibility.vault.regenerate.RegenerateService
+import de.terletzkiy.ansibility.vault.rotate.RotationService
 import de.terletzkiy.ansibility.vault.envelope.VaultEnvelopes
 import de.terletzkiy.ansibility.vault.ui.AnsibilityVaultUiBundle.message
 import org.jetbrains.annotations.Nls
@@ -176,6 +178,29 @@ class RegenerateSecretsAction : VaultFileAction() {
 }
 
 /**
+ * Ansibility Vault › Rotate Vault Password… (plan amendment R29, D204): a new password for a vault id, every vault its
+ * current password opens re-encrypted with it ([RotationService]). Shown whenever the project has an Ansible root, in
+ * the Ansibility Vault menus, Find Action and the Vault tab's toolbar; a selection (a root, a repository folder, a
+ * folder, a file) preselects the roots it touches, no selection every root.
+ */
+class RotatePasswordAction : DumbAwareAction() {
+    override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
+
+    override fun update(e: AnActionEvent) {
+        val project = e.project
+        e.presentation.isEnabledAndVisible = project != null && AnsibleWorkspace.getInstance(project).roots().any { !it.detached }
+        if (e.presentation.isVisible) e.presentation.text = VaultActionTexts.forPlace(e, message("file.action.rotate"))
+    }
+
+    override fun actionPerformed(e: AnActionEvent) {
+        val project = e.project ?: return
+        // The Vault tab lists findings, not a selection of roots: from there every root is preselected (D204).
+        val selection = if (e.place == SecretHealthPanel.TOOLBAR_PLACE) emptyList() else VaultFileSelection.of(e).filter { it.isValid }
+        RotationService.getInstance(project).rotate(selection)
+    }
+}
+
+/**
  * New › Ansibility Vault File (an Ansible Vault file), in a directory of an Ansible root (or the directory of a selected
  * file); Find Action and the Keymap call it `Ansibility Vault: New Vault File` (D142).
  */
@@ -201,14 +226,19 @@ class NewVaultFileAction : DumbAwareAction() {
 
 /**
  * The "Ansibility Vault" menus (context menus and Tools): shown for a selection inside an Ansible root or a folder that
- * holds one (R29: Regenerate Secrets… works on repository folders); the actions decide the rest.
+ * holds one (R29: Regenerate Secrets… works on repository folders); the actions decide the rest. Tools › Ansibility
+ * Vault also shows without such a selection while the project has a root, for Rotate Vault Password… (R29, D204: no
+ * selection rotates in every root); the file actions hide themselves there.
  */
 class VaultFileActionGroup : DefaultActionGroup(), DumbAware {
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
 
     override fun update(e: AnActionEvent) {
         val project = e.project
-        e.presentation.isVisible = project != null && VaultFileSelection.inOrAboveRoots(project, VaultFileSelection.of(e)).isNotEmpty()
+        e.presentation.isVisible = project != null && (
+            VaultFileSelection.inOrAboveRoots(project, VaultFileSelection.of(e)).isNotEmpty() ||
+                e.isFromMainMenu && AnsibleWorkspace.getInstance(project).roots().any { !it.detached }
+            )
         e.presentation.isHideGroupIfEmpty = true
     }
 }

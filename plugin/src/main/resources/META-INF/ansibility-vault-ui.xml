@@ -186,13 +186,23 @@
             <skipBeforeAfter>true</skipBeforeAfter>
         </intentionAction>
     </extensions>
+    <!-- Part 1 (D204-D214, X129): Rotate Vault Password… (vault.rotate.RotationService on write mode 3 of the engine),
+         its questions (tests replace them), in the same group; the Vault tab's toolbar and Settings › Vault add it by id. -->
+    <extensions defaultExtensionNs="com.intellij">
+        <applicationService serviceInterface="de.terletzkiy.ansibility.vault.rotate.RotationPrompts"
+                            serviceImplementation="de.terletzkiy.ansibility.vault.rotate.RotationDialogPrompts"/>
+    </extensions>
     <actions resource-bundle="messages.AnsibilityVaultUiBundle">
         <action id="Ansibility.Vault.RegenerateSecrets" class="de.terletzkiy.ansibility.vault.actions.RegenerateSecretsAction">
             <synonym key="action.Ansibility.Vault.RegenerateSecrets.synonym"/>
         </action>
+        <action id="Ansibility.Vault.RotatePassword" class="de.terletzkiy.ansibility.vault.actions.RotatePasswordAction">
+            <synonym key="action.Ansibility.Vault.RotatePassword.synonym"/>
+        </action>
         <group id="Ansibility.Vault.Rotation" searchable="false">
             <separator/>
             <reference ref="Ansibility.Vault.RegenerateSecrets"/>
+            <reference ref="Ansibility.Vault.RotatePassword"/>
             <add-to-group group-id="Ansibility.Vault.FileMenu" anchor="last"/>
             <add-to-group group-id="Ansibility.Vault.ToolsMenu" anchor="last"/>
         </group>
