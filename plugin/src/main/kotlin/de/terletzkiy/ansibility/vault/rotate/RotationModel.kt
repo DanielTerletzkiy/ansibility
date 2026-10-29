@@ -46,11 +46,21 @@ class RotationSource internal constructor(
     internal val file: ConsentTarget?,
     /** The chain entry this source is (null for a typed password the chain has no entry for), for Check. */
     internal val identity: DiscoveredIdentity?,
+    /**
+     * For a password file named by a `.env.local` that was not read yet (no consent): that `.env.local`. The key is then
+     * the file the discovery expects, which may not be the one it names, so the file is not written (review, decision 5).
+     */
+    internal val unresolved: String? = null,
+    /** The password file lies outside the root's repository: said explicitly before it is written (review, decision 12). */
+    val outside: Boolean = false,
 ) {
     override fun toString(): String = "RotationSource($key, $destination)"
 }
 
-/** One root holding vaults of a vault id, with that id's counts in it and its password source (D205 part 2). */
+/**
+ * One root holding vaults of a vault id, or reading the same password source as one that does (review, decision 5),
+ * with that id's counts in it and its password source (D205 part 2).
+ */
 class RotationRoot internal constructor(
     /** The vault root (a nested playbook root counts as its parent's). */
     val root: AnsibleRoot,
@@ -67,14 +77,21 @@ class RotationRoot internal constructor(
 
 /**
  * The roots that read one password source (D206): they are rotated together or not at all, since giving the source a
- * new password for one of them would lock the others out. [write] is the "Write the new password to …" checkbox of a
+ * new password for one of them would lock the others out. Every root whose source of the id has the same key is in the
+ * group, whatever envelopes it holds (review, decision 5). [write] is the "Write the new password to …" checkbox of a
  * password file (D211).
  */
 class RotationGroup internal constructor(val source: RotationSource, val roots: List<RotationRoot>) {
     var checked: Boolean = roots.any { it.preselected }
 
+    /** Roots whose `.env.local` was not read yet: which file they name is unknown, so the password file is not written. */
+    val unresolved: List<RotationRoot> get() = roots.filter { it.source.unresolved != null }
+
+    /** Whether the new password may be written to the group's password file at all (a password file, every root resolved). */
+    val writable: Boolean get() = source.destination == Destination.PASSWORD_FILE && unresolved.isEmpty()
+
     /** For a password file: write the new password there (checked by default). Ignored for other sources. */
-    var write: Boolean = source.destination == Destination.PASSWORD_FILE
+    var write: Boolean = writable
 
     override fun toString(): String = "RotationGroup(${source.key}, ${roots.size} roots, checked=$checked)"
 }

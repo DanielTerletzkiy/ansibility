@@ -13,6 +13,7 @@ import de.terletzkiy.ansibility.api.VaultPurpose
 import de.terletzkiy.ansibility.vault.crypto.VaultCrypto
 import de.terletzkiy.ansibility.vault.identity.VaultDiscovery
 import de.terletzkiy.ansibility.vault.secrets.VaultSecretsService
+import de.terletzkiy.ansibility.vault.secrets.VaultUserState
 import de.terletzkiy.ansibility.vault.ui.AnsibilityVaultUiBundle.message
 import de.terletzkiy.ansibility.vault.ui.settings.VaultConfigurable
 import org.jetbrains.annotations.TestOnly
@@ -21,14 +22,16 @@ import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * X129, the teammate hint (plan amendment R29): when an explicit vault operation (Reveal, Edit, Copy, opening a
- * decrypted tab, a file action) fails with a wrong secret for an envelope whose id is unlocked in this session, and the
- * verification cache says that same secret opened other envelopes of that id in the root since the last lock, the
- * id's password was probably rotated elsewhere (a teammate, after a pull): "The vault password for 'default' may have
- * been rotated. Update `ansible/.vault-pass`." with an action that opens Settings › Vault.
+ * decrypted tab, a file action) fails with a wrong secret for an envelope whose id is unlocked in this session, and
+ * that id opened envelopes in the root before, the id's password was probably rotated elsewhere (a teammate, after a
+ * pull): "The vault password for 'default' may have been rotated. Update `ansible/.vault-pass`." with an action that
+ * opens Settings › Vault. "Opened before" is the verification cache since the last lock, or the persistent, non-secret
+ * record [VaultUserState.openedBefore] (review, decision 13), so the hint also fires after a restart or the idle lock,
+ * when a teammate rotated everything and the old password opens nothing any more.
  *
  * Once per root and id per session; never for an id rotated in this IDE ([rotatedHere]); never on passive paths
  * (highlighting, folding, completion, documentation and the D31 analysis never call it); nothing is decrypted for it:
- * it reads the verification records [de.terletzkiy.ansibility.vault.VaultOperationsImpl] keeps anyway.
+ * it reads the records [de.terletzkiy.ansibility.vault.VaultOperationsImpl] keeps anyway.
  */
 @Service(Service.Level.PROJECT)
 class RotationHints(private val project: Project) {
@@ -53,7 +56,9 @@ class RotationHints(private val project: Project) {
         if (key in rotated || key in shown) return
         val secrets = VaultSecretsService.getInstance(project)
         if (label !in secrets.unlockedLabels(discovery)) return
-        if (!VaultCrypto.getInstance(project).anyDecryptedWith(discovery.rootKey, label)) return
+        val openedBefore = VaultCrypto.getInstance(project).anyDecryptedWith(discovery.rootKey, label) ||
+            VaultUserState.getInstance().openedBefore(discovery.canonicalRootPath, label)
+        if (!openedBefore) return
         if (!shown.add(key)) return
         val source = RotationSources(project).sourceOf(discovery, label, secrets.currentIdentity(discovery, label), read = false)
         val text = message("rotate.hint", StringUtil.escapeXmlEntities(label), StringUtil.escapeXmlEntities(source.display))

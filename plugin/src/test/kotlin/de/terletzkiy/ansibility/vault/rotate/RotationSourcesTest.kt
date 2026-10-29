@@ -117,6 +117,7 @@ class RotationSourcesTest : RotationTestCase() {
         assertEquals("op://Private/vault/password: a different password.", check())
 
         service.copyNewPassword(summary)
+        awaitRotation()
         assertEquals(newPassword, CopyPasteManager.getInstance().contents?.getTransferData(DataFlavor.stringFlavor))
         scheduler.advance(VaultUiTimings.CLIPBOARD_MILLIS)
         assertFalse(newPassword == CopyPasteManager.getInstance().contents?.getTransferData(DataFlavor.stringFlavor))

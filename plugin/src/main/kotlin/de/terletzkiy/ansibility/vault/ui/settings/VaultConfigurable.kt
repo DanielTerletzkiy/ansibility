@@ -43,7 +43,6 @@ import de.terletzkiy.ansibility.vault.secrets.VaultSecretsService
 import de.terletzkiy.ansibility.vault.secrets.PreviousPasswordRecord
 import de.terletzkiy.ansibility.vault.secrets.VaultUserState
 import de.terletzkiy.ansibility.vault.rotate.RotationService
-import com.intellij.ui.dsl.builder.Placeholder
 import de.terletzkiy.ansibility.vault.ui.AnsibilityVaultUiBundle.message
 import de.terletzkiy.ansibility.semantics.vault.DefaultArm
 import de.terletzkiy.ansibility.semantics.vault.GenerationRule
@@ -60,8 +59,11 @@ import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
 import org.jetbrains.annotations.Nls
 import org.jetbrains.annotations.TestOnly
+import java.awt.BorderLayout
 import java.io.IOException
 import javax.swing.DefaultCellEditor
+import javax.swing.JButton
+import javax.swing.JPanel
 import javax.swing.table.DefaultTableCellRenderer
 import javax.swing.table.TableCellEditor
 import javax.swing.table.TableCellRenderer
@@ -204,7 +206,20 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
         foreground = com.intellij.util.ui.UIUtil.getContextHelpForeground()
     }
     private val managerLabels = PasswordManager.entries.associateWith { JBLabel() }
-    private lateinit var previousPlaceholder: Placeholder
+
+    /** The previous passwords of the selected root (D212); its content is swapped per root (no experimental UI DSL placeholder). */
+    private val previousHolder = JPanel(BorderLayout()).apply { isOpaque = false }
+
+    /** Rotate Password… and the line saying why it is off: unapplied changes (plan amendment R29 review, decision 8). */
+    private val rotateButton = JButton(message("settings.vault.rotate")).apply {
+        name = ROTATE_COMPONENT
+        addActionListener { rotate() }
+    }
+    private val rotateBlocked = JBLabel(message("settings.vault.rotate.apply")).apply {
+        icon = AllIcons.General.Warning
+        isVisible = false
+        name = ROTATE_BLOCKED_COMPONENT
+    }
 
     override fun createPanel(): DialogPanel {
         uiDisposable?.let(Disposer::dispose)
@@ -251,10 +266,11 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
             // previous passwords a rotation kept in the IDE password store, with Forget.
             group(message("settings.vault.rotation")) {
                 row {
-                    button(message("settings.vault.rotate")) { rotate() }.applyToComponent { name = ROTATE_COMPONENT }
+                    cell(rotateButton)
+                    cell(rotateBlocked)
                 }
                 row { comment(message("settings.vault.rotate.comment")) }
-                row { previousPlaceholder = placeholder().align(AlignX.FILL) }
+                row { cell(previousHolder).align(AlignX.FILL) }
             }
             group(message("settings.vault.managers")) {
                 for (manager in PasswordManager.entries) {
@@ -386,6 +402,17 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
             loading = false
         }
         updateRuleWarning()
+        updateRotation()
+    }
+
+    /**
+     * Rotate Password… is off while the page has unapplied changes (plan amendment R29 review, decision 8): Apply or OK
+     * after a rotation would otherwise store a typed password over the rotated one, or forget it.
+     */
+    private fun updateRotation() {
+        val modified = isModified()
+        rotateButton.isEnabled = !modified
+        rotateBlocked.isVisible = modified
     }
 
     /**
@@ -424,6 +451,7 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
         val entry = current ?: return
         edits[entry.key] = Edited(idModel.items.toList(), envModel.items.toList(), ruleModel.items.toList())
         updateRuleWarning()
+        updateRotation()
     }
 
     private fun edit(row: IdRow?) {
@@ -534,28 +562,44 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
 
     /**
      * Rotate Password… (plan amendment R29, D204): Rotate Vault Password… with the selected root and the selected id
-     * (the id row of the table, else the root's first discovered id) preselected. EDT.
+     * (the id row of the table, else the root's first discovered id) preselected. Nothing starts while the page has
+     * unapplied changes (review, decision 8; the button is off then, with "Apply your changes first."), and the page
+     * reloads its state when the rotation ended, so its OK or Apply cannot write old values over the new password. EDT.
      */
     internal fun rotate() {
+        updateRotation()
+        if (isModified()) return
         val entry = current
-        val label = idTable.selectedObject?.label ?: entry?.discovered?.firstOrNull()?.substringBefore(" \u00B7 ")
-        RotationService.getInstance(project).rotate(entry?.key, label)
+        val label = idTable.selectedObject?.label ?: entry?.discovered?.firstOrNull()?.substringBefore(" · ")
+        val disposable = uiDisposable
+        RotationService.getInstance(project).rotate(entry?.key, label) { if (disposable?.isDisposed == false) reloadAfterRotation(disposable) }
+    }
+
+    /** After a rotation started here: the page's state is read again (settings, stored entries, previous passwords). EDT. */
+    private fun reloadAfterRotation(disposable: CheckedDisposable) {
+        reset()
+        loadStored(rootEntries, disposable)
     }
 
     /** The previous passwords of [entry] (D212): "default: previous password kept (date)" with Forget. */
     private fun showPrevious(entry: RootEntry?) {
-        if (!::previousPlaceholder.isInitialized) return
         val records = entry?.canonical?.takeIf { it.isNotEmpty() }?.let { root -> VaultUserState.getInstance().previousPasswords().filter { it.root == root } }.orEmpty()
-        previousPlaceholder.component = panel {
-            if (records.isEmpty()) row { comment(message("settings.vault.previous.none")) }
-            for (record in records) {
-                row {
-                    label(message("settings.vault.previous", record.label, RotationService.date(record.date)))
-                    button(message("settings.vault.previous.forget")) { forgetPrevious(record) }.applyToComponent { name = FORGET_PREVIOUS_COMPONENT + record.label }
+        previousHolder.removeAll()
+        previousHolder.add(
+            panel {
+                if (records.isEmpty()) row { comment(message("settings.vault.previous.none")) }
+                for (record in records) {
+                    row {
+                        label(message("settings.vault.previous", record.label, RotationService.date(record.date)))
+                        button(message("settings.vault.previous.forget")) { forgetPrevious(record) }.applyToComponent { name = FORGET_PREVIOUS_COMPONENT + record.label }
+                    }
                 }
-            }
-            row { comment(message("settings.vault.previous.comment")) }
-        }
+                row { comment(message("settings.vault.previous.comment")) }
+            },
+            BorderLayout.CENTER,
+        )
+        previousHolder.revalidate()
+        previousHolder.repaint()
     }
 
     /** Forget (D212): removes the "before rotation" entry from the IDE password store (off the EDT) and its record. */
@@ -589,6 +633,7 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
         forgotten.clear()
         if (passwords.isNotEmpty()) storePasswords(passwords)
         idModel.fireTableDataChanged()
+        updateRotation()
     }
 
     /** Writes and removes password-store entries off the EDT, zeroing every typed password afterwards. */
@@ -662,6 +707,9 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
 
         /** The component name of Rotate Password… (plan amendment R29, D204; tests find it by name). */
         const val ROTATE_COMPONENT = "ansibility.vault.rotatePassword"
+
+        /** The component name of "Apply your changes first." next to Rotate Password… (review, decision 8; tests find it by name). */
+        const val ROTATE_BLOCKED_COMPONENT = "ansibility.vault.rotatePassword.blocked"
 
         /** The component name prefix of a previous password's Forget button, followed by the id (D212; tests find it by name). */
         const val FORGET_PREVIOUS_COMPONENT = "ansibility.vault.forgetPrevious."

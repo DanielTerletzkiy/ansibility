@@ -17,6 +17,7 @@ import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.TextRange
 import com.intellij.openapi.util.text.StringUtil
+import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.toNioPathOrNull
 import com.intellij.psi.PsiDocumentManager
@@ -38,6 +39,7 @@ import org.jetbrains.annotations.Nls
 import org.jetbrains.annotations.TestOnly
 import org.jetbrains.yaml.psi.YAMLScalar
 import java.io.IOException
+import java.nio.file.Files
 import java.nio.file.Path
 
 /**
@@ -53,9 +55,11 @@ import java.nio.file.Path
  *    document must still have the modification sequence the preflight saw and every value must still be where its
  *    pointer says ([staleFile]); otherwise nothing is written. Local History labels before and after.
  * 3. **file-system writes that are not undoable** ([writeAllFileSystem], Part 1, D210), all or nothing: the same
- *    [staleFile] precondition and Local History labels as [writeAll], then each file's new bytes ([newText] for a YAML
- *    file, the envelope for a whole-file vault) written through the VFS outside any command, like `ansible-vault
- *    rekey` writes them; a failed write puts the old bytes (envelopes, no secret) of the files written before it back.
+ *    [staleFile] precondition and Local History labels as [writeAll], plus the bytes on disk compared with the
+ *    preflight's ([changedOnDisk]); then each file's new bytes ([newText] for a YAML file, the envelope for a whole-file
+ *    vault) replace it atomically ([AtomicFiles]) outside any undoable command, like `ansible-vault rekey` writes them;
+ *    a failed write puts the old bytes (envelopes, no secret) of the files written before it, and of the failing one,
+ *    back.
  */
 internal class ReencryptionWriter(private val project: Project, private val modes: () -> VaultFileOperations.FileModes) {
     sealed interface Content {
@@ -400,38 +404,64 @@ internal class ReencryptionWriter(private val project: Project, private val mode
         class NotWritten(val stale: Stale) : FileSystemOutcome
 
         /**
-         * Writing [file] failed after [restored] and [notRestored] had been written: [restored] got their old bytes back,
-         * [notRestored] keep the new envelopes. Nothing of [file] itself was written.
+         * Writing [file] failed (an I/O error, or any other exception: [error]) after the files before it had been
+         * written. [restored] got their old bytes back, and so did [file] itself when the failure had touched it;
+         * [notRestored] (possibly [file] too) could not be put back and hold the new envelopes.
          */
-        class Failed(val file: VirtualFile, val restored: List<VirtualFile>, val notRestored: List<VirtualFile>) : FileSystemOutcome
+        class Failed(val file: VirtualFile, val restored: List<VirtualFile>, val notRestored: List<VirtualFile>, val error: Throwable) : FileSystemOutcome
 
         /** No item was ready. */
         data object Nothing : FileSystemOutcome
     }
 
-    /** One file of a mode 3 write: its bytes before and after (envelopes and YAML, never a secret). */
-    private class FileWrite(val file: VirtualFile, val old: ByteArray, val new: ByteArray, val whole: Boolean) {
+    /** One file of a mode 3 write: its path, its bytes before (as on disk) and after (envelopes and YAML, never a secret). */
+    private class FileWrite(val file: VirtualFile, val path: Path, val old: ByteArray, val new: ByteArray, val whole: Boolean) {
         override fun toString(): String = "FileWrite(${file.name})"
+    }
+
+    /**
+     * The first file of [plan]'s ready items whose bytes on disk are not [expected]'s (the bytes the preflight read), or
+     * that changed in any way [staleFile] sees, after a synchronous refresh of the files (plan amendment R29 review,
+     * decision 7: a `git pull` in a terminal while the review is open is not in the VFS yet). Null when every file is as
+     * the preflight saw it. EDT.
+     */
+    fun changedOnDisk(plan: PreparedPlan, expected: Map<VirtualFile, ByteArray>): Stale? {
+        ThreadingAssertions.assertEventDispatchThread()
+        val files = plan.readyByFile.keys.filter { it.isValid }
+        if (files.isNotEmpty()) VfsUtil.markDirtyAndRefresh(false, false, false, *files.toTypedArray())
+        PsiDocumentManager.getInstance(project).commitAllDocuments()
+        staleFile(plan)?.let { return it }
+        for (file in plan.readyByFile.keys) {
+            val seen = expected[file] ?: continue
+            val now = diskBytes(file) ?: return Stale.Changed(file)
+            if (!now.contentEquals(seen)) return Stale.Changed(file)
+        }
+        return null
     }
 
     /**
      * Mode 3 (Rotate Vault Password…, D210): writes every ready item of [plan] through the file system, all files or
      * none, and **not undoable**: an Undo would bring back envelopes the new password cannot open while the password
-     * source already holds the new one. Before the first byte: [staleFile] (a file that changed since the preflight
-     * stops everything), every file's new bytes (a YAML file: [newText] in its charset, byte order mark and line
-     * separator; a whole-file vault: its envelope as ansible-vault formats it) and old bytes are made, and the decrypted
-     * tabs of rewritten whole files are closed. Local History gets [labelBefore] and [labelAfter]. A file whose document
-     * is loaded reloads from disk; [refuseUndo] makes sure no Undo of an earlier edit brings its old text back. When a
-     * write fails (an I/O error), the files written before it get their old bytes back and the outcome says so.
+     * source already holds the new one. Before the first byte: the files are refreshed and [changedOnDisk] compares
+     * them with [expected] (a file that changed since the preflight stops everything), every file's new bytes (a YAML
+     * file: [newText] in its charset, byte order mark and line separator; a whole-file vault: its envelope as
+     * ansible-vault formats it) and old bytes (read from disk) are made, and the decrypted tabs of rewritten whole
+     * files are closed. Local History gets [labelBefore] and [labelAfter].
+     *
+     * Each file is replaced atomically ([AtomicFiles.replace]: a temporary file in its directory with its mode, then an
+     * atomic move), then refreshed, so a loaded document reloads; [RefusedUndo] makes sure no Undo of an earlier edit
+     * brings its old text back. When a write fails with any exception (plan amendment R29 review, decisions 6 and 13),
+     * the files written before it and the failing one (when the failure touched it) get their old bytes back the same
+     * way, and the outcome says which could not.
      */
-    fun writeAllFileSystem(plan: PreparedPlan, @Nls labelBefore: String, @Nls labelAfter: String): FileSystemOutcome {
+    fun writeAllFileSystem(plan: PreparedPlan, expected: Map<VirtualFile, ByteArray>, @Nls labelBefore: String, @Nls labelAfter: String): FileSystemOutcome {
         ThreadingAssertions.assertEventDispatchThread()
         val byFile = plan.readyByFile
         if (byFile.isEmpty()) return FileSystemOutcome.Nothing
-        PsiDocumentManager.getInstance(project).commitAllDocuments()
-        staleFile(plan)?.let { return FileSystemOutcome.NotWritten(it) }
+        changedOnDisk(plan, expected)?.let { return FileSystemOutcome.NotWritten(it) }
         val writes = ArrayList<FileWrite>()
         for ((file, items) in byFile) {
+            val path = file.toNioPathOrNull() ?: return FileSystemOutcome.NotWritten(Stale.Changed(file))
             val whole = items.singleOrNull()?.takeIf { it.item.target is ReencryptTarget.WholeFile }
             val bytes = if (whole != null) {
                 whole.ready?.envelope?.formatBytes() ?: return FileSystemOutcome.NotWritten(Stale.Changed(file))
@@ -441,13 +471,8 @@ internal class ReencryptionWriter(private val project: Project, private val mode
                 val text = newText(document, items) ?: return FileSystemOutcome.NotWritten(Stale.Changed(file))
                 encode(file, text)
             }
-            val old = try {
-                file.contentsToByteArray()
-            } catch (e: IOException) {
-                VaultLog.failure(VaultLog.Operation.ENCRYPT, e, file.path)
-                return FileSystemOutcome.NotWritten(Stale.Changed(file))
-            }
-            writes += FileWrite(file, old, bytes, whole != null)
+            val old = diskBytes(file) ?: return FileSystemOutcome.NotWritten(Stale.Changed(file))
+            writes += FileWrite(file, path, old, bytes, whole != null)
         }
         val tabs = DecryptedVaultTabs.getInstance(project)
         for (write in writes) if (write.whole && !tabs.closeBeforeRewrite(write.file)) return FileSystemOutcome.NotWritten(Stale.TabModified(write.file))
@@ -455,18 +480,55 @@ internal class ReencryptionWriter(private val project: Project, private val mode
         val before = history.putSystemLabel(project, labelBefore).id
         val done = ArrayList<FileWrite>()
         for (write in writes) {
-            if (!writeNotUndoable(write.file, write.new)) {
+            val failure = writeNotUndoable(write.file, write.path, write.new, test = true)
+            if (failure != null) {
+                VaultLog.failure(VaultLog.Operation.ENCRYPT, failure, write.file.path)
                 val restored = ArrayList<VirtualFile>()
                 val notRestored = ArrayList<VirtualFile>()
-                for (written in done.asReversed()) if (writeNotUndoable(written.file, written.old)) restored += written.file else notRestored += written.file
-                history.putSystemLabel(project, labelAfter)
-                return FileSystemOutcome.Failed(write.file, restored, notRestored)
+                for (written in done.asReversed()) if (writeNotUndoable(written.file, written.path, written.old, test = true) == null) restored += written.file else notRestored += written.file
+                // The failing file itself: an atomic move either happened or did not, but a failure after it (or a file
+                // system that truncated the file) leaves other bytes than its old ones.
+                if (!hasBytes(write.path, write.old)) {
+                    if (writeNotUndoable(write.file, write.path, write.old, test = false) == null) restored += write.file else notRestored += write.file
+                }
+                afterWrites { history.putSystemLabel(project, labelAfter) }
+                return FileSystemOutcome.Failed(write.file, restored, notRestored, failure)
             }
             done += write
-            if (write.whole) EditorNotifications.getInstance(project).updateNotifications(write.file)
+            if (write.whole) afterWrites { EditorNotifications.getInstance(project).updateNotifications(write.file) }
         }
-        history.putSystemLabel(project, labelAfter)
+        afterWrites { history.putSystemLabel(project, labelAfter) }
         return FileSystemOutcome.Written(writes.map { it.file }, byFile.values.sumOf { it.size }, before)
+    }
+
+    /**
+     * Runs [block] once files may have been written: it must not end the write with an exception, since the caller
+     * could no longer tell which files hold which envelopes (decision 6). A failure is logged by class only.
+     */
+    private fun afterWrites(block: () -> Unit) {
+        try {
+            block()
+        } catch (e: Exception) {
+            if (e is ControlFlowException) throw e
+            VaultLog.failure(VaultLog.Operation.ENCRYPT, e)
+        }
+    }
+
+    /** The bytes of [file] on disk (not the VFS cache), or null when it cannot be read. */
+    private fun diskBytes(file: VirtualFile): ByteArray? {
+        val path = file.toNioPathOrNull() ?: return null
+        return try {
+            Files.readAllBytes(path)
+        } catch (e: IOException) {
+            VaultLog.failure(VaultLog.Operation.ENCRYPT, e, file.path)
+            null
+        }
+    }
+
+    private fun hasBytes(path: Path, bytes: ByteArray): Boolean = try {
+        Files.readAllBytes(path).contentEquals(bytes)
+    } catch (_: IOException) {
+        false
     }
 
     /** [text] (a document's, LF) as [file]'s bytes: its line separator, charset and byte order mark, as a save would write them. */
@@ -478,33 +540,43 @@ internal class ReencryptionWriter(private val project: Project, private val mode
     }
 
     /**
-     * Writes [bytes] as [file]'s content through the VFS, and makes sure no Undo brings back what it held before (old
-     * envelopes the new password cannot open). In 262 a file whose document is loaded reloads it from disk as an
-     * undoable "Reload from Disk", inside the write; so the write runs in a command of its own that also records an
-     * action refusing to be undone ([RefusedUndo]): an Undo of that command stops at the refusal, and the reload stays.
-     * False on an I/O error (nothing of the file was written then).
+     * Replaces [file] (at [path]) with [bytes] atomically ([AtomicFiles.replace], its mode kept), refreshes it so the VFS
+     * and a loaded document learn of it, and makes sure no Undo brings back what it held before (old envelopes the new
+     * password cannot open). The write and the refresh run in a command of their own; the refresh reloads a loaded
+     * document as an external change, which the platform does not undo ("changes that cannot be undone", verified in
+     * 262). A further command records an action refusing to be undone ([RefusedUndo]), so Undo names the rotation and
+     * refuses. With [test], the test hook [failWriteForTests] may refuse the write first. Returns what failed, or null.
      */
-    private fun writeNotUndoable(file: VirtualFile, bytes: ByteArray): Boolean {
-        var written = false
+    private fun writeNotUndoable(file: VirtualFile, path: Path, bytes: ByteArray, test: Boolean): Throwable? {
+        var failure: Throwable? = null
         CommandProcessor.getInstance().executeCommand(
             project,
             {
-                written = try {
-                    failWriteForTests?.let { fail -> if (fail(file)) throw IOException("a write the test refuses") }
-                    WriteAction.run<IOException> { file.setBinaryContent(bytes) }
-                    true
-                } catch (e: IOException) {
-                    VaultLog.failure(VaultLog.Operation.ENCRYPT, e, file.path)
-                    false
+                try {
+                    if (test) failWriteForTests?.let { fail -> if (fail(file)) throw IOException("a write the test refuses") }
+                    AtomicFiles.replace(path, bytes)
+                } catch (e: Throwable) {
+                    failure = e
                 }
-                val document = FileDocumentManager.getInstance().getCachedDocument(file)
-                if (written && document != null) {
-                    UndoManager.getInstance(project).undoableActionPerformed(RefusedUndo(DocumentReferenceManager.getInstance().create(document)))
+                try {
+                    VfsUtil.markDirtyAndRefresh(false, false, false, file)
+                } catch (e: Throwable) {
+                    if (failure == null) failure = e
                 }
             },
             AnsibilityVaultUiBundle.message("rotate.undo.command"), null,
         )
-        return written
+        // The refresh reloaded a loaded document as an external change (not undoable); a command of its own on top
+        // refuses to be undone, so Undo says the rotation cannot be undone instead of reaching edits made before it.
+        val document = FileDocumentManager.getInstance().getCachedDocument(file)
+        if (failure == null && document != null) {
+            CommandProcessor.getInstance().executeCommand(
+                project,
+                { UndoManager.getInstance(project).undoableActionPerformed(RefusedUndo(DocumentReferenceManager.getInstance().create(document))) },
+                AnsibilityVaultUiBundle.message("rotate.undo.command"), null,
+            )
+        }
+        return failure
     }
 
     /**
@@ -562,7 +634,11 @@ internal class ReencryptionWriter(private val project: Project, private val mode
         changes.sortedBy { it.range.startOffset }.zipWithNext().any { (a, b) -> a.range.endOffset > b.range.startOffset }
 
     companion object {
-        /** Makes mode 3 fail when it writes a file this returns true for (tests only: a failure midway restores the written files). */
+        /**
+         * Makes mode 3 fail when it writes a file this returns true for, or throws (tests only: a failure midway restores
+         * the written files). Asked before each new file and before each written file is put back; not before the
+         * failing file itself is put back.
+         */
         @Volatile
         @get:TestOnly
         @set:TestOnly

@@ -84,6 +84,8 @@ class RotationDialogTest : RotationTestCase() {
                 }
             }
             assertFalse("no generated password in a text", generating.texts().any { it.contains(generated) })
+            // Review, decision 16: the generated password is painted from its characters, never put into a text component.
+            assertFalse("no generated password in a text component", generating.textComponentContents().any { it.contains(generated) })
             return Seen(checks, generated)
         } finally {
             generating.close(DialogWrapper.CANCEL_EXIT_CODE)

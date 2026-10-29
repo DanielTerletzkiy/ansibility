@@ -254,8 +254,11 @@ class RotatePasswordTest : RotationTestCase() {
                     try {
                         undo.undo(editor)
                     } catch (refused: Throwable) {
-                        // The refusal: unit-test mode reports the UnexpectedUndoException as a logged error.
-                        assertTrue(refused.toString(), generateSequence(refused) { it.cause }.any { it is UnexpectedUndoException })
+                        // The refusal: unit-test mode reports it as a logged error, either the UnexpectedUndoException of
+                        // the refusing action or the platform's own "changes that cannot be undone" (the atomic write of
+                        // review decision 6 reloads the document as an external change, which is not undoable).
+                        val chain = generateSequence(refused) { it.cause }
+                        assertTrue(refused.toString(), chain.any { it is UnexpectedUndoException || it.message.orEmpty().contains("cannot be undone") })
                         refusals++
                     }
                 }
@@ -263,7 +266,9 @@ class RotatePasswordTest : RotationTestCase() {
         } finally {
             TestDialogManager.setTestDialog(TestDialog.DEFAULT)
         }
-        assertEquals("the rotation refused its undo", 1, refusals)
+        // Since the atomic writes (review, decision 6) the reload is an external change: every Undo past the rotation
+        // is refused, not only the first (edits made before the rotation can no longer be undone in that file).
+        assertTrue("the rotation refused its undo", refusals >= 1)
         FileDocumentManager.getInstance().saveAllDocuments()
         assertEquals("the document still holds the new envelope", "Db0Old0Value0001", decryptWith(envelopeOf(document.text, "vault_db_password"), newPassword))
         assertEquals("and so does the file", "Db0Old0Value0001", valueOf(vaultPath, "vault_db_password", newPassword))

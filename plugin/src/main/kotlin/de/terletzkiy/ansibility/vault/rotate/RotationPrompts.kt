@@ -11,7 +11,6 @@ import com.intellij.ui.components.JBPasswordField
 import com.intellij.ui.components.JBRadioButton
 import com.intellij.ui.dsl.builder.AlignX
 import com.intellij.ui.dsl.builder.Panel
-import com.intellij.ui.dsl.builder.Placeholder
 import com.intellij.ui.dsl.builder.panel
 import com.intellij.ui.dsl.listCellRenderer.textListCellRenderer
 import com.intellij.util.concurrency.ThreadingAssertions
@@ -22,12 +21,19 @@ import de.terletzkiy.ansibility.vault.ui.AnsibilityVaultUiBundle.message
 import de.terletzkiy.ansibility.vault.ui.VaultClipboard
 import org.jetbrains.annotations.Nls
 import org.jetbrains.annotations.TestOnly
+import java.awt.BorderLayout
 import java.awt.Component
+import java.awt.Dimension
+import java.awt.Graphics
+import java.awt.Graphics2D
+import java.awt.RenderingHints
 import java.security.SecureRandom
 import javax.swing.JButton
 import javax.swing.JComponent
 import javax.swing.JEditorPane
 import javax.swing.JLabel
+import javax.swing.JPanel
+import javax.swing.UIManager
 
 /**
  * The questions of Rotate Vault Password… (plan amendment R29, D205, D209, D214): the rotation dialog and the review.
@@ -90,10 +96,19 @@ internal object RotationTexts {
     @Nls
     fun kind(source: RotationSource): String = message("settings.vault.kind.${source.kind.name.lowercase()}")
 
+    /**
+     * A password file as the rotation names it before writing it: its display (with where a link points) and, outside
+     * the root's repository, an explicit note (plan amendment R29 review, decision 12).
+     */
+    @Nls
+    fun file(source: RotationSource): String = if (source.outside) message("rotate.source.outside", source.display) else source.display
+
     /** D211 in words: where the new password goes for [group]. */
     @Nls
     fun destination(group: RotationGroup): String = when (group.source.destination) {
-        Destination.PASSWORD_FILE -> message("rotate.dialog.write.file", group.source.display)
+        Destination.PASSWORD_FILE ->
+            if (group.writable) message("rotate.dialog.write.file", file(group.source))
+            else message("rotate.dialog.write.unresolved", group.source.display, group.unresolved.mapNotNull { it.source.unresolved }.distinct().joinToString(", "))
         Destination.PASSWORD_SAFE -> message("rotate.dialog.write.safe")
         Destination.PROMPT -> message("rotate.dialog.write.prompt")
         Destination.YOURSELF -> message("rotate.dialog.write.yourself", group.source.display)
@@ -101,26 +116,100 @@ internal object RotationTexts {
 }
 
 /**
+ * Shows the generated new password (plan amendment R29 review, decision 16): painted from its character array with
+ * `Graphics.drawChars`, masked unless Show is on, so it never becomes a `String` or the content of a text component
+ * (whose buffer clearing does not zero). [set] takes ownership of the array and zeroes the one before.
+ */
+internal class GeneratedPasswordView : JComponent() {
+    private var chars: CharArray = CharArray(0)
+
+    /** Show: the characters themselves instead of bullets. */
+    var revealed: Boolean = false
+        set(value) {
+            field = value
+            repaint()
+        }
+
+    init {
+        border = UIManager.getBorder("TextField.border") ?: JBUI.Borders.empty(3, 5)
+        font = UIManager.getFont("PasswordField.font") ?: UIManager.getFont("TextField.font")
+        isOpaque = true
+    }
+
+    /** Shows [password], which this view owns from now on. */
+    fun set(password: CharArray) {
+        chars.fill('\u0000')
+        chars = password
+        revalidate()
+        repaint()
+    }
+
+    /** A copy of the password shown (the caller zeroes it). */
+    fun copy(): CharArray = chars.copyOf()
+
+    fun clear() = set(CharArray(0))
+
+    override fun getPreferredSize(): Dimension {
+        val metrics = getFontMetrics(font)
+        val insets = insets
+        return Dimension(metrics.charWidth('W') * COLUMNS + insets.left + insets.right, metrics.height + insets.top + insets.bottom)
+    }
+
+    override fun getMinimumSize(): Dimension = Dimension(JBUI.scale(MIN_WIDTH), preferredSize.height)
+
+    override fun paintComponent(g: Graphics) {
+        val g2 = g.create() as Graphics2D
+        try {
+            g2.color = if (isEnabled) UIUtil.getTextFieldBackground() else UIUtil.getPanelBackground()
+            g2.fillRect(0, 0, width, height)
+            g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON)
+            g2.font = font
+            g2.color = if (isEnabled) UIUtil.getTextFieldForeground() else UIUtil.getLabelDisabledForeground()
+            val metrics = g2.fontMetrics
+            val insets = insets
+            val y = insets.top + (height - insets.top - insets.bottom - metrics.height) / 2 + metrics.ascent
+            if (revealed) {
+                g2.drawChars(chars, 0, chars.size, insets.left, y)
+            } else {
+                val masked = CharArray(chars.size) { BULLET }
+                g2.drawChars(masked, 0, masked.size, insets.left, y)
+            }
+        } finally {
+            g2.dispose()
+        }
+    }
+
+    private companion object {
+        const val COLUMNS = 40
+        const val MIN_WIDTH = 120
+        const val BULLET = '•'
+    }
+}
+
+/**
  * The rotation dialog (D205): the vault id with its counts; the roots that hold vaults of it, one row per password
  * source (roots sharing a source are checked together, D206) with where the new password goes (D211); and the new
  * password: generated (64 alphanumeric, `SecureRandom`) or typed twice, masked, with Show and Copy. The password lives in
- * the fields' character arrays only and is cleared when the dialog closes.
+ * character arrays only (the generated one in a [GeneratedPasswordView], never a text component) and is cleared when
+ * the dialog closes.
  */
 internal class RotationDialog(project: Project, private val request: RotationRequest, private val random: SecureRandom) : DialogWrapper(project) {
     private val identities = ComboBox(request.identities.toTypedArray()).apply {
         renderer = textListCellRenderer { it?.let(RotationTexts::identity) }
         selectedItem = request.identity
     }
-    private lateinit var rootsPlaceholder: Placeholder
+
+    /** Holds the rows of the chosen id's groups; swapped when the id changes (no experimental UI DSL placeholder). */
+    private val rootsHolder = JPanel(BorderLayout()).apply { isOpaque = false }
     private val generateButton = JBRadioButton(message("rotate.dialog.generate"), true)
     private val typeButton = JBRadioButton(message("rotate.dialog.type"))
-    private val generated = JBPasswordField().apply { isEditable = false; columns = 40 }
+    private val generated = GeneratedPasswordView()
     private val typed = JBPasswordField().apply { columns = 40 }
     private val repeated = JBPasswordField().apply { columns = 40 }
     private val show = JBCheckBox(message("rotate.dialog.show"))
     private val copy = JButton(message("rotate.dialog.copy"))
     private val regenerate = JButton(message("rotate.dialog.regenerate"))
-    private val echo = generated.echoChar
+    private val echo = typed.echoChar
     private var center: JComponent? = null
 
     init {
@@ -129,7 +218,7 @@ internal class RotationDialog(project: Project, private val request: RotationReq
         fill(NewPassword.generate(random))
         identities.addActionListener {
             (identities.selectedItem as? RotationIdentity)?.let { request.identity = it }
-            rootsPlaceholder.component = rootsPanel()
+            showRoots()
             initValidation()
         }
         generateButton.addActionListener { modeChanged() }
@@ -144,7 +233,7 @@ internal class RotationDialog(project: Project, private val request: RotationReq
     override fun createCenterPanel(): JComponent = panel {
         row(message("rotate.dialog.identity.label")) { cell(identities).align(AlignX.FILL) }
         group(message("rotate.dialog.roots")) {
-            row { rootsPlaceholder = placeholder().align(AlignX.FILL) }
+            row { cell(rootsHolder).align(AlignX.FILL) }
             row { comment(message("rotate.dialog.roots.comment")) }
         }
         group(message("rotate.dialog.password")) {
@@ -168,11 +257,19 @@ internal class RotationDialog(project: Project, private val request: RotationReq
             }
             row { comment(message("rotate.dialog.password.comment")) }
         }
-    }.also { rootsPlaceholder.component = rootsPanel() }.apply { preferredSize = JBUI.size(640, 480) }.also { center = it }
+    }.also { showRoots() }.apply { preferredSize = JBUI.size(640, 480) }.also { center = it }
 
     override fun getDimensionServiceKey(): String = "Ansibility.Vault.RotatePassword"
 
     override fun getPreferredFocusedComponent(): JComponent = identities
+
+    /** Puts the rows of the chosen id into [rootsHolder]. */
+    private fun showRoots() {
+        rootsHolder.removeAll()
+        rootsHolder.add(rootsPanel(), BorderLayout.CENTER)
+        rootsHolder.revalidate()
+        rootsHolder.repaint()
+    }
 
     /** The groups of the chosen id: a checkbox per source (its roots), what the source is, and where the new password goes. */
     private fun rootsPanel(): JComponent = panel {
@@ -193,7 +290,7 @@ internal class RotationDialog(project: Project, private val request: RotationReq
         indent {
             row { comment(RotationTexts.source(group.source)) }
             row {
-                if (group.source.destination == Destination.PASSWORD_FILE) {
+                if (group.writable) {
                     checkBox(RotationTexts.destination(group)).applyToComponent {
                         isSelected = group.write
                         addActionListener { group.write = isSelected }
@@ -205,15 +302,9 @@ internal class RotationDialog(project: Project, private val request: RotationReq
         }
     }
 
+    /** Shows [password] (generated) in [generated]; its characters never become a `String` (review, decision 16). */
     private fun fill(password: NewPassword) {
-        password.use {
-            val chars = it.chars()
-            try {
-                generated.text = String(chars)
-            } finally {
-                chars.fill('\u0000')
-            }
-        }
+        password.use { generated.set(it.chars()) }
     }
 
     private fun modeChanged() {
@@ -227,7 +318,8 @@ internal class RotationDialog(project: Project, private val request: RotationReq
 
     private fun showChanged() {
         val char = if (show.isSelected) 0.toChar() else echo
-        for (field in listOf(generated, typed, repeated)) field.echoChar = char
+        for (field in listOf(typed, repeated)) field.echoChar = char
+        generated.revealed = show.isSelected
     }
 
     /** Copy (D205): the password in the active fields through [VaultClipboard]. */
@@ -241,7 +333,7 @@ internal class RotationDialog(project: Project, private val request: RotationReq
     }
 
     /** The password the active fields hold (the caller zeroes it). */
-    private fun current(): CharArray = if (generateButton.isSelected) generated.password else typed.password
+    private fun current(): CharArray = if (generateButton.isSelected) generated.copy() else typed.password
 
     override fun doValidate(): ValidationInfo? {
         if (request.chosen.isEmpty()) return ValidationInfo(message("rotate.dialog.roots.empty"), identities)
@@ -263,7 +355,8 @@ internal class RotationDialog(project: Project, private val request: RotationReq
 
     /** Clears every password field (after the dialog closed either way). */
     fun clear() {
-        for (field in listOf(generated, typed, repeated)) field.text = ""
+        for (field in listOf(typed, repeated)) field.text = ""
+        generated.clear()
     }
 
     override fun dispose() {
@@ -282,6 +375,11 @@ internal class RotationDialog(project: Project, private val request: RotationReq
         texts += commentsOf(component)
         return texts
     }
+
+    /** For tests: what every text component of the dialog holds (decision 16: the generated password is in none). */
+    @TestOnly
+    fun textComponentContents(): List<String> =
+        center?.let { UIUtil.findComponentsOfType(it, javax.swing.text.JTextComponent::class.java).map { field -> field.text } }.orEmpty()
 
     /** For tests: types [first] and [second] into the two fields of "type it twice". */
     @TestOnly

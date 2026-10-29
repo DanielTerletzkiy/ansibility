@@ -68,6 +68,8 @@ abstract class RotationTestCase : VaultUiTestCase() {
 
     override fun tearDown() {
         try {
+            // A Copy New Password of the test is cleared now: the clipboard service is application-wide.
+            scheduler.advance(de.terletzkiy.ansibility.vault.ui.VaultUiTimings.CLIPBOARD_MILLIS)
             ReencryptionWriter.failWriteForTests = null
             ReencryptionEngine.tamperForTests = null
             service.onStepForTests = null

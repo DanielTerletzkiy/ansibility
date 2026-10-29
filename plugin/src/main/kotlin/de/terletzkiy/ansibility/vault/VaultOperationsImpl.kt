@@ -32,6 +32,7 @@ import de.terletzkiy.ansibility.vault.identity.VaultProjectSettings
 import de.terletzkiy.ansibility.vault.rotate.RotationHints
 import de.terletzkiy.ansibility.vault.secrets.VaultLockReason
 import de.terletzkiy.ansibility.vault.secrets.VaultSecretsService
+import de.terletzkiy.ansibility.vault.secrets.VaultUserState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -103,6 +104,8 @@ class VaultOperationsImpl(private val project: Project, private val scope: Corou
                 is DecryptOutcome.Decrypted -> {
                     val plaintext = outcome.release()
                     record(discovery, fingerprint, Verification(outcome.label, outcome.tried, outcome.labelMatches))
+                    // X129 (plan amendment R29 review, decision 13): a persistent, non-secret "this root and id opened envelopes".
+                    VaultUserState.getInstance().recordOpened(discovery.canonicalRootPath, outcome.label)
                     crypto.cachePlaintext(discovery.rootKey, fingerprint, outcome.label, plaintext, secrets.now())
                     VaultLog.event(VaultLog.Operation.DECRYPT, VaultLog.Event.DECRYPTED, located.file.path, located.keyName)
                     VaultDecryptResult.Decrypted(outcome.label, OwnedPlaintext(plaintext))

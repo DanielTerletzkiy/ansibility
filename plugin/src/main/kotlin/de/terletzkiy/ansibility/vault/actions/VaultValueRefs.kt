@@ -54,6 +54,22 @@ internal class VaultValueRef private constructor(
             val location = SourceLocation(file, VaultValuePsi.valueStart(scalar))
             return VaultValueRef(project, file, root, pointer, VaultValuePsi.keyName(scalar), location, YamlPsi.loadedText(scalar))
         }
+
+        /**
+         * The vault value [scalar] of [file], where [scalar] comes from a YAML parse of [file]'s document text, not from
+         * the IDE's PSI of [file] (a vars file Ansible loads although its name has no YAML extension, `group_vars/web`,
+         * which the IDE types as plain text; plan amendment R29 review, decision 3). Offsets are those of that text: a
+         * caller writes through it only while the document still has the modification sequence it was parsed at. The
+         * pointer holds the parsed element. Null outside an Ansible root. Call in a read action.
+         */
+        fun ofParsed(scalar: YAMLScalar, file: VirtualFile): VaultValueRef? {
+            if (!VaultValuePsi.isVault(scalar)) return null
+            val project = scalar.project
+            val root = AnsibleWorkspace.getInstance(project).rootFor(file) ?: return null
+            val pointer = SmartPointerManager.getInstance(project).createSmartPsiElementPointer(scalar)
+            val location = SourceLocation(file, VaultValuePsi.valueStart(scalar))
+            return VaultValueRef(project, file, root, pointer, VaultValuePsi.keyName(scalar), location, YamlPsi.loadedText(scalar))
+        }
     }
 }
 

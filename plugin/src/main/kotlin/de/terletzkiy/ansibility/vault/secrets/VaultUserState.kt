@@ -28,6 +28,15 @@ data class ConsentRecord(val locator: String, val size: Long, val fingerprint: S
 data class PreviousPasswordRecord(val root: String, val label: String, val date: Long)
 
 /**
+ * A rotation whose password source was not written yet (plan amendment R29 review, decision 9): Rotate Vault Password…
+ * stored the new password of id [label] of the root at [root] (its real path) in the root's own IDE password store
+ * entry, but the source in chain slot [slot] (a password manager, an environment variable, a password file the IDE
+ * could not or may not write) still gives the old one. Until that source gives the new password, unlocks skip a source
+ * that gives the "before rotation" password and the stored entry comes first. [date] is when it was rotated. No secret.
+ */
+data class PendingRotationRecord(val root: String, val label: String, val slot: String?, val date: Long)
+
+/**
  * Per-user vault state at application level, in `ansibility-vault-user.xml` of the IDE configuration directory with
  * roaming disabled (DEV.md rule 12, secret rule 5): the consents to read discovered password sources, the labels
  * whose typed password is remembered in PasswordSafe, the idle auto-lock, and whether commits are checked for
@@ -37,7 +46,8 @@ data class PreviousPasswordRecord(val root: String, val label: String, val date:
  * write the IDE configuration directory, so entries it plants have no effect. No secret is stored here.
  *
  * Since plan amendment R29 also the records of previous vault passwords that Rotate Vault Password… kept in the IDE
- * password store (D212): root, id and date, never the password.
+ * password store (D212): root, id and date, never the password; the rotations whose source still has to be updated
+ * ([PendingRotationRecord]); and which root and id opened envelopes before (X129's teammate hint), all without secrets.
  *
  * Remembered labels come in two lifetimes: persistent (the password is in the password safe) and for this IDE
  * session (the password is in PasswordSafe's memory-only store); only the persistent ones are saved.
@@ -50,6 +60,8 @@ class VaultUserState : PersistentStateComponent<VaultUserState.StateBean> {
     private val persistentLabels = ConcurrentHashMap<String, List<String>>()
     private val sessionLabels = ConcurrentHashMap<String, List<String>>()
     private val previous = ConcurrentHashMap<String, PreviousPasswordRecord>()
+    private val pending = ConcurrentHashMap<String, PendingRotationRecord>()
+    private val opened: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
     @Volatile
     private var autoLock: Int = DEFAULT_AUTO_LOCK_MINUTES
@@ -84,6 +96,10 @@ class VaultUserState : PersistentStateComponent<VaultUserState.StateBean> {
     fun revoke(locator: String) {
         if (consents.remove(locator) != null) tracker.incModificationCount()
     }
+
+    /** Whether [label]'s password of [canonicalRootPath] is remembered for this IDE session only (PasswordSafe's memory store). */
+    fun isRememberedForSession(canonicalRootPath: String, label: String): Boolean =
+        sessionLabels[canonicalRootPath].orEmpty().contains(label) && !persistentLabels[canonicalRootPath].orEmpty().contains(label)
 
     /** The labels whose password is remembered for the root at [canonicalRootPath]: persistent ones first. */
     fun rememberedLabels(canonicalRootPath: String): List<String> =
@@ -132,6 +148,37 @@ class VaultUserState : PersistentStateComponent<VaultUserState.StateBean> {
 
     private fun previousKey(root: String, label: String): String = "$root\u0000$label"
 
+    /** The rotation of [label] of [canonicalRootPath] whose source is not updated yet (decision 9 of the R29 review), or null. */
+    fun pendingRotation(canonicalRootPath: String, label: String): PendingRotationRecord? = pending[previousKey(canonicalRootPath, label)]
+
+    /** Every pending rotation, by root and id. */
+    fun pendingRotations(): List<PendingRotationRecord> = pending.values.sortedWith(compareBy({ it.root }, { it.label }))
+
+    /**
+     * Records [record]; a later rotation of the same root and id replaces it. Discovery does not depend on it, so the
+     * [modificationTracker] is not bumped (nor for [forgetPendingRotation] and [recordOpened]).
+     */
+    fun recordPendingRotation(record: PendingRotationRecord) {
+        pending[previousKey(record.root, record.label)] = record
+    }
+
+    /** The source of [label] of [canonicalRootPath] gives the new password now (Check said so, or an unlock read it). */
+    fun forgetPendingRotation(canonicalRootPath: String, label: String) {
+        pending.remove(previousKey(canonicalRootPath, label))
+    }
+
+    /**
+     * Whether id [label] of the root at [canonicalRootPath] opened an envelope in this IDE before, in any session (X129,
+     * plan amendment R29 review, decision 13): a wrong secret after a restart or the idle lock then still suggests a
+     * rotation elsewhere. Not secret.
+     */
+    fun openedBefore(canonicalRootPath: String, label: String): Boolean = previousKey(canonicalRootPath, label) in opened
+
+    /** Records that [label] of [canonicalRootPath] opened an envelope ([openedBefore]); cheap when it is known already. */
+    fun recordOpened(canonicalRootPath: String, label: String) {
+        opened.add(previousKey(canonicalRootPath, label))
+    }
+
     override fun getState(): StateBean = StateBean().apply {
         autoLockMinutes = autoLock
         checkCommits = this@VaultUserState.checkCommits
@@ -143,6 +190,12 @@ class VaultUserState : PersistentStateComponent<VaultUserState.StateBean> {
             .toMutableList()
         previous = previousPasswords()
             .map { record -> PreviousBean().apply { root = record.root; label = record.label; date = record.date } }
+            .toMutableList()
+        pendingRotations = pendingRotations()
+            .map { record -> PendingBean().apply { root = record.root; label = record.label; slot = record.slot; date = record.date } }
+            .toMutableList()
+        opened = this@VaultUserState.opened.sorted()
+            .map { key -> RememberedBean().apply { root = key.substringBefore('\u0000'); label = key.substringAfter('\u0000') } }
             .toMutableList()
     }
 
@@ -166,6 +219,18 @@ class VaultUserState : PersistentStateComponent<VaultUserState.StateBean> {
             val root = bean.root ?: continue
             val label = bean.label ?: continue
             previous[previousKey(root, label)] = PreviousPasswordRecord(root, label, bean.date)
+        }
+        pending.clear()
+        for (bean in state.pendingRotations) {
+            val root = bean.root ?: continue
+            val label = bean.label ?: continue
+            pending[previousKey(root, label)] = PendingRotationRecord(root, label, bean.slot, bean.date)
+        }
+        opened.clear()
+        for (bean in state.opened) {
+            val root = bean.root ?: continue
+            val label = bean.label ?: continue
+            opened += previousKey(root, label)
         }
         tracker.incModificationCount()
     }
@@ -193,6 +258,12 @@ class VaultUserState : PersistentStateComponent<VaultUserState.StateBean> {
 
         @get:XCollection(propertyElementName = "previousPasswords", elementName = "previous")
         var previous: MutableList<PreviousBean> = ArrayList()
+
+        @get:XCollection(propertyElementName = "pendingRotations", elementName = "pending")
+        var pendingRotations: MutableList<PendingBean> = ArrayList()
+
+        @get:XCollection(propertyElementName = "opened", elementName = "entry")
+        var opened: MutableList<RememberedBean> = ArrayList()
     }
 
     /** XML form of a [ConsentRecord]. */
@@ -226,6 +297,22 @@ class VaultUserState : PersistentStateComponent<VaultUserState.StateBean> {
 
         @get:Attribute("label")
         var label: String? = null
+
+        @get:Attribute("date")
+        var date: Long = 0
+    }
+
+    /** XML form of a [PendingRotationRecord] (plan amendment R29 review, decision 9). */
+    @Tag("pending")
+    class PendingBean {
+        @get:Attribute("root")
+        var root: String? = null
+
+        @get:Attribute("label")
+        var label: String? = null
+
+        @get:Attribute("slot")
+        var slot: String? = null
 
         @get:Attribute("date")
         var date: Long = 0
