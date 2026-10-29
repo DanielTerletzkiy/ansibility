@@ -40,6 +40,20 @@ internal object YamlPsi {
     /** The presentation style given by a scalar's first content token. */
     fun styleOf(content: PsiElement): ScalarStyle = SCALAR_CONTENT.getValue(content.node.elementType)
 
+    /**
+     * The string the loader reads from [scalar]: its `textValue`, except for a quoted scalar with an anchor, where the
+     * platform takes the anchor for the opening quote (`&a !vault "x"` gives `a !vault "x`); that one is decoded from
+     * its quoted token with [YamlScalarDecoder] (PyYAML's rules). The vault code reads `!vault` values with this, so an
+     * anchored value written in a flow collection reads back (plan amendment R29 review, finding 1).
+     */
+    fun loadedText(scalar: YAMLScalar): String {
+        val content = contentStart(scalar) ?: return scalar.textValue
+        val type = content.node.elementType
+        if (type != YAMLTokenTypes.SCALAR_DSTRING && type != YAMLTokenTypes.SCALAR_STRING) return scalar.textValue
+        if (PsiTreeUtil.getChildOfType(scalar, YAMLAnchor::class.java) == null) return scalar.textValue
+        return YamlScalarDecoder.decodeFlow(content.text)
+    }
+
     /** The explicit tag among [element]'s direct children, normalised (see [normalizeTag]); null when untagged. */
     fun tagOf(element: PsiElement): String? =
         generateSequence(element.firstChild) { it.nextSibling }

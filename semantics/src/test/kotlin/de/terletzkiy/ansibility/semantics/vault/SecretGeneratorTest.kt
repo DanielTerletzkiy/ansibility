@@ -83,6 +83,23 @@ class SecretGeneratorTest {
     }
 
     @Test
+    fun `a narrowed symbol set is used alone and must be ASCII punctuation`() {
+        val random = seeded(5)
+        val seen = HashSet<Char>()
+        repeat(200) {
+            val value = ascii(SecretGenerator(GeneratorKind.ALPHANUMERIC_SYMBOLS, 24, symbols = "@:").generate(random))
+            assertTrue(value[0].isLetterOrDigit(), value)
+            seen += value.filterNot { it.isLetterOrDigit() }.toSet()
+        }
+        assertEquals(setOf('@', ':'), seen)
+        assertEquals(SecretGenerator.alphabet(GeneratorKind.ALPHANUMERIC) + "@:", SecretGenerator.alphabet(GeneratorKind.ALPHANUMERIC_SYMBOLS, symbols = "@:"))
+        for (bad in listOf("", "a", "-a", " ", "ä")) {
+            assertThrows(IllegalArgumentException::class.java) { SecretGenerator(GeneratorKind.ALPHANUMERIC_SYMBOLS, 8, symbols = bad) }
+        }
+        assertNotEquals(SecretGenerator(GeneratorKind.ALPHANUMERIC_SYMBOLS, 8), SecretGenerator(GeneratorKind.ALPHANUMERIC_SYMBOLS, 8, symbols = "-"))
+    }
+
+    @Test
     fun `every character of each alphabet appears over many draws and none dominates`() {
         val random = seeded(7)
         for ((kind, upper) in listOf(GeneratorKind.ALPHANUMERIC to false, GeneratorKind.HEX to false, GeneratorKind.HEX to true)) {

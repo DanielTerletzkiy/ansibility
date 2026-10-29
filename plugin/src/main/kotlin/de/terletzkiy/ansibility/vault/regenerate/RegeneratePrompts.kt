@@ -25,11 +25,13 @@ import com.intellij.util.ui.tree.TreeUtil
 import de.terletzkiy.ansibility.semantics.vault.GeneratorKind
 import de.terletzkiy.ansibility.semantics.vault.SecretGenerator
 import de.terletzkiy.ansibility.vault.ui.AnsibilityVaultUiBundle.message
+import org.jetbrains.annotations.Nls
 import org.jetbrains.annotations.TestOnly
 import javax.swing.JButton
 import javax.swing.JComponent
 import javax.swing.JTree
 import javax.swing.tree.DefaultTreeModel
+import javax.swing.tree.TreePath
 
 /**
  * The questions of Regenerate Secrets… (plan amendment R29): the selection dialog (D217), the small generator chooser
@@ -46,8 +48,11 @@ interface RegeneratePrompts {
     /** The rotation script to import rules from, starting at [preselect]; null when cancelled (X131). EDT. */
     fun chooseScript(project: Project, preselect: VirtualFile?): VirtualFile?
 
-    /** Says how many rules were imported and which arms were skipped (their patterns) (X131). EDT. */
-    fun importResult(project: Project, imported: Int, skipped: List<String>)
+    /**
+     * Says how many rules were imported, which arms or patterns were skipped (their patterns), and, as [defaultArm],
+     * why the script's default arm was left out (null when the script has none) (X131). EDT.
+     */
+    fun importResult(project: Project, imported: Int, skipped: List<String>, @Nls defaultArm: String?)
 
     companion object {
         fun getInstance(): RegeneratePrompts = ApplicationManager.getApplication().service()
@@ -73,30 +78,51 @@ class RegenerateDialogPrompts : RegeneratePrompts {
         return FileChooser.chooseFile(descriptor, project, preselect)
     }
 
-    override fun importResult(project: Project, imported: Int, skipped: List<String>) {
+    override fun importResult(project: Project, imported: Int, skipped: List<String>, @Nls defaultArm: String?) {
         ThreadingAssertions.assertEventDispatchThread()
         val text = listOfNotNull(
             message("settings.vault.rules.imported", imported),
             skipped.takeIf { it.isNotEmpty() }?.let { message("settings.vault.rules.skipped", it.joinToString(", ")) },
+            defaultArm,
         ).joinToString("\n")
         Messages.showInfoMessage(project, text, message("settings.vault.rules.import.title"))
     }
 }
 
-/** A generator kind and a length, edited together; [generator] keeps the preset's details for its own kind. */
-internal class GeneratorFields(private val preset: SecretGenerator) {
+/**
+ * A generator kind and a length, edited together. [preset] is the generator the fields were last set to ([show]):
+ * [generator] keeps its details (hex case, padding, symbols) while the kind stays, and [changedKind] / [changedLength]
+ * say what you changed since.
+ */
+internal class GeneratorFields(preset: SecretGenerator) {
+    var preset: SecretGenerator = preset
+        private set
+
     val kind = ComboBox(GeneratorKind.entries.toTypedArray()).apply {
         renderer = textListCellRenderer { it?.let(RegenerateTexts::kind) }
         selectedItem = preset.kind
     }
     val length = JBIntSpinner(preset.length, 1, SecretGenerator.MAX_CHARACTERS)
 
+    /** Shows [generator] and makes it the preset. */
+    fun show(generator: SecretGenerator) {
+        preset = generator
+        kind.selectedItem = generator.kind
+        length.number = generator.length
+    }
+
+    /** The kind, when you changed it since [show]; else null. */
+    val changedKind: GeneratorKind? get() = (kind.selectedItem as? GeneratorKind)?.takeIf { it != preset.kind }
+
+    /** The length, when you changed it since [show]; else null. */
+    val changedLength: Int? get() = length.number.takeIf { it != preset.length }
+
     /** The generator the fields describe, or null when the length does not fit the kind. */
     fun generator(): SecretGenerator? {
         val kind = kind.selectedItem as? GeneratorKind ?: return null
         val length = length.number
         if (length !in SecretGenerator.lengths(kind)) return null
-        return if (kind == preset.kind) SecretGenerator(kind, length, preset.upperHex, preset.padded) else SecretGenerator(kind, length)
+        return if (kind == preset.kind) preset.copy(length = length) else SecretGenerator(kind, length)
     }
 }
 
@@ -112,7 +138,7 @@ internal class RegenerateDialog(project: Project, private val request: Regenerat
     private val leaves = LinkedHashMap<RegenerateRow, CheckedTreeNode>()
     private var syncing = false
     private val count = JBLabel()
-    private val fields = GeneratorFields(SecretGenerator.DEFAULT)
+    internal val fields = GeneratorFields(SecretGenerator.DEFAULT)
     private val apply = JButton(message("regenerate.dialog.apply"))
     private val split = JButton(message("regenerate.dialog.split"))
 
@@ -196,21 +222,29 @@ internal class RegenerateDialog(project: Project, private val request: Regenerat
         TreeUtil.treeNodeTraverser(node).toList().mapNotNull { (it as? CheckedTreeNode)?.userObject as? RegenerateRow }
     }.distinct().filter { it.enabled }
 
+    /** The fields show the first selected row's generator, all its details kept (plan amendment R29 review, finding 10). */
     private fun selectionChanged() {
         val rows = selectedRows()
         apply.isEnabled = rows.isNotEmpty()
         split.isEnabled = rows.any { it.group != null }
-        rows.firstOrNull()?.let {
-            fields.kind.selectedItem = it.generator.kind
-            fields.length.number = it.generator.length
-        }
+        rows.firstOrNull()?.let { fields.show(it.generator) }
     }
 
-    private fun applyGenerator() {
-        val generator = fields.generator() ?: return setErrorText(message("regenerate.dialog.length.invalid"), fields.length)
+    /** Apply to Selected: only the kind or length you changed reaches the selected rows ([RegenerateRequest.changeGenerators]). */
+    internal fun applyGenerator() {
+        val rows = selectedRows()
+        if (!request.changeGenerators(rows, fields.changedKind, fields.changedLength)) {
+            return setErrorText(message("regenerate.dialog.length.invalid"), fields.length)
+        }
         setErrorText(null)
-        request.setGenerator(selectedRows(), generator)
+        rows.firstOrNull()?.let { fields.show(it.generator) }
         sync()
+    }
+
+    /** For tests: selects the tree rows of [rows], as a click would. */
+    @TestOnly
+    fun select(vararg rows: RegenerateRow) {
+        tree.selectionPaths = rows.map { TreePath(leaves.getValue(it).path) }.toTypedArray()
     }
 
     private fun splitGroup() {

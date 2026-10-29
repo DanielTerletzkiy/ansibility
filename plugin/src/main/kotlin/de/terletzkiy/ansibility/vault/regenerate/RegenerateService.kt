@@ -13,6 +13,7 @@ import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.text.StringUtil
+import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.platform.ide.progress.withBackgroundProgress
 import com.intellij.psi.PsiManager
@@ -23,6 +24,7 @@ import de.terletzkiy.ansibility.api.AnsibleWorkspace
 import de.terletzkiy.ansibility.api.VaultFailure
 import de.terletzkiy.ansibility.api.VaultPurpose
 import de.terletzkiy.ansibility.api.VaultStatusService
+import de.terletzkiy.ansibility.context.AnsibleWorkspaceImpl
 import de.terletzkiy.ansibility.index.vault.VaultIndexQueries
 import de.terletzkiy.ansibility.semantics.vault.EncryptIdentity
 import de.terletzkiy.ansibility.semantics.vault.GenerationRule
@@ -64,6 +66,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -73,9 +77,8 @@ import org.jetbrains.yaml.YAMLFileType
 import org.jetbrains.yaml.psi.YAMLKeyValue
 import org.jetbrains.yaml.psi.YAMLScalar
 import java.io.IOException
+import java.security.MessageDigest
 import java.security.SecureRandom
-import javax.crypto.Mac
-import javax.crypto.spec.SecretKeySpec
 
 /**
  * Regenerate Secrets… (plan amendment R29, Part 2, D215–D222): new random values for chosen vault values, encrypted
@@ -135,6 +138,8 @@ class RegenerateService(private val project: Project, private val scope: Corouti
                 val inspected = inspect(candidates, run)
                 val request = readAction { rows(candidates, inspected) }
                 if (!onEdt { RegeneratePrompts.getInstance().chooseValues(project, request) }) return@launch
+                // The dialog may have stayed open past an auto-lock or a Lock All: unlock again, once per root.
+                run.resumeAfterPause()
                 val selected = request.selected
                 if (selected.isEmpty()) return@launch onEdt { VaultUiFeedback.info(project, null, message("regenerate.nothing.selected")) }
                 val identities = onEdt { placeholderIdentities(selected, candidates) } ?: return@launch
@@ -162,16 +167,19 @@ class RegenerateService(private val project: Project, private val scope: Corouti
 
     /**
      * The values of [selection] in file and document order: `!vault` values of the YAML files the `ansible.vault` index
-     * lists, plaintext `vault_*` values of vars files, and whole-file vaults. Smart read action.
+     * lists, plaintext `vault_*` values of vars files, and whole-file vaults. A detached worktree's root (DEV rule 6) is
+     * scanned only when something selected lies inside that worktree, never for a folder above it. Smart read action.
      */
     private fun scan(selection: List<VirtualFile>): List<Candidate> {
         val workspace = AnsibleWorkspace.getInstance(project)
         val psi = PsiManager.getInstance(project)
         val types = FileTypeRegistry.getInstance()
         val result = ArrayList<Candidate>()
+        val detachedSelected = HashMap<AnsibleRoot, Boolean>()
         for (file in VaultFileOperations.getInstance(project).filesOf(selection)) {
             ProgressManager.checkCanceled()
             val root = workspace.rootFor(file) ?: continue
+            if (root.detached && !detachedSelected.getOrPut(root) { selection.any { VfsUtilCore.isAncestor(worktreeDirOf(root), it, false) } }) continue
             val repository = repositoryOf(file)
             if (VaultEnvelopes.isWholeFileVault(file)) {
                 result += Candidate(file, root, ReencryptTarget.WholeFile(file), file.name, null, RowKind.VAULT_FILE, repository)
@@ -204,6 +212,12 @@ class RegenerateService(private val project: Project, private val scope: Corouti
 
     private fun keyPath(scalar: YAMLScalar): String = YamlPaths.keyPath(scalar).joinToString(".")
 
+    /** The detached worktree [root] lies in (its directory), else the root's own directory. Read action. */
+    private fun worktreeDirOf(root: AnsibleRoot): VirtualFile = AnsibleWorkspaceImpl.getInstance(project)?.worktreeOf(root)?.dir ?: root.dir
+
+    /** Which side of DEV rule 6 [root] is on: "" for every normal root, the worktree's path for a detached one. Read action. */
+    private fun sideOf(root: AnsibleRoot): String = if (root.detached) worktreeDirOf(root).path else ""
+
     /** The repository of [file] as the tree shows it: the repository directory's name, else the project's. Read action. */
     @Nls
     private fun repositoryOf(file: VirtualFile): String =
@@ -227,24 +241,63 @@ class RegenerateService(private val project: Project, private val scope: Corouti
 
     /**
      * Decrypts the `!vault` values of [candidates] (one unlock per root) and keeps only their shapes and digests keyed
-     * with a random key of this run (HMAC-SHA256), which is zeroed afterwards: equal plaintexts give equal digests, and
-     * no digest says anything about a value once the key is gone (D219).
+     * with a random key of this run ([KeyedDigest]), which is zeroed afterwards with every copy of it: equal plaintexts
+     * give equal digests, and no digest says anything about a value once the key is gone (D219).
      */
     private suspend fun inspect(candidates: List<Candidate>, run: ReencryptionRun): Map<Candidate, Inspection<Facts>> {
         val values = candidates.filter { it.kind == RowKind.VAULT_VALUE }
         if (values.isEmpty()) return emptyMap()
         val items = values.map { ReencryptItem(it.root, it.target, Decryption.RootSecrets, NewPlaintext.Keep, Encryption.SameAsBefore, tag = it) }
-        val key = ByteArray(DIGEST_KEY_BYTES).also(SecureRandom()::nextBytes)
-        try {
-            val mac = Mac.getInstance(DIGEST).apply { init(SecretKeySpec(key, DIGEST)) }
-            val inspections = engine.inspect(items, run) { _, bytes ->
-                bytes?.let { Facts(SecretShape.of(it), mac.doFinal(it).joinToString("") { b -> "%02x".format(b) }) }
-            }
+        KeyedDigest().use { digest ->
+            val inspections = engine.inspect(items, run) { _, bytes -> bytes?.let { Facts(SecretShape.of(it), digest.of(it)) } }
             @Suppress("UNCHECKED_CAST")
             return inspections.associateBy { it.item.tag as Candidate } as Map<Candidate, Inspection<Facts>>
-        } finally {
-            key.fill(0)
         }
+    }
+
+    /**
+     * HMAC-SHA256 (RFC 2104) under a random key of one run (D219), computed with [MessageDigest] over the key pads this
+     * class owns, so [close] zeroes every copy of the key: a `Mac` with a `SecretKeySpec` would keep copies of its own
+     * until garbage collection (plan amendment R29 review, finding 9). The intermediate digest is zeroed too.
+     */
+    private class KeyedDigest : AutoCloseable {
+        private val innerPad = ByteArray(SHA256_BLOCK)
+        private val outerPad = ByteArray(SHA256_BLOCK)
+
+        init {
+            val key = ByteArray(DIGEST_KEY_BYTES).also(SecureRandom()::nextBytes)
+            try {
+                for (i in 0 until SHA256_BLOCK) {
+                    val k = if (i < key.size) key[i].toInt() else 0
+                    innerPad[i] = (k xor 0x36).toByte()
+                    outerPad[i] = (k xor 0x5c).toByte()
+                }
+            } finally {
+                key.fill(0)
+            }
+        }
+
+        /** The keyed digest of [value], in hex. */
+        fun of(value: ByteArray): String {
+            val sha = MessageDigest.getInstance(SHA256)
+            sha.update(innerPad)
+            sha.update(value)
+            val inner = sha.digest()
+            try {
+                sha.update(outerPad)
+                sha.update(inner)
+                return sha.digest().joinToString("") { "%02x".format(it) }
+            } finally {
+                inner.fill(0)
+            }
+        }
+
+        override fun close() {
+            innerPad.fill(0)
+            outerPad.fill(0)
+        }
+
+        override fun toString(): String = "KeyedDigest(***)"
     }
 
     /** The dialog's rows: shapes, rules, marks and the equal-value groups (D217–D219). */
@@ -259,7 +312,7 @@ class RegenerateService(private val project: Project, private val scope: Corouti
             rows += when (candidate.kind) {
                 RowKind.VAULT_FILE -> RegenerateRow(
                     index, candidate.file, candidate.root, candidate.repository, candidate.keyPath, null, RowKind.VAULT_FILE, null, null,
-                    message("regenerate.reason.vault.file"), false, null, SecretGenerator.DEFAULT, GeneratorSource.DEFAULT,
+                    message("regenerate.reason.vault.file"), null, SecretGenerator.DEFAULT, GeneratorSource.DEFAULT,
                 )
                 RowKind.VAULT_VALUE -> {
                     val inspection = inspected[candidate]
@@ -270,8 +323,8 @@ class RegenerateService(private val project: Project, private val scope: Corouti
                     RegenerateRow(
                         index, candidate.file, candidate.root, candidate.repository, candidate.keyPath, candidate.keyName, RowKind.VAULT_VALUE,
                         inspection?.identity, (shape as? SecretShape.NotPassword)?.reason, if (facts == null) message("regenerate.reason.failed", failure) else null,
-                        (shape as? SecretShape.Password)?.short == true, rule, generator, source,
-                    ).also { row -> facts?.let { digests[row] = it.digest } }
+                        rule, generator, source,
+                    ).also { row -> facts?.let { digests[row] = sideOf(candidate.root) + DIGEST_SEPARATOR + it.digest } }
                 }
                 RowKind.PLAINTEXT -> {
                     val ref = (candidate.target as ReencryptTarget.PlainValue).ref
@@ -287,12 +340,13 @@ class RegenerateService(private val project: Project, private val scope: Corouti
                         index, candidate.file, candidate.root, candidate.repository, candidate.keyPath, candidate.keyName, RowKind.PLAINTEXT,
                         (choice as? EncryptIdentity.Choice.Chosen)?.label, reason,
                         message("regenerate.reason.no.identity").takeIf { choice is EncryptIdentity.Choice.NotFound || choice == EncryptIdentity.Choice.NoIdentity },
-                        false, rule, generator, source,
+                        rule, generator, source,
                     )
                 }
             }
         }
-        // D219: values equal now get one new value together; the group takes its first row's generator and check.
+        // D219: values equal now get one new value together; the group takes its first row's generator and check. The
+        // digests carry the side of DEV rule 6, so a group never spans a detached worktree and a normal root.
         var groupId = 0
         for ((_, members) in digests.entries.groupBy({ it.value }, { it.key }).filterValues { it.size > 1 }) {
             val id = ++groupId
@@ -387,9 +441,14 @@ class RegenerateService(private val project: Project, private val scope: Corouti
 
     // ------------------------------------------------------------------------------------------------ single values (X97, ANS-X001's case)
 
-    /** The intention "Regenerate secret" on one `!vault` value: a small chooser instead of the tree. EDT. */
+    /**
+     * The intention "Regenerate secret" on one `!vault` value: a small chooser instead of the tree. The file's document
+     * is saved first, as the menu action saves its selection: in the editor it usually has unsaved edits, which the
+     * all-or-nothing write would take for a change made meanwhile (plan amendment R29 review, finding 2). EDT.
+     */
     internal fun regenerate(ref: VaultValueRef, editor: Editor?) {
         ThreadingAssertions.assertEventDispatchThread()
+        VaultFileOperations.getInstance(project).saveDocuments(listOf(ref.file))
         launch(message("regenerate.progress"), editor) { state ->
             val run = ReencryptionRun(VaultPurpose.REKEY)
             val candidate = Candidate(ref.file, ref.root, ReencryptTarget.Value(ref), ref.keyName ?: ref.file.name, ref.keyName, RowKind.VAULT_VALUE, "")
@@ -400,10 +459,11 @@ class RegenerateService(private val project: Project, private val scope: Corouti
                 val rule = readAction { GenerationRule.firstMatch(rulesOf(ref.root), ref.keyName) }
                 val (preset, source) = generatorFor(rule, (shape as? SecretShape.Password)?.generator)
                 val request = GeneratorRequest(
-                    ref.keyName ?: ref.file.name, preset, RegenerateTexts.source(source, preset, rule), (shape as? SecretShape.Password)?.short == true,
+                    ref.keyName ?: ref.file.name, preset, RegenerateTexts.source(source, preset, rule), preset.characters < SecretShape.SHORT_BELOW,
                     (shape as? SecretShape.NotPassword)?.reason?.let(RegenerateTexts::reason),
                 )
                 val generator = onEdt { RegeneratePrompts.getInstance().chooseGenerator(project, request) } ?: return@launch
+                run.resumeAfterPause()
                 val random = random
                 val item = ReencryptItem(ref.root, candidate.target, Decryption.RootSecrets, NewPlaintext.Replace(SharedValue(1) { generator.generate(random) }), Encryption.SameAsBefore)
                 finish(engine.prepare(listOf(item), run), editor, state)
@@ -415,10 +475,12 @@ class RegenerateService(private val project: Project, private val scope: Corouti
 
     /**
      * "Generate and encrypt" on a plaintext `vault_*` value: the id as Encrypt value picks it (asked when ambiguous),
-     * then a small chooser, then a new random value in a `!vault |` block. EDT.
+     * then a small chooser, then a new random value in a `!vault |` block. The file's document is saved first, as in
+     * [regenerate]: the placeholder was usually just typed. EDT.
      */
     internal fun generateAndEncrypt(ref: PlainValueRef, editor: Editor?) {
         ThreadingAssertions.assertEventDispatchThread()
+        VaultFileOperations.getInstance(project).saveDocuments(listOf(ref.file))
         val label = when (val choice = runReadActionBlocking { encryptChoice(ref) }) {
             is EncryptIdentity.Choice.Chosen -> choice.label
             is EncryptIdentity.Choice.Ambiguous -> chooseIdentity(ref.root, choice) ?: return
@@ -426,7 +488,7 @@ class RegenerateService(private val project: Project, private val scope: Corouti
         }
         val rule = runReadActionBlocking { GenerationRule.firstMatch(rulesOf(ref.root), ref.keyName) }
         val (preset, source) = generatorFor(rule, null)
-        val request = GeneratorRequest(ref.keyName, preset, RegenerateTexts.source(source, preset, rule), false, null)
+        val request = GeneratorRequest(ref.keyName, preset, RegenerateTexts.source(source, preset, rule), preset.characters < SecretShape.SHORT_BELOW, null)
         val generator = RegeneratePrompts.getInstance().chooseGenerator(project, request) ?: return
         launch(message("regenerate.progress"), editor) { state ->
             val random = random
@@ -440,14 +502,25 @@ class RegenerateService(private val project: Project, private val scope: Corouti
 
     // ------------------------------------------------------------------------------------------------ writing and summary
 
-    /** Writes [plan] (mode 2, D221) and reports the outcome (D222), with the X130 lines after a successful write. */
+    /**
+     * Writes [plan] (mode 2, D221) and reports the outcome (D222), with the X130 lines after a successful write. A
+     * Cancel before the write still writes nothing; once the write started, it and the summary run non-cancellable, so a
+     * Cancel that arrives while the command runs cannot swallow the summary of a written regeneration (plan amendment
+     * R29 review, finding 7). The switch to the EDT sits inside `withContext(NonCancellable)`: a `withContext` that
+     * changes the dispatcher discards its result when its caller was cancelled meanwhile (kotlinx's prompt cancellation),
+     * `NonCancellable` in the same call included.
+     */
     private suspend fun finish(plan: PreparedPlan, editor: Editor?, state: RunState) {
         val ready = plan.items.filter { it.ready != null }
         val count = ready.size
-        val outcome = if (ready.isEmpty()) ReencryptionWriter.AllOutcome.Nothing else onEdt {
-            writer.writeAll(plan, message("regenerate.command", count), message("regenerate.label.before", count), message("regenerate.label.after", count))
-                .also { state.finished = true }
-        }
+        val job = currentCoroutineContext().job
+        val outcome = if (ready.isEmpty()) ReencryptionWriter.AllOutcome.Nothing else withContext(NonCancellable) {
+            onEdt {
+                if (job.isCancelled) null
+                else writer.writeAll(plan, message("regenerate.command", count), message("regenerate.label.before", count), message("regenerate.label.after", count))
+                    .also { state.finished = true }
+            }
+        } ?: throw CancellationException("cancelled before the write")
         state.finished = true
         // Written is written: the summary follows even when the run is cancelled now; X130 gets a time budget.
         withContext(NonCancellable) {
@@ -496,6 +569,10 @@ class RegenerateService(private val project: Project, private val scope: Corouti
                     is ReencryptionWriter.Stale.TabModified -> message("regenerate.stale.tab", name)
                     is ReencryptionWriter.Stale.Changed -> message("regenerate.stale.changed", name)
                 }
+            }
+            is ReencryptionWriter.AllOutcome.Failed -> {
+                error = true
+                parts += message("regenerate.write.failed", escape(outcome.file.name))
             }
             ReencryptionWriter.AllOutcome.Nothing -> {
                 error = leftAlone.isNotEmpty()
@@ -572,8 +649,12 @@ class RegenerateService(private val project: Project, private val scope: Corouti
         private const val MAX_SCANNED_BYTES = 16L * 1024 * 1024
 
         private val PLACEHOLDER_MARK = PlainValueRef.VAULT_PREFIX.toByteArray(Charsets.US_ASCII)
-        private const val DIGEST = "HmacSHA256"
+        private const val SHA256 = "SHA-256"
+        private const val SHA256_BLOCK = 64
         private const val DIGEST_KEY_BYTES = 32
+
+        /** Between the side of DEV rule 6 and the digest in an equal-value key (never in a path). */
+        private const val DIGEST_SEPARATOR = "\u0000"
 
         /** How long the summary waits for X130's usages (smart mode, the usage index) before it goes without them. */
         private const val USED_BY_MILLIS = 5_000L

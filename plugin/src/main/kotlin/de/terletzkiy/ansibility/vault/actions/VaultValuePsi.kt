@@ -90,6 +90,20 @@ internal object VaultValuePsi {
         else -> null
     }
 
+    /**
+     * True when [scalar] lies inside a flow mapping or sequence (`{…}`, `[…]`), where YAML allows no block scalar: a
+     * writer must not put a `!vault |` block there (plan amendment R29 review, finding 1). Pure PSI.
+     */
+    fun inFlowCollection(scalar: YAMLScalar): Boolean {
+        var current: PsiElement? = scalar.parent
+        while (current != null && current !is PsiFile && current !is YAMLDocument) {
+            val opener = current.node.firstChildNode?.elementType
+            if (current is YAMLMapping && opener == YAMLTokenTypes.LBRACE || current is YAMLSequence && opener == YAMLTokenTypes.LBRACKET) return true
+            current = current.parent
+        }
+        return false
+    }
+
     /** The column of [scalar]'s key (or of its sequence dash) in [text]. */
     fun ownerColumn(scalar: YAMLScalar, text: CharSequence): Int {
         val start = owner(scalar)?.textRange?.startOffset ?: scalar.textRange.startOffset
@@ -178,7 +192,7 @@ internal object VaultValuePsi {
      * header line goes through the codec's reader, so a file with many values folds in time linear in its headers.
      */
     fun header(scalar: YAMLScalar): VaultHeaderInfo? {
-        val firstLine = scalar.textValue.substringBefore('\n')
+        val firstLine = YamlPsi.loadedText(scalar).substringBefore('\n')
         return VaultEnvelopes.headerOf(firstLine, VaultEnvelope.parse(firstLine))
     }
 }

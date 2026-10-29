@@ -2,7 +2,6 @@ package de.terletzkiy.ansibility.semantics.vault
 
 import java.nio.ByteBuffer
 import java.nio.CharBuffer
-import java.nio.charset.CharacterCodingException
 import java.nio.charset.CodingErrorAction
 
 /** Why a current value is not treated as a password (plan amendment R29, D217): its row starts unchecked. */
@@ -35,7 +34,9 @@ enum class NotPasswordReason {
 /**
  * The shape of a current secret value (plan amendment R29, D218 rule 2, "same as now"): the generator that makes a new
  * value of the same alphabet and length, or why the value does not look like a password at all. Computed from the
- * plaintext bytes without ever turning them into a `String`; the result holds no part of the value.
+ * plaintext bytes without ever turning them into a `String` or boxed characters; every decoded character is zeroed
+ * before [of] returns, on every path. The result holds no part of the value beyond its kind and length and, for a
+ * value with symbols, which ASCII symbols occur in it.
  *
  * Precedence (first match wins), on a value that is UTF-8, one line, at most 512 characters, no PEM block, no JSON or
  * YAML collection, without spaces and control characters:
@@ -48,7 +49,9 @@ enum class NotPasswordReason {
  * 3. **URL-safe base64**: only `A–Z a–z 0–9 - _` (padding as above, then a multiple of 4; unpadded any length that
  *    is not 1 more than a multiple of 4) with at least one `-` or `_`; the byte count and the padding are kept;
  * 4. **alphanumeric**: only `A–Z a–z 0–9`;
- * 5. **alphanumeric with symbols**: anything else printable (the new value uses `-_.!#%+=`, length kept).
+ * 5. **alphanumeric with symbols**: anything else printable; the new value uses only the ASCII symbols the current
+ *    value has (plan amendment R29 review: a password embedded in a URL gets no `#`, `%` or `!` it did not have), and
+ *    is plain alphanumeric when the value has none (only non-ASCII letters); length kept.
  *
  * A value shorter than [SHORT_BELOW] characters is marked short but keeps its length (an 8-character VRRP password
  * must stay 8, D217).
@@ -99,7 +102,8 @@ sealed interface SecretShape {
         private fun generatorFor(c: CharArray): SecretGenerator {
             val n = c.size
             hex(c)?.let { upper -> return SecretGenerator(GeneratorKind.HEX, n, upperHex = upper) }
-            val pads = c.reversed().takeWhile { it == '=' }.size
+            var pads = 0
+            while (pads < n && c[n - 1 - pads] == '=') pads++
             val body = n - pads
             if (body > 0 && pads <= 2 && (0 until body).all { c[it].isAlnum() || c[it] == '+' || c[it] == '/' }) {
                 val marked = pads > 0 || (0 until body).any { c[it] == '+' || c[it] == '/' }
@@ -110,7 +114,17 @@ sealed interface SecretShape {
                 if (pads == 0 && n % 4 != 1) return SecretGenerator(GeneratorKind.BASE64_URL, n * 3 / 4, padded = false)
             }
             if (c.all { it.isAlnum() }) return SecretGenerator(GeneratorKind.ALPHANUMERIC, n)
-            return SecretGenerator(GeneratorKind.ALPHANUMERIC_SYMBOLS, n)
+            val symbols = symbolsOf(c) ?: return SecretGenerator(GeneratorKind.ALPHANUMERIC, n)
+            return SecretGenerator(GeneratorKind.ALPHANUMERIC_SYMBOLS, n, symbols = symbols)
+        }
+
+        /** The ASCII symbols (printable, no letter or digit) that occur in [c], in ASCII order; null when there is none. */
+        private fun symbolsOf(c: CharArray): String? {
+            val seen = BooleanArray(128)
+            for (ch in c) if (ch in '!'..'~' && !ch.isAlnum()) seen[ch.code] = true
+            val symbols = StringBuilder()
+            for (ch in '!'..'~') if (seen[ch.code]) symbols.append(ch)
+            return symbols.takeIf { it.isNotEmpty() }?.toString()
         }
 
         /** Null when [c] is not hex as [SecretShape] defines it, else whether its letters are uppercase. */
@@ -138,17 +152,23 @@ sealed interface SecretShape {
         private fun startsWith(c: CharArray, from: Int, prefix: String): Boolean =
             c.size - from >= prefix.length && prefix.indices.all { c[from + it] == prefix[it] }
 
-        /** [bytes] as UTF-8 characters in an array the caller zeroes, or null when they are not UTF-8. */
+        /**
+         * [bytes] as UTF-8 characters in an array the caller zeroes, or null when they are not UTF-8. The decoder
+         * writes into a buffer of this function's own, which is zeroed on every path: on malformed input it holds the
+         * characters decoded before the bad byte.
+         */
         private fun decode(bytes: ByteArray): CharArray? {
             val decoder = Charsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT)
-            val buffer: CharBuffer = try {
-                decoder.decode(ByteBuffer.wrap(bytes))
-            } catch (_: CharacterCodingException) {
-                return null
+            // UTF-8 never decodes to more characters than it has bytes.
+            val out = CharArray(bytes.size)
+            try {
+                val buffer = CharBuffer.wrap(out)
+                val decoded = decoder.decode(ByteBuffer.wrap(bytes), buffer, true)
+                if (decoded.isError || decoded.isOverflow || decoder.flush(buffer).isError) return null
+                return out.copyOf(buffer.position())
+            } finally {
+                out.fill('\u0000')
             }
-            val chars = CharArray(buffer.remaining()).also { buffer.get(it) }
-            if (buffer.hasArray()) buffer.array().fill('\u0000')
-            return chars
         }
     }
 }

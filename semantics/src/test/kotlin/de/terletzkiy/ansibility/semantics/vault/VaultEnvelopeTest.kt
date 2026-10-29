@@ -89,6 +89,20 @@ class VaultEnvelopeTest {
     }
 
     @Test
+    fun `keeping another envelope's header writes it exactly as it was`() {
+        // Plan amendment R29 (D220, review): headers ansible-vault itself would not write are kept as written.
+        for (header in listOf("1.2;AES256;default", "1.1;AES256;dev", "1.2;AES256;", "1.1;AES256", "1.2;AES256;new", "9.9;AES256")) {
+            val old = ok("\$ANSIBLE_VAULT;$header\n$body")
+            val kept = v01.withLabel("other").keepingHeaderOf(old)
+            assertEquals("\$ANSIBLE_VAULT;$header", kept.headerLine(), header)
+            assertEquals(body, kept.format().substringAfter('\n'), "the payload stays")
+            assertEquals("\$ANSIBLE_VAULT;$header", ok(kept.format()).let { "\$ANSIBLE_VAULT;${it.version};${it.cipher}" + it.label?.let { l -> ";$l" }.orEmpty() })
+        }
+        // A plain relabel still writes what ansible-vault writes.
+        assertEquals("\$ANSIBLE_VAULT;1.1;AES256", ok("\$ANSIBLE_VAULT;1.2;AES256;default\n$body").headerLine())
+    }
+
+    @Test
     fun `plaintext lengths, equality and a toString without the payload`() {
         assertEquals(0..15, v01.plaintextLength)
         assertEquals(IntRange.EMPTY, VaultEnvelope.of(null, v01.salt, v01.hmac, ByteArray(15)).plaintextLength)

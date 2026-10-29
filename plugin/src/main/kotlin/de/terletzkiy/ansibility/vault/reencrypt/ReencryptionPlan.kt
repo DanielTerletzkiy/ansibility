@@ -1,5 +1,6 @@
 package de.terletzkiy.ansibility.vault.reencrypt
 
+import com.intellij.openapi.editor.Document
 import com.intellij.openapi.vfs.VirtualFile
 import de.terletzkiy.ansibility.api.AnsibleRoot
 import de.terletzkiy.ansibility.api.VaultFailure
@@ -126,8 +127,11 @@ internal sealed interface Encryption {
     }
 
     /**
-     * With the secret of the id that decrypted the old envelope, keeping the old envelope's header (Part 2, D220:
-     * `1.1` stays an unlabelled `1.1`, `1.2;AES256;new` keeps `new`).
+     * With exactly the secret that decrypted the old envelope, under the old envelope's header as written (Part 2,
+     * D220: `1.1` stays an unlabelled `1.1`, `1.2;AES256;new` keeps `new`, `1.2;AES256;default` stays as it is). Two
+     * secrets of a root may share an id (an explicit identity list and the root's `.vault-pass`), so the secret is the
+     * first of that id's secrets in the root's chain order that opens the old envelope, as Ansible tries them, not
+     * merely the first with that id.
      */
     data object SameAsBefore : Encryption
 
@@ -197,8 +201,16 @@ internal class PreparedItem(val item: ReencryptItem, val outcome: ItemOutcome, v
  * The result of a preflight: per item what will be written (new envelopes, ciphertext only) or why it is left alone,
  * plus the documents' modification sequences the preflight saw (by file), which the all-or-nothing writes compare
  * before the first change. Holds no plaintext.
+ *
+ * [documents] are those documents, held strongly until the plan is dropped after its write: the IDE keeps the document
+ * of a file nobody has open only weakly, and a document collected during the preflight would come back at sequence 0
+ * and look changed (plan amendment R29 review).
  */
-internal class PreparedPlan(val items: List<PreparedItem>, val sequences: Map<VirtualFile, Int>) {
+internal class PreparedPlan(
+    val items: List<PreparedItem>,
+    val sequences: Map<VirtualFile, Int>,
+    val documents: Map<VirtualFile, Document> = emptyMap(),
+) {
     /** The items with a new envelope, by file, in item order. */
     val readyByFile: Map<VirtualFile, List<PreparedItem>>
         get() = items.filter { it.ready != null }.groupByTo(LinkedHashMap()) { it.item.file }
@@ -208,7 +220,7 @@ internal class PreparedPlan(val items: List<PreparedItem>, val sequences: Map<Vi
 
     /** This plan without [drop] (items the caller leaves out after the preflight, e.g. the rest of an equal group). */
     fun without(drop: Set<ReencryptItem>, outcome: ItemOutcome): PreparedPlan =
-        PreparedPlan(items.map { if (it.item in drop && it.ready != null) PreparedItem(it.item, outcome, it.stamp) else it }, sequences)
+        PreparedPlan(items.map { if (it.item in drop && it.ready != null) PreparedItem(it.item, outcome, it.stamp) else it }, sequences, documents)
 
     override fun toString(): String = "PreparedPlan(${items.size} items)"
 }

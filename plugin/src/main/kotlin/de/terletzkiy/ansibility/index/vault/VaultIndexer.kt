@@ -101,7 +101,7 @@ object VaultIndexer {
             .firstOrNull { it.node.elementType == YAMLTokenTypes.TAG && YamlPsi.normalizeTag(it.text) in VaultEnvelopes.VAULT_TAGS }
 
     private fun inlineEntry(scalar: YAMLScalar, size: Long, timestamp: Long): VaultIndexEntry {
-        val text = scalar.textValue
+        val text = YamlPsi.loadedText(scalar)
         val parse = VaultEnvelope.parse(text)
         val header = VaultEnvelopes.headerOf(text, parse)
         return VaultIndexEntry(

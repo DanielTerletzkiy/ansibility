@@ -42,15 +42,21 @@ import de.terletzkiy.ansibility.vault.keys.PlaintextKeyExclusions
 import de.terletzkiy.ansibility.vault.secrets.VaultSecretsService
 import de.terletzkiy.ansibility.vault.secrets.VaultUserState
 import de.terletzkiy.ansibility.vault.ui.AnsibilityVaultUiBundle.message
+import de.terletzkiy.ansibility.semantics.vault.DefaultArm
 import de.terletzkiy.ansibility.semantics.vault.GenerationRule
 import de.terletzkiy.ansibility.semantics.vault.GeneratorKind
 import de.terletzkiy.ansibility.semantics.vault.RotationScriptRules
 import de.terletzkiy.ansibility.semantics.vault.SecretGenerator
+import de.terletzkiy.ansibility.semantics.vault.SecretShape
 import de.terletzkiy.ansibility.vault.regenerate.RegeneratePrompts
 import de.terletzkiy.ansibility.vault.regenerate.RegenerateTexts
 import de.terletzkiy.ansibility.vault.vcs.TrackedStatuses
+import com.intellij.icons.AllIcons
+import com.intellij.openapi.util.text.StringUtil
 import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
+import org.jetbrains.annotations.Nls
+import org.jetbrains.annotations.TestOnly
 import java.io.IOException
 import javax.swing.DefaultCellEditor
 import javax.swing.table.DefaultTableCellRenderer
@@ -91,7 +97,13 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
     internal class RuleRow(var pattern: String, var kind: GeneratorKind, var length: Int) {
         fun toRule(): GenerationRule = GenerationRule(pattern.trim(), kind, length)
 
-        val isValid: Boolean get() = pattern.isNotBlank() && length in SecretGenerator.lengths(kind)
+        /** The pattern can be read as a key glob ([GenerationRule.isValidPattern]: `[` closed, no `(`, `)`, `|`). */
+        val isReadable: Boolean get() = GenerationRule.isValidPattern(pattern.trim())
+
+        val isValid: Boolean get() = pattern.isNotBlank() && isReadable && length in SecretGenerator.lengths(kind)
+
+        /** A valid rule whose values have fewer than 16 characters: easy to guess (plan amendment R29 review). */
+        val isShort: Boolean get() = isValid && toRule().generator.characters < SecretShape.SHORT_BELOW
 
         companion object {
             fun of(rule: GenerationRule) = RuleRow(rule.pattern, rule.kind, rule.length)
@@ -172,6 +184,13 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
         },
     )
     private val ruleTable = TableView(ruleModel)
+
+    /** Below the rules: patterns that cannot be read and rules shorter than 16 characters ([updateRuleWarning]). */
+    private val ruleWarning = JBLabel().apply {
+        icon = AllIcons.General.Warning
+        isVisible = false
+        name = RULE_WARNING_COMPONENT
+    }
     private val discoveredLabel = JBLabel()
     private val storedInLabel = JBLabel().apply {
         componentStyle = com.intellij.util.ui.UIUtil.ComponentStyle.SMALL
@@ -214,6 +233,7 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
             // Regenerate Secrets… (plan amendment R29, D218, X131): shared with the project.
             group(message("settings.vault.rules")) {
                 row { cell(rules).align(Align.FILL) }
+                row { cell(ruleWarning) }
                 row {
                     button(message("settings.vault.rules.import")) { importRules() }.applyToComponent { name = IMPORT_RULES_COMPONENT }
                 }
@@ -344,7 +364,29 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
         } finally {
             loading = false
         }
+        updateRuleWarning()
     }
+
+    /**
+     * The warning below the rules table (plan amendment R29 review): rules whose pattern cannot be read (they match
+     * nothing, and Apply refuses them) and rules that make values shorter than 16 characters. Hidden when there is none.
+     */
+    private fun updateRuleWarning() {
+        val rows = ruleModel.items
+        val lines = listOfNotNull(
+            rows.filter { it.pattern.isNotBlank() && !it.isReadable }.takeIf { it.isNotEmpty() }
+                ?.let { bad -> message("settings.vault.rules.unreadable", bad.joinToString(", ") { StringUtil.escapeXmlEntities(it.pattern.trim()) }) },
+            rows.filter { it.isShort }.takeIf { it.isNotEmpty() }?.let { short ->
+                message("settings.vault.rules.short", short.joinToString(", ") { "${StringUtil.escapeXmlEntities(it.pattern.trim())} (${RegenerateTexts.generator(it.toRule().generator)})" })
+            },
+        )
+        ruleWarning.text = if (lines.isEmpty()) "" else "<html>" + lines.joinToString("<br>") + "</html>"
+        ruleWarning.isVisible = lines.isNotEmpty()
+    }
+
+    /** For tests: what the warning below the rules table says, or null when it is hidden. */
+    @TestOnly
+    internal fun ruleWarningText(): String? = ruleWarning.text.takeIf { ruleWarning.isVisible }
 
     private fun editedOf(entry: RootEntry): Edited = edits.getOrPut(entry.key) { stored(entry) }
 
@@ -360,6 +402,7 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
         if (loading) return
         val entry = current ?: return
         edits[entry.key] = Edited(idModel.items.toList(), envModel.items.toList(), ruleModel.items.toList())
+        updateRuleWarning()
     }
 
     private fun edit(row: IdRow?) {
@@ -429,7 +472,8 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
     /**
      * Import from Script… (X131): a rotation script chosen with [RegeneratePrompts.chooseScript] (starting at a
      * `bin/<name>rotate<name>.sh` of the root's repository) is read as text, never run; the rules of its `case` arms
-     * are appended, and the arms it did not understand are named. EDT.
+     * are appended, and the arms it did not understand are named. The script's default arm is never imported, and the
+     * result says why ([defaultArmText]). EDT.
      */
     internal fun importRules() {
         val entry = current ?: return
@@ -438,12 +482,24 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
         val text = try {
             VfsUtilCore.loadText(script)
         } catch (_: IOException) {
-            return prompts.importResult(project, 0, emptyList())
+            return prompts.importResult(project, 0, emptyList(), null)
         }
         val parsed = RotationScriptRules.parse(text)
         for (rule in parsed.rules) ruleModel.addRow(RuleRow.of(rule))
         capture()
-        prompts.importResult(project, parsed.rules.size, parsed.skipped)
+        prompts.importResult(project, parsed.rules.size, parsed.skipped, parsed.defaultArm?.let(::defaultArmText))
+    }
+
+    /**
+     * Why the script's default arm was left out (plan amendment R29 review, finding 5): as a rule `*` it would match
+     * every key first and switch off "same as now" (D218); and, when it makes something else than D218 rule 3's
+     * 32 alphanumeric, what it makes.
+     */
+    @Nls
+    private fun defaultArmText(arm: DefaultArm): String {
+        val text = message("settings.vault.rules.default")
+        val generator = arm.generator?.takeIf { it != SecretGenerator.DEFAULT } ?: return text
+        return text + " " + message("settings.vault.rules.default.differs", RegenerateTexts.generator(generator))
     }
 
     /** A `bin/<name>rotate<name>.sh` in [root]'s repository (or a folder above the root), or null. */
@@ -513,6 +569,9 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
         edited.envs.firstOrNull { it.identity.isNotBlank() && it.identity !in known }?.let {
             throw ConfigurationException(message("settings.vault.invalid.env.id", name, it.environment, it.identity))
         }
+        edited.rules.firstOrNull { it.pattern.isNotBlank() && !it.isReadable }?.let {
+            throw ConfigurationException(message("settings.vault.invalid.rule.pattern", name, it.pattern.trim()))
+        }
         edited.rules.firstOrNull { !it.isValid }?.let {
             throw ConfigurationException(message("settings.vault.invalid.rule", name, it.pattern.ifBlank { "-" }))
         }
@@ -546,6 +605,9 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
 
         /** The component name of Import from Script… (X131; tests find it by name). */
         const val IMPORT_RULES_COMPONENT = "ansibility.vault.importRules"
+
+        /** The component name of the warning below the rules table (tests find it by name). */
+        const val RULE_WARNING_COMPONENT = "ansibility.vault.ruleWarning"
 
         /** How many folders up from a root Import from Script… looks for `bin/`. */
         private const val ROTATION_SCRIPT_DEPTH = 4

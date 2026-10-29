@@ -52,7 +52,7 @@ internal class VaultValueRef private constructor(
             val root = AnsibleWorkspace.getInstance(project).rootFor(file) ?: return null
             val pointer = SmartPointerManager.getInstance(project).createSmartPsiElementPointer(scalar)
             val location = SourceLocation(file, VaultValuePsi.valueStart(scalar))
-            return VaultValueRef(project, file, root, pointer, VaultValuePsi.keyName(scalar), location, scalar.textValue)
+            return VaultValueRef(project, file, root, pointer, VaultValuePsi.keyName(scalar), location, YamlPsi.loadedText(scalar))
         }
     }
 }
@@ -112,7 +112,7 @@ internal class PlainValueRef private constructor(
             val project = scalar.project
             val pointer = SmartPointerManager.getInstance(project).createSmartPsiElementPointer(scalar)
             val plain = YamlPsi.contentStart(scalar)?.let(YamlPsi::styleOf) == ScalarStyle.PLAIN
-            return PlainValueRef(project, file, context.root, pointer, keyValue.keyText, context.environments, scalar.textValue, plain)
+            return PlainValueRef(project, file, context.root, pointer, keyValue.keyText, context.environments, YamlPsi.loadedText(scalar), plain)
         }
 
         /**
@@ -129,7 +129,7 @@ internal class PlainValueRef private constructor(
             val project = scalar.project
             val pointer = SmartPointerManager.getInstance(project).createSmartPsiElementPointer(scalar)
             val plain = YamlPsi.contentStart(scalar)?.let(YamlPsi::styleOf) == ScalarStyle.PLAIN
-            return PlainValueRef(project, file, context.root, pointer, keyValue.keyText, context.environments, scalar.textValue, plain)
+            return PlainValueRef(project, file, context.root, pointer, keyValue.keyText, context.environments, YamlPsi.loadedText(scalar), plain)
         }
 
         /** True when [scalar] is a value [placeholder] accepts. PSI and file classification only. Call in a read action. */
@@ -143,7 +143,7 @@ internal class PlainValueRef private constructor(
         fun fileContext(scalar: YAMLScalar, placeholder: Boolean = false): FileContext? {
             val keyValue = scalar.parent as? YAMLKeyValue ?: return null
             if (keyValue.value != scalar || VaultValuePsi.tagOf(scalar) != null || !placeholder && VaultValuePsi.hasAnchor(scalar)) return null
-            if (scalar is YAMLScalarText || !placeholder && scalar.textValue.isEmpty()) return null
+            if (scalar is YAMLScalarText || !placeholder && YamlPsi.loadedText(scalar).isEmpty()) return null
             val psiFile = scalar.containingFile ?: return null
             val file = psiFile.originalFile.viewProvider.virtualFile
             val context = AnsibleWorkspace.getInstance(psiFile.project).contextOf(file) ?: return null

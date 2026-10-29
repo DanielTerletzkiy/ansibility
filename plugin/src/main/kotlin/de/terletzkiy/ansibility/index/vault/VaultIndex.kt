@@ -77,7 +77,8 @@ class VaultIndex : FileBasedIndexExtension<String, List<VaultIndexEntry>>() {
         @JvmField
         val NAME: ID<String, List<VaultIndexEntry>> = ID.create("ansible.vault")
 
-        const val VERSION: Int = 1
+        /** 2: an anchored quoted `!vault` value is read with `YamlPsi.loadedText` (plan amendment R29 review). */
+        const val VERSION: Int = 2
         private const val FORMAT: Int = 1
 
         /** Larger files are not indexed (A.7: at most 1 MiB). */

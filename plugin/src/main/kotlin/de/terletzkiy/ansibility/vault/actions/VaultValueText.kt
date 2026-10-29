@@ -3,6 +3,7 @@ package de.terletzkiy.ansibility.vault.actions
 import com.intellij.openapi.util.TextRange
 import de.terletzkiy.ansibility.semantics.vault.VaultEnvelope
 import de.terletzkiy.ansibility.semantics.vault.VaultLayout
+import de.terletzkiy.ansibility.yaml.YamlPsi
 import org.jetbrains.yaml.psi.YAMLScalar
 import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException
@@ -32,11 +33,14 @@ internal object VaultValueText {
      * The replacement that writes [envelope] into the value [scalar] of [text]:
      * - a literal block keeps its `key: !vault |` line (tag, indicator, comment) and its indentation; only the body
      *   lines change (F7.2, as `ansible-vault edit` keeps the layout);
+     * - inside a flow mapping or sequence, where YAML allows no block scalar, the one-line double-quoted form
+     *   ([flowReplacement], plan amendment R29 review, finding 1);
      * - any other value (a quoted `!vault "…"`, or a plain value being encrypted) becomes a `!vault |` block at the
      *   file's indentation style relative to its key (+2 in the target repo), with a same-line comment moved onto
      *   the tag line so it never ends up inside the hex.
      */
     fun envelopeReplacement(scalar: YAMLScalar, text: CharSequence, envelope: VaultEnvelope): VaultReplacement {
+        if (VaultValuePsi.inFlowCollection(scalar)) return flowReplacement(scalar, text, envelope)
         if (VaultValuePsi.isVault(scalar)) {
             VaultValuePsi.literalBody(scalar, text)?.let { body -> return VaultReplacement(body.range, body(envelope, body.indent)) }
         }
@@ -46,6 +50,20 @@ internal object VaultValueText {
         comment?.first?.let { end = it.endOffset }
         val indent = VaultLayout.bodyIndentFor(text, VaultValuePsi.ownerColumn(scalar, text))
         return VaultReplacement(TextRange(start, end), block(envelope, indent, comment?.second))
+    }
+
+    /**
+     * [envelope] as a value inside a flow collection: `!vault "$ANSIBLE_VAULT;…\n<hex>\n…"`, one line, which YAML
+     * loads as the envelope's lines joined with line breaks (the vault codec, the index and [VaultValueRef] read it like
+     * a block). A `!vault` value keeps its tag and anchor where they are and only its text changes; any other value (a
+     * placeholder) gets the tag in front of the quoted text. A comment after the value is left alone.
+     */
+    fun flowReplacement(scalar: YAMLScalar, text: CharSequence, envelope: VaultEnvelope): VaultReplacement {
+        val quoted = doubleQuoted(envelope.formatLines().joinToString("\n"))
+        val end = VaultValuePsi.valueEnd(scalar, text)
+        val content = YamlPsi.contentStart(scalar)?.textRange?.startOffset
+        if (VaultValuePsi.isVault(scalar) && content != null) return VaultReplacement(TextRange(content, maxOf(content, end)), quoted)
+        return VaultReplacement(TextRange(VaultValuePsi.valueStart(scalar), end), "$FLOW_TAG $quoted")
     }
 
     /**
@@ -102,5 +120,8 @@ internal object VaultValueText {
     }
 
     private const val UNSAFE = "!unsafe"
+
+    /** The vault tag of a value written in a flow collection, without the block indicator of [VaultLayout.TAG]. */
+    private const val FLOW_TAG = "!vault"
     private val JINJA = listOf("{{", "{%", "{#")
 }

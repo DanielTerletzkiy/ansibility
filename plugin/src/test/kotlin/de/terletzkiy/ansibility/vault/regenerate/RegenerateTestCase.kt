@@ -25,6 +25,9 @@ class FakeRegeneratePrompts : RegeneratePrompts {
     val scriptRequests = CopyOnWriteArrayList<VirtualFile?>()
     val importResults = CopyOnWriteArrayList<Pair<Int, List<String>>>()
 
+    /** What each import said about the script's default arm (null: the script has none). */
+    val importDefaultArms = CopyOnWriteArrayList<String?>()
+
     /** Edits the selection and answers: true regenerates, false cancels. */
     var onValues: (RegenerateRequest) -> Boolean = { true }
 
@@ -43,8 +46,9 @@ class FakeRegeneratePrompts : RegeneratePrompts {
         return script
     }
 
-    override fun importResult(project: Project, imported: Int, skipped: List<String>) {
+    override fun importResult(project: Project, imported: Int, skipped: List<String>, defaultArm: String?) {
         importResults += imported to skipped
+        importDefaultArms += defaultArm
     }
 }
 

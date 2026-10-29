@@ -67,9 +67,25 @@ class SecretShapeTest {
     @Test
     fun `alphanumeric and symbols keep their length`() {
         assertEquals(SecretGenerator(GeneratorKind.ALPHANUMERIC, 32), generator("aZ09".repeat(8)))
-        assertEquals(SecretGenerator(GeneratorKind.ALPHANUMERIC_SYMBOLS, 20), generator("s3cr3t!pa\$\$word#2026"))
-        // Non-ASCII letters are printable: symbols, length in characters.
-        assertEquals(SecretGenerator(GeneratorKind.ALPHANUMERIC_SYMBOLS, 9), generator("pässwört9"))
+        // "Same as now" keeps only the symbols the value has (plan amendment R29 review), in ASCII order.
+        assertEquals(SecretGenerator(GeneratorKind.ALPHANUMERIC_SYMBOLS, 20, symbols = "!#\$"), generator("s3cr3t!pa\$\$word#2026"))
+        // Non-ASCII letters are no ASCII symbols: the new value is alphanumeric, length in characters.
+        assertEquals(SecretGenerator(GeneratorKind.ALPHANUMERIC, 9), generator("pässwört9"))
+    }
+
+    @Test
+    fun `a value with symbols gets a new value with only its own symbols`() {
+        // A password embedded in a URL: '.' and '-' only, never '#', '%' or '!'.
+        val shape = generator("db.Pass-word.2026.xyz")
+        assertEquals(SecretGenerator(GeneratorKind.ALPHANUMERIC_SYMBOLS, 21, symbols = "-."), shape)
+        val random = SecureRandom.getInstance("SHA1PRNG").apply { setSeed(12) }
+        repeat(50) {
+            val value = String(shape.generate(random), Charsets.US_ASCII)
+            assertEquals(21, value.length)
+            assertTrue(value[0].isLetterOrDigit(), value)
+            assertTrue(value.all { it.isLetterOrDigit() && it.code < 128 || it == '-' || it == '.' }, value)
+        }
+        assertEquals("SecretGenerator(ALPHANUMERIC_SYMBOLS, 21, 2 symbols)", shape.toString(), "the symbols are counted, not listed")
     }
 
     @Test
@@ -95,6 +111,17 @@ class SecretShapeTest {
         assertEquals(NotPasswordReason.TOO_LONG, reason("a".repeat(513)))
         assertTrue(shape("a".repeat(512)) is SecretShape.Password)
         assertEquals(NotPasswordReason.NOT_UTF8, (SecretShape.of(byteArrayOf(0xC3.toByte(), 0x28)) as SecretShape.NotPassword).reason)
+        // Bad UTF-8 after good characters (the decode buffer then holds those; it is zeroed on that path too).
+        assertEquals(NotPasswordReason.NOT_UTF8, (SecretShape.of("abcdef".toByteArray() + byteArrayOf(0xFF.toByte())) as SecretShape.NotPassword).reason)
+        // Four-byte characters decode to two chars each: still within the buffer.
+        assertTrue(shape("🔑key🔑") is SecretShape.Password)
+    }
+
+    @Test
+    fun `padding is counted from the end without copying the value`() {
+        assertEquals(SecretGenerator(GeneratorKind.BASE64, 1), generator("QQ=="))
+        assertEquals(SecretGenerator(GeneratorKind.BASE64, 2), generator("QUI="))
+        assertEquals(GeneratorKind.ALPHANUMERIC_SYMBOLS, generator("====").kind)
     }
 
     @Test

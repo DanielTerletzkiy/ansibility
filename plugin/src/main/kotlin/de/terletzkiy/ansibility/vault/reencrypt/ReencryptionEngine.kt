@@ -25,10 +25,15 @@ import de.terletzkiy.ansibility.semantics.vault.VaultFormatException
 import de.terletzkiy.ansibility.vault.VaultLog
 import de.terletzkiy.ansibility.vault.actions.VaultValuePsi
 import de.terletzkiy.ansibility.vault.actions.VaultValueRef
+import de.terletzkiy.ansibility.vault.crypto.VaultCrypto
+import de.terletzkiy.ansibility.vault.crypto.Verification
 import de.terletzkiy.ansibility.vault.envelope.VaultEnvelopes
 import de.terletzkiy.ansibility.vault.identity.VaultIdentityRegistry
 import de.terletzkiy.ansibility.vault.secrets.VaultSecretsService
+import de.terletzkiy.ansibility.yaml.YamlPsi
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
@@ -46,6 +51,19 @@ internal class ReencryptionRun(val purpose: VaultPurpose) {
 
     /** The roots unlocked once for decrypting, with the failure their items get while they are still locked. */
     val decrypting = HashMap<AnsibleRoot, VaultFailure>()
+
+    /** The roots of [decrypting] whose unlock succeeded (their entry only says "unlocked once already"). */
+    val unlocked = HashSet<AnsibleRoot>()
+
+    /**
+     * After a pause (Part 2's selection dialog, which may stay open for any time): roots unlocked earlier in this run
+     * may have locked again meanwhile (auto-lock, Lock All), so each may be unlocked once more, prompting as usual. Failed
+     * and cancelled unlocks stay failed (plan amendment R29 review, finding 8).
+     */
+    fun resumeAfterPause() {
+        for (root in unlocked) decrypting.remove(root)
+        unlocked.clear()
+    }
 
     override fun toString(): String = "ReencryptionRun($purpose)"
 }
@@ -83,7 +101,7 @@ internal class ReencryptionEngine(private val project: Project) {
      * before the first item, for the all-or-nothing writes. Checks for cancellation before each item.
      */
     suspend fun prepare(items: List<ReencryptItem>, run: ReencryptionRun, stopAtFirstFailure: Boolean = false): PreparedPlan {
-        val sequences = readAction { sequencesOf(items.map { it.file }.distinct()) }
+        val (documents, sequences) = readAction { documentsOf(items.map { it.file }.distinct()).let { it to it.mapValues { (_, document) -> document.modificationSequence } } }
         val prepared = ArrayList<PreparedItem>()
         try {
             for (item in items) {
@@ -96,7 +114,7 @@ internal class ReencryptionEngine(private val project: Project) {
             // Values handed over but never taken (Cancel, a failure that stopped the run) are zeroed now.
             for (item in items) (item.plaintext as? NewPlaintext.Replace)?.source?.close()
         }
-        return PreparedPlan(prepared, sequences)
+        return PreparedPlan(prepared, sequences, documents)
     }
 
     /**
@@ -186,12 +204,22 @@ internal class ReencryptionEngine(private val project: Project) {
         is VaultDecryptResult.Decrypted -> result.plaintext.use { plaintext -> Opening.Opened(plaintext.read { it.copyOf() }, result.identity, envelope, stamp) }
     }
 
-    /** Decrypts [envelope] with [secret] alone (Part 1): no chain, no matching rules, no cache. */
+    /**
+     * Decrypts [envelope] with [secret] alone (Part 1): no chain, no matching rules, no cache. The cipher runs
+     * non-cancellable, so its result always reaches this function (a `withContext` that changes the dispatcher would
+     * discard it on a Cancel, hence the switch inside `NonCancellable`), and a Cancel meanwhile zeroes it here.
+     */
     private suspend fun explicit(envelope: VaultEnvelope, secret: SecretBytes, stamp: Long?): Opening {
         val bytes = try {
-            withContext(Dispatchers.Default) { VaultAes256.decrypt(envelope, secret) }
+            withContext(NonCancellable) { withContext(Dispatchers.Default) { VaultAes256.decrypt(envelope, secret) } }
         } catch (_: VaultFormatException) {
             return Opening.Left(ItemOutcome.Failed(VaultFailure.FORMAT), stamp)
+        }
+        try {
+            currentCoroutineContext().ensureActive()
+        } catch (e: CancellationException) {
+            bytes?.fill(0)
+            throw e
         }
         return bytes?.let { Opening.Opened(it, null, envelope, stamp) } ?: Opening.Left(ItemOutcome.Failed(VaultFailure.WRONG_SECRET), stamp)
     }
@@ -206,7 +234,14 @@ internal class ReencryptionEngine(private val project: Project) {
         repeat(VALUE_ATTEMPTS) {
             val pinned = constrainedReadAction(ReadConstraint.withDocumentsCommitted(project)) { pin(ref) } ?: return null
             val result = decryptUnlocking(pinned.location, root, envelope, run)
-            if (readAction { pinned.document.modificationSequence } == pinned.sequence) return result
+            val sequence = try {
+                readAction { pinned.document.modificationSequence }
+            } catch (e: CancellationException) {
+                // Cancelled right after a successful decrypt: the plaintext is zeroed before the run ends.
+                (result as? VaultDecryptResult.Decrypted)?.plaintext?.close()
+                throw e
+            }
+            if (sequence == pinned.sequence) return result
             when (result) {
                 is VaultDecryptResult.Decrypted -> result.plaintext.close()
                 // A cancelled prompt stays cancelled; any other failure may be another value's.
@@ -218,7 +253,7 @@ internal class ReencryptionEngine(private val project: Project) {
 
     /** Where [ref]'s value is now, with its document and the document's modification sequence; null when the value changed or is gone. Read action. */
     private fun pin(ref: VaultValueRef): Pinned? {
-        val scalar = ref.scalar?.takeIf { it.isValid && it.textValue == ref.envelopeText } ?: return null
+        val scalar = ref.scalar?.takeIf { it.isValid && YamlPsi.loadedText(it) == ref.envelopeText } ?: return null
         val document = FileDocumentManager.getInstance().getDocument(ref.file) as? DocumentEx ?: return null
         return Pinned(SourceLocation(ref.file, VaultValuePsi.valueStart(scalar)), document, document.modificationSequence)
     }
@@ -242,6 +277,7 @@ internal class ReencryptionEngine(private val project: Project) {
         run.decrypting[root]?.let { return VaultDecryptResult.Failed(it, first.tried) }
         val failure = (VaultSecretsService.getInstance(project).unlock(root, label = null, verify = envelope) as? VaultUnlockResult.Failed)?.failure
         run.decrypting[root] = failure ?: VaultFailure.LOCKED
+        if (failure == null) run.unlocked += root
         if (failure != null) return VaultDecryptResult.Failed(failure, first.tried)
         return operations.decrypt(location, run.purpose)
     }
@@ -283,7 +319,7 @@ internal class ReencryptionEngine(private val project: Project) {
                 val identity = opened.identity ?: return ItemOutcome.Failed(VaultFailure.NO_IDENTITY)
                 val old = opened.envelope ?: return ItemOutcome.Failed(VaultFailure.FORMAT)
                 // The id just decrypted the old envelope, so it is unlocked (also an id the prompt fallback added).
-                withConfiguredId(item, run, identity, plaintext, unlock = false) { it.withLabel(old.label) }
+                withOpeningSecret(item, identity, old, plaintext)
             }
             is Encryption.Explicit -> {
                 val label = if (encryption.keepHeader) opened.envelope?.label else encryption.label
@@ -318,6 +354,57 @@ internal class ReencryptionEngine(private val project: Project) {
         return if (verified) ItemOutcome.Ready(envelope, label) else notVerified(item)
     }
 
+    /**
+     * D220 ([Encryption.SameAsBefore]): encrypts [plaintext] with exactly the secret that opened [old], under [old]'s
+     * header as written ([VaultEnvelope.keepingHeaderOf]), with the root's `vault_encrypt_salt` like any encrypt, and
+     * verifies the result with that secret. Two secrets may share the id [identity] (plan amendment R29 review, finding
+     * 4): then the secret is the first of them in the root's chain order that decrypts [old], as Ansible tries them.
+     * The verification cache learns the new envelope, as after [VaultOperations.encrypt].
+     */
+    private suspend fun withOpeningSecret(item: ReencryptItem, identity: String, old: VaultEnvelope, plaintext: ByteArray): ItemOutcome {
+        // ansible-vault refuses plaintext that is vault data itself; so does the codec.
+        if (VaultEnvelope.isEncrypted(plaintext)) return ItemOutcome.Failed(VaultFailure.FORMAT)
+        val discovery = VaultIdentityRegistry.getInstance(project).discovery(item.root)
+        val crypto = VaultCrypto.getInstance(project)
+        val secrets = VaultSecretsService.getInstance(project)
+        return secrets.lease(discovery).use { lease ->
+            val candidates = lease.secrets.filter { it.label == identity }.map { it.secret }
+            val secret = when (candidates.size) {
+                0 -> return ItemOutcome.Failed(VaultFailure.LOCKED)
+                1 -> candidates.single()
+                else -> candidates.firstOrNull { opens(old, it) } ?: return ItemOutcome.Failed(VaultFailure.WRONG_SECRET)
+            }
+            val salt = discovery.config.encryptSaltBytes()
+            val envelope = withContext(Dispatchers.Default) { crypto.encrypt(plaintext, secret, identity, salt) }
+                .keepingHeaderOf(old).let(::tampered) ?: return ItemOutcome.Failed(VaultFailure.FORMAT)
+            if (!verify(envelope, secret, plaintext)) return notVerified(item)
+            // Keyed as a later decrypt reads it back from the file (a parsed envelope formats ansible-vault's header).
+            val written = (VaultEnvelope.parse(envelope.format()) as? EnvelopeParse.Ok)?.envelope ?: envelope
+            val labelMatches = written.labelOrDefault(discovery.config.defaultIdentity) == identity
+            if (crypto.record(discovery.rootKey, crypto.fingerprint(written), Verification(identity, listOf(identity), labelMatches))) secrets.notifyChanged()
+            VaultLog.event(VaultLog.Operation.ENCRYPT, VaultLog.Event.ENCRYPTED, item.file.path, keyOf(item))
+            ItemOutcome.Ready(envelope, identity)
+        }
+    }
+
+    /** True when [secret] decrypts [envelope] (the decrypted copy is zeroed at once). */
+    private suspend fun opens(envelope: VaultEnvelope, secret: SecretBytes): Boolean = withContext(Dispatchers.Default) {
+        val opened = try {
+            VaultAes256.decrypt(envelope, secret)
+        } catch (_: VaultFormatException) {
+            null
+        }
+        opened?.fill(0)
+        opened != null
+    }
+
+    /** The YAML key of [item]'s value, for log lines; null for a whole file or a sequence item. */
+    private fun keyOf(item: ReencryptItem): String? = when (val target = item.target) {
+        is ReencryptTarget.Value -> target.ref.keyName
+        is ReencryptTarget.PlainValue -> target.ref.keyName
+        is ReencryptTarget.WholeFile -> null
+    }
+
     /** True when [envelope] decrypts with [secret] to exactly [expected] (compared in constant time); the decrypted copy is zeroed. */
     private suspend fun verify(envelope: VaultEnvelope, secret: SecretBytes, expected: ByteArray): Boolean = withContext(Dispatchers.Default) {
         val opened = try {
@@ -343,10 +430,10 @@ internal class ReencryptionEngine(private val project: Project) {
         return (VaultEnvelope.parse(tamper(envelope.format())) as? EnvelopeParse.Ok)?.envelope
     }
 
-    /** The documents' modification sequences of [files] (only files whose document is loaded or can be). Read action. */
-    private fun sequencesOf(files: List<VirtualFile>): Map<VirtualFile, Int> {
+    /** The documents of [files] (only files whose document is loaded or can be), for the plan to hold. Read action. */
+    private fun documentsOf(files: List<VirtualFile>): Map<VirtualFile, DocumentEx> {
         val documents = FileDocumentManager.getInstance()
-        return files.mapNotNull { file -> (documents.getDocument(file) as? DocumentEx)?.let { file to it.modificationSequence } }.toMap()
+        return files.mapNotNull { file -> (documents.getDocument(file) as? DocumentEx)?.let { file to it } }.toMap()
     }
 
     companion object {

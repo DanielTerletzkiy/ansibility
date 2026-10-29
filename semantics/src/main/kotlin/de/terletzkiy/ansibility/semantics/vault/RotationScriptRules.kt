@@ -2,10 +2,21 @@ package de.terletzkiy.ansibility.semantics.vault
 
 /**
  * What [RotationScriptRules.parse] read from a rotation shell script (plan amendment R29, X131): the rules of the arms
- * it understood, in the script's order, and the patterns of the arms it did not.
+ * it understood, in the script's order, the patterns of the arms it did not understand and the patterns it cannot read
+ * ([GenerationRule.isValidPattern]), and the script's default arm, which is never imported ([defaultArm]).
  */
-class ScriptImport(val rules: List<GenerationRule>, val skipped: List<String>) {
-    override fun toString(): String = "ScriptImport(${rules.size} rules, skipped=$skipped)"
+class ScriptImport(val rules: List<GenerationRule>, val skipped: List<String>, val defaultArm: DefaultArm? = null) {
+    override fun toString(): String = "ScriptImport(${rules.size} rules, skipped=$skipped, default=$defaultArm)"
+}
+
+/**
+ * The default arm (`*)`) of a rotation script's rule table (plan amendment R29 review, finding 5). It is left out of
+ * the import: as a rule `*` it would match every key first and switch off D218's "same as now", while D218 rule 3
+ * already gives what a script's default usually makes (32 alphanumeric). [generator] is what the arm makes, when it was
+ * understood, so the import can say when it differs from that.
+ */
+class DefaultArm(val generator: SecretGenerator?) {
+    override fun toString(): String = "DefaultArm($generator)"
 }
 
 /**
@@ -22,9 +33,11 @@ class ScriptImport(val rules: List<GenerationRule>, val skipped: List<String>) {
  *   `PASSWORD_LENGTH` default (32 when the script sets none);
  * - the same `tr -dc` pipeline inline with `head -c N`.
  *
- * Arms it does not understand are returned as skipped, with their pattern. Only innermost `case` blocks are read, and
- * only those with at least one understood arm (a command dispatcher such as `case "$1" in generate) … esac` is not a
- * rule table). Comments are ignored. Pure text work: nothing is executed, nothing is looked up.
+ * Arms it does not understand are returned as skipped, with their pattern; so are patterns a rule cannot read (an
+ * unclosed `[`, a shell's extended patterns such as `@(a|b)`). The default arm (`*)`, only stars) never becomes a rule
+ * ([DefaultArm]). Only innermost `case` blocks are read, and only those with at least one understood arm (a command
+ * dispatcher such as `case "$1" in generate) … esac` is not a rule table). Comments are ignored. Pure text work:
+ * nothing is executed, nothing is looked up.
  */
 object RotationScriptRules {
     /** The default length of the alphanumeric generator when the script names none (the rotation script's own default). */
@@ -54,19 +67,26 @@ object RotationScriptRules {
         val functions = alphanumericFunctions(text, variables, defaultLength)
         val rules = ArrayList<GenerationRule>()
         val skipped = ArrayList<String>()
+        var defaultArm: DefaultArm? = null
         for (block in innermostCaseBodies(text)) {
             val arms = arms(block)
             val understood = arms.map { (patterns, body) -> patterns to generatorOf(body, functions, variables, defaultLength) }
             if (understood.none { it.second != null }) continue
             for ((patterns, generator) in understood) {
+                // The default arm is D218 rule 3's business, never a rule (finding 5).
+                if (patterns.any(GenerationRule::isCatchAll) && defaultArm == null) defaultArm = DefaultArm(generator)
+                val named = patterns.filterNot(GenerationRule::isCatchAll)
+                if (named.isEmpty()) continue
                 if (generator == null) {
-                    skipped += patterns.joinToString("|")
+                    skipped += named.joinToString("|")
                     continue
                 }
-                for (pattern in patterns) rules += GenerationRule(pattern, generator.kind, generator.length)
+                for (pattern in named) {
+                    if (GenerationRule.isValidPattern(pattern)) rules += GenerationRule(pattern, generator.kind, generator.length) else skipped += pattern
+                }
             }
         }
-        return ScriptImport(rules, skipped)
+        return ScriptImport(rules, skipped, defaultArm)
     }
 
     /** The generator an arm's [body] calls, or null when it is none of the understood forms. */
@@ -154,7 +174,9 @@ object RotationScriptRules {
             val trimmed = segment.trim()
             if (trimmed.isEmpty()) continue
             val close = patternEnd(trimmed) ?: continue
-            val patterns = trimmed.substring(0, close).trim().removePrefix("(").split('|')
+            val list = trimmed.substring(0, close).trim().removePrefix("(")
+            // A shell's extended pattern (`@(a|b)`) has its own `|`: kept whole, so it is reported as unreadable.
+            val patterns = (if ('(' in list) listOf(list) else list.split('|'))
                 .map { it.trim().removeSurrounding("\"").removeSurrounding("'") }
                 .filter { it.isNotEmpty() }
             if (patterns.isEmpty()) continue

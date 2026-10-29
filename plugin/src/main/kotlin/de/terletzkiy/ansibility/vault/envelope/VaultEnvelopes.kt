@@ -126,7 +126,7 @@ object VaultEnvelopes {
 
     private fun located(scalar: YAMLScalar, keyValue: YAMLKeyValue?): LocatedEnvelope? {
         val file = scalar.containingFile?.virtualFile ?: return null
-        val text = scalar.textValue
+        val text = YamlPsi.loadedText(scalar)
         val parse = VaultEnvelope.parse(text)
         val header = headerOf(text, parse) ?: return null
         return LocatedEnvelope(VaultEnvelopeKind.INLINE, file, scalar.textRange.startOffset, keyValue?.keyText, header, parse)

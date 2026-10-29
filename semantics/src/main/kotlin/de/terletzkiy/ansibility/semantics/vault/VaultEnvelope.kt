@@ -23,6 +23,8 @@ class VaultEnvelope internal constructor(
     private val saltBytes: ByteArray,
     private val hmacBytes: ByteArray,
     private val ciphertextBytes: ByteArray,
+    /** [headerLine] writes [version] and [label] as they are ([keepingHeaderOf]) instead of ansible-vault's choice. */
+    private val exactHeader: Boolean = false,
 ) {
     init {
         require(label == null || label.none { it == ';' || it == '\n' || it == '\r' }) {
@@ -61,13 +63,17 @@ class VaultEnvelope internal constructor(
 
     /**
      * The version [format] writes: `1.2` when [label] is non-empty and not `default`, else `1.1` (ansible-vault's
-     * writer compares with the literal `default`, never with a renamed `vault_identity`).
+     * writer compares with the literal `default`, never with a renamed `vault_identity`); [version] as it is for an
+     * envelope that keeps another one's header ([keepingHeaderOf]).
      */
-    val formatVersion: String get() = versionFor(label)
+    val formatVersion: String get() = if (exactHeader) version else versionFor(label)
 
     /** The header line [format] writes. */
-    fun headerLine(): String =
-        if (formatVersion == VERSION_1_2) "$MAGIC;$VERSION_1_2;$cipher;$label" else "$MAGIC;$VERSION_1_1;$cipher"
+    fun headerLine(): String = when {
+        exactHeader -> "$MAGIC;$version;$cipher" + label?.let { ";$it" }.orEmpty()
+        formatVersion == VERSION_1_2 -> "$MAGIC;$VERSION_1_2;$cipher;$label"
+        else -> "$MAGIC;$VERSION_1_1;$cipher"
+    }
 
     /** The lines [format] writes: the header, then the payload hex in lines of [LINE_WIDTH] lowercase digits. */
     fun formatLines(): List<String> {
@@ -96,6 +102,15 @@ class VaultEnvelope internal constructor(
     fun withLabel(newLabel: String?): VaultEnvelope =
         VaultEnvelope(versionFor(newLabel), cipher, newLabel?.takeIf { versionFor(it) == VERSION_1_2 },
             saltBytes, hmacBytes, ciphertextBytes)
+
+    /**
+     * The same payload under [old]'s header exactly as it was written: version, cipher and raw label (plan amendment
+     * R29, D220 "the header its old envelope had"). Unlike [withLabel] this keeps headers ansible-vault itself would
+     * not write, such as `1.2;AES256;default` (which `vault_id_match` setups match by its label) or `1.1;AES256;dev`.
+     * Labels are not covered by the HMAC; callers verify that the secret behind the label decrypts the payload.
+     */
+    fun keepingHeaderOf(old: VaultEnvelope): VaultEnvelope =
+        VaultEnvelope(old.version, old.cipher, old.label, saltBytes, hmacBytes, ciphertextBytes, exactHeader = true)
 
     internal fun saltView(): ByteArray = saltBytes
     internal fun hmacView(): ByteArray = hmacBytes

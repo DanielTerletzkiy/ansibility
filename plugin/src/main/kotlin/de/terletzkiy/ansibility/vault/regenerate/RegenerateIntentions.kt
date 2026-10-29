@@ -1,10 +1,13 @@
 package de.terletzkiy.ansibility.vault.regenerate
 
+import com.intellij.codeInsight.FileModificationService
 import com.intellij.codeInsight.intention.PriorityAction
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.text.HtmlChunk
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiFile
+import com.intellij.psi.PsiManager
 import com.intellij.psi.util.PsiTreeUtil
 import de.terletzkiy.ansibility.vault.actions.PlainValueRef
 import de.terletzkiy.ansibility.vault.actions.VaultIntentionBase
@@ -32,7 +35,11 @@ class VaultRegenerateIntention : VaultValueIntention() {
 
     override fun getPriority(): PriorityAction.Priority = PriorityAction.Priority.LOW
 
-    override fun perform(project: Project, editor: Editor?, ref: VaultValueRef) = RegenerateService.getInstance(project).regenerate(ref, editor)
+    override fun perform(project: Project, editor: Editor?, ref: VaultValueRef) {
+        val file = PsiManager.getInstance(project).findFile(ref.file) ?: return
+        if (!writable(file)) return
+        RegenerateService.getInstance(project).regenerate(ref, editor)
+    }
 
     override fun preview(scalar: YAMLScalar): HtmlChunk =
         html(AnsibilityVaultUiBundle.message("intention.regenerate.preview", VaultValuePsi.keyName(scalar) ?: "-"))
@@ -65,6 +72,7 @@ class VaultGenerateAndEncryptIntention : VaultIntentionBase() {
 
     override fun invoke(project: Project, editor: Editor?, element: PsiElement) {
         val ref = scalarAt(element)?.let(PlainValueRef::placeholder) ?: return
+        if (!writable(element.containingFile)) return
         RegenerateService.getInstance(project).generateAndEncrypt(ref, editor)
     }
 
@@ -73,3 +81,10 @@ class VaultGenerateAndEncryptIntention : VaultIntentionBase() {
         AnsibilityVaultUiBundle.message("intention.generate.preview.rule"),
     )
 }
+
+/**
+ * Makes [file] writable before an intention of this file saves its document and later writes it (plan amendment R29
+ * review, finding 2): they do not start in a write action, so the platform leaves that to them (a read-only file is
+ * offered for a VCS checkout, or you decline and nothing runs). EDT.
+ */
+private fun writable(file: PsiFile): Boolean = FileModificationService.getInstance().prepareFileForWrite(file)

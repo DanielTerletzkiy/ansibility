@@ -86,11 +86,14 @@ class RegenerateSettingsTest : RegenerateTestCase() {
             button.doClick()
 
             assertEquals("the repository's rotation script is preselected", vf("repos/falcon/bin/rotate-secrets.sh"), regeneratePrompts.scriptRequests.single())
-            assertEquals(4 to listOf("vault_legacy_*"), regeneratePrompts.importResults.single())
+            // The default arm is never imported (plan amendment R29 review, finding 5); the result says why.
+            assertEquals(3 to listOf("vault_legacy_*"), regeneratePrompts.importResults.single())
+            val defaultArm = regeneratePrompts.importDefaultArms.single()!!
+            assertTrue(defaultArm, defaultArm.startsWith("The default arm (*) was not imported") && "not 32" !in defaultArm)
             assertTrue(page.isModified)
             page.apply()
             val rootKey = registry.discovery(root(root)).rootKey
-            assertEquals(rules, settings.rootSettings(rootKey).generationRules)
+            assertEquals(rules.filter { it.pattern != GenerationRule.ANY }, settings.rootSettings(rootKey).generationRules)
         } finally {
             page.disposeUIResources()
             PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()

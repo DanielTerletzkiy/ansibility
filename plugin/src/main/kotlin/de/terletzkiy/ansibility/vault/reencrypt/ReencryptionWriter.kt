@@ -4,6 +4,7 @@ import com.intellij.history.LocalHistory
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.command.undo.BasicUndoableAction
 import com.intellij.openapi.command.undo.UndoManager
+import com.intellij.openapi.diagnostic.ControlFlowException
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.editor.ex.DocumentEx
 import com.intellij.openapi.fileEditor.FileDocumentManager
@@ -25,6 +26,7 @@ import de.terletzkiy.ansibility.vault.actions.VaultValuePsi
 import de.terletzkiy.ansibility.vault.actions.VaultValueRef
 import de.terletzkiy.ansibility.vault.actions.VaultValueText
 import de.terletzkiy.ansibility.vault.tab.DecryptedVaultTabs
+import de.terletzkiy.ansibility.yaml.YamlPsi
 import org.jetbrains.annotations.Nls
 import org.jetbrains.yaml.psi.YAMLScalar
 import java.io.IOException
@@ -214,7 +216,7 @@ internal class ReencryptionWriter(private val project: Project, private val mode
         val document = FileDocumentManager.getInstance().getDocument(file) ?: return FileOutcome.NotWritten
         val changes = replacements.map { (ref, envelope) ->
             val scalar = ref.scalar?.takeIf(YAMLScalar::isValid) ?: return FileOutcome.Changed
-            if (scalar.textValue != ref.envelopeText) return FileOutcome.Changed
+            if (YamlPsi.loadedText(scalar) != ref.envelopeText) return FileOutcome.Changed
             VaultValueText.envelopeReplacement(scalar, document.charsSequence, envelope)
         }.sortedByDescending { it.range.startOffset }
         var written = false
@@ -251,6 +253,12 @@ internal class ReencryptionWriter(private val project: Project, private val mode
         /** Nothing was written: [stale] says which file stopped the write. */
         class NotWritten(val stale: Stale) : AllOutcome
 
+        /**
+         * Nothing was written: changing [file]'s document failed inside the command (a document made read-only, an
+         * error of the platform), and the documents changed before it got their old text back.
+         */
+        class Failed(val file: VirtualFile) : AllOutcome
+
         /** No item was ready. */
         data object Nothing : AllOutcome
     }
@@ -259,7 +267,9 @@ internal class ReencryptionWriter(private val project: Project, private val mode
      * Mode 2 (D221): writes every ready item of [plan] in ONE undoable global command named [commandName] (all files,
      * all or nothing), with the Local History labels [labelBefore] and [labelAfter] around it; then saves the documents.
      * Supports inline values and plaintext values (`!vault` blocks in YAML documents); a whole-file item stops the write
-     * as changed (whole files go through mode 1 or mode 3). Nothing is written when [staleFile] finds a file.
+     * as changed (whole files go through mode 1 or mode 3). Nothing is written when [staleFile] finds a file. When
+     * changing a document throws inside the command, the documents changed before get their old text back in the same
+     * command and the write ends as [AllOutcome.Failed] (plan amendment R29 review).
      */
     fun writeAll(plan: PreparedPlan, @Nls commandName: String, @Nls labelBefore: String, @Nls labelAfter: String): AllOutcome {
         ThreadingAssertions.assertEventDispatchThread()
@@ -268,18 +278,21 @@ internal class ReencryptionWriter(private val project: Project, private val mode
         PsiDocumentManager.getInstance(project).commitAllDocuments()
         staleFile(plan)?.let { return AllOutcome.NotWritten(it) }
         val edits = LinkedHashMap<Document, List<VaultReplacement>>()
+        val filesOf = HashMap<Document, VirtualFile>()
         val psiFiles = ArrayList<PsiFile>()
         for ((file, items) in byFile) {
             val document = FileDocumentManager.getInstance().getDocument(file) ?: return AllOutcome.NotWritten(Stale.Changed(file))
             edits[document] = items.map { replacementOf(it, document) ?: return AllOutcome.NotWritten(Stale.Changed(file)) }
                 .sortedByDescending { it.range.startOffset }
             if (overlaps(edits.getValue(document))) return AllOutcome.NotWritten(Stale.Changed(file))
+            filesOf[document] = file
             PsiManager.getInstance(project).findFile(file)?.let(psiFiles::add)
         }
         val history = LocalHistory.getInstance()
         val before = history.putSystemLabel(project, labelBefore).id
         val action = history.startAction(commandName)
         var written = false
+        var failed: VirtualFile? = null
         try {
             // The files are made writable (or the command refused) before anything changes: all or nothing.
             WriteCommandAction.writeCommandAction(project, *psiFiles.toTypedArray())
@@ -287,15 +300,28 @@ internal class ReencryptionWriter(private val project: Project, private val mode
                 .withGlobalUndo()
                 .shouldRecordActionForActiveDocument(false)
                 .run<RuntimeException> {
-                    for ((document, changes) in edits) {
-                        for (change in changes) document.replaceString(change.range.startOffset, change.range.endOffset, change.text)
-                        PsiDocumentManager.getInstance(project).commitDocument(document)
+                    val touched = ArrayList<Pair<Document, CharSequence>>()
+                    var current: Document? = null
+                    try {
+                        for ((document, changes) in edits) {
+                            current = document
+                            touched += document to document.immutableCharSequence
+                            for (change in changes) document.replaceString(change.range.startOffset, change.range.endOffset, change.text)
+                            PsiDocumentManager.getInstance(project).commitDocument(document)
+                        }
+                        written = true
+                    } catch (e: Throwable) {
+                        restore(touched)
+                        if (e is ControlFlowException || e !is Exception) throw e
+                        val file = current?.let(filesOf::get) ?: byFile.keys.first()
+                        failed = file
+                        VaultLog.failure(VaultLog.Operation.ENCRYPT, e, file.path)
                     }
-                    written = true
                 }
         } finally {
             action.finish()
         }
+        failed?.let { return AllOutcome.Failed(it) }
         if (!written) return AllOutcome.NotWritten(Stale.ReadOnly(byFile.keys.first()))
         val documents = FileDocumentManager.getInstance()
         for (document in edits.keys) documents.saveDocument(document)
@@ -304,10 +330,29 @@ internal class ReencryptionWriter(private val project: Project, private val mode
     }
 
     /**
+     * Gives every document of [touched] its old text back, last changed first, inside the failed command (its undo then
+     * restores nothing). A document that cannot take it (the one that refused the change is unchanged) is skipped.
+     */
+    private fun restore(touched: List<Pair<Document, CharSequence>>) {
+        for ((document, old) in touched.asReversed()) {
+            if (StringUtil.equals(document.immutableCharSequence, old)) continue
+            try {
+                document.replaceString(0, document.textLength, old)
+                PsiDocumentManager.getInstance(project).commitDocument(document)
+            } catch (e: Exception) {
+                if (e is ControlFlowException) throw e
+                VaultLog.failure(VaultLog.Operation.ENCRYPT, e, FileDocumentManager.getInstance().getFile(document)?.path)
+            }
+        }
+    }
+
+    /**
      * The first file of [plan]'s ready items that must stop an all-or-nothing write (modes 2 and 3): gone, read-only,
      * its document changed since the preflight took its modification sequence, unsaved, a value no longer where its
      * pointer says (or no longer holding the text the preflight read), a whole-file vault not at the stamp it was read
      * at or with unsaved edits in its decrypted tab. Null when everything is as the preflight saw it. Documents committed.
+     * The plan holds the documents it saw ([PreparedPlan.documents]), so the file's document is still that one unless
+     * the IDE replaced it, which counts as changed.
      */
     fun staleFile(plan: PreparedPlan): Stale? {
         ThreadingAssertions.assertEventDispatchThread()
@@ -316,6 +361,8 @@ internal class ReencryptionWriter(private val project: Project, private val mode
             if (!file.isValid) return Stale.Changed(file)
             if (!file.isWritable) return Stale.ReadOnly(file)
             val document = documents.getCachedDocument(file)
+            val held = plan.documents[file]
+            if (held != null && document !== held) return Stale.Changed(file)
             if (document != null && documents.isDocumentUnsaved(document)) return Stale.Changed(file)
             val seen = plan.sequences[file]
             if (seen != null && (document as? DocumentEx ?: documents.getDocument(file) as? DocumentEx)?.modificationSequence != seen) return Stale.Changed(file)
@@ -325,8 +372,8 @@ internal class ReencryptionWriter(private val project: Project, private val mode
                         if (file.modificationStamp != prepared.stamp) return Stale.Changed(file)
                         if (DecryptedVaultTabs.getInstance(project).sessionOf(file)?.isModified == true) return Stale.TabModified(file)
                     }
-                    is ReencryptTarget.Value -> if (target.ref.scalar?.takeIf { it.isValid }?.textValue != target.ref.envelopeText) return Stale.Changed(file)
-                    is ReencryptTarget.PlainValue -> if (target.ref.scalar?.takeIf { it.isValid }?.textValue != target.ref.value) return Stale.Changed(file)
+                    is ReencryptTarget.Value -> if (target.ref.scalar?.takeIf { it.isValid }?.let(YamlPsi::loadedText) != target.ref.envelopeText) return Stale.Changed(file)
+                    is ReencryptTarget.PlainValue -> if (target.ref.scalar?.takeIf { it.isValid }?.let(YamlPsi::loadedText) != target.ref.value) return Stale.Changed(file)
                 }
             }
         }
@@ -349,9 +396,9 @@ internal class ReencryptionWriter(private val project: Project, private val mode
     private fun replacementOf(prepared: PreparedItem, document: Document): VaultReplacement? {
         val envelope = prepared.ready?.envelope ?: return null
         return when (val target = prepared.item.target) {
-            is ReencryptTarget.Value -> target.ref.scalar?.takeIf { it.isValid && it.textValue == target.ref.envelopeText }
+            is ReencryptTarget.Value -> target.ref.scalar?.takeIf { it.isValid && YamlPsi.loadedText(it) == target.ref.envelopeText }
                 ?.let { VaultValueText.envelopeReplacement(it, document.charsSequence, envelope) }
-            is ReencryptTarget.PlainValue -> target.ref.scalar?.takeIf { it.isValid && it.textValue == target.ref.value }
+            is ReencryptTarget.PlainValue -> target.ref.scalar?.takeIf { it.isValid && YamlPsi.loadedText(it) == target.ref.value }
                 ?.let { plainReplacement(it, document.charsSequence, envelope) }
             is ReencryptTarget.WholeFile -> null
         }

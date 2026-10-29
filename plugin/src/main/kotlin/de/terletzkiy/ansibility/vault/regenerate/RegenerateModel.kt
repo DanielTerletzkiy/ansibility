@@ -6,6 +6,7 @@ import de.terletzkiy.ansibility.semantics.vault.GenerationRule
 import de.terletzkiy.ansibility.semantics.vault.GeneratorKind
 import de.terletzkiy.ansibility.semantics.vault.NotPasswordReason
 import de.terletzkiy.ansibility.semantics.vault.SecretGenerator
+import de.terletzkiy.ansibility.semantics.vault.SecretShape
 import de.terletzkiy.ansibility.vault.ui.AnsibilityVaultUiBundle.message
 import org.jetbrains.annotations.Nls
 
@@ -46,8 +47,6 @@ class RegenerateRow(
     val notPassword: NotPasswordReason?,
     /** Why the value cannot be regenerated at all (not decrypted, a vault file), or null. */
     @Nls val unavailable: String?,
-    /** Shorter than 16 characters: marked, length kept (D217). */
-    val short: Boolean,
     /** The matching rule of the root, if any (D218 rule 1). */
     val rule: GenerationRule?,
     generator: SecretGenerator,
@@ -67,6 +66,12 @@ class RegenerateRow(
     /** The equal-value group (D219), or null when the value is alone (or its group was split). */
     var group: Int? = null
         internal set
+
+    /**
+     * The new value will have fewer than 16 characters, whatever made the generator (the current value's shape, a rule
+     * or your choice): marked, length kept (D217; plan amendment R29 review).
+     */
+    val short: Boolean get() = generator.characters < SecretShape.SHORT_BELOW
 
     /** False for unavailable rows: their checkbox is disabled. */
     val enabled: Boolean get() = unavailable == null
@@ -100,6 +105,29 @@ class RegenerateRequest(val rows: List<RegenerateRow>) {
         }
     }
 
+    /**
+     * Apply to Selected (D217): changes only what you changed in the generator fields, for [selected] and their
+     * groups: the kind when [kind] is not null, the length when [length] is not null. A row whose kind stays keeps the
+     * rest of its generator (its length unless changed, the hex case, the padding, the symbols); a row that gets another
+     * kind gets that kind's plain generator (plan amendment R29 review, finding 10). Nothing changes, and false is
+     * returned, when the resulting length does not fit some row's kind.
+     */
+    fun changeGenerators(selected: Collection<RegenerateRow>, kind: GeneratorKind?, length: Int?): Boolean {
+        val rows = selected.flatMap(::withGroup).distinct().filter { it.enabled }
+        val changes = rows.map { row ->
+            val newKind = kind ?: row.generator.kind
+            val newLength = length ?: row.generator.length
+            if (newLength !in SecretGenerator.lengths(newKind)) return false
+            row to if (newKind == row.generator.kind) row.generator.copy(length = newLength) else SecretGenerator(newKind, newLength)
+        }
+        for ((row, generator) in changes) {
+            if (generator == row.generator) continue
+            row.generator = generator
+            row.source = GeneratorSource.CHOSEN
+        }
+        return true
+    }
+
     /** Splits [group]: each of its values gets a value of its own (D219). */
     fun split(group: Int) {
         for (row in members(group)) row.group = null
@@ -122,7 +150,7 @@ class GeneratorRequest(
     val preset: SecretGenerator,
     /** Why [preset] was chosen, as shown ("same as now: 32 hex"). */
     @Nls val presetText: String,
-    /** The current value is shorter than 16 characters. */
+    /** [preset] makes fewer than 16 characters (a short current value, or a short rule). */
     val short: Boolean,
     /** Why the current value does not look like a password ("a PEM block"), or null. */
     @Nls val notPassword: String?,
@@ -139,7 +167,9 @@ object RegenerateTexts {
         GeneratorKind.HEX -> message(if (generator.upperHex) "regenerate.generator.hex.upper" else "regenerate.generator.hex", generator.length)
         GeneratorKind.BASE64 -> message("regenerate.generator.base64", generator.length)
         GeneratorKind.BASE64_URL -> message(if (generator.padded) "regenerate.generator.base64.url.padded" else "regenerate.generator.base64.url", generator.length)
-        GeneratorKind.ALPHANUMERIC_SYMBOLS -> message("regenerate.generator.symbols", generator.length)
+        // A narrowed symbol set is "same as now"'s: the text says so without naming the symbols.
+        GeneratorKind.ALPHANUMERIC_SYMBOLS ->
+            message(if (generator.symbols == SecretGenerator.SYMBOLS) "regenerate.generator.symbols" else "regenerate.generator.symbols.own", generator.length)
     }
 
     /** The name of a generator kind (the settings table and the choosers). */

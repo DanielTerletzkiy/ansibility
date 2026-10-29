@@ -51,7 +51,7 @@ class RotationScriptRulesTest {
     """.trimIndent()
 
     @Test
-    fun `the arms become rules in order, the default last`() {
+    fun `the arms become rules in order, the default arm is reported, not imported`() {
         val parsed = RotationScriptRules.parse(script)
         assertEquals(
             listOf(
@@ -59,19 +59,20 @@ class RotationScriptRulesTest {
                 GenerationRule("vault_vrrp_password", GeneratorKind.ALPHANUMERIC, 8),
                 GenerationRule("vault_proxy_hmac_secret", GeneratorKind.BASE64, 32),
                 GenerationRule("vault_edge_hmac_secret", GeneratorKind.BASE64, 32),
-                GenerationRule("*", GeneratorKind.ALPHANUMERIC, 32),
             ),
             parsed.rules,
         )
+        assertEquals(SecretGenerator(GeneratorKind.ALPHANUMERIC, 32), parsed.defaultArm?.generator)
         assertEquals(listOf("vault_legacy_*"), parsed.skipped, "an arm it does not understand; the dispatcher is no rule table")
     }
 
     @Test
     fun `the length default comes from the script, else 32`() {
         val longer = script.replace("PASSWORD_LENGTH:-32", "PASSWORD_LENGTH:-48")
-        assertEquals(GenerationRule("*", GeneratorKind.ALPHANUMERIC, 48), RotationScriptRules.parse(longer).rules.last())
+        assertEquals(SecretGenerator(GeneratorKind.ALPHANUMERIC, 48), RotationScriptRules.parse(longer).defaultArm?.generator)
         val unset = script.lines().filterNot { it.startsWith("PASSWORD_LENGTH=") }.joinToString("\n")
-        assertEquals(GenerationRule("*", GeneratorKind.ALPHANUMERIC, 32), RotationScriptRules.parse(unset).rules.last())
+        assertEquals(SecretGenerator(GeneratorKind.ALPHANUMERIC, 32), RotationScriptRules.parse(unset).defaultArm?.generator)
+        assertEquals(GenerationRule("vault_vrrp_password", GeneratorKind.ALPHANUMERIC, 8), RotationScriptRules.parse(unset).rules[1])
     }
 
     @Test

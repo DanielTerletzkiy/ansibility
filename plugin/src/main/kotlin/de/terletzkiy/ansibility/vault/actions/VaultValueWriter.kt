@@ -7,6 +7,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.util.concurrency.ThreadingAssertions
 import de.terletzkiy.ansibility.api.VaultFailure
+import de.terletzkiy.ansibility.yaml.YamlPsi
 import org.jetbrains.annotations.Nls
 import org.jetbrains.yaml.psi.YAMLScalar
 
@@ -54,7 +55,7 @@ internal object VaultValueWriter {
         val documents = PsiDocumentManager.getInstance(project)
         documents.commitAllDocuments()
         val scalar = scalarOf()?.takeIf { it.isValid } ?: return VaultWriteOutcome.Gone
-        if (scalar.textValue != expected) return VaultWriteOutcome.Changed
+        if (YamlPsi.loadedText(scalar) != expected) return VaultWriteOutcome.Changed
         val psiFile = scalar.containingFile ?: return VaultWriteOutcome.Gone
         val document = psiFile.viewProvider.virtualFile.let(FileDocumentManager.getInstance()::getDocument) ?: return VaultWriteOutcome.Gone
         val change = replacement(scalar, document.charsSequence)
