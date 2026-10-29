@@ -22,6 +22,12 @@ import java.util.concurrent.ConcurrentHashMap
 data class ConsentRecord(val locator: String, val size: Long, val fingerprint: String)
 
 /**
+ * A previous vault password Rotate Vault Password… kept in the IDE password store (plan amendment R29, D212): the
+ * root's real path, the id and when it was rotated (milliseconds). The password itself is only in the password store.
+ */
+data class PreviousPasswordRecord(val root: String, val label: String, val date: Long)
+
+/**
  * Per-user vault state at application level, in `ansibility-vault-user.xml` of the IDE configuration directory with
  * roaming disabled (DEV.md rule 12, secret rule 5): the consents to read discovered password sources, the labels
  * whose typed password is remembered in PasswordSafe, the idle auto-lock, and whether commits are checked for
@@ -29,6 +35,9 @@ data class ConsentRecord(val locator: String, val size: Long, val fingerprint: S
  *
  * Nothing here ever comes from a project file: a cloned repository can ship `.idea/workspace.xml`, but it cannot
  * write the IDE configuration directory, so entries it plants have no effect. No secret is stored here.
+ *
+ * Since plan amendment R29 also the records of previous vault passwords that Rotate Vault Password… kept in the IDE
+ * password store (D212): root, id and date, never the password.
  *
  * Remembered labels come in two lifetimes: persistent (the password is in the password safe) and for this IDE
  * session (the password is in PasswordSafe's memory-only store); only the persistent ones are saved.
@@ -40,6 +49,7 @@ class VaultUserState : PersistentStateComponent<VaultUserState.StateBean> {
     private val consents = ConcurrentHashMap<String, ConsentRecord>()
     private val persistentLabels = ConcurrentHashMap<String, List<String>>()
     private val sessionLabels = ConcurrentHashMap<String, List<String>>()
+    private val previous = ConcurrentHashMap<String, PreviousPasswordRecord>()
 
     @Volatile
     private var autoLock: Int = DEFAULT_AUTO_LOCK_MINUTES
@@ -103,6 +113,25 @@ class VaultUserState : PersistentStateComponent<VaultUserState.StateBean> {
         return removed
     }
 
+    /** The previous passwords Rotate Vault Password… kept (plan amendment R29, D212), by root and id. */
+    fun previousPasswords(): List<PreviousPasswordRecord> = previous.values.sortedWith(compareBy({ it.root }, { it.label }))
+
+    /** The previous password of [label] of [canonicalRootPath], or null. */
+    fun previousPassword(canonicalRootPath: String, label: String): PreviousPasswordRecord? = previous[previousKey(canonicalRootPath, label)]
+
+    /** Records that the previous password of [record]'s id is kept; a later rotation of the same id replaces it. */
+    fun recordPrevious(record: PreviousPasswordRecord) {
+        previous[previousKey(record.root, record.label)] = record
+        tracker.incModificationCount()
+    }
+
+    /** Forgets the record of the previous password of [label] of [canonicalRootPath]. */
+    fun forgetPrevious(canonicalRootPath: String, label: String) {
+        if (previous.remove(previousKey(canonicalRootPath, label)) != null) tracker.incModificationCount()
+    }
+
+    private fun previousKey(root: String, label: String): String = "$root\u0000$label"
+
     override fun getState(): StateBean = StateBean().apply {
         autoLockMinutes = autoLock
         checkCommits = this@VaultUserState.checkCommits
@@ -111,6 +140,9 @@ class VaultUserState : PersistentStateComponent<VaultUserState.StateBean> {
             .toMutableList()
         remembered = persistentLabels.entries.sortedBy { it.key }
             .flatMap { (root, labels) -> labels.map { label -> RememberedBean().apply { this.root = root; this.label = label } } }
+            .toMutableList()
+        previous = previousPasswords()
+            .map { record -> PreviousBean().apply { root = record.root; label = record.label; date = record.date } }
             .toMutableList()
     }
 
@@ -128,6 +160,12 @@ class VaultUserState : PersistentStateComponent<VaultUserState.StateBean> {
             val root = bean.root ?: continue
             val label = bean.label ?: continue
             persistentLabels.merge(root, listOf(label)) { old, new -> (old + new).distinct() }
+        }
+        previous.clear()
+        for (bean in state.previous) {
+            val root = bean.root ?: continue
+            val label = bean.label ?: continue
+            previous[previousKey(root, label)] = PreviousPasswordRecord(root, label, bean.date)
         }
         tracker.incModificationCount()
     }
@@ -152,6 +190,9 @@ class VaultUserState : PersistentStateComponent<VaultUserState.StateBean> {
 
         @get:XCollection(propertyElementName = "remembered", elementName = "entry")
         var remembered: MutableList<RememberedBean> = ArrayList()
+
+        @get:XCollection(propertyElementName = "previousPasswords", elementName = "previous")
+        var previous: MutableList<PreviousBean> = ArrayList()
     }
 
     /** XML form of a [ConsentRecord]. */
@@ -175,6 +216,19 @@ class VaultUserState : PersistentStateComponent<VaultUserState.StateBean> {
 
         @get:Attribute("label")
         var label: String? = null
+    }
+
+    /** XML form of a [PreviousPasswordRecord] (plan amendment R29, D212). */
+    @Tag("previous")
+    class PreviousBean {
+        @get:Attribute("root")
+        var root: String? = null
+
+        @get:Attribute("label")
+        var label: String? = null
+
+        @get:Attribute("date")
+        var date: Long = 0
     }
 
     companion object {

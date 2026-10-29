@@ -262,6 +262,11 @@ class SecretHealthPanel(private val project: Project) : SimpleToolWindowPanel(tr
             add(common.createCollapseAllAction(expander, tree))
             addSeparator()
             addAll(actions)
+            // Plan amendment R29 (D204): Rotate Vault Password… for every root (the tab selects no file).
+            ActionManager.getInstance().getAction(ROTATE_ACTION)?.let {
+                addSeparator()
+                add(it)
+            }
         }
         val toolbar = ActionManager.getInstance().createActionToolbar(TOOLBAR_PLACE, group, true)
         toolbar.targetComponent = tree
@@ -315,5 +320,8 @@ class SecretHealthPanel(private val project: Project) : SimpleToolWindowPanel(tr
 
         const val TOOLBAR_PLACE: String = "AnsibilityVaultTab"
         const val POPUP_PLACE: String = "AnsibilityVaultTabPopup"
+
+        /** Rotate Vault Password… (plan amendment R29, D204), at the end of the toolbar. */
+        const val ROTATE_ACTION: String = "Ansibility.Vault.RotatePassword"
     }
 }

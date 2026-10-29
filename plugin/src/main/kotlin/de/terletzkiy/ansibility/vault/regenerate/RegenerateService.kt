@@ -156,6 +156,10 @@ class RegenerateService(private val project: Project, private val scope: Corouti
         val keyName: String?,
         val kind: RowKind,
         @Nls val repository: String,
+        /** How its `!vault` value is decrypted (Part 1's D214: the id's old password). */
+        val decryption: Decryption = Decryption.RootSecrets,
+        /** The id the row shows when the decrypt does not name one (an explicit secret). */
+        val identity: String? = null,
     ) {
         override fun toString(): String = "Candidate(${file.name}, $keyPath, $kind)"
     }
@@ -233,7 +237,7 @@ class RegenerateService(private val project: Project, private val scope: Corouti
     private suspend fun inspect(candidates: List<Candidate>, run: ReencryptionRun): Map<Candidate, Inspection<Facts>> {
         val values = candidates.filter { it.kind == RowKind.VAULT_VALUE }
         if (values.isEmpty()) return emptyMap()
-        val items = values.map { ReencryptItem(it.root, it.target, Decryption.RootSecrets, NewPlaintext.Keep, Encryption.SameAsBefore, tag = it) }
+        val items = values.map { ReencryptItem(it.root, it.target, it.decryption, NewPlaintext.Keep, Encryption.SameAsBefore, tag = it) }
         val key = ByteArray(DIGEST_KEY_BYTES).also(SecureRandom()::nextBytes)
         try {
             val mac = Mac.getInstance(DIGEST).apply { init(SecretKeySpec(key, DIGEST)) }
@@ -269,7 +273,7 @@ class RegenerateService(private val project: Project, private val scope: Corouti
                     val (generator, source) = generatorFor(rule, (shape as? SecretShape.Password)?.generator)
                     RegenerateRow(
                         index, candidate.file, candidate.root, candidate.repository, candidate.keyPath, candidate.keyName, RowKind.VAULT_VALUE,
-                        inspection?.identity, (shape as? SecretShape.NotPassword)?.reason, if (facts == null) message("regenerate.reason.failed", failure) else null,
+                        inspection?.identity ?: candidate.identity, (shape as? SecretShape.NotPassword)?.reason, if (facts == null) message("regenerate.reason.failed", failure) else null,
                         (shape as? SecretShape.Password)?.short == true, rule, generator, source,
                     ).also { row -> facts?.let { digests[row] = it.digest } }
                 }
@@ -383,6 +387,44 @@ class RegenerateService(private val project: Project, private val scope: Corouti
         if (broken.isEmpty()) return plan
         val drop = plan.items.filter { (it.item.tag as? RegenerateRow)?.group in broken }.map { it.item }.toSet()
         return plan.without(drop, ItemOutcome.LeftOut)
+    }
+
+    // ------------------------------------------------------------------------------------------------ with a rotation (Part 1, D214)
+
+    /**
+     * Rotate Vault Password…'s "Also regenerate secrets…" (plan amendment R29, D214): this action's selection dialog
+     * over the inline `!vault` values a rotation re-encrypts ([items]: their decryption is the id's old password, their
+     * label [label]), with the same shapes, rules, marks and equal-value groups (D217–D219). Returns, per chosen item, the
+     * new value the rotation encrypts with the new password in the same pass (one per equal group); empty when nothing
+     * was chosen; null when you cancelled. The values are made only when the engine takes them.
+     */
+    internal suspend fun chooseForRotation(items: List<ReencryptItem>, label: String, run: ReencryptionRun): Map<ReencryptItem, NewPlaintext.Replace>? {
+        val byCandidate = LinkedHashMap<Candidate, ReencryptItem>()
+        readAction {
+            for (item in items) {
+                val ref = (item.target as? ReencryptTarget.Value)?.ref ?: continue
+                val scalar = ref.scalar?.takeIf { it.isValid } ?: continue
+                byCandidate[Candidate(ref.file, item.root, item.target, keyPath(scalar), ref.keyName, RowKind.VAULT_VALUE, repositoryOf(ref.file), item.decryption, label)] = item
+            }
+        }
+        val candidates = byCandidate.keys.toList()
+        if (candidates.isEmpty()) return emptyMap()
+        val inspected = inspect(candidates, run)
+        val request = readAction { rows(candidates, inspected) }
+        if (!onEdt { RegeneratePrompts.getInstance().chooseValues(project, request) }) return null
+        val selected = request.selected
+        val chosen = selected.toSet()
+        val random = random
+        val values = HashMap<Int, SharedValue>()
+        val result = LinkedHashMap<ReencryptItem, NewPlaintext.Replace>()
+        for (row in selected) {
+            val item = byCandidate[candidates[row.id]] ?: continue
+            val generator = row.generator
+            val users = row.group?.let { group -> request.members(group).count { it in chosen } } ?: 1
+            val value = values.getOrPut(row.group?.let { -it } ?: row.id) { SharedValue(users) { generator.generate(random) } }
+            result[item] = NewPlaintext.Replace(value)
+        }
+        return result
     }
 
     // ------------------------------------------------------------------------------------------------ single values (X97, ANS-X001's case)

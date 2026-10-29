@@ -29,6 +29,7 @@ import de.terletzkiy.ansibility.vault.envelope.VaultEnvelopes
 import de.terletzkiy.ansibility.vault.identity.VaultDiscovery
 import de.terletzkiy.ansibility.vault.identity.VaultIdentityRegistry
 import de.terletzkiy.ansibility.vault.identity.VaultProjectSettings
+import de.terletzkiy.ansibility.vault.rotate.RotationHints
 import de.terletzkiy.ansibility.vault.secrets.VaultLockReason
 import de.terletzkiy.ansibility.vault.secrets.VaultSecretsService
 import kotlinx.coroutines.CancellationException
@@ -112,6 +113,8 @@ class VaultOperationsImpl(private val project: Project, private val scope: Corou
                     val lockedCandidate = candidates.any { index ->
                         index < discovery.identities.size && !secrets.isUnlocked(discovery, discovery.identities[index].slot)
                     }
+                    // X129 (plan amendment R29): a secret that works elsewhere fails here, so the id may have been rotated.
+                    if (!lockedCandidate) RotationHints.getInstance(project).wrongSecret(discovery, envelope.labelOrDefault(config.defaultIdentity), outcome.tried, purpose)
                     failed(located, if (lockedCandidate) VaultFailure.LOCKED else VaultFailure.WRONG_SECRET, outcome.tried)
                 }
                 is DecryptOutcome.FormatError -> {

@@ -289,8 +289,10 @@ internal class ReencryptionEngine(private val project: Project) {
                 val label = if (encryption.keepHeader) opened.envelope?.label else encryption.label
                 // ansible-vault refuses plaintext that is vault data itself; so does the codec.
                 if (VaultEnvelope.isEncrypted(plaintext)) return ItemOutcome.Failed(VaultFailure.FORMAT)
+                // A new envelope that cannot even be read back is not verified (plan amendment R29, Part 1: a FORMAT
+                // failure would read as "the old envelope does not parse").
                 val envelope = withContext(Dispatchers.Default) { VaultAes256.encrypt(plaintext, encryption.secret, label) }.let(::tampered)
-                    ?: return ItemOutcome.Failed(VaultFailure.FORMAT)
+                    ?: return notVerified(item)
                 if (verify(envelope, encryption.secret, plaintext)) ItemOutcome.Ready(envelope, null) else notVerified(item)
             }
         }

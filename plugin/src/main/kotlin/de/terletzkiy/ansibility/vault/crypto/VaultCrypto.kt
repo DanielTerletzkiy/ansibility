@@ -91,6 +91,13 @@ class VaultCrypto : Disposable {
     /** What is known about [fingerprint] in [rootKey], or null. Safe on passive paths. */
     fun verification(rootKey: String, fingerprint: String): Verification? = verifications[Key(rootKey, fingerprint)]
 
+    /**
+     * True when the verification cache says that id [label]'s secret decrypted some envelope of [rootKey] since the
+     * last lock (plan amendment R29, X129: the secret works, so another envelope it does not open was changed). Safe
+     * on passive paths: it never decrypts.
+     */
+    fun anyDecryptedWith(rootKey: String, label: String): Boolean = verifications.any { (key, verification) -> key.root == rootKey && verification.decryptsWith == label }
+
     /** Records [verification]; true when the cache changed. */
     fun record(rootKey: String, fingerprint: String, verification: Verification): Boolean {
         val old = verifications.put(Key(rootKey, fingerprint), verification)

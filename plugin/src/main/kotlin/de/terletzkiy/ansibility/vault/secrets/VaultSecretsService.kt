@@ -54,6 +54,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.jetbrains.annotations.TestOnly
+import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.cancellation.CancellationException
@@ -81,6 +82,38 @@ class SecretLease internal constructor(val secrets: List<LabelledSecret>) : Auto
 }
 
 /**
+ * A copy of the current secret of one id and the chain entry it came from (plan amendment R29,
+ * [VaultSecretsService.currentSecret]). The caller closes it, which zeroes the copy.
+ */
+class CurrentSecret internal constructor(val identity: DiscoveredIdentity?, val secret: SecretBytes) : AutoCloseable {
+    override fun close() = secret.zero()
+
+    override fun toString(): String = "CurrentSecret(${identity?.label}, ***)"
+}
+
+/**
+ * What the IDE password store held for one id before Rotate Vault Password… wrote it (plan amendment R29,
+ * [VaultSecretsService.snapshotStore]): the id's entry, whether its label was remembered, the "before rotation" entry
+ * and its record. Holds passwords: [close] zeroes them, [toString] names the id only.
+ */
+class StoreSnapshot internal constructor(
+    val root: AnsibleRoot,
+    val label: String,
+    internal val serviceName: String,
+    internal val entry: CharArray?,
+    internal val remembered: Boolean,
+    internal val previous: CharArray?,
+    internal val previousRecord: PreviousPasswordRecord?,
+) : AutoCloseable {
+    override fun close() {
+        entry?.fill('\u0000')
+        previous?.fill('\u0000')
+    }
+
+    override fun toString(): String = "StoreSnapshot(${root.displayName}, $label, ***)"
+}
+
+/**
  * The unlocked vault secrets of the project (plan amendment R7/R8, A.13 `VaultSecretsService`; D25, D26).
  *
  * **Unlock** is lazy (the first vault action calls [unlock]) and follows the root's discovery chain
@@ -102,6 +135,10 @@ class SecretLease internal constructor(val secrets: List<LabelledSecret>) : Auto
  * **Lock**: [lock], [lockAll], the idle lock after [VaultUserState.autoLockMinutes] without vault activity, and
  * project close zero every secret and clear the caches of [VaultCrypto]. A root change (structure event) clears the
  * plaintext cache. Every change bumps [lockTracker] and publishes [VaultStatusListener.TOPIC].
+ *
+ * **Rotation** (plan amendment R29, Part 1): [currentSecret], [snapshotStore] / [storeRotation] / [restoreStore] for
+ * the IDE password store (the new password under the id's entry, the old one under a separate "before rotation"
+ * entry), [switchRotated] for the secrets in memory, and [loadSourceAgain] for Check.
  *
  * Secrets live only here, in [SecretBytes] (zeroed on lock; `toString()` is `***`), keyed by the root and the
  * identity's slot ([DiscoveredIdentity.slot]). The corpus guard ([VaultCorpusGuard]) makes [unlock] throw for roots
@@ -264,6 +301,9 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
         }
 
         override fun toString(): String = "UnlockRun(${discovery.rootKey})"
+
+        /** [identity]'s secret as an unlock would load it, without storing it (Check, plan amendment R29); null when it gives none. */
+        suspend fun read(identity: DiscoveredIdentity): SecretBytes? = (load(identity) as? Load.Loaded)?.secret
 
         suspend fun unlock(pending: List<DiscoveredIdentity>, label: String?, verify: VaultEnvelope?): VaultUnlockResult {
             var changed = false
@@ -749,6 +789,153 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
         discovery.identities.firstNotNullOfOrNull { identity ->
             (identity.plan as? SecretPlan.PasswordSafeEntry)?.serviceName?.takeIf { identity.label == label && identity.source.origin == VaultSourceOrigin.SETTINGS }
         } ?: VaultPasswordSafeKeys.serviceName(discovery.canonicalRootPath, label)
+
+    // ------------------------------------------------------------------ Rotate Vault Password… (plan amendment R29, Part 1)
+
+    /**
+     * A copy of the current secret of [label] in [root] (of its parent for a nested root): the first unlocked secret
+     * with that label in Ansible's order, the one [lease] lists first and encrypting picks (D207: "the id's current
+     * password"), with the identity whose slot holds it (null for an interactive label the chain has no entry for).
+     * Null while [label] is locked. The caller closes it.
+     */
+    fun currentSecret(root: AnsibleRoot, label: String): CurrentSecret? {
+        val discovery = registry().discovery(root)
+        return synchronized(lock) {
+            val slots = secrets[discovery.rootKey] ?: return null
+            discovery.identities.firstOrNull { it.label == label && it.slot in slots }?.let { CurrentSecret(it, slots.getValue(it.slot).secret.copy()) }
+                ?: slots.entries.firstOrNull { (slot, unlocked) -> unlocked.label == label && discovery.identityInSlot(slot) == null }
+                    ?.let { CurrentSecret(null, it.value.secret.copy()) }
+        }
+    }
+
+    /**
+     * The chain entry whose secret is [label]'s current one in [discovery]'s root (as [currentSecret], without copying
+     * it): null while [label] is locked or when an interactive slot outside the chain holds it.
+     */
+    fun currentIdentity(discovery: VaultDiscovery, label: String): DiscoveredIdentity? = synchronized(lock) {
+        val slots = secrets[discovery.rootKey] ?: return null
+        discovery.identities.firstOrNull { it.label == label && it.slot in slots }
+    }
+
+    /**
+     * What the IDE password store holds for id [label] of [root] before a rotation writes it (D211, D212): the id's
+     * entry ([storePassword]'s), the "before rotation" entry and its record, so a rotation that ends up writing no vault
+     * file can put everything back ([restoreStore]). Blocking (the Keychain); call off the EDT. The caller closes it.
+     */
+    fun snapshotStore(root: AnsibleRoot, label: String): StoreSnapshot {
+        val discovery = registry().discovery(root)
+        val canonical = discovery.canonicalRootPath
+        val serviceName = storedEntry(discovery, label)
+        val state = VaultUserState.getInstance()
+        return StoreSnapshot(
+            root, label, serviceName,
+            entry = credentials.read(serviceName, label),
+            remembered = label in state.rememberedLabels(canonical),
+            previous = credentials.read(VaultPasswordSafeKeys.previousServiceName(canonical, label), label),
+            previousRecord = state.previousPassword(canonical, label),
+        )
+    }
+
+    /**
+     * Step 1 of a rotation (D211, D212): [password] becomes the id's entry in the IDE password store (the one
+     * [storePassword] writes, remembered, so discovery lists it), and [previous] goes to the separate "before rotation"
+     * entry, recorded with [date] in [VaultUserState]; a later rotation of the id replaces both. Unlike [storePassword]
+     * the root stays unlocked. A [previous] of null (an old password that is no text) keeps no previous password.
+     * Blocking; call off the EDT; throws when the store refuses. The caller zeroes the arrays.
+     */
+    fun storeRotation(root: AnsibleRoot, label: String, password: CharArray, previous: CharArray?, date: Long) {
+        val discovery = registry().discovery(root)
+        VaultCorpusGuard.check(discovery.rootPath?.toString() ?: discovery.root.dir.path)
+        val canonical = discovery.canonicalRootPath
+        val serviceName = storedEntry(discovery, label)
+        val state = VaultUserState.getInstance()
+        try {
+            if (previous != null) {
+                credentials.write(VaultPasswordSafeKeys.previousServiceName(canonical, label), label, previous, memoryOnly = false)
+                state.recordPrevious(PreviousPasswordRecord(canonical, label, date))
+            }
+            credentials.write(serviceName, label, password, memoryOnly = false)
+            if (serviceName == VaultPasswordSafeKeys.serviceName(canonical, label)) state.remember(canonical, label, persistent = true)
+            VaultLog.event(VaultLog.Operation.PASSWORD_SAFE, VaultLog.Event.PASSWORD_REMEMBERED, discovery.rootKey, label)
+        } catch (e: Exception) {
+            VaultLog.failure(VaultLog.Operation.PASSWORD_SAFE, e, discovery.rootKey, label)
+            throw e
+        }
+    }
+
+    /** Puts back what [snapshot] saw before [storeRotation] (a rotation that wrote no vault file). Blocking; call off the EDT. */
+    fun restoreStore(snapshot: StoreSnapshot) {
+        val discovery = registry().discovery(snapshot.root)
+        val canonical = discovery.canonicalRootPath
+        val state = VaultUserState.getInstance()
+        try {
+            credentials.write(snapshot.serviceName, snapshot.label, snapshot.entry, memoryOnly = false)
+            if (!snapshot.remembered) state.forget(canonical, snapshot.label)
+            credentials.write(VaultPasswordSafeKeys.previousServiceName(canonical, snapshot.label), snapshot.label, snapshot.previous, memoryOnly = false)
+            snapshot.previousRecord?.let(state::recordPrevious) ?: state.forgetPrevious(canonical, snapshot.label)
+        } catch (e: Exception) {
+            VaultLog.failure(VaultLog.Operation.PASSWORD_SAFE, e, discovery.rootKey, snapshot.label)
+        }
+    }
+
+    /**
+     * Step 4 of a rotation (D211, D213): in [root], every unlocked slot of [label] that holds [old] (compared in
+     * constant time) holds [new] now, and so do the slots of the id's IDE password store entry, which [storeRotation]
+     * just wrote; the plaintext and verification caches are cleared (every envelope of the id changed) and
+     * [VaultStatusListener]s are told. The caller keeps and zeroes [old] and [new].
+     */
+    fun switchRotated(root: AnsibleRoot, label: String, old: SecretBytes, new: SecretBytes) {
+        val discovery = registry().discovery(root)
+        val serviceName = storedEntry(discovery, label)
+        synchronized(lock) {
+            if (disposed) return
+            val slots = secrets.getOrPut(discovery.rootKey) { LinkedHashMap() }
+            for ((slot, unlocked) in slots.entries.toList()) {
+                if (unlocked.label != label || !sameSecret(unlocked.secret, old)) continue
+                slots[slot] = Unlocked(label, new.copy())
+                unlocked.secret.zero()
+            }
+            for (identity in discovery.identities) {
+                val plan = identity.plan as? SecretPlan.PasswordSafeEntry ?: continue
+                if (identity.label == label && plan.serviceName == serviceName) slots.put(identity.slot, Unlocked(label, new.copy()))?.secret?.zero()
+            }
+        }
+        cryptoIfCreated()?.clearAll()
+        touch()
+        VaultLog.event(VaultLog.Operation.UNLOCK, VaultLog.Event.UNLOCKED, discovery.rootKey, label)
+        notifyChanged()
+    }
+
+    /** The id's IDE password store entry of [label] of [root] (after a rotation: the new password), or null. Blocking. */
+    fun readStoredPassword(root: AnsibleRoot, label: String): SecretBytes? = readPasswordSafe(storedEntry(registry().discovery(root), label), label)
+
+    /** The "before rotation" entry of [label] of [root] (D212), or null. Blocking. */
+    fun readPreviousPassword(root: AnsibleRoot, label: String): SecretBytes? =
+        readPasswordSafe(VaultPasswordSafeKeys.previousServiceName(registry().discovery(root).canonicalRootPath, label), label)
+
+    /** Forgets the previous password of [label] of the root at [canonicalRootPath] (D212): its entry and its record. Blocking. */
+    fun forgetPreviousPassword(canonicalRootPath: String, label: String) {
+        try {
+            credentials.write(VaultPasswordSafeKeys.previousServiceName(canonicalRootPath, label), label, null, memoryOnly = false)
+            VaultLog.event(VaultLog.Operation.PASSWORD_SAFE, VaultLog.Event.PASSWORD_FORGOTTEN, canonicalRootPath, label)
+        } catch (e: Exception) {
+            VaultLog.failure(VaultLog.Operation.PASSWORD_SAFE, e, canonicalRootPath, label)
+        }
+        VaultUserState.getInstance().forgetPrevious(canonicalRootPath, label)
+    }
+
+    /**
+     * Reads the source of [identity] (of [root]'s chain) again through the unlock's load path (its consent, Ansible's
+     * rules, a password manager's CLI) without storing what it gives: Check after a rotation (D211). Never prompts for
+     * a vault password; a consent or a manager's master password may be asked. Null when the source gives nothing.
+     */
+    suspend fun loadSourceAgain(root: AnsibleRoot, identity: DiscoveredIdentity): SecretBytes? {
+        val discovery = registry().discovery(root)
+        VaultCorpusGuard.check(discovery.rootPath?.toString() ?: discovery.root.dir.path)
+        return UnlockRun(discovery, interactive = true).use { it.read(identity) }
+    }
+
+    private fun sameSecret(a: SecretBytes, b: SecretBytes): Boolean = a.read { left -> b.read { right -> MessageDigest.isEqual(left, right) } }
 
     // ------------------------------------------------------------------ lock
 

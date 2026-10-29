@@ -40,7 +40,10 @@ import de.terletzkiy.ansibility.vault.identity.VaultProjectSettings
 import de.terletzkiy.ansibility.vault.identity.VaultRootSettings
 import de.terletzkiy.ansibility.vault.keys.PlaintextKeyExclusions
 import de.terletzkiy.ansibility.vault.secrets.VaultSecretsService
+import de.terletzkiy.ansibility.vault.secrets.PreviousPasswordRecord
 import de.terletzkiy.ansibility.vault.secrets.VaultUserState
+import de.terletzkiy.ansibility.vault.rotate.RotationService
+import com.intellij.ui.dsl.builder.Placeholder
 import de.terletzkiy.ansibility.vault.ui.AnsibilityVaultUiBundle.message
 import de.terletzkiy.ansibility.semantics.vault.GenerationRule
 import de.terletzkiy.ansibility.semantics.vault.GeneratorKind
@@ -65,7 +68,9 @@ import javax.swing.table.TableCellRenderer
  * allowlist (plan amendment R21, D162), one glob per line, shared with the project, and the commit check's switch
  * (D167), stored per user (`VaultUserState`), so a repository cannot turn it off. Per root also the secret generation
  * rules of Regenerate Secrets… (plan amendment R29, D218), shared with the project, with Import from Script… (X131),
- * which reads a rotation script's `case` arms without running it.
+ * which reads a rotation script's `case` arms without running it. Rotate Password… starts Rotate Vault Password… for the
+ * selected root and id (plan amendment R29, D204), and the previous passwords a rotation kept are listed with Forget
+ * (D212; stored per user, the passwords only in the IDE password store).
  */
 class VaultConfigurable(private val project: Project) : BoundSearchableConfigurable(message("settings.vault.name"), ID, ID) {
     internal data class RootEntry(
@@ -74,6 +79,8 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
         val environments: List<String>,
         val discovered: List<String>,
         val stored: Set<String>,
+        /** The root's real path: the key of its previous passwords (plan amendment R29, D212). */
+        val canonical: String = "",
     )
 
     /** One id as the table shows it; [password] is a typed, not yet stored password. */
@@ -178,6 +185,7 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
         foreground = com.intellij.util.ui.UIUtil.getContextHelpForeground()
     }
     private val managerLabels = PasswordManager.entries.associateWith { JBLabel() }
+    private lateinit var previousPlaceholder: Placeholder
 
     override fun createPanel(): DialogPanel {
         uiDisposable?.let(Disposer::dispose)
@@ -218,6 +226,15 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
                     button(message("settings.vault.rules.import")) { importRules() }.applyToComponent { name = IMPORT_RULES_COMPONENT }
                 }
                 row { comment(message("settings.vault.rules.comment")) }
+            }
+            // Rotate Vault Password… (plan amendment R29, D204, D212): for the selected id of the selected root, and the
+            // previous passwords a rotation kept in the IDE password store, with Forget.
+            group(message("settings.vault.rotation")) {
+                row {
+                    button(message("settings.vault.rotate")) { rotate() }.applyToComponent { name = ROTATE_COMPONENT }
+                }
+                row { comment(message("settings.vault.rotate.comment")) }
+                row { previousPlaceholder = placeholder().align(AlignX.FILL) }
             }
             group(message("settings.vault.managers")) {
                 for (manager in PasswordManager.entries) {
@@ -325,7 +342,10 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
                 val discovered = discovery.identities.filter { it.source.origin != VaultSourceOrigin.SETTINGS }.map { identity ->
                     listOfNotNull(identity.label, kindText(identity.source.kind), identity.source.location).joinToString(" \u00B7 ")
                 }
-                RootEntry(RootKeys.keyOf(project, root.dir), root.displayName, layouts.layout(root).inventories.map { it.id }, discovered, emptySet())
+                RootEntry(
+                    RootKeys.keyOf(project, root.dir), root.displayName, layouts.layout(root).inventories.map { it.id }, discovered, emptySet(),
+                    discovery.canonicalRootPath,
+                )
             }
     }
 
@@ -341,6 +361,7 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
             storedInLabel.text = entry?.let { settings.repositoryFileOf(it.key) }?.let { message("settings.vault.storedIn", it) }.orEmpty()
             discoveredLabel.text = if (entry == null || entry.discovered.isEmpty()) message("settings.vault.discovered.none")
             else message("settings.vault.discovered", entry.discovered.joinToString("<br>"))
+            showPrevious(entry)
         } finally {
             loading = false
         }
@@ -455,6 +476,42 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
         }
     }
 
+    /**
+     * Rotate Password… (plan amendment R29, D204): Rotate Vault Password… with the selected root and the selected id
+     * (the id row of the table, else the root's first discovered id) preselected. EDT.
+     */
+    internal fun rotate() {
+        val entry = current
+        val label = idTable.selectedObject?.label ?: entry?.discovered?.firstOrNull()?.substringBefore(" \u00B7 ")
+        RotationService.getInstance(project).rotate(entry?.key, label)
+    }
+
+    /** The previous passwords of [entry] (D212): "default: previous password kept (date)" with Forget. */
+    private fun showPrevious(entry: RootEntry?) {
+        if (!::previousPlaceholder.isInitialized) return
+        val records = entry?.canonical?.takeIf { it.isNotEmpty() }?.let { root -> VaultUserState.getInstance().previousPasswords().filter { it.root == root } }.orEmpty()
+        previousPlaceholder.component = panel {
+            if (records.isEmpty()) row { comment(message("settings.vault.previous.none")) }
+            for (record in records) {
+                row {
+                    label(message("settings.vault.previous", record.label, RotationService.date(record.date)))
+                    button(message("settings.vault.previous.forget")) { forgetPrevious(record) }.applyToComponent { name = FORGET_PREVIOUS_COMPONENT + record.label }
+                }
+            }
+            row { comment(message("settings.vault.previous.comment")) }
+        }
+    }
+
+    /** Forget (D212): removes the "before rotation" entry from the IDE password store (off the EDT) and its record. */
+    internal fun forgetPrevious(record: PreviousPasswordRecord) {
+        val secrets = VaultSecretsService.getInstance(project)
+        val disposable = uiDisposable
+        ApplicationManager.getApplication().executeOnPooledThread {
+            secrets.forgetPreviousPassword(record.root, record.label)
+            ApplicationManager.getApplication().invokeLater({ if (disposable?.isDisposed == false) showPrevious(current) }, ModalityState.any())
+        }
+    }
+
     override fun isModified(): Boolean = super.isModified() || forgotten.values.any { it.isNotEmpty() } ||
         edits.any { (key, edited) -> toSettings(key, edited) != settings.rootSettings(key) || edited.ids.any { it.password != null } }
 
@@ -543,6 +600,12 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
 
         /** The component name of the commit check's checkbox (tests find it by name). */
         const val COMMIT_CHECK_COMPONENT = "ansibility.vault.checkCommits"
+
+        /** The component name of Rotate Password… (plan amendment R29, D204; tests find it by name). */
+        const val ROTATE_COMPONENT = "ansibility.vault.rotatePassword"
+
+        /** The component name prefix of a previous password's Forget button, followed by the id (D212; tests find it by name). */
+        const val FORGET_PREVIOUS_COMPONENT = "ansibility.vault.forgetPrevious."
 
         /** The component name of Import from Script… (X131; tests find it by name). */
         const val IMPORT_RULES_COMPONENT = "ansibility.vault.importRules"
