@@ -53,6 +53,18 @@ internal object VaultLog {
          * left out and nothing of it is written.
          */
         NOT_VERIFIED,
+
+        /**
+         * A pending rotation ended at an unlock (plan amendment R29 review round 2, decision 1): the source gives the new
+         * password, or another one (rotated elsewhere).
+         */
+        PENDING_ROTATION_ENDED,
+
+        /**
+         * A rotation that wrote no vault file left an IDE password store entry as it was, because the entry no longer
+         * held what the rotation stored (plan amendment R29 review round 2, decision 5).
+         */
+        ENTRY_LEFT,
     }
 
     /** How a password manager read ended. */
@@ -77,7 +89,7 @@ internal object VaultLog {
      */
     private val NOTABLE = setOf(
         Event.CONSENT_ASKED, Event.PASSWORD_PROMPTED, Event.MASTER_PASSWORD_PROMPTED, Event.MANAGER_READ_STARTED, Event.MANAGER_READ_SKIPPED,
-        Event.STATUSES_LATE, Event.NOT_VERIFIED,
+        Event.STATUSES_LATE, Event.NOT_VERIFIED, Event.PENDING_ROTATION_ENDED, Event.ENTRY_LEFT,
     )
 
     /** A vault operation failed for a reason Ansible would report too (wrong secret, malformed envelope, …). */

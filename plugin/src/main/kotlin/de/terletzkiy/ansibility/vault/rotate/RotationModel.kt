@@ -223,9 +223,11 @@ class ReviewRoot internal constructor(
 }
 
 /**
- * The review after the preflight (plan amendment R29, D209, D214): what will be rewritten per root, what is left alone
- * and why, the ids of other roots that turned out to have the same password, where the new password goes; and the
- * "Also regenerate secrets…" choice ([alsoRegenerate], unchecked). Texts only, never a value.
+ * The review after the preflight (plan amendment R29, D209, D214): what will be rewritten per root, what of it opened
+ * only with a password kept from before an earlier rotation, what is left alone and why, the ids of other roots that
+ * turned out to have the same password, where the new password goes; and the "Also regenerate secrets…" choice
+ * ([alsoRegenerate], unchecked). When the new password would have no durable home (review round 2, decision 3) it
+ * offers Copy ([copyNewPassword]) and Rotate needs [storedSafely]. Texts only, never a value.
  */
 class RotationReview internal constructor(
     val identity: String,
@@ -235,9 +237,25 @@ class RotationReview internal constructor(
     val destinations: List<@Nls String>,
     /** Whether there are inline values whose secrets could be regenerated in the same pass (D214). */
     val canRegenerate: Boolean,
+    /**
+     * What opened only with a password kept from before an earlier rotation of the id and is rotated too (review round
+     * 2, decision 2): "path: key (opened with the password from before the rotation of <date>)".
+     */
+    val fromPrevious: List<@Nls String> = emptyList(),
+    /**
+     * Copies the new password through the vault clipboard when it would have no durable home (the IDE password store
+     * keeps passwords in memory only and no password file is written; review round 2, decision 3); null otherwise.
+     */
+    val copyNewPassword: (() -> Unit)? = null,
 ) {
     /** D214: open Regenerate Secrets…'s selection for the rotated values after Rotate. */
     var alsoRegenerate: Boolean = false
+
+    /** Whether Rotate needs "I have stored the new password somewhere safe" (decision 3). */
+    val needsSafeCopy: Boolean get() = copyNewPassword != null
+
+    /** "I have stored the new password somewhere safe" (decision 3): required before Rotate when [needsSafeCopy]. */
+    var storedSafely: Boolean = false
 
     override fun toString(): String = "RotationReview($identity, ${roots.size} roots, ${leftAlone.size} left alone)"
 }

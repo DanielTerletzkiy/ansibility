@@ -149,7 +149,11 @@ class RotationSourcesTest : RotationTestCase() {
         assertTrue(feedback().single().endsWith(".vault-pass: still the old password."))
     }
 
-    fun testThePreviousPasswordIsKeptReplacedByTheNextRotationAndForgotten() {
+    /**
+     * D212 and review round 2, decision 2: every rotation keeps the password before it as an entry of its own, never
+     * overwritten (the first build replaced it); Settings › Vault lists each with its date and forgets them one by one.
+     */
+    fun testEveryPreviousPasswordIsKeptAndForgottenOneByOne() {
         write(vaultPath, VaultVectors.inline("vault_db_password", VaultVectors.encrypt("Db0Old0Value0001", VaultVectors.PW1)))
         ready()
         val falcon = root(root)
@@ -163,8 +167,9 @@ class RotationSourcesTest : RotationTestCase() {
 
         newPassword = NewPassword.generate(SecureRandom()).use { String(it.chars()) }
         rotate()
-        assertEquals("a later rotation replaces it", first, previous(falcon))
-        assertEquals(1, VaultUserState.getInstance().previousPasswords().size)
+        assertEquals("the newest is the first rotation's password", first, previous(falcon))
+        assertEquals("the one before it is kept too", listOf(first, VaultVectors.PW1), previousAll(falcon))
+        assertEquals(2, VaultUserState.getInstance().previousPasswords().size)
         assertEquals("Db0Old0Value0001", valueOf(vaultPath, "vault_db_password", newPassword))
 
         val page = VaultConfigurable(project)
@@ -174,13 +179,14 @@ class RotationSourcesTest : RotationTestCase() {
             PlatformTestUtil.waitWithEventsDispatching("the roots did not load", { roots.itemCount > 0 }, 60)
             PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
             val labels = UIUtil.findComponentsOfType(component, JLabel::class.java).mapNotNull { it.text }
-            assertTrue(labels.toString(), labels.any { it.startsWith("default: previous password kept (") })
-            val forget = UIUtil.findComponentsOfType(component, JButton::class.java).single { it.name == VaultConfigurable.FORGET_PREVIOUS_COMPONENT + "default" }
+            assertEquals(labels.toString(), 2, labels.count { it.startsWith("default: previous password kept (") })
+            val oldest = VaultUserState.getInstance().previousPasswords().last()
+            val forget = UIUtil.findComponentsOfType(component, JButton::class.java).single { it.name == VaultConfigurable.forgetComponentName(oldest) }
 
             forget.doClick()
 
-            waitFor("the previous password was not forgotten") { VaultUserState.getInstance().previousPasswords().isEmpty() }
-            assertNull(previous(falcon))
+            waitFor("the previous password was not forgotten") { VaultUserState.getInstance().previousPasswords().size == 1 }
+            assertEquals("only the oldest is forgotten", listOf(first), previousAll(falcon))
             assertEquals("the id's own entry stays", newPassword, stored(falcon))
         } finally {
             page.disposeUIResources()

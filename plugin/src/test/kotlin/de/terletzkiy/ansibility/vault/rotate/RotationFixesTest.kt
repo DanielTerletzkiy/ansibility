@@ -19,10 +19,12 @@ import de.terletzkiy.ansibility.vault.identity.PasswordManagerReader
 import de.terletzkiy.ansibility.vault.identity.VaultPasswordSafeKeys
 import de.terletzkiy.ansibility.vault.identity.VaultProjectSettings
 import de.terletzkiy.ansibility.vault.reencrypt.ReencryptionWriter
+import de.terletzkiy.ansibility.vault.secrets.VaultConsentDecision
 import de.terletzkiy.ansibility.vault.secrets.VaultUserState
 import de.terletzkiy.ansibility.vault.tab.DecryptedVaultFile
 import de.terletzkiy.ansibility.vault.tab.DecryptedVaultTabs
 import java.nio.file.Files
+import java.nio.file.attribute.FileTime
 import java.security.SecureRandom
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -160,11 +162,15 @@ class RotationFixesTest : RotationTestCase() {
 
     // ------------------------------------------------------------------------------------------------ decisions 4 and 17
 
-    /** Decisions 4 and 17: the scan skips `.git`; leftover temporary files go at the next rotation and the next unlock. */
+    /**
+     * Decisions 4 and 17: the scan skips `.git`; leftover temporary files go at the next rotation and the next unlock.
+     * Since round 2 (decision 9) only files older than a minute count as leftovers, so the test dates them back.
+     */
     fun testTheScanSkipsGitAndLeftoverTemporaryFilesAreRemoved() {
         write(vaultPath, VaultVectors.inline("vault_db_password", VaultVectors.encrypt("Db0Old0Value0001", VaultVectors.PW1)))
         val inGit = write("$root/.git/stored.vault.txt", VaultVectors.encrypt("not this one\n", VaultVectors.PW1).formatBytes())
         val leftover = write("$root/group_vars/all/.ansibility-rotate-123.tmp", "an old temporary file")
+        Files.setLastModifiedTime(leftover, FileTime.fromMillis(System.currentTimeMillis() - 120_000))
         ready()
         val gitBefore = Files.readAllBytes(inGit)
 
@@ -175,6 +181,7 @@ class RotationFixesTest : RotationTestCase() {
         assertFalse("the rotation's scan removed the leftover", Files.exists(leftover))
 
         val next = write("$root/.ansibility-rotate-456.tmp", "another one")
+        Files.setLastModifiedTime(next, FileTime.fromMillis(System.currentTimeMillis() - 120_000))
         secrets.lockAll()
         assertTrue(await { secrets.unlock(root(root)) } is VaultUnlockResult.Unlocked)
         assertFalse("the unlock removed the leftover next to the password file", Files.exists(next))
@@ -182,12 +189,18 @@ class RotationFixesTest : RotationTestCase() {
 
     // ------------------------------------------------------------------------------------------------ decision 5
 
-    /** Decision 5: a password file named by a `.env.local` that was not read yet is not written; the dialog and the summary say so. */
+    /**
+     * Decision 5: a password file named by a `.env.local` that was not read yet is not written; the dialog and the
+     * summary say so. Since round 2 (decision 4) the rotation asks to read every `.env.local` before it groups the roots:
+     * the test declines that first question (the unlock's own consent is given), so the file stays unresolved.
+     */
     fun testAPasswordFileNamedByAnUnreadEnvLocalIsNotWritten() {
         write("$root/.env.local", "ANSIBLE_LOCAL_VAULT_PASSWORD_FILE=.vault-pass\n")
         write(vaultPath, VaultVectors.inline("vault_db_password", VaultVectors.encrypt("Db0Old0Value0001", VaultVectors.PW1)))
         ready()
         val falcon = root(root)
+        val asked = java.util.concurrent.atomic.AtomicInteger()
+        prompter.onConsent = { if (asked.getAndIncrement() == 0) VaultConsentDecision.NotNow else VaultConsentDecision.UseAll }
 
         rotate()
 

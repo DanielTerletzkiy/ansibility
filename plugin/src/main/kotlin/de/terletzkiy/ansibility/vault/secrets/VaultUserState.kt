@@ -24,17 +24,33 @@ data class ConsentRecord(val locator: String, val size: Long, val fingerprint: S
 /**
  * A previous vault password Rotate Vault Password… kept in the IDE password store (plan amendment R29, D212): the
  * root's real path, the id and when it was rotated (milliseconds). The password itself is only in the password store.
+ * Every rotation keeps its own entry, named with its [date] ([dated]); none is ever overwritten (review round 2,
+ * decision 2). A record of the first build, which kept one undated entry per root and id, has [dated] false. No secret.
  */
-data class PreviousPasswordRecord(val root: String, val label: String, val date: Long)
+data class PreviousPasswordRecord(val root: String, val label: String, val date: Long, val dated: Boolean = true)
 
 /**
- * A rotation whose password source was not written yet (plan amendment R29 review, decision 9): Rotate Vault Password…
- * stored the new password of id [label] of the root at [root] (its real path) in the root's own IDE password store
- * entry, but the source in chain slot [slot] (a password manager, an environment variable, a password file the IDE
- * could not or may not write) still gives the old one. Until that source gives the new password, unlocks skip a source
- * that gives the "before rotation" password and the stored entry comes first. [date] is when it was rotated. No secret.
+ * A rotation whose password source may not have the new password yet (plan amendment R29 review, decision 9; round 2,
+ * decisions 1 and 6): Rotate Vault Password… stored the new password of id [label] of the root at [root] (its real
+ * path) in the root's own IDE password store entry, and the source in chain slot [slot] (a password manager, an
+ * environment variable, a password file the IDE could not or may not write) may still give the old one. Both are
+ * unlocked; encrypting prefers the stored new password until the source gives it, or another one. [state] says how far
+ * the rotation got: it is recorded before the first vault file is written, so an interrupted rotation leaves a trace.
+ * [date] is when it was rotated. No secret.
  */
-data class PendingRotationRecord(val root: String, val label: String, val slot: String?, val date: Long)
+data class PendingRotationRecord(val root: String, val label: String, val slot: String?, val date: Long, val state: PendingState = PendingState.PENDING)
+
+/** How far a rotation got (plan amendment R29 review round 2, decision 6). */
+enum class PendingState {
+    /** The new password is stored; the vault files are being written (some may hold new envelopes). */
+    WRITING_FILES,
+
+    /** The vault files are written; the password sources and the secrets in memory are being updated. */
+    WRITING_SOURCES,
+
+    /** The rotation ended, and its source does not give the new password yet. */
+    PENDING,
+}
 
 /**
  * Per-user vault state at application level, in `ansibility-vault-user.xml` of the IDE configuration directory with
@@ -46,8 +62,9 @@ data class PendingRotationRecord(val root: String, val label: String, val slot: 
  * write the IDE configuration directory, so entries it plants have no effect. No secret is stored here.
  *
  * Since plan amendment R29 also the records of previous vault passwords that Rotate Vault Password… kept in the IDE
- * password store (D212): root, id and date, never the password; the rotations whose source still has to be updated
- * ([PendingRotationRecord]); and which root and id opened envelopes before (X129's teammate hint), all without secrets.
+ * password store (D212): root, id and date, never the password, one per rotation; the rotations whose source still
+ * has to be updated or that did not finish ([PendingRotationRecord]); and which root and id opened envelopes before
+ * (X129's teammate hint), all without secrets.
  *
  * Remembered labels come in two lifetimes: persistent (the password is in the password safe) and for this IDE
  * session (the password is in PasswordSafe's memory-only store); only the persistent ones are saved.
@@ -129,40 +146,48 @@ class VaultUserState : PersistentStateComponent<VaultUserState.StateBean> {
         return removed
     }
 
-    /** The previous passwords Rotate Vault Password… kept (plan amendment R29, D212), by root and id. */
-    fun previousPasswords(): List<PreviousPasswordRecord> = previous.values.sortedWith(compareBy({ it.root }, { it.label }))
+    /** The previous passwords Rotate Vault Password… kept (plan amendment R29, D212), by root and id, the newest first per id. */
+    fun previousPasswords(): List<PreviousPasswordRecord> =
+        previous.values.sortedWith(compareBy<PreviousPasswordRecord>({ it.root }, { it.label }).thenByDescending { it.date })
 
-    /** The previous password of [label] of [canonicalRootPath], or null. */
-    fun previousPassword(canonicalRootPath: String, label: String): PreviousPasswordRecord? = previous[previousKey(canonicalRootPath, label)]
+    /** The previous passwords of [label] of [canonicalRootPath], the newest first (review round 2, decision 2). */
+    fun previousPasswords(canonicalRootPath: String, label: String): List<PreviousPasswordRecord> =
+        previous.values.filter { it.root == canonicalRootPath && it.label == label }.sortedByDescending { it.date }
 
-    /** Records that the previous password of [record]'s id is kept; a later rotation of the same id replaces it. */
+    /** Records that a previous password of [record]'s id is kept; every rotation adds its own (review round 2, decision 2). */
     fun recordPrevious(record: PreviousPasswordRecord) {
-        previous[previousKey(record.root, record.label)] = record
+        previous[previousRecordKey(record)] = record
         tracker.incModificationCount()
     }
 
-    /** Forgets the record of the previous password of [label] of [canonicalRootPath]. */
-    fun forgetPrevious(canonicalRootPath: String, label: String) {
-        if (previous.remove(previousKey(canonicalRootPath, label)) != null) tracker.incModificationCount()
+    /** Forgets [record] (the caller removes its IDE password store entry). */
+    fun forgetPrevious(record: PreviousPasswordRecord) {
+        if (previous.remove(previousRecordKey(record)) != null) tracker.incModificationCount()
     }
 
     private fun previousKey(root: String, label: String): String = "$root\u0000$label"
 
-    /** The rotation of [label] of [canonicalRootPath] whose source is not updated yet (decision 9 of the R29 review), or null. */
+    private fun previousRecordKey(record: PreviousPasswordRecord): String = previousKey(record.root, record.label) + "\u0000${record.date}\u0000${record.dated}"
+
+    /** The rotation of [label] of [canonicalRootPath] whose source may not have the new password yet (decision 9 of the R29 review), or null. */
     fun pendingRotation(canonicalRootPath: String, label: String): PendingRotationRecord? = pending[previousKey(canonicalRootPath, label)]
 
     /** Every pending rotation, by root and id. */
     fun pendingRotations(): List<PendingRotationRecord> = pending.values.sortedWith(compareBy({ it.root }, { it.label }))
 
     /**
-     * Records [record]; a later rotation of the same root and id replaces it. Discovery does not depend on it, so the
-     * [modificationTracker] is not bumped (nor for [forgetPendingRotation] and [recordOpened]).
+     * Records [record] (also each step of a running rotation, review round 2, decision 6); a later rotation of the same
+     * root and id replaces it. Discovery does not depend on it, so the [modificationTracker] is not bumped (nor for
+     * [forgetPendingRotation] and [recordOpened]).
      */
     fun recordPendingRotation(record: PendingRotationRecord) {
         pending[previousKey(record.root, record.label)] = record
     }
 
-    /** The source of [label] of [canonicalRootPath] gives the new password now (Check said so, or an unlock read it). */
+    /**
+     * The rotation of [label] of [canonicalRootPath] is settled: its source gives the new password (an unlock read it,
+     * or Check said so) or another one (rotated elsewhere), or you replaced or removed the stored new password.
+     */
     fun forgetPendingRotation(canonicalRootPath: String, label: String) {
         pending.remove(previousKey(canonicalRootPath, label))
     }
@@ -189,10 +214,10 @@ class VaultUserState : PersistentStateComponent<VaultUserState.StateBean> {
             .flatMap { (root, labels) -> labels.map { label -> RememberedBean().apply { this.root = root; this.label = label } } }
             .toMutableList()
         previous = previousPasswords()
-            .map { record -> PreviousBean().apply { root = record.root; label = record.label; date = record.date } }
+            .map { record -> PreviousBean().apply { root = record.root; label = record.label; date = record.date; dated = record.dated } }
             .toMutableList()
         pendingRotations = pendingRotations()
-            .map { record -> PendingBean().apply { root = record.root; label = record.label; slot = record.slot; date = record.date } }
+            .map { record -> PendingBean().apply { root = record.root; label = record.label; slot = record.slot; date = record.date; state = record.state.name } }
             .toMutableList()
         opened = this@VaultUserState.opened.sorted()
             .map { key -> RememberedBean().apply { root = key.substringBefore('\u0000'); label = key.substringAfter('\u0000') } }
@@ -218,13 +243,15 @@ class VaultUserState : PersistentStateComponent<VaultUserState.StateBean> {
         for (bean in state.previous) {
             val root = bean.root ?: continue
             val label = bean.label ?: continue
-            previous[previousKey(root, label)] = PreviousPasswordRecord(root, label, bean.date)
+            val record = PreviousPasswordRecord(root, label, bean.date, bean.dated)
+            previous[previousRecordKey(record)] = record
         }
         pending.clear()
         for (bean in state.pendingRotations) {
             val root = bean.root ?: continue
             val label = bean.label ?: continue
-            pending[previousKey(root, label)] = PendingRotationRecord(root, label, bean.slot, bean.date)
+            val step = PendingState.entries.firstOrNull { it.name == bean.state } ?: PendingState.PENDING
+            pending[previousKey(root, label)] = PendingRotationRecord(root, label, bean.slot, bean.date, step)
         }
         opened.clear()
         for (bean in state.opened) {
@@ -289,7 +316,7 @@ class VaultUserState : PersistentStateComponent<VaultUserState.StateBean> {
         var label: String? = null
     }
 
-    /** XML form of a [PreviousPasswordRecord] (plan amendment R29, D212). */
+    /** XML form of a [PreviousPasswordRecord] (plan amendment R29, D212); without `dated` it is the first build's undated entry. */
     @Tag("previous")
     class PreviousBean {
         @get:Attribute("root")
@@ -300,6 +327,9 @@ class VaultUserState : PersistentStateComponent<VaultUserState.StateBean> {
 
         @get:Attribute("date")
         var date: Long = 0
+
+        @get:Attribute("dated")
+        var dated: Boolean = false
     }
 
     /** XML form of a [PendingRotationRecord] (plan amendment R29 review, decision 9). */
@@ -316,6 +346,10 @@ class VaultUserState : PersistentStateComponent<VaultUserState.StateBean> {
 
         @get:Attribute("date")
         var date: Long = 0
+
+        /** A [PendingState] name; records of the first build have none and are [PendingState.PENDING]. */
+        @get:Attribute("state")
+        var state: String? = null
     }
 
     companion object {

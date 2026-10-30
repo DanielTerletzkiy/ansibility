@@ -34,6 +34,13 @@ object VaultPasswordSafeKeys {
     fun previousServiceName(canonicalRootPath: String, label: String): String =
         generateServiceName(SUBSYSTEM, "$canonicalRootPath#$label#$PREVIOUS_SUFFIX")
 
+    /**
+     * The service name of the password id [label] of the root at [canonicalRootPath] had before the rotation of [date]
+     * (review round 2, decision 2: every rotation keeps its own entry, none is overwritten). Never listed by discovery.
+     */
+    fun previousServiceName(canonicalRootPath: String, label: String, date: Long): String =
+        generateServiceName(SUBSYSTEM, "$canonicalRootPath#$label#$PREVIOUS_SUFFIX#$date")
+
     private const val PREVIOUS_SUFFIX = "before-rotation"
 
     /** True when [serviceName] belongs to Ansibility's vault namespace. */

@@ -5,6 +5,7 @@ import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.ui.DialogWrapper
+import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.ui.ValidationInfo
 import com.intellij.ui.components.JBCheckBox
 import com.intellij.ui.components.JBPasswordField
@@ -48,8 +49,25 @@ interface RotationPrompts {
      */
     fun chooseRotation(project: Project, request: RotationRequest): NewPassword?
 
-    /** The review (D209): true on Rotate, false on Cancel; sets [RotationReview.alsoRegenerate] (D214). EDT. */
+    /**
+     * The review (D209): true on Rotate, false on Cancel; sets [RotationReview.alsoRegenerate] (D214) and, when the new
+     * password would have no durable home, [RotationReview.storedSafely] (review round 2, decision 3). EDT.
+     */
     fun review(project: Project, review: RotationReview): Boolean
+
+    /**
+     * Review round 2, decision 4: the `.env.local` of [roots] was not read, so the IDE cannot tell which password file it
+     * names, and this rotation would write a password file it may name. True runs the rotation without writing any
+     * password file (each one becomes "update it yourself"); false stops it. EDT.
+     */
+    fun rotateWithoutPasswordFiles(project: Project, roots: List<String>): Boolean
+
+    /**
+     * Review round 2, decision 8: Settings › Vault is about to forget ([forget]) or replace the IDE password store entry
+     * of [label] in [root] while a rotation of it is pending: the entry holds the rotated password, and [source] may not
+     * have it yet. True goes ahead. EDT.
+     */
+    fun confirmPendingEntry(project: Project, label: String, root: String, source: String, forget: Boolean): Boolean
 
     companion object {
         fun getInstance(): RotationPrompts = ApplicationManager.getApplication().service()
@@ -67,6 +85,20 @@ class RotationDialogPrompts : RotationPrompts {
     override fun review(project: Project, review: RotationReview): Boolean {
         ThreadingAssertions.assertEventDispatchThread()
         return RotationReviewDialog(project, review).showAndGet()
+    }
+
+    override fun rotateWithoutPasswordFiles(project: Project, roots: List<String>): Boolean {
+        ThreadingAssertions.assertEventDispatchThread()
+        val options = arrayOf(message("rotate.unresolved.without"), Messages.getCancelButton())
+        val text = message("rotate.unresolved.message", roots.joinToString(", "))
+        return Messages.showDialog(project, text, message("rotate.dialog.title"), options, 1, Messages.getWarningIcon()) == 0
+    }
+
+    override fun confirmPendingEntry(project: Project, label: String, root: String, source: String, forget: Boolean): Boolean {
+        ThreadingAssertions.assertEventDispatchThread()
+        val options = arrayOf(message(if (forget) "settings.vault.pending.forget" else "settings.vault.pending.replace"), Messages.getCancelButton())
+        val text = message("settings.vault.pending.message", label, root, source)
+        return Messages.showDialog(project, text, message("settings.vault.pending.title"), options, 1, Messages.getWarningIcon()) == 0
     }
 }
 
@@ -405,12 +437,16 @@ internal class RotationDialog(project: Project, private val request: RotationReq
 }
 
 /**
- * The review after the preflight (D209): per root what will be rewritten (counts and files), what is left alone and
- * why, ids of other roots with the same password, where the new password goes; "Also regenerate secrets…" (D214,
- * unchecked). [Rotate] / [Cancel]; Cancel changes nothing and stores nothing.
+ * The review after the preflight (D209): per root what will be rewritten (counts and files), what opened only with a
+ * password kept from before an earlier rotation, what is left alone and why, ids of other roots with the same
+ * password, where the new password goes; "Also regenerate secrets…" (D214, unchecked). When the new password would
+ * have no durable home (review round 2, decision 3): Copy and "I have stored the new password somewhere safe", which
+ * Rotate needs. [Rotate] / [Cancel]; Cancel changes nothing and stores nothing.
  */
 internal class RotationReviewDialog(project: Project, private val review: RotationReview) : DialogWrapper(project) {
     private val regenerate = JBCheckBox(message("rotate.review.regenerate"), review.alsoRegenerate)
+    private val storedSafely = JBCheckBox(message("rotate.review.safe.confirm"), review.storedSafely)
+    private val copy = JButton(message("rotate.dialog.copy"))
     private var center: JComponent? = null
 
     init {
@@ -418,7 +454,13 @@ internal class RotationReviewDialog(project: Project, private val review: Rotati
         setOKButtonText(message("rotate.dialog.ok"))
         regenerate.isEnabled = review.canRegenerate
         regenerate.addActionListener { review.alsoRegenerate = regenerate.isSelected }
+        storedSafely.addActionListener {
+            review.storedSafely = storedSafely.isSelected
+            isOKActionEnabled = !review.needsSafeCopy || review.storedSafely
+        }
+        copy.addActionListener { review.copyNewPassword?.invoke() }
         init()
+        isOKActionEnabled = !review.needsSafeCopy || review.storedSafely
     }
 
     override fun createCenterPanel(): JComponent = panel {
@@ -426,6 +468,12 @@ internal class RotationReviewDialog(project: Project, private val review: Rotati
         for (root in review.roots) {
             row { label(message("rotate.review.root", root.name, root.values, root.vaultFiles, root.files.size)) }
             if (root.files.isNotEmpty()) indent { row { comment(root.files.take(MAX_FILES).joinToString("<br>") + more(root.files.size)) } }
+        }
+        if (review.fromPrevious.isNotEmpty()) {
+            group(message("rotate.review.previous")) {
+                for (line in review.fromPrevious.take(MAX_FILES)) row { label(line) }
+                if (review.fromPrevious.size > MAX_FILES) row { comment(message("rotate.review.more", review.fromPrevious.size - MAX_FILES)) }
+            }
         }
         if (review.leftAlone.isNotEmpty()) {
             group(message("rotate.review.left.alone")) {
@@ -437,6 +485,13 @@ internal class RotationReviewDialog(project: Project, private val review: Rotati
             group(message("rotate.review.equal")) { for (line in review.equalPasswords) row { label(line) } }
         }
         group(message("rotate.review.destinations")) { for (line in review.destinations) row { label(line) } }
+        if (review.needsSafeCopy) {
+            group(message("rotate.review.safe")) {
+                row { comment(message("rotate.review.safe.comment")) }
+                row { cell(copy) }
+                row { cell(storedSafely) }
+            }
+        }
         row { cell(regenerate) }
         row { comment(message("rotate.review.regenerate.comment")) }
         row { comment(message("rotate.review.comment")) }

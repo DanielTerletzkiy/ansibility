@@ -11,11 +11,13 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.text.StringUtil
 import de.terletzkiy.ansibility.api.VaultPurpose
 import de.terletzkiy.ansibility.vault.crypto.VaultCrypto
+import de.terletzkiy.ansibility.vault.identity.DiscoveredIdentity
 import de.terletzkiy.ansibility.vault.identity.VaultDiscovery
 import de.terletzkiy.ansibility.vault.secrets.VaultSecretsService
 import de.terletzkiy.ansibility.vault.secrets.VaultUserState
 import de.terletzkiy.ansibility.vault.ui.AnsibilityVaultUiBundle.message
 import de.terletzkiy.ansibility.vault.ui.settings.VaultConfigurable
+import org.jetbrains.annotations.Nls
 import org.jetbrains.annotations.TestOnly
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
@@ -37,6 +39,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 class RotationHints(private val project: Project) {
     private val shown = ConcurrentHashMap.newKeySet<String>()
     private val rotated = ConcurrentHashMap.newKeySet<String>()
+    private val elsewhere = ConcurrentHashMap.newKeySet<String>()
 
     /** The hints shown, for tests (filled only in unit-test mode). */
     private val reported = CopyOnWriteArrayList<String>()
@@ -61,7 +64,29 @@ class RotationHints(private val project: Project) {
         if (!openedBefore) return
         if (!shown.add(key)) return
         val source = RotationSources(project).sourceOf(discovery, label, secrets.currentIdentity(discovery, label), read = false)
-        val text = message("rotate.hint", StringUtil.escapeXmlEntities(label), StringUtil.escapeXmlEntities(source.display))
+        show(message("rotate.hint", StringUtil.escapeXmlEntities(label), StringUtil.escapeXmlEntities(source.display)))
+    }
+
+    /**
+     * Plan amendment R29 review round 2, decision 1: while a rotation of [identity]'s id in [discovery]'s root was
+     * pending (its source not updated yet), an unlock read a password from the source that is neither the rotated one
+     * nor one kept from before a rotation: the id was probably rotated again elsewhere. The source wins (encrypting
+     * uses it again); the rotated password stays in the IDE password store, so what this IDE rotated still opens. Once
+     * per root and id per session.
+     */
+    fun rotatedElsewhere(discovery: VaultDiscovery, identity: DiscoveredIdentity) {
+        if (!elsewhere.add(key(discovery.rootKey, identity.label))) return
+        val source = RotationSources(project).sourceOf(discovery, identity.label, identity, read = false)
+        show(
+            message(
+                "rotate.hint.elsewhere", StringUtil.escapeXmlEntities(identity.label), StringUtil.escapeXmlEntities(discovery.root.displayName),
+                StringUtil.escapeXmlEntities(source.display),
+            ),
+        )
+    }
+
+    /** The hint [text] as a warning with Open Vault Settings (and recorded for tests). */
+    private fun show(@Nls text: String) {
         if (ApplicationManager.getApplication().isUnitTestMode) reported += text
         ApplicationManager.getApplication().invokeLater {
             if (project.isDisposed) return@invokeLater

@@ -10,11 +10,13 @@ import java.nio.file.Path
  * Plan amendment R29 review, decision 17: a crash between writing a temporary file and moving it over a password file
  * or a vault file leaves `.ansibility-rotate-*.tmp` behind, often inside the repository, and a password file's holds
  * the new password in plain text. They are removed at the next unlock of the root (the directories of its password
- * files and the root itself) and by the next rotation's scan of its roots.
+ * files and the root itself) and by the next rotation's scan of its roots: never while a rotation runs (in any
+ * project), and only when older than a minute (review round 2, decision 9), so a running write keeps its file.
  */
 object RotationTempFiles {
     /** Removes leftovers next to [discovery]'s password files and in its root directory. Blocking: on `Dispatchers.IO`. */
     fun removeLeftovers(discovery: VaultDiscovery) {
+        if (RotationService.isRunning) return
         val directories = LinkedHashSet<Path>()
         discovery.rootPath?.let(directories::add)
         for (identity in discovery.identities) {

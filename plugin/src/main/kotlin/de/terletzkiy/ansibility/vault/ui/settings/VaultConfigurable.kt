@@ -42,7 +42,9 @@ import de.terletzkiy.ansibility.vault.keys.PlaintextKeyExclusions
 import de.terletzkiy.ansibility.vault.secrets.VaultSecretsService
 import de.terletzkiy.ansibility.vault.secrets.PreviousPasswordRecord
 import de.terletzkiy.ansibility.vault.secrets.VaultUserState
+import de.terletzkiy.ansibility.vault.rotate.RotationPrompts
 import de.terletzkiy.ansibility.vault.rotate.RotationService
+import de.terletzkiy.ansibility.vault.rotate.RotationSources
 import de.terletzkiy.ansibility.vault.ui.AnsibilityVaultUiBundle.message
 import de.terletzkiy.ansibility.semantics.vault.DefaultArm
 import de.terletzkiy.ansibility.semantics.vault.GenerationRule
@@ -77,8 +79,9 @@ import javax.swing.table.TableCellRenderer
  * (D167), stored per user (`VaultUserState`), so a repository cannot turn it off. Per root also the secret generation
  * rules of Regenerate Secrets… (plan amendment R29, D218), shared with the project, with Import from Script… (X131),
  * which reads a rotation script's `case` arms without running it. Rotate Password… starts Rotate Vault Password… for the
- * selected root and id (plan amendment R29, D204), and the previous passwords a rotation kept are listed with Forget
- * (D212; stored per user, the passwords only in the IDE password store).
+ * selected root and id (plan amendment R29, D204), and the previous passwords rotations kept are listed, one per
+ * rotation, each with Forget (D212; stored per user, the passwords only in the IDE password store). While a rotation of
+ * an id is pending, forgetting or replacing its stored password needs a confirmation (review round 2, decision 8).
  */
 class VaultConfigurable(private val project: Project) : BoundSearchableConfigurable(message("settings.vault.name"), ID, ID) {
     internal data class RootEntry(
@@ -385,7 +388,9 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
             }
     }
 
-    private fun select(entry: RootEntry?) {
+    private fun select(selected: RootEntry?) {
+        // The combo keeps the entries of the first load; [rootEntries] also knows which password-store entries exist.
+        val entry = selected?.let { chosen -> rootEntries.firstOrNull { it.key == chosen.key } ?: chosen }
         current = entry
         if (rootCombo.selectedItem != entry) rootCombo.selectedItem = entry
         loading = true
@@ -460,6 +465,13 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
         val dialog = VaultIdDialog(project, row, taken, rootOf(entry.key)?.dir?.toNioPathOrNull())
         if (!dialog.showAndGet()) return
         val result = dialog.result()
+        // Plan amendment R29 review round 2, decision 8: the entry may hold a rotated password its source lacks.
+        val forgets = row?.takeIf { it.kind == VaultSourceKind.PASSWORD_SAFE && it.stored && (result.kind != VaultSourceKind.PASSWORD_SAFE || result.label != it.label) }
+        val replaces = result.kind == VaultSourceKind.PASSWORD_SAFE && result.password != null
+        if (forgets != null && !confirmPending(entry, forgets.label, forget = true) || replaces && !confirmPending(entry, result.label, forget = false)) {
+            result.password?.fill('\u0000')
+            return
+        }
         if (row == null) {
             idModel.addRow(result)
         } else {
@@ -477,13 +489,30 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
         capture()
     }
 
-    private fun remove() {
+    /** Removes the selected id row (the table's Remove; internal for tests); a stored password of it is forgotten on Apply. */
+    internal fun remove() {
         val entry = current ?: return
         val row = idTable.selectedObject ?: return
+        if (row.kind == VaultSourceKind.PASSWORD_SAFE && row.stored && !confirmPending(entry, row.label, forget = true)) return
         if (row.kind == VaultSourceKind.PASSWORD_SAFE && row.stored) forgotten.getOrPut(entry.key) { LinkedHashSet() } += row.label
         row.password?.fill('\u0000')
         idModel.removeRow(idModel.indexOf(row))
         capture()
+    }
+
+    /**
+     * Plan amendment R29 review round 2, decision 8: forgetting ([forget]) or replacing the IDE password store entry of
+     * [label] while a rotation of it is pending removes the only stored copy of the rotated password, which its source
+     * does not have yet: the page says so and goes ahead only when you confirm. True when nothing is pending. EDT.
+     */
+    private fun confirmPending(entry: RootEntry, label: String, forget: Boolean): Boolean {
+        val pending = VaultUserState.getInstance().pendingRotation(entry.canonical, label) ?: return true
+        val root = rootOf(entry.key)
+        val source = root?.let {
+            val discovery = VaultIdentityRegistry.getInstance(project).discovery(it)
+            RotationSources(project).sourceOf(discovery, label, pending.slot?.let(discovery::identityInSlot), read = false).display
+        } ?: label
+        return RotationPrompts.getInstance().confirmPendingEntry(project, label, entry.name, source, forget)
     }
 
     private fun move(delta: Int) {
@@ -581,7 +610,10 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
         loadStored(rootEntries, disposable)
     }
 
-    /** The previous passwords of [entry] (D212): "default: previous password kept (date)" with Forget. */
+    /**
+     * The previous passwords of [entry] (D212): one row per rotation, "default: previous password kept (date)", each
+     * with its own Forget (review round 2, decision 2).
+     */
     private fun showPrevious(entry: RootEntry?) {
         val records = entry?.canonical?.takeIf { it.isNotEmpty() }?.let { root -> VaultUserState.getInstance().previousPasswords().filter { it.root == root } }.orEmpty()
         previousHolder.removeAll()
@@ -591,7 +623,7 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
                 for (record in records) {
                     row {
                         label(message("settings.vault.previous", record.label, RotationService.date(record.date)))
-                        button(message("settings.vault.previous.forget")) { forgetPrevious(record) }.applyToComponent { name = FORGET_PREVIOUS_COMPONENT + record.label }
+                        button(message("settings.vault.previous.forget")) { forgetPrevious(record) }.applyToComponent { name = forgetComponentName(record) }
                     }
                 }
                 row { comment(message("settings.vault.previous.comment")) }
@@ -602,12 +634,12 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
         previousHolder.repaint()
     }
 
-    /** Forget (D212): removes the "before rotation" entry from the IDE password store (off the EDT) and its record. */
+    /** Forget (D212): removes one "before rotation" entry from the IDE password store (off the EDT) and its record. */
     internal fun forgetPrevious(record: PreviousPasswordRecord) {
         val secrets = VaultSecretsService.getInstance(project)
         val disposable = uiDisposable
         ApplicationManager.getApplication().executeOnPooledThread {
-            secrets.forgetPreviousPassword(record.root, record.label)
+            secrets.forgetPreviousPassword(record)
             ApplicationManager.getApplication().invokeLater({ if (disposable?.isDisposed == false) showPrevious(current) }, ModalityState.any())
         }
     }
@@ -711,8 +743,11 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
         /** The component name of "Apply your changes first." next to Rotate Password… (review, decision 8; tests find it by name). */
         const val ROTATE_BLOCKED_COMPONENT = "ansibility.vault.rotatePassword.blocked"
 
-        /** The component name prefix of a previous password's Forget button, followed by the id (D212; tests find it by name). */
+        /** The component name prefix of a previous password's Forget button (D212; tests find it by name, [forgetComponentName]). */
         const val FORGET_PREVIOUS_COMPONENT = "ansibility.vault.forgetPrevious."
+
+        /** The name of the Forget button of [record]: the prefix, the id, `@` and the rotation's date (one per rotation). */
+        fun forgetComponentName(record: PreviousPasswordRecord): String = FORGET_PREVIOUS_COMPONENT + record.label + "@" + record.date
 
         /** The component name of Import from Script… (X131; tests find it by name). */
         const val IMPORT_RULES_COMPONENT = "ansibility.vault.importRules"

@@ -14,6 +14,7 @@ import de.terletzkiy.ansibility.vault.reencrypt.ReencryptionEngine
 import de.terletzkiy.ansibility.vault.reencrypt.ReencryptionWriter
 import de.terletzkiy.ansibility.vault.regenerate.FakeRegeneratePrompts
 import de.terletzkiy.ansibility.vault.regenerate.RegeneratePrompts
+import de.terletzkiy.ansibility.vault.secrets.VaultUserState
 import de.terletzkiy.ansibility.vault.ui.VaultUiTestCase
 import java.nio.file.Files
 import java.security.SecureRandom
@@ -30,9 +31,26 @@ class FakeRotationPrompts(private val password: () -> String) : RotationPrompts 
     /** Answers the review: true rotates, false cancels. */
     var onReview: (RotationReview) -> Boolean = { true }
 
+    /** The roots of every "rotate without writing password files?" question (review round 2, decision 4). */
+    val unresolved = CopyOnWriteArrayList<List<String>>()
+
+    /** Answers that question: true rotates without writing password files, false stops. */
+    var onUnresolved: (List<String>) -> Boolean = { false }
+
+    /** The ids of every confirmation the settings page asked for (review round 2, decision 8). */
+    val pendingEntries = CopyOnWriteArrayList<String>()
+
+    /** Answers that confirmation: true forgets or replaces the entry. */
+    var onPendingEntry: (forget: Boolean) -> Boolean = { false }
+
     override fun chooseRotation(project: Project, request: RotationRequest): NewPassword? = onRotation(request.also { requests += it })
 
     override fun review(project: Project, review: RotationReview): Boolean = onReview(review.also { reviews += it })
+
+    override fun rotateWithoutPasswordFiles(project: Project, roots: List<String>): Boolean = onUnresolved(roots.also { unresolved += it })
+
+    override fun confirmPendingEntry(project: Project, label: String, root: String, source: String, forget: Boolean): Boolean =
+        onPendingEntry(forget.also { pendingEntries += label })
 }
 
 /**
@@ -122,7 +140,14 @@ abstract class RotationTestCase : VaultUiTestCase() {
     protected fun stored(root: AnsibleRoot, label: String = "default"): String? =
         credentials.read(VaultPasswordSafeKeys.serviceName(registry.discovery(root).canonicalRootPath, label), label)?.let { String(it) }
 
-    /** The "before rotation" entry of [label] of [root] (D212), or null. */
-    protected fun previous(root: AnsibleRoot, label: String = "default"): String? =
-        credentials.read(VaultPasswordSafeKeys.previousServiceName(registry.discovery(root).canonicalRootPath, label), label)?.let { String(it) }
+    /** The newest "before rotation" entry of [label] of [root] (D212; one per rotation since review round 2, decision 2), or null. */
+    protected fun previous(root: AnsibleRoot, label: String = "default"): String? = previousAll(root, label).firstOrNull()
+
+    /** Every "before rotation" entry of [label] of [root] that can be read, the newest first. */
+    protected fun previousAll(root: AnsibleRoot, label: String = "default"): List<String> {
+        val canonical = registry.discovery(root).canonicalRootPath
+        return VaultUserState.getInstance().previousPasswords(canonical, label).mapNotNull { record ->
+            credentials.read(VaultPasswordSafeKeys.previousServiceName(canonical, label, record.date), label)?.let { String(it) }
+        }
+    }
 }

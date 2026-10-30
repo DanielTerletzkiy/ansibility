@@ -187,10 +187,12 @@
         </intentionAction>
     </extensions>
     <!-- Part 1 (D204-D214, X129): Rotate Vault Password… (vault.rotate.RotationService on write mode 3 of the engine),
-         its questions (tests replace them), in the same group; the Vault tab's toolbar and Settings › Vault add it by id. -->
+         its questions (tests replace them), in the same group; the Vault tab's toolbar and Settings › Vault add it by id.
+         A rotation left in progress by an IDE that stopped is announced when its project opens (review round 2, decision 6). -->
     <extensions defaultExtensionNs="com.intellij">
         <applicationService serviceInterface="de.terletzkiy.ansibility.vault.rotate.RotationPrompts"
                             serviceImplementation="de.terletzkiy.ansibility.vault.rotate.RotationDialogPrompts"/>
+        <postStartupActivity implementation="de.terletzkiy.ansibility.vault.rotate.RotationStartupActivity"/>
     </extensions>
     <actions resource-bundle="messages.AnsibilityVaultUiBundle">
         <action id="Ansibility.Vault.RegenerateSecrets" class="de.terletzkiy.ansibility.vault.actions.RegenerateSecretsAction">

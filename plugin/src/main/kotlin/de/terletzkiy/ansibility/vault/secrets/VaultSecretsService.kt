@@ -53,6 +53,7 @@ import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import de.terletzkiy.ansibility.vault.rotate.RotationHints
 import de.terletzkiy.ansibility.vault.rotate.RotationTempFiles
 import org.jetbrains.annotations.TestOnly
 import java.nio.ByteBuffer
@@ -98,8 +99,9 @@ class CurrentSecret internal constructor(val identity: DiscoveredIdentity?, val 
 
 /**
  * What the IDE password store held for one id before Rotate Vault Password… wrote it (plan amendment R29,
- * [VaultSecretsService.snapshotStore]): the entry the rotation writes, whether its label was remembered and for how
- * long, the "before rotation" entry and its record. Holds passwords: [close] zeroes them, [toString] names the id only.
+ * [VaultSecretsService.snapshotStore]): the entry the rotation writes and whether its label was remembered and for how
+ * long; [date] names the "before rotation" entry the rotation adds (review round 2, decision 2), which a restore
+ * removes again. Holds a password: [close] zeroes it, [toString] names the id only.
  */
 class StoreSnapshot internal constructor(
     val root: AnsibleRoot,
@@ -109,15 +111,23 @@ class StoreSnapshot internal constructor(
     internal val remembered: Boolean,
     /** The label was remembered for this IDE session only (PasswordSafe's memory store): it goes back there (review, decision 14). */
     internal val sessionOnly: Boolean,
-    internal val previous: CharArray?,
-    internal val previousRecord: PreviousPasswordRecord?,
+    internal val date: Long,
 ) : AutoCloseable {
     override fun close() {
         entry?.fill('\u0000')
-        previous?.fill('\u0000')
     }
 
     override fun toString(): String = "StoreSnapshot(${root.displayName}, $label, ***)"
+}
+
+/**
+ * A password Rotate Vault Password… kept from before a rotation ([record], D212), read from the IDE password store for
+ * the preflight (review round 2, decision 2). The caller closes it, which zeroes the copy.
+ */
+class KeptPassword internal constructor(val record: PreviousPasswordRecord, val secret: SecretBytes) : AutoCloseable {
+    override fun close() = secret.zero()
+
+    override fun toString(): String = "KeptPassword(${record.label}, ${record.date}, ***)"
 }
 
 /**
@@ -145,10 +155,11 @@ class StoreSnapshot internal constructor(
  *
  * **Rotation** (plan amendment R29, Part 1): [secretsOf] / [currentSecret], [rotationEntry], [entryState] and
  * [snapshotStore] / [storeRotation] / [restoreStore] for the IDE password store (the new password under the entry of
- * the group's source or the root's own entry, the old one under a separate "before rotation" entry), [switchRotated] /
- * [addRotated] for the secrets in memory, [readRotatedPassword] and [loadSourceAgain] for Copy and Check. While a
- * rotation's source is not updated yet ([VaultUserState.pendingRotation]), unlocks skip a source that gives the
- * "before rotation" password and [lease] lists the rotated entry first.
+ * the group's source or the root's own entry, the old one under a "before rotation" entry of its own per rotation,
+ * [keptPasswords]), [switchRotated] / [addRotated] for the secrets in memory, [readRotatedPassword] and
+ * [loadSourceAgain] for Copy and Check. While a rotation's source may not have the new password yet
+ * ([VaultUserState.pendingRotation]), an unlock loads both the source and the stored new password, and [lease] lists
+ * the stored one first, so encrypting uses it (review round 2, decision 1).
  *
  * Secrets live only here, in [SecretBytes] (zeroed on lock; `toString()` is `***`), keyed by the root and the
  * identity's slot ([DiscoveredIdentity.slot]). The corpus guard ([VaultCorpusGuard]) makes [unlock] throw for roots
@@ -253,8 +264,8 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
      * The unlocked slots of [discovery]'s root in Ansible's order (the chain, each slot once, then interactive slots the
      * chain has no entry for), except that for an id with a pending rotation ([VaultUserState.pendingRotation]) the
      * slot of the root's own IDE password store entry, which holds the rotated password, comes first among that id's
-     * slots (plan amendment R29 review, decision 9): encrypting then uses the new password while the source still gives
-     * the old one. Under [lock].
+     * slots (plan amendment R29 review, decision 9): encrypting then uses the new password while the source may still
+     * give the old one. Decrypting tries every slot, so envelopes of both open (review round 2, decision 1). Under [lock].
      */
     private fun ordered(discovery: VaultDiscovery, slots: Map<String, Unlocked>): List<Pair<String, Unlocked>> {
         val used = HashSet<String>()
@@ -323,17 +334,17 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
         val consents = VaultConsents(registry().access, VaultUserState.getInstance())
         private val prefetched = HashMap<String, ByteArray>()
 
-        /** The "before rotation" and rotated entries of ids with a pending rotation, read once per run (decision 9). */
-        private val rotated = HashMap<String, Pair<SecretBytes?, SecretBytes?>>()
+        /**
+         * The passwords kept from before rotations of ids with a pending rotation, read once per run (review round 2,
+         * decision 1); null when one of them could not be read.
+         */
+        private val kept = HashMap<String, List<SecretBytes>?>()
 
         override fun close() {
             prefetched.values.forEach { it.fill(0) }
             prefetched.clear()
-            for ((previous, stored) in rotated.values) {
-                previous?.zero()
-                stored?.zero()
-            }
-            rotated.clear()
+            kept.values.forEach { it?.forEach(SecretBytes::zero) }
+            kept.clear()
         }
 
         override fun toString(): String = "UnlockRun(${discovery.rootKey})"
@@ -351,21 +362,28 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
                 if (interactive) askFirstUseConsent(pending)
                 withContext(Dispatchers.IO) { RotationTempFiles.removeLeftovers(discovery) }
 
+                val interactiveLabels = pending.filter { it.isInteractive }.map { it.label }.distinct()
+                // Review round 2, decision 1: the stored new password of a pending rotation is unlocked before the
+                // sources, so a vaulted password file that the rotation re-encrypted opens with it (leaseBefore).
+                val state = VaultUserState.getInstance()
+                for (interactiveLabel in interactiveLabels) {
+                    if (state.pendingRotation(discovery.canonicalRootPath, interactiveLabel) != null) changed = fromStore(interactiveLabel, pending) || changed
+                }
+
                 for (identity in pending.filter { !it.isInteractive }) {
                     when (val load = load(identity)) {
-                        is Load.Loaded -> if (!skipRotated(identity, load.secret)) changed = store(discovery, identity.slot, identity.label, load.secret) || changed
+                        is Load.Loaded -> {
+                            settlePending(identity, load.secret)
+                            changed = store(discovery, identity.slot, identity.label, load.secret) || changed
+                        }
                         Load.NotTrusted -> notTrusted = true
                         Load.Unavailable -> unavailable = true
                         Load.Declined -> Unit
                     }
                 }
 
-                val interactiveLabels = pending.filter { it.isInteractive }.map { it.label }.distinct()
                 for (interactiveLabel in interactiveLabels) {
-                    val configured = pending.any { it.label == interactiveLabel && it.plan is SecretPlan.PasswordSafeEntry }
-                    fromPasswordSafe(discovery, interactiveLabel, configured)?.let {
-                        changed = store(discovery, interactiveSlot(interactiveLabel), interactiveLabel, it) || changed
-                    }
+                    if (!isUnlocked(discovery, interactiveSlot(interactiveLabel))) changed = fromStore(interactiveLabel, pending) || changed
                 }
                 val toPrompt = interactiveLabels.filter { !isUnlocked(discovery, interactiveSlot(it)) }.toMutableList()
                 val satisfied = if (label != null) label in unlockedLabels(discovery) else unlockedLabels(discovery).isNotEmpty()
@@ -406,32 +424,39 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
             return result
         }
 
+        /** The root's IDE password store entry of [label] (configured or remembered) into its interactive slot; true when it was locked. */
+        private suspend fun fromStore(label: String, pending: List<DiscoveredIdentity>): Boolean {
+            val configured = pending.any { it.label == label && it.plan is SecretPlan.PasswordSafeEntry }
+            val secret = fromPasswordSafe(discovery, label, configured) ?: return false
+            return store(discovery, interactiveSlot(label), label, secret)
+        }
+
         /**
-         * Plan amendment R29 review, decision 9: while a rotation of [identity]'s id is pending (its source was not
-         * updated yet), a source that gives the "before rotation" password is skipped ([secret] is zeroed, true), so the
-         * rotated password in the IDE password store is the id's secret; a source that gives the rotated password ends
-         * the pending state. When the rotated entry is gone (you removed it), the pending state ends and nothing is
-         * skipped: the source may be the only password left. Compared in constant time; the two store entries are read
-         * once per run.
+         * Plan amendment R29 review round 2, decision 1: while a rotation of [identity]'s id is pending, both the
+         * source's password ([secret]) and the stored new one are unlocked, so envelopes of either open, as Ansible
+         * would try both. The pending state ends when the source gives the new password (done), or a password that is
+         * neither the new one nor one kept from before a rotation: the id was rotated again elsewhere, the source wins
+         * (encrypting uses it again) and a hint says so. A password-store read that gave nothing never ends it (a denied
+         * Keychain prompt looks like a missing entry): the next unlock compares again. Compared in constant time; the
+         * kept passwords are read once per run.
          */
-        private suspend fun skipRotated(identity: DiscoveredIdentity, secret: SecretBytes): Boolean {
+        private suspend fun settlePending(identity: DiscoveredIdentity, secret: SecretBytes) {
             val state = VaultUserState.getInstance()
             val canonical = discovery.canonicalRootPath
-            state.pendingRotation(canonical, identity.label) ?: return false
-            val (previous, stored) = rotated.getOrPut(identity.label) {
-                withContext(Dispatchers.IO) { readPrevious(canonical, identity.label) to readPasswordSafe(VaultPasswordSafeKeys.serviceName(canonical, identity.label), identity.label) }
-            }
-            if (stored == null) {
+            state.pendingRotation(canonical, identity.label) ?: return
+            val stored = synchronized(lock) { secrets[discovery.rootKey]?.get(interactiveSlot(identity.label))?.secret?.copy() } ?: return
+            val source = identity.source.location ?: identity.slot
+            if (stored.use { sameSecret(it, secret) }) {
                 state.forgetPendingRotation(canonical, identity.label)
-                return false
+                VaultLog.event(VaultLog.Operation.LOAD_SOURCE, VaultLog.Event.PENDING_ROTATION_ENDED, source, identity.label)
+                return
             }
-            if (previous != null && sameSecret(previous, secret)) {
-                secret.zero()
-                VaultLog.event(VaultLog.Operation.LOAD_SOURCE, VaultLog.Event.SOURCE_SKIPPED, identity.source.location ?: identity.slot, identity.label)
-                return true
-            }
-            if (sameSecret(stored, secret)) state.forgetPendingRotation(canonical, identity.label)
-            return false
+            val before = if (identity.label in kept) kept[identity.label]
+            else onIo({ read -> read?.forEach(SecretBytes::zero) }) { readKept(canonical, identity.label) }.also { kept[identity.label] = it }
+            if (before == null || before.any { sameSecret(it, secret) }) return
+            state.forgetPendingRotation(canonical, identity.label)
+            VaultLog.event(VaultLog.Operation.LOAD_SOURCE, VaultLog.Event.PENDING_ROTATION_ENDED, source, identity.label)
+            RotationHints.getInstance(project).rotatedElsewhere(discovery, identity)
         }
 
         /**
@@ -643,19 +668,30 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
         data object Unavailable : Read
     }
 
-    /** Copies of the unlocked secrets of the chain entries before [identity]. */
+    /**
+     * Copies of the unlocked secrets of the chain entries before [identity]. A pending rotation's stored new password
+     * stands next to its source there (plan amendment R29 review round 2, decision 1), as the source will give it once
+     * it is updated: a vaulted password file the rotation re-encrypted opens with it.
+     */
     private fun leaseBefore(discovery: VaultDiscovery, identity: DiscoveredIdentity): SecretLease = synchronized(lock) {
         val slots = secrets[discovery.rootKey] ?: return SecretLease(emptyList())
         val before = discovery.identities.takeWhile { it !== identity }
-        SecretLease(before.mapNotNull { slots[it.slot] }.distinct().map { LabelledSecret(it.label, it.secret.copy()) })
+        val state = VaultUserState.getInstance()
+        val rotated = before.map { it.label }.distinct().filter { state.pendingRotation(discovery.canonicalRootPath, it) != null }.map(::interactiveSlot)
+        SecretLease((before.map { it.slot } + rotated).mapNotNull { slots[it] }.distinct().map { LabelledSecret(it.label, it.secret.copy()) })
     }
 
-    /** The root's PasswordSafe entry of [label], when one is [configured] in the chain or was remembered. */
+    /**
+     * The root's PasswordSafe entry of [label], when one is [configured] in the chain or was remembered. A read that
+     * gives nothing forgets the remembered label, except while a rotation of [label] is pending (review round 2,
+     * decision 1): a denied Keychain prompt looks like a missing entry, and the entry holds the stored new password.
+     */
     private suspend fun fromPasswordSafe(discovery: VaultDiscovery, label: String, configured: Boolean): SecretBytes? {
-        if (!configured && label !in VaultUserState.getInstance().rememberedLabels(discovery.canonicalRootPath)) return null
+        val state = VaultUserState.getInstance()
+        if (!configured && label !in state.rememberedLabels(discovery.canonicalRootPath)) return null
         val serviceName = VaultPasswordSafeKeys.serviceName(discovery.canonicalRootPath, label)
         val secret = onIo({ it?.zero() }) { readPasswordSafe(serviceName, label) }
-        if (secret == null) VaultUserState.getInstance().forget(discovery.canonicalRootPath, label)
+        if (secret == null && state.pendingRotation(discovery.canonicalRootPath, label) == null) state.forget(discovery.canonicalRootPath, label)
         return secret
     }
 
@@ -810,8 +846,9 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
     /**
      * Stores [password] as the IDE password store entry of id [label] of [root] (null removes it) and locks the root,
      * so the next vault action reads the new value. The entry is the one the id's explicit setting names, else the one
-     * a remembered prompt uses, so discovery lists it even without an explicit id. Blocking (the Keychain); call off
-     * the EDT. The caller zeroes [password].
+     * a remembered prompt uses, so discovery lists it even without an explicit id. Replacing or removing the root's own
+     * entry ends a pending rotation of [label] (you decided; the settings page asks first, plan amendment R29 review
+     * round 2, decision 8). Blocking (the Keychain); call off the EDT. The caller zeroes [password].
      */
     fun storePassword(root: AnsibleRoot, label: String, password: CharArray?) {
         val discovery = registry().discovery(root)
@@ -823,6 +860,7 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
             credentials.write(serviceName, label, password?.takeIf { it.isNotEmpty() }, memoryOnly = false)
             if (serviceName == VaultPasswordSafeKeys.serviceName(canonical, label)) {
                 if (password != null && password.isNotEmpty()) state.remember(canonical, label, persistent = true) else state.forget(canonical, label)
+                state.forgetPendingRotation(canonical, label)
             }
             VaultLog.event(
                 VaultLog.Operation.PASSWORD_SAFE,
@@ -836,6 +874,12 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
         }
         lock(root)
     }
+
+    /**
+     * Whether the IDE password store keeps passwords in memory only (Settings › Passwords › "Do not save"): then it is
+     * no durable home for a rotated password (plan amendment R29 review round 2, decision 3).
+     */
+    val isMemoryOnlyStore: Boolean get() = credentials.isMemoryOnly
 
     /** Whether the IDE password store has an entry for id [label] of [root]. Blocking; call off the EDT. */
     fun hasStoredPassword(root: AnsibleRoot, label: String): Boolean {
@@ -926,12 +970,12 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
     }
 
     /**
-     * What the IDE password store holds for id [label] of [root] before a rotation writes the entry [serviceName]
-     * (D211, D212): that entry, whether the label was remembered and for how long, the "before rotation" entry and its
-     * record, so a rotation that ends up writing no vault file can put everything back ([restoreStore]). Blocking (the
-     * Keychain); call off the EDT. The caller closes it.
+     * What the IDE password store holds for id [label] of [root] before the rotation of [date] writes the entry
+     * [serviceName] (D211, D212): that entry and whether the label was remembered and for how long, so a rotation that
+     * ends up writing no vault file can put it back ([restoreStore]). Blocking (the Keychain); call off the EDT. The
+     * caller closes it.
      */
-    fun snapshotStore(root: AnsibleRoot, label: String, serviceName: String): StoreSnapshot {
+    fun snapshotStore(root: AnsibleRoot, label: String, serviceName: String, date: Long): StoreSnapshot {
         val discovery = registry().discovery(root)
         val canonical = discovery.canonicalRootPath
         val state = VaultUserState.getInstance()
@@ -940,18 +984,18 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
             entry = credentials.read(serviceName, label),
             remembered = label in state.rememberedLabels(canonical),
             sessionOnly = state.isRememberedForSession(canonical, label),
-            previous = credentials.read(VaultPasswordSafeKeys.previousServiceName(canonical, label), label),
-            previousRecord = state.previousPassword(canonical, label),
+            date = date,
         )
     }
 
     /**
      * Step 1 of a rotation (D211, D212): [password] becomes the entry [serviceName] in the IDE password store
      * ([rotationEntry]; the root's own entry is remembered, so discovery lists it), and [previous] (the old password as
-     * it opened the files) goes to the separate "before rotation" entry, recorded with [date] in [VaultUserState]; a
-     * later rotation of the id replaces both. An old password that is no plain text (raw bytes, spaces at either end)
-     * is kept losslessly, encoded with a marker ([encodePrevious], review decision 15). Unlike [storePassword] the root
-     * stays unlocked. Blocking; call off the EDT; throws when the store refuses. The caller zeroes the arrays.
+     * it opened the files) goes to a "before rotation" entry of its own, named and recorded with [date] in
+     * [VaultUserState]: a later rotation adds another one and never replaces it (review round 2, decision 2). An old
+     * password that is no plain text (raw bytes, spaces at either end) is kept losslessly, encoded with a marker
+     * ([encodePrevious], review decision 15). Unlike [storePassword] the root stays unlocked. Blocking; call off the
+     * EDT; throws when the store refuses. The caller zeroes the arrays.
      */
     fun storeRotation(root: AnsibleRoot, label: String, serviceName: String, password: CharArray, previous: ByteArray, date: Long) {
         val discovery = registry().discovery(root)
@@ -959,9 +1003,10 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
         val canonical = discovery.canonicalRootPath
         val state = VaultUserState.getInstance()
         val kept = encodePrevious(previous)
+        val record = PreviousPasswordRecord(canonical, label, date)
         try {
-            credentials.write(VaultPasswordSafeKeys.previousServiceName(canonical, label), label, kept, memoryOnly = false)
-            state.recordPrevious(PreviousPasswordRecord(canonical, label, date))
+            credentials.write(previousEntry(record), label, kept, memoryOnly = false)
+            state.recordPrevious(record)
             credentials.write(serviceName, label, password, memoryOnly = false)
             if (serviceName == VaultPasswordSafeKeys.serviceName(canonical, label)) state.remember(canonical, label, persistent = true)
             VaultLog.event(VaultLog.Operation.PASSWORD_SAFE, VaultLog.Event.PASSWORD_REMEMBERED, discovery.rootKey, label)
@@ -976,22 +1021,38 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
     /**
      * Puts back what [snapshot] saw before [storeRotation] (a rotation that wrote no vault file): the entry, with the
      * lifetime its label was remembered for (a password remembered for this session only goes back to the memory store,
-     * never to the Keychain; review decision 14), and the previous password. Blocking; call off the EDT.
+     * never to the Keychain; review decision 14), and removes the "before rotation" entry the rotation added (the old
+     * password is still where it came from). The entry is put back only while it still holds [written], what this
+     * rotation stored (compared in constant time; review round 2, decision 5); an entry someone changed since is left
+     * as it is, and false is returned (also when the store could not be written). Blocking; call off the EDT.
      */
-    fun restoreStore(snapshot: StoreSnapshot) {
+    fun restoreStore(snapshot: StoreSnapshot, written: CharArray): Boolean {
         val discovery = registry().discovery(snapshot.root)
         val canonical = discovery.canonicalRootPath
         val state = VaultUserState.getInstance()
         val own = snapshot.serviceName == VaultPasswordSafeKeys.serviceName(canonical, snapshot.label)
-        try {
-            credentials.write(snapshot.serviceName, snapshot.label, snapshot.entry, memoryOnly = own && snapshot.sessionOnly && snapshot.entry != null)
-            if (own) {
-                if (!snapshot.remembered) state.forget(canonical, snapshot.label) else state.remember(canonical, snapshot.label, persistent = !snapshot.sessionOnly)
+        return try {
+            val now = credentials.read(snapshot.serviceName, snapshot.label)
+            // Unchanged: the rotation's own write never happened (the store refused it), so there is nothing to put back.
+            val (ours, unchanged) = try {
+                sameChars(now, written) to sameChars(now, snapshot.entry)
+            } finally {
+                now?.fill('\u0000')
             }
-            credentials.write(VaultPasswordSafeKeys.previousServiceName(canonical, snapshot.label), snapshot.label, snapshot.previous, memoryOnly = false)
-            snapshot.previousRecord?.let(state::recordPrevious) ?: state.forgetPrevious(canonical, snapshot.label)
+            if (ours) {
+                credentials.write(snapshot.serviceName, snapshot.label, snapshot.entry, memoryOnly = own && snapshot.sessionOnly && snapshot.entry != null)
+                if (own) {
+                    if (!snapshot.remembered) state.forget(canonical, snapshot.label) else state.remember(canonical, snapshot.label, persistent = !snapshot.sessionOnly)
+                }
+            }
+            val added = PreviousPasswordRecord(canonical, snapshot.label, snapshot.date)
+            credentials.write(previousEntry(added), snapshot.label, null, memoryOnly = false)
+            state.forgetPrevious(added)
+            if (!ours && !unchanged) VaultLog.event(VaultLog.Operation.PASSWORD_SAFE, VaultLog.Event.ENTRY_LEFT, discovery.rootKey, snapshot.label)
+            ours || unchanged
         } catch (e: Exception) {
             VaultLog.failure(VaultLog.Operation.PASSWORD_SAFE, e, discovery.rootKey, snapshot.label)
+            false
         }
     }
 
@@ -1058,12 +1119,41 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
         null
     }
 
-    /** The "before rotation" entry of [label] of [root] (D212), decoded when it was kept as bytes, or null. Blocking. */
-    fun readPreviousPassword(root: AnsibleRoot, label: String): SecretBytes? = readPrevious(registry().discovery(root).canonicalRootPath, label)
+    /**
+     * The passwords of [label] of [root] kept from before its rotations (D212; review round 2, decision 2), the newest
+     * first, each decoded when it was kept as bytes; entries that cannot be read are left out. Blocking. The caller
+     * closes every one.
+     */
+    fun keptPasswords(root: AnsibleRoot, label: String): List<KeptPassword> =
+        VaultUserState.getInstance().previousPasswords(registry().discovery(root).canonicalRootPath, label)
+            .mapNotNull { record -> readPrevious(record)?.let { KeptPassword(record, it) } }
 
-    private fun readPrevious(canonicalRootPath: String, label: String): SecretBytes? {
+    /**
+     * Every password of [label] of the root at [canonicalRootPath] kept from before a rotation, or null when one of
+     * them cannot be read (the unlock then cannot tell an old password from a new one; review round 2, decision 1).
+     */
+    private fun readKept(canonicalRootPath: String, label: String): List<SecretBytes>? {
+        val result = ArrayList<SecretBytes>()
+        for (record in VaultUserState.getInstance().previousPasswords(canonicalRootPath, label)) {
+            val secret = readPrevious(record)
+            if (secret == null) {
+                result.forEach(SecretBytes::zero)
+                return null
+            }
+            result += secret
+        }
+        return result
+    }
+
+    /** The IDE password store entry that holds the password [record] kept. */
+    private fun previousEntry(record: PreviousPasswordRecord): String =
+        if (record.dated) VaultPasswordSafeKeys.previousServiceName(record.root, record.label, record.date)
+        else VaultPasswordSafeKeys.previousServiceName(record.root, record.label)
+
+    private fun readPrevious(record: PreviousPasswordRecord): SecretBytes? {
+        val label = record.label
         val chars = try {
-            credentials.read(VaultPasswordSafeKeys.previousServiceName(canonicalRootPath, label), label)
+            credentials.read(previousEntry(record), label)
         } catch (e: Exception) {
             VaultLog.failure(VaultLog.Operation.PASSWORD_SAFE, e, key = label)
             null
@@ -1082,15 +1172,15 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
         }
     }
 
-    /** Forgets the previous password of [label] of the root at [canonicalRootPath] (D212): its entry and its record. Blocking. */
-    fun forgetPreviousPassword(canonicalRootPath: String, label: String) {
+    /** Forgets the previous password [record] keeps (D212; Forget per entry, review round 2, decision 2): its entry and its record. Blocking. */
+    fun forgetPreviousPassword(record: PreviousPasswordRecord) {
         try {
-            credentials.write(VaultPasswordSafeKeys.previousServiceName(canonicalRootPath, label), label, null, memoryOnly = false)
-            VaultLog.event(VaultLog.Operation.PASSWORD_SAFE, VaultLog.Event.PASSWORD_FORGOTTEN, canonicalRootPath, label)
+            credentials.write(previousEntry(record), record.label, null, memoryOnly = false)
+            VaultLog.event(VaultLog.Operation.PASSWORD_SAFE, VaultLog.Event.PASSWORD_FORGOTTEN, record.root, record.label)
         } catch (e: Exception) {
-            VaultLog.failure(VaultLog.Operation.PASSWORD_SAFE, e, canonicalRootPath, label)
+            VaultLog.failure(VaultLog.Operation.PASSWORD_SAFE, e, record.root, record.label)
         }
-        VaultUserState.getInstance().forgetPrevious(canonicalRootPath, label)
+        VaultUserState.getInstance().forgetPrevious(record)
     }
 
     /**
@@ -1109,6 +1199,68 @@ class VaultSecretsService(private val project: Project, private val scope: Corou
     }
 
     private fun sameSecret(a: SecretBytes, b: SecretBytes): Boolean = a.read { left -> b.read { right -> MessageDigest.isEqual(left, right) } }
+
+    /** Whether [a] and [b] hold the same characters (both null counts), compared in constant time for equal lengths. */
+    private fun sameChars(a: CharArray?, b: CharArray?): Boolean {
+        if (a == null || b == null) return a == null && b == null
+        if (a.size != b.size) return false
+        var difference = 0
+        for (i in a.indices) difference = difference or (a[i].code xor b[i].code)
+        return difference == 0
+    }
+
+    /**
+     * Plan amendment R29 review round 2, decision 4: before Rotate Vault Password… groups roots by password source, the
+     * `.env.local` of every root of [discoveries] that has no consent (or whose content changed) is asked for in one
+     * consent dialog, as an unlock asks it; only its key is read. A root left out is not declined for the session (its
+     * next unlock asks again); its `.env.local` stays unread. Returns the discoveries whose `.env.local` stays unread
+     * (left out, or unreadable). Never call it on the EDT; it switches there for the dialog.
+     */
+    suspend fun consentToEnvLocals(discoveries: List<VaultDiscovery>): List<VaultDiscovery> {
+        val access = registry().access
+        val environment = withContext(Dispatchers.IO) { access.environment() }
+        val consents = VaultConsents(access, VaultUserState.getInstance())
+        val asked = withContext(Dispatchers.IO) {
+            discoveries.filter { !isGuarded(it) }.mapNotNull { discovery ->
+                val plans = discovery.identities.mapNotNull { identity -> (identity.plan as? SecretPlan.EnvLocal)?.let { identity.label to it } }
+                    .distinctBy { it.second.envLocal.locator }
+                    .filter { (_, plan) ->
+                        // Read only under a consent that exists (to compare it); a changed file needs a new one.
+                        when (val check = consents.check(plan.envLocal, environment)) {
+                            is VaultConsents.Check.Granted -> false.also { check.content.fill(0) }
+                            is VaultConsents.Check.Needed -> true
+                            VaultConsents.Check.Unavailable -> false
+                        }
+                    }
+                if (plans.isEmpty()) null else discovery to plans
+            }
+        }
+        if (asked.isEmpty()) return emptyList()
+        val request = VaultConsentRequest(
+            ConsentReason.FIRST_USE,
+            asked.map { (discovery, plans) ->
+                val items = plans.map { (label, plan) ->
+                    ConsentItem(label, ConsentItem.Kind.ENV_LOCAL_KEY, plan.envLocal.display, plan.expected?.display, consents.hasConsent(plan.envLocal))
+                }
+                ConsentRoot(discovery.rootKey, discovery.root.displayName, items, emptyList())
+            },
+        )
+        for ((discovery, _) in asked) VaultLog.event(VaultLog.Operation.CONSENT, VaultLog.Event.CONSENT_ASKED, discovery.rootKey)
+        val chosen = when (val decision = onEdt { VaultPrompter.getInstance().askConsent(project, request) }) {
+            VaultConsentDecision.UseAll -> asked.mapTo(HashSet()) { it.first.rootKey }
+            is VaultConsentDecision.Choose -> decision.rootKeys
+            VaultConsentDecision.NotNow -> emptySet()
+        }
+        return withContext(Dispatchers.IO) {
+            asked.filter { (discovery, plans) ->
+                if (discovery.rootKey !in chosen) {
+                    VaultLog.event(VaultLog.Operation.CONSENT, VaultLog.Event.CONSENT_DECLINED, discovery.rootKey)
+                    return@filter true
+                }
+                plans.map { (_, plan) -> consents.grant(plan.envLocal, environment)?.also { it.fill(0) } != null }.any { !it }
+            }.map { it.first }
+        }
+    }
 
     // ------------------------------------------------------------------ lock
 

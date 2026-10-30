@@ -62,19 +62,29 @@ internal object AtomicFiles {
 
     /**
      * Removes the temporary files of [replace] that a crash left in [directory] (not below it): a password file's may
-     * hold a new password in plain text, inside the repository. Errors are ignored (the next rotation or unlock tries
-     * again). Returns how many were removed.
+     * hold a new password in plain text, inside the repository. Only files older than [LEFTOVER_AGE_MILLIS] go (review
+     * round 2, decision 9): a younger one may belong to a write in progress. Errors are ignored (the next rotation or
+     * unlock tries again). Returns how many were removed.
      */
     fun removeLeftovers(directory: Path): Int {
         if (!Files.isDirectory(directory)) return 0
         var removed = 0
         try {
             Files.newDirectoryStream(directory) { isLeftover(it.fileName.toString()) && Files.isRegularFile(it, LinkOption.NOFOLLOW_LINKS) }.use { stream ->
-                for (leftover in stream) if (runCatching { Files.deleteIfExists(leftover) }.getOrDefault(false)) removed++
+                for (leftover in stream) if (removeIfOld(leftover)) removed++
             }
         } catch (_: IOException) {
             // Unreadable directory: nothing to clean here.
         }
         return removed
     }
+
+    /** Removes the leftover temporary file [path] when it is older than [LEFTOVER_AGE_MILLIS]; true when it was removed. */
+    fun removeIfOld(path: Path): Boolean = runCatching {
+        val modified = Files.getLastModifiedTime(path, LinkOption.NOFOLLOW_LINKS).toMillis()
+        System.currentTimeMillis() - modified >= LEFTOVER_AGE_MILLIS && Files.deleteIfExists(path)
+    }.getOrDefault(false)
+
+    /** How old a temporary file must be before it counts as left over by a crash (review round 2, decision 9). */
+    const val LEFTOVER_AGE_MILLIS: Long = 60_000L
 }

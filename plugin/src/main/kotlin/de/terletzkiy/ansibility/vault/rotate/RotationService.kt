@@ -3,6 +3,7 @@ package de.terletzkiy.ansibility.vault.rotate
 import com.intellij.notification.Notification
 import com.intellij.notification.NotificationAction
 import com.intellij.notification.NotificationType
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.EDT
 import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.application.asContextElement
@@ -16,8 +17,10 @@ import com.intellij.openapi.fileTypes.FileTypeManager
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ProjectFileIndex
+import com.intellij.openapi.startup.ProjectActivity
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VirtualFileVisitor
@@ -62,6 +65,7 @@ import de.terletzkiy.ansibility.vault.identity.DiscoveredIdentity
 import de.terletzkiy.ansibility.vault.identity.SecretPlan
 import de.terletzkiy.ansibility.vault.identity.VaultDiscovery
 import de.terletzkiy.ansibility.vault.identity.VaultIdentityRegistry
+import de.terletzkiy.ansibility.vault.identity.VaultPasswordSafeKeys
 import de.terletzkiy.ansibility.vault.reencrypt.AtomicFiles
 import de.terletzkiy.ansibility.vault.reencrypt.Decryption
 import de.terletzkiy.ansibility.vault.reencrypt.Encryption
@@ -76,7 +80,9 @@ import de.terletzkiy.ansibility.vault.reencrypt.ReencryptionRun
 import de.terletzkiy.ansibility.vault.reencrypt.ReencryptionWriter
 import de.terletzkiy.ansibility.vault.regenerate.RegenerateService
 import de.terletzkiy.ansibility.vault.secrets.CurrentSecret
+import de.terletzkiy.ansibility.vault.secrets.KeptPassword
 import de.terletzkiy.ansibility.vault.secrets.PendingRotationRecord
+import de.terletzkiy.ansibility.vault.secrets.PendingState
 import de.terletzkiy.ansibility.vault.secrets.StoreSnapshot
 import de.terletzkiy.ansibility.vault.secrets.VaultSecretsService
 import de.terletzkiy.ansibility.vault.secrets.VaultUserState
@@ -104,6 +110,7 @@ import java.nio.file.Path
 import java.security.MessageDigest
 import java.text.DateFormat
 import java.util.Date
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Rotate Vault Password… (plan amendment R29, Part 1, D204–D214): every vault the current password of a vault id
@@ -114,11 +121,16 @@ import java.util.Date
  * opens, and never overwrites a stored password that is not the old password being rotated. When in doubt it stops
  * before anything is written or stored, with a message that says why and what to do.
  *
+ * One rotation runs at a time in the IDE; a second one says so and does nothing (review round 2, decision 5).
+ *
  * The flow, on the re-encryption engine ([ReencryptionEngine], [ReencryptionWriter] write mode 3):
- * 1. the roots and their counts per id from the `ansible.vault` index (a smart read), each id's password source per
- *    root ([RotationSources]); every root whose source of the id has the key of a root holding vaults of it joins
- *    that root's group (D206; review, decision 5);
- * 2. the dialog ([RotationPrompts.chooseRotation], D205): id, roots, the new password (generated or typed);
+ * 1. the roots and their counts per id from the `ansible.vault` index (a smart read); the `.env.local` of every root
+ *    without a consent is asked for first, so the file it names is known (review round 2, decision 4); each id's
+ *    password source per root ([RotationSources]); every root whose source of the id has the key of a root holding
+ *    vaults of it joins that root's group (D206; review, decision 5);
+ * 2. the dialog ([RotationPrompts.chooseRotation], D205): id, roots, the new password (generated or typed); when a root
+ *    whose `.env.local` stays unread could name a password file the run writes, it stops, or runs without writing
+ *    password files if you choose so (round 2, decision 4);
  * 3. the preflight (D207, D209), in the background with progress and Cancel:
  *    - the id of each chosen root is unlocked through the normal path (asking only what an unlock asks);
  *    - what the rotation covers: the index's envelopes (vars files without a YAML name parsed as YAML, decision 3),
@@ -128,19 +140,24 @@ import java.util.Date
  *      the one that opens the id's envelopes; it must come from the source the dialog showed, roots of one group must
  *      agree, and the IDE password store entry and the password file the rotation will overwrite must hold it;
  *    - every envelope is decrypted with the old password, encrypted with the new one, header kept (D208), and
- *      verified. Envelopes of another id whose own password is the same stay with that id (decision 11); envelopes of
- *      the id the old password does not open, and malformed ones, are left alone; a decrypted tab with unsaved edits
- *      stops the rotation (decision 18). Ids of other unlocked roots whose secret equals the old one are reported
- *      (compared in constant time, never unlocked for it);
+ *      verified. Envelopes of the id the old password does not open are tried with the passwords kept from before
+ *      earlier rotations, and rotated too when one opens them (round 2, decision 2). Envelopes of another id whose own
+ *      password is the same stay with that id (decision 11); envelopes of the id no kept password opens, and malformed
+ *      ones, are left alone; a decrypted tab with unsaved edits stops the rotation (decision 18). Ids of other
+ *      unlocked roots whose secret equals the old one are reported (compared in constant time, never unlocked for it);
  * 4. the review ([RotationPrompts.review]) with "Also regenerate secrets…" (D214: Regenerate Secrets…'s selection over
- *    the same values, new values encrypted with the new password in the same pass);
- * 5. the writes, each only after the one before succeeded (D210–D213), after the files were compared with the bytes
- *    the preflight read (decision 7) and the destinations checked again: the new password into the IDE password store
- *    (and the old one into its "before rotation" entry), all vault files through the file system (atomically, not
- *    undoable, all or nothing, Local History labels), the password files that may be written (atomically, 0600,
- *    consent renewed), then the secret in memory; a refused or failed vault write puts the password store back. A
- *    source the IDE did not write is recorded as a pending rotation (decision 9): until it gives the new password,
- *    the stored new password comes first;
+ *    the same values, new values encrypted with the new password in the same pass); when the IDE password store keeps
+ *    passwords in memory only and no password file is written, Rotate needs "I have stored the new password somewhere
+ *    safe" (round 2, decision 3);
+ * 5. the writes, each only after the one before succeeded (D210–D213), after the roots were scanned again for vault
+ *    files that appeared meanwhile (round 2, decision 7), the files were compared with the bytes the preflight read
+ *    (decision 7) and the destinations checked again: the new password into the IDE password store (and the old one
+ *    into a "before rotation" entry of its own), a record of the rotation (round 2, decision 6), all vault files
+ *    through the file system (atomically, not undoable, all or nothing, Local History labels), the password files that
+ *    may be written (atomically, 0600, consent renewed), then the secret in memory; a refused or failed vault write
+ *    puts the password store and the record back. A source the IDE did not write keeps the rotation pending (decision
+ *    9): both passwords open the files, and encrypting prefers the new one until the source gives it (round 2,
+ *    decision 1);
  * 6. the summary (D213) in the vault notification group, with Regenerate Secrets…, Copy New Password and Check.
  *
  * Old and new passwords exist only as [SecretBytes] and character arrays that are zeroed when the run ends; logs name
@@ -213,36 +230,60 @@ class RotationService(private val project: Project, private val scope: Coroutine
 
     private fun start(preselect: Preselect, identity: String?, after: (() -> Unit)?) {
         val modality = ModalityState.current()
-        val state = RunState()
-        lastJob = scope.launch(modality.asContextElement()) {
-            try {
-                // From a modal dialog (the settings page) the progress is modal too, so its Cancel can be reached.
-                if (modality == ModalityState.nonModal()) withBackgroundProgress(project, message("rotate.progress")) { flow(preselect, identity, state) }
-                else withModalProgress(project, message("rotate.progress")) { flow(preselect, identity, state) }
-            } catch (e: CancellationException) {
-                if (!state.writing) withContext(NonCancellable) { onEdt { VaultUiFeedback.info(project, null, message("rotate.cancelled")) } }
-                throw e
-            } catch (e: VaultCorpusGuardException) {
-                throw e
-            } catch (e: Exception) {
-                VaultLog.failure(VaultLog.Operation.ENCRYPT, e)
-                withContext(NonCancellable) { onEdt { VaultUiFeedback.failure(project, null, VaultFailure.SOURCE_UNAVAILABLE) } }
-            } finally {
-                if (after != null) withContext(NonCancellable) { onEdt { after() } }
+        // Review round 2, decision 5: one rotation at a time in the IDE (any project); a second one says so and does nothing.
+        val token = Any()
+        if (!running.compareAndSet(null, token)) {
+            lastJob = scope.launch(modality.asContextElement()) {
+                try {
+                    onEdt { VaultUiFeedback.info(project, null, message("rotate.running")) }
+                } finally {
+                    if (after != null) withContext(NonCancellable) { onEdt { after() } }
+                }
             }
+            return
         }
+        val state = RunState()
+        val job = try {
+            scope.launch(modality.asContextElement()) {
+                try {
+                    // From a modal dialog (the settings page) the progress is modal too, so its Cancel can be reached.
+                    if (modality == ModalityState.nonModal()) withBackgroundProgress(project, message("rotate.progress")) { flow(preselect, identity, state) }
+                    else withModalProgress(project, message("rotate.progress")) { flow(preselect, identity, state) }
+                } catch (e: CancellationException) {
+                    if (!state.writing) withContext(NonCancellable) { onEdt { VaultUiFeedback.info(project, null, message("rotate.cancelled")) } }
+                    throw e
+                } catch (e: VaultCorpusGuardException) {
+                    throw e
+                } catch (e: Exception) {
+                    VaultLog.failure(VaultLog.Operation.ENCRYPT, e)
+                    withContext(NonCancellable) { onEdt { VaultUiFeedback.failure(project, null, VaultFailure.SOURCE_UNAVAILABLE) } }
+                } finally {
+                    // Released before the job completes, so a rotation started right after this one ended may run.
+                    running.compareAndSet(token, null)
+                    if (after != null) withContext(NonCancellable) { onEdt { after() } }
+                }
+            }
+        } catch (e: Throwable) {
+            running.compareAndSet(token, null)
+            throw e
+        }
+        // Also when the job is cancelled before its body ran (the finally above would not run then).
+        job.invokeOnCompletion { running.compareAndSet(token, null) }
+        lastJob = job
     }
 
     private suspend fun flow(preselect: Preselect, identity: String?, state: RunState) {
         val scanned = smartReadAction(project) { scan() }
         val preselected = readAction { preselectedKeys(preselect, scanned) }
+        // Review round 2, decision 4: which password file each root's .env.local names is known before the grouping.
+        val unread = VaultSecretsService.getInstance(project).consentToEnvLocals(scanned.map { it.discovery })
         val request = withContext(Dispatchers.IO) { request(scanned, preselected, identity, explicit = preselect is Preselect.Root) }
             ?: return onEdt { VaultUiFeedback.info(project, null, message("rotate.none")) }
         val password = onEdt { RotationPrompts.getInstance().chooseRotation(project, request) } ?: return
         password.use {
             val secret = it.secret() ?: return onEdt { VaultUiFeedback.error(project, null, message("rotate.failed.password")) }
             try {
-                rotate(request, it, secret, state)
+                rotate(request, it, secret, state, unread)
             } finally {
                 secret.zero()
             }
@@ -393,12 +434,19 @@ class RotationService(private val project: Project, private val scope: Coroutine
     /** The password-file decision of one group: write it or not (D211), after the preflight looked at it. */
     private class Decision(val group: RotationGroup, val write: Boolean, val vaulted: Boolean)
 
+    /**
+     * What the summary needs from the preflight: the notes, how many secrets got new values, how many envelopes opened
+     * only with a kept previous password (review round 2, decision 2), and whether the new password has a durable home
+     * besides what you stored yourself (decision 3). Not secret.
+     */
+    private class Outcome(val leftAlone: List<String>, val equal: List<String>, val regenerated: Int, val fromPrevious: Int, val durable: Boolean)
+
     /** A preflight that ended without writing anything: what to say. */
     private class Stop(@Nls val text: String, val cancelled: Boolean = false) : Exception() {
         override fun fillInStackTrace(): Throwable = this
     }
 
-    private suspend fun rotate(request: RotationRequest, password: NewPassword, new: SecretBytes, state: RunState) {
+    private suspend fun rotate(request: RotationRequest, password: NewPassword, new: SecretBytes, state: RunState, unread: List<VaultDiscovery>) {
         val label = request.identity.label
         val groups = request.chosen
         if (groups.isEmpty()) return onEdt { VaultUiFeedback.info(project, null, message("rotate.nothing.chosen")) }
@@ -407,6 +455,14 @@ class RotationService(private val project: Project, private val scope: Coroutine
         val run = ReencryptionRun(VaultPurpose.REKEY)
         val olds = LinkedHashMap<RotationRoot, Old>()
         try {
+            // Review round 2, decision 4: a root whose .env.local stays unread may name a password file this run writes.
+            val unsure = withContext(Dispatchers.IO) { unsure(label, groups, unread) }
+            if (unsure.isNotEmpty()) {
+                if (!onEdt { RotationPrompts.getInstance().rotateWithoutPasswordFiles(project, unsure) }) {
+                    throw Stop(message("rotate.failed.unresolved", escape(unsure.joinToString(", "))))
+                }
+                for (group in request.identity.groups) group.write = false
+            }
             for (root in roots) {
                 currentCoroutineContext().ensureActive()
                 unlockId(root, label)
@@ -428,12 +484,19 @@ class RotationService(private val project: Project, private val scope: Coroutine
             }
             var plan = engine.prepare(items, run)
             for ((file, sequence) in found.parsed) if (plan.sequences[file] != sequence) throw Stop(message("rotate.stale.changed", escape(file.name)))
+            // Review round 2, decision 2: what only a password kept from before an earlier rotation opens is rotated too.
+            val fromPrevious = HashMap<ReencryptTarget, Long>()
+            plan = withKeptPasswords(plan, label, run, fromPrevious)
             val leftAlone = ArrayList<String>()
             plan = classify(plan, label, olds, leftAlone)
             stopOnModifiedTabs(plan)
-            proveOpened(roots, label, found, plan)
-            val review = review(label, roots, plan, leftAlone, equal, decisions)
+            proveOpened(roots, label, found, plan, fromPrevious.keys)
+            // Review round 2, decision 3: without a durable home for the new password, Rotate needs a safe copy first.
+            val durable = !VaultSecretsService.getInstance(project).isMemoryOnlyStore || decisions.any { it.write }
+            val copy: (() -> Unit)? = if (durable) null else ({ copyForReview(password) })
+            val review = review(label, roots, plan, leftAlone, equal, decisions, fromPrevious, copy)
             if (!onEdt { RotationPrompts.getInstance().review(project, review) }) return
+            if (review.needsSafeCopy && !review.storedSafely) throw Stop(message("rotate.failed.safe"))
             var regenerated = 0
             if (review.alsoRegenerate && review.canRegenerate) {
                 val valueItems = plan.items.filter { it.ready != null && it.item.target is ReencryptTarget.Value }.map { it.item }
@@ -448,7 +511,8 @@ class RotationService(private val project: Project, private val scope: Coroutine
                 }
             }
             state.writing = true
-            withContext(NonCancellable) { write(label, roots, plan, expected, olds, password, new, decisions, leftAlone, equal, regenerated) }
+            val outcome = Outcome(leftAlone, equal, regenerated, fromPrevious.size, durable)
+            withContext(NonCancellable) { write(label, roots, plan, found, expected, olds, password, new, decisions, outcome) }
         } catch (stop: Stop) {
             onEdt { if (stop.cancelled) VaultUiFeedback.info(project, null, stop.text) else VaultUiFeedback.error(project, null, stop.text) }
         } finally {
@@ -580,7 +644,8 @@ class RotationService(private val project: Project, private val scope: Coroutine
         parsed: MutableMap<VirtualFile, Int>, known: MutableMap<VirtualFile, Envelope>,
     ) {
         val walked = readAction { roots.associateWith { walk(it, covered) } }
-        withContext(Dispatchers.IO) { for ((_, files) in walked) for (leftover in files.second) runCatching { Files.deleteIfExists(leftover) } }
+        // Review round 2, decision 9: only leftovers older than a minute (this rotation holds the lock, so none is a running write's).
+        withContext(Dispatchers.IO) { for ((_, files) in walked) for (leftover in files.second) AtomicFiles.removeIfOld(leftover) }
         for ((root, files) in walked) {
             val owners = readAction { OwnerRules(root, label) }
             // Only the first bytes of each file are read, all in one go.
@@ -943,10 +1008,11 @@ class RotationService(private val project: Project, private val scope: Coroutine
 
     /**
      * Decision 1, after the preflight: a root with well-formed envelopes of the id must have at least one the old
-     * password opened (else that password is not the id's), and the rotation as a whole must rotate something.
+     * password opened (else that password is not the id's), and the rotation as a whole must rotate something. What
+     * only a kept previous password opened ([previous], review round 2, decision 2) proves nothing about the old one.
      */
-    private fun proveOpened(roots: List<RotationRoot>, label: String, found: Found, plan: PreparedPlan) {
-        val ready = plan.items.filter { it.ready != null }.map { it.item.tag as Envelope }
+    private fun proveOpened(roots: List<RotationRoot>, label: String, found: Found, plan: PreparedPlan, previous: Set<ReencryptTarget>) {
+        val ready = plan.items.filter { it.ready != null && it.item.target !in previous }.map { it.item.tag as Envelope }
         for (root in roots) {
             val ofId = found.envelopes.any { (envelope, _) -> envelope.root == root && envelope.owner == Owner.Id && envelope.origin != Origin.FOREIGN && envelope.wellFormed }
             if (ofId && ready.none { it.root == root && it.owner == Owner.Id }) {
@@ -970,9 +1036,14 @@ class RotationService(private val project: Project, private val scope: Coroutine
 
     private fun relative(root: AnsibleRoot, file: VirtualFile): String = VfsUtilCore.getRelativePath(file, root.dir) ?: file.presentableUrl
 
-    /** The review's model (D209): per root what will be rewritten, left alone, equal passwords, where the new password goes. */
+    /**
+     * The review's model (D209): per root what will be rewritten, what of it opened only with a kept previous password
+     * ([previous], review round 2, decision 2), left alone, equal passwords, where the new password goes, and [copy]
+     * when the new password would have no durable home (decision 3).
+     */
     private suspend fun review(
         label: String, roots: List<RotationRoot>, plan: PreparedPlan, leftAlone: List<String>, equal: List<String>, decisions: List<Decision>,
+        previous: Map<ReencryptTarget, Long>, copy: (() -> Unit)?,
     ): RotationReview = readAction {
         val ready = plan.items.filter { it.ready != null }
         val reviewRoots = roots.map { root ->
@@ -982,10 +1053,97 @@ class RotationService(private val project: Project, private val scope: Coroutine
                 own.map { relative(root.root, it.item.file) }.distinct(),
             )
         }
+        val fromPrevious = ready.mapNotNull { prepared ->
+            val rotated = previous[prepared.item.target] ?: return@mapNotNull null
+            message("rotate.review.previous.item", escape(leftName(prepared.item.tag as Envelope)), date(rotated))
+        }
         val destinations = ArrayList<String>()
         destinations += message("rotate.review.store", roots.joinToString(", ") { it.displayName })
         for (decision in decisions) destinations += destinationText(decision)
-        RotationReview(label, reviewRoots, leftAlone, equal, destinations, ready.any { it.item.target is ReencryptTarget.Value })
+        RotationReview(label, reviewRoots, leftAlone, equal, destinations, ready.any { it.item.target is ReencryptTarget.Value }, fromPrevious, copy)
+    }
+
+    /**
+     * Review round 2, decision 2: the envelopes of the id (and unclaimed ones) that the old password does not open are
+     * tried with the passwords of that root and id kept from before its earlier rotations, the newest first; those a
+     * kept password opens are rotated too ([opened]: their target and the date of that rotation), so nothing a kept
+     * password opens is left on an old password. The kept passwords are read from the IDE password store and zeroed
+     * when this ends.
+     */
+    private suspend fun withKeptPasswords(plan: PreparedPlan, label: String, run: ReencryptionRun, opened: MutableMap<ReencryptTarget, Long>): PreparedPlan {
+        val failed = plan.items.filter { prepared ->
+            val envelope = prepared.item.tag as Envelope
+            (prepared.outcome as? ItemOutcome.Failed)?.failure == VaultFailure.WRONG_SECRET && envelope.origin != Origin.FOREIGN &&
+                (envelope.owner == Owner.Id || envelope.owner == Owner.Unclaimed)
+        }
+        if (failed.isEmpty()) return plan
+        val secrets = VaultSecretsService.getInstance(project)
+        val replaced = HashMap<ReencryptTarget, PreparedItem>()
+        for ((root, items) in failed.groupBy { (it.item.tag as Envelope).root }) {
+            val kept = withContext(Dispatchers.IO) { secrets.keptPasswords(root.root, label) }
+            try {
+                var remaining = items.map { it.item }
+                for (password in kept) {
+                    if (remaining.isEmpty()) break
+                    currentCoroutineContext().ensureActive()
+                    val retry = remaining.map { ReencryptItem(it.root, it.target, Decryption.Explicit(password.secret), it.plaintext, it.encryption, it.tag) }
+                    for (prepared in engine.prepare(retry, run).items) {
+                        if (prepared.ready == null) continue
+                        replaced[prepared.item.target] = prepared
+                        opened[prepared.item.target] = password.record.date
+                    }
+                    remaining = remaining.filter { it.target !in replaced }
+                }
+            } finally {
+                kept.forEach(KeptPassword::close)
+            }
+        }
+        return if (replaced.isEmpty()) plan else PreparedPlan(plan.items.map { replaced[it.item.target] ?: it }, plan.sequences, plan.documents)
+    }
+
+    /**
+     * Review round 2, decision 4: the roots whose `.env.local` stays unread ([unread]) that could name a password file
+     * this run writes: their chain has [label], or they lie in the repository of a root of a group whose password file
+     * is written, or of that file. Their names; empty when the run writes no password file. Blocking.
+     */
+    private fun unsure(label: String, groups: List<RotationGroup>, unread: List<VaultDiscovery>): List<String> {
+        val written = groups.filter { it.write && it.writable }
+        if (written.isEmpty() || unread.isEmpty()) return emptyList()
+        val registry = VaultIdentityRegistry.getInstance(project)
+        val repositories = written.flatMap { group ->
+            group.roots.mapNotNull { registry.discovery(it.root).rootPath } + listOfNotNull(group.source.file?.path)
+        }.mapTo(HashSet(), RotationSources::repositoryOf)
+        return unread.filter { discovery -> label in discovery.labels || discovery.rootPath?.let { RotationSources.repositoryOf(it) in repositories } == true }
+            .map { it.root.displayName }
+    }
+
+    /**
+     * Review round 2, decision 7: right before anything is written, the chosen roots are refreshed and scanned again the
+     * way the preflight scanned them (index and file-system heads, the same exclusions). A vault-bearing file the
+     * preflight did not cover, or a file whose envelopes differ in number from the preflight's, is named (up to ten);
+     * null when nothing appeared. Changed bytes of covered files are caught by the writer's own comparison.
+     */
+    private suspend fun appeared(roots: List<RotationRoot>, label: String, found: Found): String? {
+        val directories = roots.map { it.root.dir }.distinct().toTypedArray()
+        withContext(Dispatchers.IO) { VfsUtil.markDirtyAndRefresh(false, true, true, *directories) }
+        val again = collect(roots, label)
+        val before = found.envelopes.groupingBy { it.first.file }.eachCount()
+        val now = again.envelopes.groupingBy { it.first.file }.eachCount()
+        val names = (found.envelopes + again.envelopes).associate { (envelope, _) -> envelope.file to relative(envelope.root.root, envelope.file) }
+        val differing = (before.keys + now.keys).filter { before[it] != now[it] }.mapNotNull(names::get).sorted()
+        if (differing.isEmpty()) return null
+        return escape(differing.take(MAX_LISTED).joinToString(", ")) + more(differing.size)
+    }
+
+    /** Copy in the review (review round 2, decision 3): the new password through [VaultClipboard], which clears it later. EDT. */
+    private fun copyForReview(password: NewPassword) {
+        val chars = password.chars()
+        try {
+            VaultClipboard.getInstance().copy(String(chars))
+            VaultUiFeedback.info(project, null, message("rotate.copied"))
+        } finally {
+            chars.fill('\u0000')
+        }
     }
 
     @Nls
@@ -1003,14 +1161,20 @@ class RotationService(private val project: Project, private val scope: Coroutine
     // ------------------------------------------------------------------------------------------------ 5. writes
 
     private suspend fun write(
-        label: String, roots: List<RotationRoot>, plan: PreparedPlan, expected: Map<VirtualFile, ByteArray>, olds: Map<RotationRoot, Old>,
-        password: NewPassword, new: SecretBytes, decisions: List<Decision>, leftAlone: List<String>, equal: List<String>, regenerated: Int,
+        label: String, roots: List<RotationRoot>, plan: PreparedPlan, found: Found, expected: Map<VirtualFile, ByteArray>, olds: Map<RotationRoot, Old>,
+        password: NewPassword, new: SecretBytes, decisions: List<Decision>, outcome: Outcome,
     ) {
-        // Decision 7, then decision 1 again: nothing changed during the review, before anything is stored.
+        // Decision 7, then decision 1 again: nothing changed during the review, before anything is stored; then review
+        // round 2, decision 7: no vault file appeared meanwhile either.
         onEdt { writer.changedOnDisk(plan, expected) }?.let { throw Stop(staleText(it)) }
         withContext(Dispatchers.IO) { checkDestinations(label, decisions, olds) }
+        appeared(roots, label, found)?.let { throw Stop(message("rotate.stale.appeared", it)) }
         val secrets = VaultSecretsService.getInstance(project)
         val registry = VaultIdentityRegistry.getInstance(project)
+        val canonical = roots.associateWith { registry.discovery(it.root).canonicalRootPath }
+        // The date names this rotation's "before rotation" entries: never one an earlier rotation used (decision 2).
+        val latest = canonical.values.maxOf { VaultUserState.getInstance().previousPasswords(it, label).firstOrNull()?.date ?: 0L }
+        val journal = Journal(label, canonical, olds, maxOf(System.currentTimeMillis(), latest + 1))
         val snapshots = ArrayList<StoreSnapshot>()
         val newChars = password.chars()
         try {
@@ -1019,12 +1183,11 @@ class RotationService(private val project: Project, private val scope: Coroutine
             val entries = roots.associateWith { secrets.rotationEntry(registry.discovery(it.root), label, olds.getValue(it).source) }
             val stored = withContext(Dispatchers.IO) {
                 runCatching {
-                    val now = System.currentTimeMillis()
                     for (root in roots) {
-                        snapshots += secrets.snapshotStore(root.root, label, entries.getValue(root))
+                        snapshots += secrets.snapshotStore(root.root, label, entries.getValue(root), journal.date)
                         val previous = olds.getValue(root).secret.read { it.copyOf() }
                         try {
-                            secrets.storeRotation(root.root, label, entries.getValue(root), newChars, previous, now)
+                            secrets.storeRotation(root.root, label, entries.getValue(root), newChars, previous, journal.date)
                         } finally {
                             previous.fill(0)
                         }
@@ -1032,70 +1195,57 @@ class RotationService(private val project: Project, private val scope: Coroutine
                 }
             }
             if (stored.isFailure) {
-                restore(snapshots)
+                restore(snapshots, newChars)
                 throw Stop(message("rotate.failed.store"))
             }
+
+            // Review round 2, decision 6: the rotation is recorded before the first vault file changes, so an IDE that
+            // stops while it writes knows of it at the next start; a run that puts everything back removes the record.
+            journal.record(PendingState.WRITING_FILES)
 
             // 2. Every vault file, all or nothing, not undoable (D210). The store goes back on any failure before the
             // files are written (decision 6); the writer reports a failure midway itself.
             step(Step.FILES)
-            val outcome = try {
+            val written = try {
                 onEdt { writer.writeAllFileSystem(plan, expected, message("rotate.label.before", label), message("rotate.label.after", label)) }
             } catch (e: Throwable) {
-                restore(snapshots)
+                restore(snapshots, newChars)
+                journal.putBack()
                 if (e is CancellationException || e is VaultCorpusGuardException) throw e
                 VaultLog.failure(VaultLog.Operation.ENCRYPT, e)
                 throw Stop(message("rotate.failed.write.error"))
             }
-            when (outcome) {
+            when (written) {
                 is ReencryptionWriter.FileSystemOutcome.NotWritten -> {
-                    restore(snapshots)
-                    throw Stop(staleText(outcome.stale))
+                    restore(snapshots, newChars)
+                    journal.putBack()
+                    throw Stop(staleText(written.stale))
                 }
                 is ReencryptionWriter.FileSystemOutcome.Failed -> {
-                    if (outcome.notRestored.isEmpty()) {
-                        restore(snapshots)
-                        throw Stop(message("rotate.failed.write", escape(outcome.file.name)))
+                    if (written.notRestored.isEmpty()) {
+                        restore(snapshots, newChars)
+                        journal.putBack()
+                        throw Stop(message("rotate.failed.write", escape(written.file.name)))
                     }
                     // Files that still hold new envelopes need the new password: it stays stored and unlocked (decision 6).
-                    return partial(label, roots, outcome, new, entries)
+                    journal.record(PendingState.PENDING)
+                    return partial(label, roots, written, new, entries)
                 }
                 is ReencryptionWriter.FileSystemOutcome.Written, ReencryptionWriter.FileSystemOutcome.Nothing -> Unit
             }
-            renewVaultedConsents(plan)
-
-            // 3. The sources that may be written (D211); a failure here leaves the rest as it is (summary, Copy).
-            step(Step.SOURCES)
-            val written = ArrayList<RotationGroup>()
-            val failed = ArrayList<RotationGroup>()
-            val changed = ArrayList<RotationGroup>()
-            val bytes = new.read { it.copyOf() }
+            journal.record(PendingState.WRITING_SOURCES)
             try {
-                for (decision in decisions) {
-                    val file = decision.group.source.file ?: continue
-                    if (!decision.write) continue
-                    val old = olds.getValue(decision.group.roots.first()).secret
-                    when (withContext(Dispatchers.IO) { sources.replacePasswordFile(file, bytes, old) }) {
-                        RotationSources.Replaced.WRITTEN -> written += decision.group
-                        RotationSources.Replaced.CHANGED -> changed += decision.group
-                        RotationSources.Replaced.FAILED -> failed += decision.group
-                    }
-                }
-            } finally {
-                bytes.fill(0)
+                finish(label, roots, plan, olds, new, decisions, outcome, entries, journal, written)
+            } catch (e: VaultCorpusGuardException) {
+                throw e
+            } catch (e: Throwable) {
+                // Review round 2, decision 6: the vault files hold the new envelopes; whatever failed after them, the new
+                // password stays stored and unlocked next to the old one, and the rotation stays pending.
+                VaultLog.failure(VaultLog.Operation.ENCRYPT, e)
+                for (root in roots) secrets.addRotated(root.root, label, new)
+                journal.record(PendingState.PENDING)
+                onEdt { notifyInterrupted(label, roots.joinToString(", ") { it.displayName }, entries.getValue(roots.first())) }
             }
-
-            // 4. The secret in memory (D213): the id stays unlocked, with the new password.
-            step(Step.MEMORY)
-            for (root in roots) secrets.switchRotated(root.root, label, olds.getValue(root).secret, new, entries.getValue(root))
-            RotationHints.getInstance(project).rotatedHere(roots.map { it.rootKey }, label)
-            val yourself = decisions.filter { !it.write && it.group.source.destination in setOf(Destination.YOURSELF, Destination.PASSWORD_FILE) }.map { it.group }
-            recordPending(label, decisions.map { it.group }, failed + changed + yourself, olds)
-
-            val historyLabel = (outcome as? ReencryptionWriter.FileSystemOutcome.Written)?.labelBefore
-            val summary = summary(label, roots, plan, regenerated, written, failed, changed, yourself, leftAlone, equal, historyLabel)
-            lastSummary = summary
-            onEdt { notify(summary) }
         } finally {
             newChars.fill('\u0000')
             snapshots.forEach(StoreSnapshot::close)
@@ -1103,21 +1253,84 @@ class RotationService(private val project: Project, private val scope: Coroutine
     }
 
     /**
-     * Decision 9: every root of a group whose source the IDE did not write ([unwritten]) gets a pending rotation (its
-     * source's chain slot), so unlocks skip that source while it gives the old password and the stored new password
-     * comes first; a group whose source now holds the new password ends an earlier pending rotation.
+     * Steps 3 and 4 of a rotation whose vault files are written ([written]), then the summary: the password files that
+     * may be written (D211; a failure leaves the rest as it is, summary and Copy), the secrets in memory (D213), the
+     * pending records ([Journal.finish]).
      */
-    private fun recordPending(label: String, groups: List<RotationGroup>, unwritten: List<RotationGroup>, olds: Map<RotationRoot, Old>) {
-        val state = VaultUserState.getInstance()
-        val registry = VaultIdentityRegistry.getInstance(project)
-        val now = System.currentTimeMillis()
-        for (group in groups) {
-            for (root in group.roots) {
-                val canonical = registry.discovery(root.root).canonicalRootPath
-                if (group in unwritten) state.recordPendingRotation(PendingRotationRecord(canonical, label, olds.getValue(root).source?.slot, now))
-                else state.forgetPendingRotation(canonical, label)
+    private suspend fun finish(
+        label: String, roots: List<RotationRoot>, plan: PreparedPlan, olds: Map<RotationRoot, Old>, new: SecretBytes, decisions: List<Decision>,
+        outcome: Outcome, entries: Map<RotationRoot, String>, journal: Journal, written: ReencryptionWriter.FileSystemOutcome,
+    ) {
+        val secrets = VaultSecretsService.getInstance(project)
+        renewVaultedConsents(plan)
+
+        // 3. The sources that may be written (D211).
+        step(Step.SOURCES)
+        val files = ArrayList<RotationGroup>()
+        val failed = ArrayList<RotationGroup>()
+        val changed = ArrayList<RotationGroup>()
+        val bytes = new.read { it.copyOf() }
+        try {
+            for (decision in decisions) {
+                val file = decision.group.source.file ?: continue
+                if (!decision.write) continue
+                val old = olds.getValue(decision.group.roots.first()).secret
+                when (withContext(Dispatchers.IO) { sources.replacePasswordFile(file, bytes, old) }) {
+                    RotationSources.Replaced.WRITTEN -> files += decision.group
+                    RotationSources.Replaced.CHANGED -> changed += decision.group
+                    RotationSources.Replaced.FAILED -> failed += decision.group
+                }
+            }
+        } finally {
+            bytes.fill(0)
+        }
+
+        // 4. The secret in memory (D213): the id stays unlocked, with the new password.
+        step(Step.MEMORY)
+        for (root in roots) secrets.switchRotated(root.root, label, olds.getValue(root).secret, new, entries.getValue(root))
+        RotationHints.getInstance(project).rotatedHere(roots.map { it.rootKey }, label)
+        val yourself = decisions.filter { !it.write && it.group.source.destination in setOf(Destination.YOURSELF, Destination.PASSWORD_FILE) }.map { it.group }
+        journal.finish(decisions.map { it.group }, failed + changed + yourself)
+
+        val historyLabel = (written as? ReencryptionWriter.FileSystemOutcome.Written)?.labelBefore
+        // Decision 3: a password file written is a durable home even when the IDE password store keeps nothing.
+        val durable = outcome.durable && (!secrets.isMemoryOnlyStore || files.isNotEmpty())
+        val summary = summary(label, roots, plan, outcome, files, failed, changed, yourself, historyLabel, durable)
+        lastSummary = summary
+        onEdt { notify(summary) }
+    }
+
+    /**
+     * The pending records of one rotation (review round 2, decision 6; decision 9 of the first review): recorded with
+     * its [date] for every root before the first vault file changes and updated after each step; at the end, every root
+     * of a group whose source the IDE did not write keeps a pending rotation (its source's chain slot), and a group whose
+     * source now holds the new password has none. A run that puts everything back restores the records it found. No
+     * secret.
+     */
+    private class Journal(val label: String, private val canonical: Map<RotationRoot, String>, private val olds: Map<RotationRoot, Old>, val date: Long) {
+        private val earlier = canonical.mapValues { (_, root) -> VaultUserState.getInstance().pendingRotation(root, label) }
+
+        fun record(step: PendingState) {
+            for ((root, path) in canonical) VaultUserState.getInstance().recordPendingRotation(PendingRotationRecord(path, label, olds.getValue(root).source?.slot, date, step))
+        }
+
+        fun putBack() {
+            val state = VaultUserState.getInstance()
+            for ((root, path) in canonical) earlier.getValue(root)?.let(state::recordPendingRotation) ?: state.forgetPendingRotation(path, label)
+        }
+
+        fun finish(groups: List<RotationGroup>, unwritten: List<RotationGroup>) {
+            val state = VaultUserState.getInstance()
+            for (group in groups) {
+                for (root in group.roots) {
+                    val path = canonical[root] ?: continue
+                    if (group in unwritten) state.recordPendingRotation(PendingRotationRecord(path, label, olds.getValue(root).source?.slot, date))
+                    else state.forgetPendingRotation(path, label)
+                }
             }
         }
+
+        override fun toString(): String = "Journal($label, $date)"
     }
 
     /** Decision 2: a vaulted password file the rotation re-encrypted keeps its consent (the IDE wrote its new content). */
@@ -1133,8 +1346,8 @@ class RotationService(private val project: Project, private val scope: Coroutine
     /**
      * Decision 6, the case that cannot be all or nothing: writing a file failed and some written files could not be put
      * back. They need the new password, so it stays in the IDE password store and is unlocked too ([new] next to the
-     * old secrets); the password source keeps the old one. An error notification names the files and offers Copy New
-     * Password.
+     * old secrets); the password source keeps the old one, and the rotation is pending (both open; review round 2,
+     * decision 6). An error notification names the files and offers Copy New Password.
      */
     private suspend fun partial(label: String, roots: List<RotationRoot>, outcome: ReencryptionWriter.FileSystemOutcome.Failed, new: SecretBytes, entries: Map<RotationRoot, String>) {
         val secrets = VaultSecretsService.getInstance(project)
@@ -1143,18 +1356,65 @@ class RotationService(private val project: Project, private val scope: Coroutine
         val first = roots.first()
         onEdt {
             val notification = Notification(GROUP, message("notification.title"), text, NotificationType.ERROR)
-            notification.addAction(NotificationAction.createSimple(message("rotate.action.copy")) { copyFromStore(first.root, label, entries.getValue(first)) })
+            notification.addAction(NotificationAction.createSimple(message("rotate.action.copy")) { copyFromStore(first.displayName, label, entries.getValue(first)) })
             notification.notify(project)
         }
     }
+
+    /**
+     * Review round 2, decision 6: a rotation of [label] in [roots] (names) did not finish after its vault files were
+     * written (an error, or the IDE stopped there): the notification says so and offers Copy New Password (the entry
+     * [serviceName]); both passwords open the files in the IDE. EDT.
+     */
+    private fun notifyInterrupted(label: String, roots: String, serviceName: String) {
+        val text = message("rotate.interrupted", escape(label), escape(roots))
+        if (ApplicationManager.getApplication().isUnitTestMode) interruptedForTests += text
+        val notification = Notification(GROUP, message("notification.title"), text, NotificationType.ERROR)
+        notification.addAction(NotificationAction.createSimple(message("rotate.action.copy")) { copyFromStore(roots, label, serviceName) })
+        notification.notify(project)
+    }
+
+    /**
+     * Review round 2, decision 6: at the start of the IDE, every rotation of a root of this project that was left in
+     * progress (the IDE stopped while it wrote) gets the notification of [notifyInterrupted] and becomes a pending
+     * rotation: both passwords open the files, and encrypting prefers the new one until the source gives it.
+     */
+    suspend fun notifyInterruptedRotations() {
+        val state = VaultUserState.getInstance()
+        val open = state.pendingRotations().filter { it.state != PendingState.PENDING }
+        if (open.isEmpty()) return
+        val names = smartReadAction(project) {
+            VaultIdentityRegistry.getInstance(project).discoveries().associate { it.canonicalRootPath to it.root.displayName }
+        }
+        for (record in open) {
+            val name = names[record.root] ?: continue
+            state.recordPendingRotation(record.copy(state = PendingState.PENDING))
+            onEdt { notifyInterrupted(record.label, name, VaultPasswordSafeKeys.serviceName(record.root, record.label)) }
+        }
+    }
+
+    /** The texts of the "did not finish" notifications shown (tests; filled only in unit-test mode). */
+    private val interruptedForTests = java.util.concurrent.CopyOnWriteArrayList<String>()
+
+    /** The "did not finish" notifications shown since the last call (tests). */
+    @TestOnly
+    fun drainInterruptedForTests(): List<String> = interruptedForTests.toList().also { interruptedForTests.clear() }
 
     private fun step(step: Step) {
         onStepForTests?.invoke(step)
     }
 
-    private suspend fun restore(snapshots: List<StoreSnapshot>) {
+    /**
+     * Puts the IDE password store back, in reverse order ([VaultSecretsService.restoreStore]); an entry that no longer
+     * holds [written] (someone stored another password since) is left as it is, and a warning says so (review round 2,
+     * decision 5).
+     */
+    private suspend fun restore(snapshots: List<StoreSnapshot>, written: CharArray) {
         val secrets = VaultSecretsService.getInstance(project)
-        withContext(Dispatchers.IO) { snapshots.asReversed().forEach(secrets::restoreStore) }
+        val left = withContext(Dispatchers.IO) { snapshots.asReversed().filter { !secrets.restoreStore(it, written) } }
+        if (left.isNotEmpty()) {
+            onEdt { VaultUiFeedback.error(project, null, message("rotate.restore.left", escape(left.first().label), escape(left.joinToString(", ") { it.root.displayName }))) }
+        }
     }
 
     @Nls
@@ -1169,9 +1429,14 @@ class RotationService(private val project: Project, private val scope: Coroutine
 
     // ------------------------------------------------------------------------------------------------ 6. summary
 
+    /**
+     * The summary (D213): counts, what got new values, where the new password is ([durable] false: the IDE password
+     * store keeps it in memory only and no password file was written, so only the copy you stored is lasting; review
+     * round 2, decision 3), what you update yourself, what is left alone. Never a password.
+     */
     private fun summary(
-        label: String, roots: List<RotationRoot>, plan: PreparedPlan, regenerated: Int, written: List<RotationGroup>, failed: List<RotationGroup>,
-        changed: List<RotationGroup>, yourself: List<RotationGroup>, leftAlone: List<String>, equal: List<String>, historyLabel: String?,
+        label: String, roots: List<RotationRoot>, plan: PreparedPlan, outcome: Outcome, written: List<RotationGroup>, failed: List<RotationGroup>,
+        changed: List<RotationGroup>, yourself: List<RotationGroup>, historyLabel: String?, durable: Boolean,
     ): RotationSummary {
         val ready = plan.items.filter { it.ready != null }
         val values = ready.count { it.item.target is ReencryptTarget.Value }
@@ -1179,32 +1444,38 @@ class RotationService(private val project: Project, private val scope: Coroutine
         val files = ready.map { it.item.file }.distinct().size
         val parts = ArrayList<String>()
         parts += message("rotate.done", escape(label), values, vaultFiles, files, escape(roots.joinToString(", ") { it.displayName }))
-        if (regenerated > 0) parts += message("rotate.done.regenerated", regenerated)
+        if (outcome.fromPrevious > 0) parts += message("rotate.done.previous", outcome.fromPrevious)
+        if (outcome.regenerated > 0) parts += message("rotate.done.regenerated", outcome.regenerated)
         parts += message("rotate.done.store")
+        if (!durable) parts += message("rotate.done.memory")
         if (written.isNotEmpty()) parts += message("rotate.done.written", escape(written.joinToString(", ") { RotationTexts.file(it.source) }))
         if (failed.isNotEmpty()) parts += message("rotate.done.not.written", escape(failed.joinToString(", ") { RotationTexts.file(it.source) }))
         if (changed.isNotEmpty()) parts += message("rotate.done.changed", escape(changed.joinToString(", ") { RotationTexts.file(it.source) }))
         if (yourself.isNotEmpty()) parts += message("rotate.done.yourself", escape(yourself.joinToString(", ") { it.source.display }))
         parts += message("rotate.done.elsewhere")
         parts += message("rotate.done.history")
-        if (leftAlone.isNotEmpty()) parts += message("rotate.done.left.alone", leftAlone.take(MAX_LISTED).joinToString("; ") + more(leftAlone.size))
-        if (equal.isNotEmpty()) parts += equal.joinToString(" ")
+        if (outcome.leftAlone.isNotEmpty()) parts += message("rotate.done.left.alone", outcome.leftAlone.take(MAX_LISTED).joinToString("; ") + more(outcome.leftAlone.size))
+        if (outcome.equal.isNotEmpty()) parts += outcome.equal.joinToString(" ")
         val unwritten = (failed + changed + yourself).map { group -> UnwrittenSource(group.roots, group.source) }
         return RotationSummary(
-            label, roots.map { it.root }, values, vaultFiles, files, regenerated, written.map { RotationTexts.file(it.source) }, unwritten, parts.joinToString("<br>"), historyLabel,
+            label, roots.map { it.root }, values, vaultFiles, files, outcome.regenerated, written.map { RotationTexts.file(it.source) }, unwritten,
+            parts.joinToString("<br>"), historyLabel, memoryOnly = !durable,
         )
     }
 
     private fun more(size: Int): String = if (size > MAX_LISTED) "; " + message("rotate.review.more", size - MAX_LISTED) else ""
 
-    /** The summary notification (D213), group `Ansibility.Vault`, with Regenerate Secrets…, and Copy New Password and Check for sources not written. EDT. */
+    /**
+     * The summary notification (D213), group `Ansibility.Vault`, with Regenerate Secrets…, Copy New Password and Check
+     * for sources not written, and Copy New Password while the IDE password store keeps it in memory only. EDT.
+     */
     private fun notify(summary: RotationSummary) {
         val notification = Notification(GROUP, message("notification.title"), summary.text, NotificationType.INFORMATION)
         notification.addAction(NotificationAction.createSimple(message("rotate.action.regenerate")) { regenerateAfter(summary) })
-        if (summary.unwritten.isNotEmpty()) {
+        if (summary.unwritten.isNotEmpty() || summary.memoryOnly) {
             notification.addAction(NotificationAction.createSimple(message("rotate.action.copy")) { copyNewPassword(summary) })
-            notification.addAction(NotificationAction.createSimple(message("rotate.action.check")) { check(summary) })
         }
+        if (summary.unwritten.isNotEmpty()) notification.addAction(NotificationAction.createSimple(message("rotate.action.check")) { check(summary) })
         notification.notify(project)
     }
 
@@ -1223,15 +1494,15 @@ class RotationService(private val project: Project, private val scope: Coroutine
         ThreadingAssertions.assertEventDispatchThread()
         val root = summary.unwritten.firstOrNull()?.roots?.firstOrNull()?.root ?: summary.roots.firstOrNull() ?: return
         val discovery = VaultIdentityRegistry.getInstance(project).discovery(root)
-        copyFromStore(root, summary.label, de.terletzkiy.ansibility.vault.identity.VaultPasswordSafeKeys.serviceName(discovery.canonicalRootPath, summary.label))
+        copyFromStore(root.displayName, summary.label, VaultPasswordSafeKeys.serviceName(discovery.canonicalRootPath, summary.label))
     }
 
-    /** Copies the entry [serviceName] of [label] (read off the EDT) through [VaultClipboard]. EDT. */
-    private fun copyFromStore(root: AnsibleRoot, label: String, serviceName: String) {
+    /** Copies the entry [serviceName] of [label] (read off the EDT) through [VaultClipboard]; [rootName] names it when it is missing. EDT. */
+    private fun copyFromStore(rootName: String, label: String, serviceName: String) {
         lastJob = scope.launch(ModalityState.current().asContextElement()) {
             val secrets = VaultSecretsService.getInstance(project)
             val chars = withContext(Dispatchers.IO) { secrets.readEntry(serviceName, label) }
-                ?: return@launch onEdt { VaultUiFeedback.info(project, null, message("rotate.copy.missing", escape(label), escape(root.displayName))) }
+                ?: return@launch onEdt { VaultUiFeedback.info(project, null, message("rotate.copy.missing", escape(label), escape(rootName))) }
             try {
                 onEdt {
                     VaultClipboard.getInstance().copy(String(chars))
@@ -1245,9 +1516,9 @@ class RotationService(private val project: Project, private val scope: Coroutine
 
     /**
      * Check (D211): reads each source that was not written again through the normal load path and compares it with the
-     * new password and the previous one (both from the IDE password store), in constant time; the answer says
-     * "matches", "still the old password" or "different", never a value. "Matches" ends the pending rotation of the
-     * source's roots (decision 9). EDT; the reads run in the background.
+     * new password and the passwords kept from before rotations (all from the IDE password store), in constant time;
+     * the answer says "matches", "still the old password" or "different", never a value. "Matches" ends the pending
+     * rotation of the source's roots (decision 9). EDT; the reads run in the background.
      */
     fun check(summary: RotationSummary) {
         ThreadingAssertions.assertEventDispatchThread()
@@ -1283,8 +1554,13 @@ class RotationService(private val project: Project, private val scope: Coroutine
                 for (member in unwritten.roots) VaultUserState.getInstance().forgetPendingRotation(registry.discovery(member.root).canonicalRootPath, label)
                 return@use message("rotate.check.matches")
             }
-            val previous = withContext(Dispatchers.IO) { secrets.readPreviousPassword(root.root, label) }
-            if (previous?.use { same(it, secret) } == true) message("rotate.check.old") else message("rotate.check.different")
+            val kept = withContext(Dispatchers.IO) { secrets.keptPasswords(root.root, label) }
+            val old = try {
+                kept.any { same(it.secret, secret) }
+            } finally {
+                kept.forEach(KeptPassword::close)
+            }
+            if (old) message("rotate.check.old") else message("rotate.check.different")
         }
     }
 
@@ -1343,11 +1619,30 @@ class RotationService(private val project: Project, private val scope: Coroutine
         /** The largest whole-file vault the IDE re-encrypts (the envelope reader's limit). */
         private const val MAX_WHOLE_FILE = 16L * 1024 * 1024
 
+        /** The token of the rotation that runs, in any project, or null (review round 2, decisions 5 and 9). */
+        private val running = AtomicReference<Any?>(null)
+
+        /** Whether a rotation runs in any project: a second one is refused, and leftover cleanup waits (review round 2, decisions 5 and 9). */
+        val isRunning: Boolean get() = running.get() != null
+
         /** The date of a previous password as the settings page shows it. */
         @Nls
         fun date(millis: Long): String = DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(millis))
 
         fun getInstance(project: Project): RotationService = project.service()
+    }
+}
+
+/**
+ * Plan amendment R29 review round 2, decision 6: when a project opens, a rotation of one of its roots that was left in
+ * progress (the IDE stopped while it wrote) gets a notification ([RotationService.notifyInterruptedRotations]). Tests
+ * call the service themselves: a light project outlives a test class.
+ */
+class RotationStartupActivity : ProjectActivity {
+    override suspend fun execute(project: Project) {
+        if (ApplicationManager.getApplication().isUnitTestMode) return
+        if (VaultUserState.getInstance().pendingRotations().all { it.state == PendingState.PENDING }) return
+        RotationService.getInstance(project).notifyInterruptedRotations()
     }
 }
 
@@ -1372,6 +1667,11 @@ class RotationSummary internal constructor(
     @Nls val text: String,
     /** The id of the Local History label put before the vault files were written, or null when none was written. */
     val historyLabel: String?,
+    /**
+     * The IDE password store keeps the new password in memory only and no password file was written: only the copy you
+     * stored yourself lasts beyond this IDE session (review round 2, decision 3); Copy New Password is offered.
+     */
+    val memoryOnly: Boolean = false,
 ) {
     override fun toString(): String = "RotationSummary($label, $values values, $vaultFiles vault files)"
 }
