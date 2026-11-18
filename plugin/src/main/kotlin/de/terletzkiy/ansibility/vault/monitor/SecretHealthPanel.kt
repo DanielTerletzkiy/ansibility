@@ -72,12 +72,14 @@ sealed class SecretNode {
 /**
  * The "Vault" tab of the Ansibility tool window (plan amendment R21, D165): every vault and secret finding of the
  * workspace ([SecretHealthService]), repository › category (Broken vault files, Broken vault values, Plaintext private
- * keys, Key-like files not vaulted) › file, with its path below the repository, what was found and its VCS status. Live:
- * each new snapshot replaces the tree, keeping the selection; "No vault or secret problems in N roots" when clean.
+ * keys, Key-like files not vaulted, and since plan amendment R30 Password files the IDE indexes) › file, with its path
+ * below the repository, what was found and its VCS status. Live: each new snapshot replaces the tree, keeping the
+ * selection; "No vault or secret problems in N roots" when clean.
  *
  * Double-click or Enter opens a text file at the finding (F4 too); binary files are never opened, and nothing opens a
  * file by itself (no autoscroll). The toolbar and the context menu act on the findings under the selected rows:
- * Convert to Whole-File Vault, Encrypt Files…, Show in Project View, Exclude Path… ([SecretTabActions]).
+ * Convert to Whole-File Vault, Encrypt Files…, Keep Out of the IDE's Indexes, Show in Project View, Exclude Path…
+ * ([SecretTabActions]).
  * Rows carry kinds, names and statuses only, never content.
  */
 class SecretHealthPanel(private val project: Project) : SimpleToolWindowPanel(true, true), Disposable {

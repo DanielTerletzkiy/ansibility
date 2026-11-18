@@ -55,6 +55,12 @@ import de.terletzkiy.ansibility.semantics.vault.SecretShape
 import de.terletzkiy.ansibility.vault.regenerate.RegeneratePrompts
 import de.terletzkiy.ansibility.vault.regenerate.RegenerateTexts
 import de.terletzkiy.ansibility.vault.vcs.TrackedStatuses
+import de.terletzkiy.ansibility.vault.exclusion.IndexExclusionSettings
+import de.terletzkiy.ansibility.vault.exclusion.PasswordFileNames
+import de.terletzkiy.ansibility.vault.exclusion.PasswordFileSuggestion
+import de.terletzkiy.ansibility.vault.exclusion.PasswordFileSuggestions
+import com.intellij.openapi.progress.ProcessCanceledException
+import com.intellij.ui.components.JBTextArea
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.openapi.vfs.VfsUtilCore
@@ -82,6 +88,11 @@ import javax.swing.table.TableCellRenderer
  * selected root and id (plan amendment R29, D204), and the previous passwords rotations kept are listed, one per
  * rotation, each with Forget (D212; stored per user, the passwords only in the IDE password store). While a rotation of
  * an id is pending, forgetting or replacing its stored password needs a confirmation (review round 2, decision 8).
+ *
+ * Plan amendment R30 (D224, D225, D228): "Keep out of the IDE's indexes", per user and for every project
+ * (`vault.exclusion.IndexExclusionSettings`): the built-in names, more file names (validated on Apply), "Also keep
+ * .env.local out", the names of this project's password files the list does not keep out yet (loaded in the background,
+ * each with Add), and that a change applies when a project is reopened.
  */
 class VaultConfigurable(private val project: Project) : BoundSearchableConfigurable(message("settings.vault.name"), ID, ID) {
     internal data class RootEntry(
@@ -224,6 +235,21 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
         name = ROTATE_BLOCKED_COMPONENT
     }
 
+    /** Plan amendment R30: the names kept out of the IDE's indexes (application level, for every project). */
+    private val exclusions = IndexExclusionSettings.getInstance()
+
+    /** The "More file names" text area (plan amendment R30); set by [createPanel]. */
+    private var indexNames: JBTextArea? = null
+
+    /** The suggested names (plan amendment R30, D224); its content is swapped when they are loaded. */
+    private val suggestionsHolder = JPanel(BorderLayout()).apply {
+        isOpaque = false
+        name = INDEX_SUGGESTIONS_COMPONENT
+    }
+
+    /** The suggestions shown, or null while they load ([loadSuggestions]). */
+    private var suggestions: List<PasswordFileSuggestion>? = null
+
     override fun createPanel(): DialogPanel {
         uiDisposable?.let(Disposer::dispose)
         val disposable = Disposer.newCheckedDisposable("VaultConfigurable")
@@ -296,6 +322,30 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
                         .applyToComponent { name = ALLOWLIST_COMPONENT }
                 }
             }
+            // Plan amendment R30 (D223-D228): per user and for every project; applies when a project opens (D225).
+            group(message("settings.vault.index")) {
+                row { comment(message("settings.vault.index.builtin", PasswordFileNames.BUILT_IN.joinToString(", "))) }
+                row {
+                    textArea()
+                        .label(message("settings.vault.index.names"), LabelPosition.TOP)
+                        .rows(INDEX_NAMES_ROWS)
+                        .align(AlignX.FILL)
+                        .bindText({ exclusions.extraNames.joinToString("\n") }, { exclusions.update(indexNameLines(it), exclusions.excludeEnvLocal) })
+                        .comment(message("settings.vault.index.names.comment"))
+                        .applyToComponent {
+                            name = INDEX_NAMES_COMPONENT
+                            indexNames = this
+                        }
+                }
+                row {
+                    checkBox(message("settings.vault.index.envLocal"))
+                        .bindSelected({ exclusions.excludeEnvLocal }, { exclusions.update(exclusions.extraNames, it) })
+                        .comment(message("settings.vault.index.envLocal.comment"))
+                        .applyToComponent { name = INDEX_ENV_LOCAL_COMPONENT }
+                }
+                row { cell(suggestionsHolder).align(AlignX.FILL) }
+                row { comment(message("settings.vault.index.reopen")) }
+            }
             // The commit check (plan amendment R21, D167): per user and for every project, never in project files.
             group(message("settings.vault.commits")) {
                 row {
@@ -308,7 +358,87 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
         }
         detectManagers(disposable)
         loadRoots(disposable)
+        loadSuggestions(disposable)
         return panel
+    }
+
+    /**
+     * The names of this project's password files the list does not keep out yet (plan amendment R30, D224), found off
+     * the EDT ([PasswordFileSuggestions] may read a consented `.env.local`), then shown with an Add button each.
+     */
+    private fun loadSuggestions(disposable: CheckedDisposable) {
+        suggestions = null
+        showSuggestions()
+        ApplicationManager.getApplication().executeOnPooledThread {
+            val found = try {
+                PasswordFileSuggestions.compute(project)
+            } catch (_: ProcessCanceledException) {
+                return@executeOnPooledThread
+            } catch (_: Exception) {
+                // Logged nowhere on purpose: the page just suggests nothing (vault code logs names only).
+                emptyList()
+            }
+            ApplicationManager.getApplication().invokeLater({
+                suggestions = found
+                showSuggestions()
+            }, ModalityState.any()) { disposable.isDisposed }
+        }
+    }
+
+    private fun showSuggestions() {
+        val shown = suggestions
+        val listed = indexNameLines(indexNames?.text.orEmpty()).toSet()
+        suggestionsHolder.removeAll()
+        suggestionsHolder.add(
+            panel {
+                when {
+                    shown == null -> row { comment(message("settings.vault.index.suggestions.loading")) }
+                    shown.isEmpty() -> row { comment(message("settings.vault.index.suggestions.none")) }
+                    else -> {
+                        row { label(message("settings.vault.index.suggestions")) }
+                        for (suggestion in shown) {
+                            row {
+                                label(message("settings.vault.index.suggestion", suggestion.name, suggestion.paths.joinToString(", ")))
+                                button(message("settings.vault.index.add")) { addIndexName(suggestion.name) }.applyToComponent {
+                                    name = INDEX_ADD_COMPONENT + suggestion.name
+                                    isEnabled = suggestion.name !in listed
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            BorderLayout.CENTER,
+        )
+        suggestionsHolder.revalidate()
+        suggestionsHolder.repaint()
+    }
+
+    /** Add (plan amendment R30): appends [name] to "More file names" unless it is there; Apply stores it. EDT. */
+    internal fun addIndexName(name: String) {
+        val area = indexNames ?: return
+        val lines = indexNameLines(area.text)
+        if (name !in lines) area.text = (lines + name).joinToString("\n")
+        showSuggestions()
+    }
+
+    /** For tests: the suggested names, or null while they load. */
+    @TestOnly
+    internal fun suggestedIndexNames(): List<String>? = suggestions?.map { it.name }
+
+    /** Throws when a line of "More file names" is no valid name pattern (plan amendment R30, [PasswordFileNames.problemOf]). */
+    private fun validateIndexNames() {
+        for (name in indexNameLines(indexNames?.text.orEmpty())) {
+            val problem = PasswordFileNames.problemOf(name) ?: continue
+            val reason = when (problem) {
+                PasswordFileNames.Problem.EMPTY -> continue
+                PasswordFileNames.Problem.PATH -> message("settings.vault.invalid.index.path")
+                PasswordFileNames.Problem.DOTS -> message("settings.vault.invalid.index.dots")
+                PasswordFileNames.Problem.TOO_BROAD -> message("settings.vault.invalid.index.too.broad")
+                PasswordFileNames.Problem.CHARACTER -> message("settings.vault.invalid.index.character")
+            }
+            throw ConfigurationException(message("settings.vault.invalid.index.name", name, reason))
+        }
     }
 
     /** Finds the CLIs off the EDT (the login shell's `PATH` may still be loading). */
@@ -648,7 +778,11 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
         edits.any { (key, edited) -> toSettings(key, edited) != settings.rootSettings(key) || edited.ids.any { it.password != null } }
 
     override fun apply() {
+        validateIndexNames()
         super.apply()
+        // The list as stored (trimmed, without blank lines, duplicates or built-in names), so the page is not modified.
+        indexNames?.text = exclusions.extraNames.joinToString("\n")
+        showSuggestions()
         capture()
         for ((key, edited) in edits) validate(key, edited)
         val passwords = ArrayList<Triple<String, String, CharArray?>>()
@@ -754,6 +888,23 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
 
         /** The component name of the warning below the rules table (tests find it by name). */
         const val RULE_WARNING_COMPONENT = "ansibility.vault.ruleWarning"
+
+        /** The component name of "More file names" (plan amendment R30; tests find it by name). */
+        const val INDEX_NAMES_COMPONENT = "ansibility.vault.indexExclusions"
+
+        /** The component name of "Also keep .env.local out" (plan amendment R30, D228; tests find it by name). */
+        const val INDEX_ENV_LOCAL_COMPONENT = "ansibility.vault.indexExcludeEnvLocal"
+
+        /** The component name of the suggestions (plan amendment R30, D224; tests find it by name). */
+        const val INDEX_SUGGESTIONS_COMPONENT = "ansibility.vault.indexSuggestions"
+
+        /** The component name prefix of a suggestion's Add button, followed by the name (tests find it by name). */
+        const val INDEX_ADD_COMPONENT = "ansibility.vault.indexAdd."
+
+        private const val INDEX_NAMES_ROWS = 3
+
+        /** The non-blank, trimmed lines of "More file names". */
+        internal fun indexNameLines(text: String): List<String> = text.lines().map { it.trim() }.filter { it.isNotEmpty() }
 
         /** How many folders up from a root Import from Script… looks for `bin/`. */
         private const val ROTATION_SCRIPT_DEPTH = 4

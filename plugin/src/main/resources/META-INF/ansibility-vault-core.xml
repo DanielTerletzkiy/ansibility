@@ -21,4 +21,17 @@
         <!-- /V2a; VaultIdentityRegistry, VaultSecretsService, VaultCrypto, VaultProjectSettings and VaultUserState are
              light services (@Service) -->
     </extensions>
+    <!-- r30: keep vault password files out of the IDE's indexes (plan amendment R30, D223-D228). The contributor
+         registers the name patterns of vault.exclusion.IndexExclusionSettings (application level, a light service) as
+         exclusion patterns of every content root, as the platform's own automatic excludes do; a changed list applies
+         when a project opens (D225). Once per project and list version the excluded password files are re-indexed, so
+         index data from before goes (D226). The reopen question of "Keep Out of the IDE's Indexes" (tests replace it).
+         The contributor's package com.intellij.workspaceModel.core.fileIndex is @ApiStatus.Experimental (package-info). -->
+    <extensions defaultExtensionNs="com.intellij">
+        <workspaceModel.fileIndexContributor implementation="de.terletzkiy.ansibility.vault.exclusion.PasswordFileExcluder"/>
+        <postStartupActivity implementation="de.terletzkiy.ansibility.vault.exclusion.PasswordFileReindexActivity"/>
+        <applicationService serviceInterface="de.terletzkiy.ansibility.vault.exclusion.IndexExclusionPrompts"
+                            serviceImplementation="de.terletzkiy.ansibility.vault.exclusion.IndexExclusionDialogPrompts"/>
+    </extensions>
+    <!-- /r30 -->
 </idea-plugin>

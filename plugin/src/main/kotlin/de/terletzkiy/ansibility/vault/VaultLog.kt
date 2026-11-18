@@ -65,6 +65,12 @@ internal object VaultLog {
          * held what the rotation stored (plan amendment R29 review round 2, decision 5).
          */
         ENTRY_LEFT,
+
+        /**
+         * The excluded password files of a project were handed to the platform to be indexed again, so data from before
+         * they were excluded goes (plan amendment R30, D226); the key is how many.
+         */
+        PASSWORD_FILES_REINDEXED,
     }
 
     /** How a password manager read ended. */
@@ -89,7 +95,7 @@ internal object VaultLog {
      */
     private val NOTABLE = setOf(
         Event.CONSENT_ASKED, Event.PASSWORD_PROMPTED, Event.MASTER_PASSWORD_PROMPTED, Event.MANAGER_READ_STARTED, Event.MANAGER_READ_SKIPPED,
-        Event.STATUSES_LATE, Event.NOT_VERIFIED, Event.PENDING_ROTATION_ENDED, Event.ENTRY_LEFT,
+        Event.STATUSES_LATE, Event.NOT_VERIFIED, Event.PENDING_ROTATION_ENDED, Event.ENTRY_LEFT, Event.PASSWORD_FILES_REINDEXED,
     )
 
     /** A vault operation failed for a reason Ansible would report too (wrong secret, malformed envelope, …). */

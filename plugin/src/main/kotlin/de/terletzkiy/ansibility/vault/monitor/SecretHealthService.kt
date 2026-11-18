@@ -26,6 +26,7 @@ import de.terletzkiy.ansibility.index.secrets.SecretIndex
 import de.terletzkiy.ansibility.settings.AnsibilitySettingsListener
 import de.terletzkiy.ansibility.settings.ProjectSettings
 import de.terletzkiy.ansibility.vault.VaultLog
+import de.terletzkiy.ansibility.vault.exclusion.IndexExclusionListener
 import de.terletzkiy.ansibility.vault.vcs.TrackedStatus
 import de.terletzkiy.ansibility.vault.vcs.TrackedStatuses
 import kotlinx.coroutines.CancellationException
@@ -49,7 +50,7 @@ import java.util.concurrent.atomic.AtomicLong
  * - Built by [SecretSnapshotBuilder] in a smart read action (it waits for indexing) on this service's own coroutine
  *   scope; requests are conflated and debounced by [debounceMillis], and a newer request cancels a build still running.
  * - Refreshed when the project opens ([SecretHealthActivity]), when indexing ends, when the Ansible structure or the
- *   Ansibility settings change, when the plaintext key allowlist changes (`PlaintextKeyExclusions.setAllowlist`), when
+ *   Ansibility settings change, when the names kept out of the IDE's indexes change (plan amendment R30), when the plaintext key allowlist changes (`PlaintextKeyExclusions.setAllowlist`), when
  *   the VCS status of a file the last snapshot looked at changed (`TrackedStatuses.addListener`: the VCS reports
  *   "statuses changed" after every refresh of its change lists, so the statuses the snapshot was built with are
  *   compared first, cheaply, and only a real change rebuilds it), and on VFS events below candidate paths of
@@ -187,6 +188,9 @@ class SecretHealthService(private val project: Project, private val scope: Corou
                 override fun exitDumbMode() = requestRefresh()
             },
         )
+        // Plan amendment R30 (D227): a name added to "Keep out of the IDE's indexes" changes what the tab says.
+        ApplicationManager.getApplication().messageBus.connect(parent)
+            .subscribe(IndexExclusionListener.TOPIC, IndexExclusionListener { requestRefresh() })
     }
 
     /** Asks for a new snapshot once the service runs ([start]); cheap, any thread. */

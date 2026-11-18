@@ -4,6 +4,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.util.concurrency.ThreadingAssertions
 import de.terletzkiy.ansibility.vault.actions.VaultFileOperations
+import de.terletzkiy.ansibility.vault.exclusion.KeepOutOfIndexes
 import de.terletzkiy.ansibility.vault.monitor.SecretFix
 import de.terletzkiy.ansibility.vault.monitor.SecretTexts
 import de.terletzkiy.ansibility.vault.monitor.WholeFileConversions
@@ -21,6 +22,8 @@ class CommitFix(val fix: SecretFix, val files: List<VirtualFile>) {
         get() = when (fix) {
             SecretFix.ENCRYPT -> message("commit.action.encrypt")
             SecretFix.CONVERT -> message("commit.action.convert")
+            // Plan amendment R30: the commit check never offers it ([of]); here for completeness.
+            SecretFix.KEEP_OUT_OF_INDEXES -> message("monitor.action.keep.out")
         }
 
     /** Encrypts or converts the [files] that are still valid (Encrypt File asks its questions first). EDT. */
@@ -31,6 +34,7 @@ class CommitFix(val fix: SecretFix, val files: List<VirtualFile>) {
         when (fix) {
             SecretFix.ENCRYPT -> VaultFileOperations.getInstance(project).encrypt(valid)
             SecretFix.CONVERT -> WholeFileConversions.convert(project, valid)
+            SecretFix.KEEP_OUT_OF_INDEXES -> KeepOutOfIndexes.perform(project, valid.map { it.name })
         }
     }
 

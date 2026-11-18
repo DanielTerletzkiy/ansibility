@@ -11,6 +11,7 @@ import com.intellij.openapi.vfs.VirtualFile
 import de.terletzkiy.ansibility.settings.PathGlob
 import de.terletzkiy.ansibility.settings.RootKeys
 import de.terletzkiy.ansibility.vault.actions.VaultFileOperations
+import de.terletzkiy.ansibility.vault.exclusion.KeepOutOfIndexes
 import de.terletzkiy.ansibility.vault.identity.VaultProjectSettings
 import de.terletzkiy.ansibility.vault.keys.PlaintextKeyExclusions
 import de.terletzkiy.ansibility.vault.ui.AnsibilityVaultUiBundle.message
@@ -19,13 +20,14 @@ import javax.swing.Icon
 /**
  * The actions of the Vault tab (plan amendment R21, D165), on the findings under the selected rows
  * ([SecretHealthPanel.SELECTED_FINDINGS]): Convert to Whole-File Vault (ANS-V107 files with a wrapped envelope),
- * Encrypt Files… (Ansibility Vault's Encrypt File, for key files Ansible reads as they are), Show in Project View, and
+ * Encrypt Files… (Ansibility Vault's Encrypt File, for key files Ansible reads as they are), Keep Out of the IDE's
+ * Indexes (password files the IDE indexes, plan amendment R30, D227), Show in Project View, and
  * Exclude Path… (a glob for the plaintext key allowlist of the Vault settings page; ANS-V108 findings only). None of
  * them opens a file.
  */
 object SecretTabActions {
     /** The tab's own actions, for its toolbar and context menu. */
-    fun actions(): List<AnAction> = listOf(Convert(), Encrypt(), ShowInProjectView(), ExcludePath())
+    fun actions(): List<AnAction> = listOf(Convert(), Encrypt(), KeepOut(), ShowInProjectView(), ExcludePath())
 
     /** An action of the tab: enabled for the selected findings it applies to. */
     abstract class TabAction(text: String, description: String?, icon: Icon?) : DumbAwareAction(text, description, icon) {
@@ -73,6 +75,18 @@ object SecretTabActions {
 
         override fun perform(project: Project, findings: List<SecretFinding>) {
             VaultFileOperations.getInstance(project).encrypt(findings.map { it.file }.distinct())
+        }
+    }
+
+    /**
+     * "Keep Out of the IDE's Indexes" (plan amendment R30, D227): adds the names of the selected password files to the
+     * list of Settings › Vault and offers to reopen the project (`vault.exclusion.KeepOutOfIndexes`).
+     */
+    class KeepOut : TabAction(message("monitor.action.keep.out"), message("monitor.action.keep.out.description"), AllIcons.Actions.Cancel) {
+        override fun applicable(selected: List<SecretFinding>) = selected.filter { it.fix == SecretFix.KEEP_OUT_OF_INDEXES }
+
+        override fun perform(project: Project, findings: List<SecretFinding>) {
+            KeepOutOfIndexes.perform(project, findings.map { it.file.name })
         }
     }
 

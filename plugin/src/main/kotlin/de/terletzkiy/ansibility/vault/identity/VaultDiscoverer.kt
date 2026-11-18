@@ -8,6 +8,7 @@ import de.terletzkiy.ansibility.api.VaultSourceOrigin
 import de.terletzkiy.ansibility.semantics.vault.ConfigOrigin
 import de.terletzkiy.ansibility.semantics.vault.VaultConfig
 import de.terletzkiy.ansibility.semantics.vault.VaultScriptProtocol
+import de.terletzkiy.ansibility.vault.exclusion.PasswordFileNames
 import java.nio.file.Path
 
 /**
@@ -247,8 +248,11 @@ class VaultDiscoverer(private val access: VaultSourceAccess) {
         /** Its committed template, read before consent for the default file name only. */
         const val ENV_LOCAL_SKEL: String = ".env.local.skel"
 
-        /** Conventional password file names, by existence only (F7.9 step 4). */
-        val CONVENTIONAL_NAMES: List<String> = listOf(".vault-pass", ".vault_pass", ".vault-password")
+        /**
+         * Conventional password file names, by existence only (F7.9 step 4); kept with the names the IDE keeps out of its
+         * indexes (plan amendment R30, `vault.exclusion.PasswordFileNames`).
+         */
+        val CONVENTIONAL_NAMES: List<String> = PasswordFileNames.CONVENTIONAL
 
         private const val INTERACTIVE = "interactive"
         private const val ASK_VAULT_PASS_INI = "ask_vault_pass"

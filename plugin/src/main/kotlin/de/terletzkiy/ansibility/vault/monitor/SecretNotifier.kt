@@ -9,6 +9,7 @@ import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.util.concurrency.ThreadingAssertions
 import de.terletzkiy.ansibility.vault.actions.VaultFileOperations
+import de.terletzkiy.ansibility.vault.exclusion.KeepOutOfIndexes
 import de.terletzkiy.ansibility.vault.ui.AnsibilityVaultUiBundle.message
 import org.jetbrains.annotations.TestOnly
 
@@ -24,7 +25,8 @@ import org.jetbrains.annotations.TestOnly
  *   committed right after startup, nor while the Vault tab is in view ([isTabInView]): what the tab shows counts as seen.
  * - Errors use the group [GROUP_ID] (sticky by default), warnings only [WARNINGS_GROUP_ID]; the title is
  *   "Ansibility Vault". Actions: Show (the Vault tab with the new findings selected; never opens a file),
- *   Convert to Whole-File Vault or Encrypt Files… when every new finding has that fix, Don't Show Again for These.
+ *   Convert to Whole-File Vault, Encrypt Files… or Keep Out of the IDE's Indexes (plan amendment R30) when every new
+ *   finding has that fix, Don't Show Again for These.
  *   The previous vault notification expires when a new one comes, and when all of its findings are gone.
  * - File names and counts only, never content.
  *
@@ -87,7 +89,7 @@ class SecretNotifier(private val project: Project) {
         return notification
     }
 
-    /** Convert or Encrypt when every new finding has that fix; else null. */
+    /** Convert, Encrypt or Keep Out of the IDE's Indexes when every new finding has that fix; else null. */
     private fun fixAction(fresh: List<SecretFinding>): NotificationAction? {
         val files = fresh.map { it.file }.distinct()
         return when {
@@ -95,6 +97,9 @@ class SecretNotifier(private val project: Project) {
                 NotificationAction.createSimpleExpiring(message("monitor.notification.action.convert")) { WholeFileConversions.convert(project, files) }
             fresh.all { it.fix == SecretFix.ENCRYPT } ->
                 NotificationAction.createSimpleExpiring(message("monitor.notification.action.encrypt")) { VaultFileOperations.getInstance(project).encrypt(files) }
+            // Plan amendment R30 (D227): password files the IDE indexes.
+            fresh.all { it.fix == SecretFix.KEEP_OUT_OF_INDEXES } ->
+                NotificationAction.createSimpleExpiring(message("monitor.notification.action.keep.out")) { KeepOutOfIndexes.perform(project, files.map { it.name }) }
             else -> null
         }
     }

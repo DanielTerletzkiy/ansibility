@@ -11,6 +11,7 @@ import com.intellij.codeInspection.ProblemDescriptorUtil
 import com.intellij.lang.annotation.HighlightSeverity
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.runReadActionBlocking
+import com.intellij.openapi.roots.ProjectFileIndex
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.Project
@@ -226,8 +227,13 @@ class PlaintextKeyFixesTest : VaultUiTestCase() {
     }
 
     fun testACommittedVaultPasswordFileIsAnErrorWithoutAFix() {
+        // A name the IDE does not keep out of its indexes (plan amendment R30): the platform runs no inspection on an
+        // excluded file such as `.vault-pass`; the Vault tab and the commit check report that one (SecretTabTest).
+        write("$root/ansible.cfg", "[defaults]\nvault_password_file = secrets/vault.pw\n")
+        write("$root/secrets/vault.pw", "${VaultVectors.PW1}\n")
+        vcs.statuses["vault.pw"] = TrackedStatus.TRACKED
         root(root)
-        val file = vf("$root/.vault-pass")
+        val file = vf("$root/secrets/vault.pw")
         myFixture.configureFromExistingVirtualFile(file)
         val info = highlight().single()
         assertEquals(HighlightSeverity.ERROR, info.severity)
@@ -242,16 +248,25 @@ class PlaintextKeyFixesTest : VaultUiTestCase() {
         assertEquals("Inspect Code and Qodana export no text of the file", "", runReadActionBlocking { ProblemDescriptorUtil.extractHighlightedText(batch, batch.psiElement) })
 
         // Each status change reaches the editor through the VCS listener's restart (vault.vcs.TrackedStatuses).
-        vcs.statuses[".vault-pass"] = TrackedStatus.UNTRACKED
+        vcs.statuses["vault.pw"] = TrackedStatus.UNTRACKED
         changed(file)
         assertEquals(HighlightSeverity.WARNING, highlight().single().severity)
         assertTrue(highlight().single().description!!.startsWith("This root's vault password file is not ignored by git"))
-        vcs.statuses[".vault-pass"] = TrackedStatus.IGNORED
+        vcs.statuses["vault.pw"] = TrackedStatus.IGNORED
         changed(file)
         assertEmpty("the normal setup", highlight())
-        vcs.statuses[".vault-pass"] = TrackedStatus.NO_VCS
+        vcs.statuses["vault.pw"] = TrackedStatus.NO_VCS
         changed(file)
         assertEmpty("without version control a local password file is the normal setup too", highlight())
+    }
+
+    fun testAnExcludedCommittedVaultPasswordFileIsJudgedButTheEditorRunsNoInspectionOnIt() {
+        root(root)
+        val file = vf("$root/.vault-pass")
+        assertTrue("plan amendment R30: kept out of the IDE's indexes", runReadActionBlocking { ProjectFileIndex.getInstance(project).isExcluded(file) })
+        assertEquals("the check itself still judges it", 1, descriptors(file).size)
+        myFixture.configureFromExistingVirtualFile(file)
+        assertEmpty("the platform runs no inspection on an excluded file", highlight())
     }
 
     fun testDecryptedTabsAndWholeFileVaultsAreNeverReported() {

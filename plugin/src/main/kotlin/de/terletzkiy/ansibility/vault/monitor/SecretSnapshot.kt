@@ -24,6 +24,13 @@ enum class SecretCategory(
     /** ANS-V108: a root's vault password file under version control (D161). */
     VAULT_PASSWORD_FILES("vault.password.files", true),
 
+    /**
+     * A vault password file of a root inside the project that the IDE indexes: in the project content, not excluded
+     * (plan amendment R30, D227). Its words and trigrams are in the IDE's indexes and Local History keeps its revisions.
+     * No inspection reports it; at most WARNING.
+     */
+    INDEXED_PASSWORD_FILES("indexed.password.files", false),
+
     /** ANS-V108, a weaker signal (D161): passphrase-protected keys and keystores. */
     PROTECTED_KEYS("protected.keys", true),
 
@@ -38,6 +45,9 @@ enum class SecretFix {
 
     /** "Encrypt Files…" (Ansibility Vault's Encrypt File, for files Ansible reads as they are). */
     ENCRYPT,
+
+    /** "Keep Out of the IDE's Indexes" (plan amendment R30, D227): adds the file's name to the list, then offers to reopen. */
+    KEEP_OUT_OF_INDEXES,
 }
 
 /**
@@ -56,8 +66,11 @@ data class SecretFinding(
     /** The path relative to [group]'s directory (`/`-separated). */
     val path: String,
     val category: SecretCategory,
-    /** The diagnostic code whose severity [level] is (the most severe one of the file in this category). */
-    val code: DiagnosticCode,
+    /**
+     * The diagnostic code whose severity [level] is (the most severe one of the file in this category); null for a
+     * finding no inspection reports ([SecretCategory.INDEXED_PASSWORD_FILES]).
+     */
+    val code: DiagnosticCode?,
     /** ERROR or WARNING (or a weaker level a preset gives); never OFF. */
     val level: Level,
     val status: TrackedStatus,
@@ -77,7 +90,7 @@ data class SecretFinding(
 
     val isError: Boolean get() = level == Level.ERROR
 
-    override fun toString(): String = "SecretFinding($key, $code, $level, $status)"
+    override fun toString(): String = "SecretFinding($key, ${code ?: "-"}, $level, $status)"
 }
 
 /**

@@ -30,6 +30,7 @@ import de.terletzkiy.ansibility.settings.isMoreSevereThan
 import de.terletzkiy.ansibility.vault.actions.VaultFileOperations
 import de.terletzkiy.ansibility.vault.envelope.VaultEnvelopes
 import de.terletzkiy.ansibility.vault.envelope.WholeFileShapes
+import de.terletzkiy.ansibility.vault.exclusion.IndexExclusionSettings
 import de.terletzkiy.ansibility.vault.keys.PlaintextKeyExclusions
 import de.terletzkiy.ansibility.vault.tab.DecryptedVaultFile
 import de.terletzkiy.ansibility.vault.ui.AnsibilityVaultUiBundle.message
@@ -44,7 +45,9 @@ import de.terletzkiy.ansibility.vault.vcs.TrackedStatuses
  * - `ansible.vault` per root (`VaultIndexQueries.malformed`): malformed envelopes, ANS-V101–V103; a file with an
  *   ANS-V107 shape gets that one code only (a `!vault` vars document is no malformed value);
  * - the vault password files of every root (`VaultFileOperations.isPasswordFile`: not scripts, not `.env.local`;
- *   only the first 14 bytes are read, to leave a vaulted password file out): ERROR when committed or staged.
+ *   only the first 14 bytes are read, to leave a vaulted password file out): ERROR when committed or staged (also when
+ *   the IDE keeps it out of its indexes, plan amendment R30); and, when it lies in the project content, so the IDE
+ *   indexes it, a WARNING of its own (plan amendment R30, D227), git-ignored or not: the IDE indexes ignored files too.
  *
  * Applied as the inspections do: detached worktrees, decrypted tabs and Ansibility's ignored paths are left out, the
  * plaintext key allowlist (`vault.keys.PlaintextKeyExclusions`) silences ANS-V108, the VCS status from `statusOf`
@@ -61,6 +64,9 @@ internal object SecretSnapshotBuilder {
         val verdicts = ArrayList<SecretVerdict>()
         val malformed = ArrayList<VaultIndexEntry>()
         var passwordFileOf: AnsibleRoot? = null
+
+        /** The root whose vault password file this is, when the IDE indexes it (plan amendment R30, D227). */
+        var indexedPasswordOf: AnsibleRoot? = null
     }
 
     /**
@@ -97,7 +103,12 @@ internal object SecretSnapshotBuilder {
                 ProgressManager.checkCanceled()
                 if (seenMalformed.add(hit.file to hit.value.offset)) raw.getOrPut(hit.file, ::Raw).malformed += hit.value
             }
-            for (source in passwordFiles(project, root)) raw.getOrPut(source, ::Raw).passwordFileOf = root
+            val fileIndex = ProjectFileIndex.getInstance(project)
+            for (source in passwordFiles(project, root)) {
+                val found = raw.getOrPut(source, ::Raw)
+                found.passwordFileOf = root
+                if (fileIndex.isInContent(source)) found.indexedPasswordOf = root
+            }
         }
         val groups = Groups(project, roots)
         val findings = ArrayList<SecretFinding>()
@@ -111,9 +122,11 @@ internal object SecretSnapshotBuilder {
             val group = groups.of(file, root) ?: continue
             val status = statusOf(file)
             statuses[file] = status
-            if (status == TrackedStatus.IGNORED) continue
             val path = VfsUtilCore.getRelativePath(file, group.dir, '/') ?: VfsUtilCore.findRelativePath(group.dir, file, '/') ?: file.name
             val context = FileFacts(project, file, root, group, path, status)
+            // Before the ignored check: the IDE indexes git-ignored files too (plan amendment R30, D227).
+            found.indexedPasswordOf?.let { findings += indexedFinding(context, it) }
+            if (status == TrackedStatus.IGNORED) continue
             findings += vaultFindings(context, found)
             if (statusesKnown && !PlaintextKeyExclusions.isAllowlisted(project, file)) findings += keyFindings(context, found)
         }
@@ -132,7 +145,7 @@ internal object SecretSnapshotBuilder {
     ) {
         val policy: SeverityPolicy get() = SeverityPolicy.getInstance(project)
 
-        fun finding(category: SecretCategory, code: DiagnosticCode, level: Level, details: List<String>, line: Int, offset: Int, fix: SecretFix?) =
+        fun finding(category: SecretCategory, code: DiagnosticCode?, level: Level, details: List<String>, line: Int, offset: Int, fix: SecretFix?) =
             SecretFinding(file, group, path, category, code, level, status, details, line, offset, fix)
     }
 
@@ -229,6 +242,16 @@ internal object SecretSnapshotBuilder {
         )
     }
 
+    /**
+     * A vault password file the IDE indexes (plan amendment R30, D227): WARNING, with "Keep Out of the IDE's Indexes".
+     * When its name is listed already, the list applies once the project is reopened (D225), and the details say so.
+     */
+    private fun indexedFinding(facts: FileFacts, source: AnsibleRoot): SecretFinding {
+        val listed = IndexExclusionSettings.getInstance().isKeptOut(facts.file.name)
+        val details = listOf(message(if (listed) "monitor.detail.indexed.listed" else "monitor.detail.indexed", source.displayName))
+        return facts.finding(SecretCategory.INDEXED_PASSWORD_FILES, null, Level.WARNING, details, -1, -1, SecretFix.KEEP_OUT_OF_INDEXES)
+    }
+
     /** A weaker signal (D161, `PrivateKeySignatures.isWeakSignal`): at most WARNING. */
     private fun isWeak(verdict: SecretVerdict): Boolean {
         val format = verdict.format ?: return true
@@ -239,8 +262,9 @@ internal object SecretSnapshotBuilder {
     // ------------------------------------------------------------------------------------------------ sources
 
     /**
-     * The vault password files of [root] that are files of the project, not empty and not vaulted themselves (Ansible
-     * decrypts a vaulted password file: no leak). Only their first 14 bytes are read, for the vault magic.
+     * The vault password files of [root] that are files of the project (below a content root, also when the IDE keeps
+     * them out of its indexes, plan amendment R30), not empty and not vaulted themselves (Ansible decrypts a vaulted
+     * password file: no leak). Only their first 14 bytes are read, for the vault magic.
      */
     private fun passwordFiles(project: Project, root: AnsibleRoot): List<VirtualFile> {
         val operations = VaultFileOperations.getInstance(project)
@@ -250,7 +274,7 @@ internal object SecretSnapshotBuilder {
         return paths.mapNotNull { path ->
             ProgressManager.checkCanceled()
             LocalFileSystem.getInstance().findFileByNioFile(path)
-                ?.takeIf { !it.isDirectory && it.length > 0 && fileIndex.isInContent(it) && operations.isPasswordFile(root, it) }
+                ?.takeIf { !it.isDirectory && it.length > 0 && fileIndex.getContentRootForFile(it, false) != null && operations.isPasswordFile(root, it) }
                 ?.takeIf { !VaultEnvelopes.isWholeFileVault(it) }
         }.distinct()
     }
