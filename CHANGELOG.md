@@ -4,6 +4,12 @@
 
 ### Added
 
+- **Variable source hints**: after each variable reference in Ansible YAML (values, bare `when:`/`until:`/`that:` conditions) and in Jinja2 templates, a hint says where the variable gets its value: `default 1.2.0 · prod 1.4.0 · test 1.3.0`.
+  - The role default, then each environment's value (`group_vars`, `host_vars`, `hosts.yml`), then the playbook-level values, role vars and params. Several definitions in one environment collapse to `prod 1.4.0 (+1)`; at most four entries, then `+2 more`. Values as written, cut at 24 characters; vault values and variables a spec marks `no_log` read `🔒`. Nothing is decrypted.
+  - With an environment or host selected as the Ansible context, the value that wins for it comes first: `→ 1.4.1 (prod, group_vars web) · default 1.2.0 · +2`, with `2/3 hosts` when the hosts of the environment differ. The hints follow context switches.
+  - By default only for variables set somewhere besides their role default; "Also for variables with only a default" adds the rest. Never for loop variables, template locals, registered results, facts and magic variables.
+  - The tooltip lists every definition with its file; a click opens the Ctrl+B list.
+  - One switch for every project: "Ansibility: Toggle Variable Source Hints" (Find Action, assignable to a shortcut, the editor's right-click menu in Ansible files), Settings › Editor › Inlay Hints › Values › "Ansibility: Variable sources", and the hint's own right-click menu.
 - **ansible-lint**: Ansibility runs ansible-lint itself, so the separate Ansible Lint plugin is no longer needed.
   - Files are linted when opened and after each save. Findings stay on their lines while you edit.
   - Runs in the repository's Compose service with "lint" in its name when one mounts the root (the team's pinned versions), else with a local `ansible-lint`. The config is found automatically: `ansible-lint.yml`, `.ansible-lint`, `.config/ansible-lint.yml`, next to the root or above it.
@@ -38,6 +44,7 @@
 
 ### Changed
 
+- Ctrl+B from a variable reference lists every definition in one popup: the declaring role's spec option, with an Ansible context selected the definition that wins for it (`✓ wins for prod-web1`), the role's `defaults/` and `vars/`, then every override (each environment's `group_vars`, `host_vars` and `hosts.yml`, playbook-level `group_vars`/`host_vars`, play vars, `vars_files`, params) by precedence and environment, then the other roles. Before, environment and playbook overrides were listed only for variables no role declares. Each row says layer, environment, `path:line` and the value as written (`group_vars web · prod · environments/prod/group_vars/web.yml:12 = 1.4.0`; vault values `🔒 vault`); speed search filters by environment or path. References inside vars files and Ctrl+B on a role's own declaration work as before.
 - Rekey… and Change Vault Id… run on the new re-encryption engine, which also checks that every new envelope decrypts again with its secret before anything is written.
 
 ### Fixed

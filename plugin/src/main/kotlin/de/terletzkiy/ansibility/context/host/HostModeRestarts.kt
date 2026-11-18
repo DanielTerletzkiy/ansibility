@@ -1,12 +1,14 @@
 package de.terletzkiy.ansibility.context.host
 
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
+import com.intellij.codeInsight.hints.declarative.impl.DeclarativeInlayHintsPassFactory
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.EDT
 import com.intellij.openapi.application.readAction
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.fileEditor.FileEditorManager
+import com.intellij.openapi.fileEditor.TextEditor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.psi.PsiManager
@@ -20,7 +22,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicLong
 
 /**
@@ -29,53 +31,75 @@ import java.util.concurrent.atomic.AtomicLong
  * inspections never do (D32).
  *
  * Restarting costs a re-highlight of every open file of the root, so it happens only while some host-mode presentation
- * is registered ([register]); until then a selection change restarts nothing. Only open files of the roots whose stored
- * selection changed are restarted (a nested root shares its parent's env and host, so both count). Never on the EDT
- * except for the restart call itself; never in a read action that a write could wait for.
+ * is registered ([register]) and active; until then a selection change restarts nothing. Only open files of the roots
+ * whose stored selection changed are restarted (a nested root shares its parent's env and host, so both count). Never on
+ * the EDT except for the restart call itself; never in a read action that a write could wait for.
+ *
+ * Declarative inlay hints (plan amendment R31, the variable source hints) are skipped by the daemon while the PSI is
+ * unchanged, so a consumer registered with `inlays` also has the hints of the restarted files' editors recomputed
+ * ([DeclarativeInlayHintsPassFactory.scheduleRecompute], public and unannotated in 262, what the platform's own "Disable
+ * hints" action calls).
  */
 @Service(Service.Level.PROJECT)
 class HostModeRestarts(private val project: Project, private val scope: CoroutineScope) : Disposable {
-    private val consumers = AtomicInteger()
+    /** One registered presentation: whether it shows declarative inlay hints, and whether it shows anything now. */
+    private class Consumer(val inlays: Boolean, val active: () -> Boolean)
+
+    private val consumers = CopyOnWriteArrayList<Consumer>()
     private val restarts = AtomicLong()
+    private val inlayRecomputes = AtomicLong()
 
     init {
         project.messageBus.connect(this).subscribe(
             AnsibilitySettingsListener.TOPIC,
             object : AnsibilitySettingsListener {
                 override fun workspaceStateChanged(old: WorkspaceState, new: WorkspaceState) {
-                    if (consumers.get() == 0) return
+                    val active = consumers.filter { it.active() }
+                    if (active.isEmpty()) return
                     // Follow editor (D33) changes the host scope of files outside the selection in every root.
                     val changed = if (old.followEditor != new.followEditor) {
                         old.roots.keys + new.roots.keys + ALL_ROOTS
                     } else {
                         (old.roots.keys + new.roots.keys).filterTo(HashSet()) { old.root(it) != new.root(it) }
                     }
-                    if (changed.isNotEmpty()) restartRoots(changed)
+                    if (changed.isNotEmpty()) restartRoots(changed, inlays = active.any { it.inlays })
                 }
             },
         )
     }
 
     override fun dispose() {
-        consumers.set(0)
+        consumers.clear()
     }
 
     /** Daemon restarts done for selection changes (for tests). */
     val restartCount: Long get() = restarts.get()
 
+    /** Editors whose declarative inlay hints a selection change had recomputed (for tests). */
+    val inlayRecomputeCount: Long get() = inlayRecomputes.get()
+
     /**
      * Registers selection-dependent highlighting until [parent] is disposed: from now on a selection change restarts the
      * open files of its root.
      */
-    fun register(parent: Disposable) {
-        consumers.incrementAndGet()
-        Disposer.register(parent) { consumers.decrementAndGet() }
+    fun register(parent: Disposable) = register(parent, inlays = false) { true }
+
+    /**
+     * Registers selection-dependent presentation until [parent] is disposed; it counts only while [active] returns true
+     * (a switched-off hint provider restarts nothing). With [inlays], a restart also recomputes the declarative inlay
+     * hints of the restarted files' editors.
+     */
+    fun register(parent: Disposable, inlays: Boolean, active: () -> Boolean) {
+        val consumer = Consumer(inlays, active)
+        consumers += consumer
+        Disposer.register(parent) { consumers.remove(consumer) }
     }
 
     /** Restarts the daemon for the open files of [root] (and of the roots sharing its selection) now. */
-    fun restart(root: AnsibleRoot) = restartRoots(setOf(RootKeys.keyOf(project, root.dir)))
+    fun restart(root: AnsibleRoot) =
+        restartRoots(setOf(RootKeys.keyOf(project, root.dir)), inlays = consumers.any { it.inlays && it.active() })
 
-    private fun restartRoots(keys: Set<String>) {
+    private fun restartRoots(keys: Set<String>, inlays: Boolean) {
         if (project.isDisposed) return
         scope.launch(Dispatchers.Default) {
             val open = withContext(Dispatchers.EDT) { FileEditorManager.getInstance(project).openFiles.toList() }
@@ -90,6 +114,12 @@ class HostModeRestarts(private val project: Project, private val scope: Coroutin
                 for (psiFile in psiFiles) {
                     DaemonCodeAnalyzer.getInstance(project).restart(psiFile, RESTART_REASON)
                     restarts.incrementAndGet()
+                    if (!inlays) continue
+                    val file = psiFile.viewProvider.virtualFile
+                    for (editor in FileEditorManager.getInstance(project).getEditors(file).mapNotNull { (it as? TextEditor)?.editor }) {
+                        DeclarativeInlayHintsPassFactory.scheduleRecompute(editor, project)
+                        inlayRecomputes.incrementAndGet()
+                    }
                 }
             }
         }

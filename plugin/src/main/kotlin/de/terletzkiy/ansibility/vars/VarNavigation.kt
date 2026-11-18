@@ -20,8 +20,10 @@ import de.terletzkiy.ansibility.api.VarService
 import de.terletzkiy.ansibility.context.MoleculeView
 import de.terletzkiy.ansibility.resolve.VarUsageQuery
 import de.terletzkiy.ansibility.resolve.VarViews
+import de.terletzkiy.ansibility.semantics.validate.SpecDefaults
 import de.terletzkiy.ansibility.semantics.yaml.YMap
 import de.terletzkiy.ansibility.semantics.yaml.YValue
+import de.terletzkiy.ansibility.vars.gutter.OverrideLineMarkers
 import de.terletzkiy.ansibility.yaml.PsiYValueAdapter
 import org.jetbrains.yaml.psi.YAMLKeyValue
 
@@ -43,12 +45,24 @@ import org.jetbrains.yaml.psi.YAMLKeyValue
  *    `defaults/` and `vars/`, play `vars_files`): the definition the reference sees there ([SeenDefinitions]), an
  *    accessor path to the nested key written there (merge keys and aliases followed);
  * 4. a nested accessor (`haproxy_check.uri`) goes to the nested spec option of every declaring role, if any;
- * 5. the own role's spec option → `defaults/` → `vars/`;
+ * 5. the declaring role (the own role when it declares the name, else the first role [VarRanking] ranks) and every
+ *    definition that overrides it, one list (plan amendment R31, D229): its spec option; with an Ansible context
+ *    selected (an environment or a host), the definition that wins for it, marked `✓ wins for prod-web1`
+ *    ([VarContextWinner], the card's winner logic); its `defaults/` and `vars/` keys; then every override of the root,
+ *    lowest precedence first ([OverrideLineMarkers.levelOf]), then by environment and path: inventory `group_vars`,
+ *    `host_vars` and `hosts.yml` of each environment, playbook-level `group_vars`/`host_vars`, play `vars`/`vars_files`,
+ *    `include_vars` files, role and include params;
  * 6. `set_fact`/`register`/`loop_var`/task, block and play `vars` in the same role (outside roles: the same file),
  *    before the caret and nearest first, then after it;
- * 7. other roles of the root that declare the name (spec, defaults, vars), ranked by [VarRanking];
- * 8. only when no role declares it: every other definition (inventory, playbook vars, molecule, vault files), the
- *    caret's directory first; `{{ vault_x }}` so reaches the `vault_x` keys of the root's vault files.
+ * 7. the other roles of the root that declare the name (spec, defaults, vars), ranked by [VarRanking];
+ * 8. only when no role declares it: the winner for a selected context first, then every other definition (inventory,
+ *    playbook vars, molecule, vault files), the caret's directory first; `{{ vault_x }}` so reaches the `vault_x` keys
+ *    of the root's vault files.
+ *
+ * Each row says where and what (D230, [VarSourceTexts.row]): `group_vars web · prod ·
+ * environments/prod/group_vars/web/vars.yml:12 = 1.4.0`, the value as written (cut at 40 characters), `🔒 vault` for a
+ * vault value and `🔒 no_log` for a variable a spec keeps secret; nothing is decrypted. The chooser's speed search
+ * matches the environment and the path.
  *
  * The key whose value holds the reference (`x: "{{ x }}"`) is never a target of a reference.
  *
@@ -90,29 +104,89 @@ class VarNavigation : SiteNavigation {
 
         fun result(): List<PsiElement> = targets.values.toList()
 
-        fun add(location: SourceLocation, path: List<String>, kindLabel: String, owner: String?) {
+        /** A spec keeps every value of the variable secret (`no_log`, plan amendment R23): rows show no value. */
+        private val noLog: Boolean by lazy(LazyThreadSafetyMode.NONE) { ranking.symbol.specBindings.any { SpecDefaults.hasNoLog(it.option) } }
+
+        /** The target at [location] (a key, or the nested key [path] below it) with the row text [text]. */
+        private fun put(location: SourceLocation, path: List<String>, text: String) {
             ProgressManager.checkCanceled()
             if (location in excluded || location in targets) return
             val anchor = VarLocations.elementAt(project, location) ?: return
             val display = (listOf(name) + path).joinToString(".")
-            val where = VarLocations.label(root, location)
-            val text = if (owner != null) {
-                AnsibilityVarsBundle.message("target.location.role", owner, kindLabel, where)
-            } else {
-                AnsibilityVarsBundle.message("target.location", kindLabel, where)
-            }
             targets[location] = VarTargetElement(anchor, location, display, text, VarSubject.definition(project, root, name, path, location))
         }
 
-        fun add(definition: VarDefinition) {
-            add(definition.location, emptyList(), VarLabels.layer(definition) ?: VarLabels.kind(definition.kind), ownerOf(definition))
+        /** `spec · web · roles/web/meta/argument_specs.yml:5`: [kindLabel], its [owner] and where. */
+        fun add(location: SourceLocation, path: List<String>, kindLabel: String, owner: String?) {
+            if (location in excluded || location in targets) return
+            val where = VarLocations.label(root, location)
+            put(location, path, listOfNotNull(kindLabel.ifEmpty { null }, owner, where).joinToString(VarLabels.SEPARATOR))
+        }
+
+        /** [definition] with its layer, owner, place and value (D230), [mark] in front. */
+        fun add(definition: VarDefinition, mark: String? = null) {
+            if (definition.location in excluded || definition.location in targets) return
+            put(definition.location, emptyList(), VarSourceTexts.row(root, definition, noLog, mark))
         }
 
         /** The spec option, `defaults/` and `vars/` keys of [role]. */
         fun addRole(role: String) {
-            ranking.bindingOf(role)?.let { add(it.location, emptyList(), VarLabels.kind(VarDefKind.SPEC_OPTION), role) }
-            ranking.roleDefinitions(role, VarDefKind.ROLE_DEFAULT).forEach { add(it.location, emptyList(), VarLabels.kind(it.kind), role) }
-            ranking.roleDefinitions(role, VarDefKind.ROLE_VAR).forEach { add(it.location, emptyList(), VarLabels.kind(it.kind), role) }
+            addSpec(role)
+            addRoleValues(role)
+        }
+
+        /** The spec option of [role] for the name, if its spec declares it. */
+        fun addSpec(role: String) {
+            val binding = ranking.bindingOf(role) ?: return
+            val definition = ranking.symbol.definitions.firstOrNull { it.kind == VarDefKind.SPEC_OPTION && it.location == binding.location }
+            if (definition != null) add(definition) else add(binding.location, emptyList(), VarLabels.kind(VarDefKind.SPEC_OPTION), role)
+        }
+
+        /** The `defaults/` and `vars/` keys of [role], `main` files first. */
+        fun addRoleValues(role: String) {
+            ranking.roleDefinitions(role, VarDefKind.ROLE_DEFAULT).forEach { add(it) }
+            ranking.roleDefinitions(role, VarDefKind.ROLE_VAR).forEach { add(it) }
+        }
+
+        /**
+         * The definition that wins for the selected Ansible context at [offset] of [file], marked (D229 item 2); nothing
+         * in All mode. A winner the symbol does not list (a `hosts.yml` `host:port` entry) gets its row from the engine.
+         */
+        fun addWinner(file: VirtualFile, offset: Int) {
+            val winner = VarContextWinner.at(project, root, file, offset, name) ?: return
+            val definition = ranking.symbol.definitions.firstOrNull { it.location == winner.location }
+            if (definition != null) {
+                add(definition, winner.mark)
+                return
+            }
+            val ref = winner.ref
+            val where = VarLocations.label(root, winner.location)
+            val value = when {
+                noLog -> AnsibilityVarsBundle.message("source.value.nolog")
+                ref.isVault || VaultInfo.isSecret(name, ref.file) -> AnsibilityVarsBundle.message("source.value.vault")
+                else -> ref.preview?.let { VarSourceTexts.cut(it, VarSourceTexts.ROW_VALUE_MAX) }
+            }
+            val located = if (value == null) where else AnsibilityVarsBundle.message("source.row.value", where, value)
+            val text = listOfNotNull(winner.mark, VarSourceTexts.layer(ref.layer, ref.group, ref.host), winner.environment, located)
+            put(winner.location, emptyList(), text.joinToString(VarLabels.SEPARATOR))
+        }
+
+        /**
+         * Every override of the root (D229 item 4): inventory and playbook `group_vars`/`host_vars`, `hosts.yml`, play
+         * `vars`/`vars_files`, `include_vars` files, role and include params (and Molecule inventories when the view shows
+         * them), lowest precedence first, then by environment and path.
+         */
+        fun addOverrides() {
+            ranking.symbol.definitions.filter { it.kind in OVERRIDE_KINDS }
+                .sortedWith(
+                    compareBy<VarDefinition>(
+                        { OverrideLineMarkers.levelOf(it) ?: Int.MAX_VALUE },
+                        { VarSourceTexts.environment(it) ?: "" },
+                        { it.location.file.path },
+                        { it.location.offset },
+                    ),
+                )
+                .forEach { add(it) }
         }
 
         /** The nested spec option [path] (accessors or keys as written) of every declaring role; true when any. */
@@ -171,7 +245,7 @@ class VarNavigation : SiteNavigation {
         /** Every definition not yet listed, except spec options, around [file]. */
         fun addRemaining(file: VirtualFile) {
             val rest = ranking.symbol.definitions.filter { it.kind != VarDefKind.SPEC_OPTION && it.location !in targets }
-            VarRanking.byProximity(rest, file).forEach(::add)
+            VarRanking.byProximity(rest, file).forEach { add(it) }
         }
 
         companion object {
@@ -180,6 +254,12 @@ class VarNavigation : SiteNavigation {
 
             /** File kinds that hold argument_specs options. */
             private val SPEC_KINDS = setOf(FileKind.ROLE_ARGSPEC, FileKind.ROLE_META)
+
+            /** The kinds that override a role's declaration from outside it (rule 5, D229 item 4). */
+            private val OVERRIDE_KINDS = setOf(
+                VarDefKind.GROUP_VARS, VarDefKind.HOST_VARS, VarDefKind.INVENTORY_INLINE, VarDefKind.MOLECULE_INVENTORY,
+                VarDefKind.PLAY_VARS, VarDefKind.VARS_FILES, VarDefKind.INCLUDE_VARS, VarDefKind.ROLE_PARAMS, VarDefKind.INCLUDE_PARAMS,
+            )
 
             /**
              * True when a direct read of [name] has constant accessors starting with [path] (`host_ips['ops-pxe1']`
@@ -219,10 +299,19 @@ class VarNavigation : SiteNavigation {
                 val seen = SeenDefinitions.of(project, virtualFile, site.range.startOffset, context, symbol, enclosing)
                 if (collector.addSeen(seen, site.attrPath)) return collector.result()
                 if (site.attrPath.isNotEmpty() && collector.addNested(site.attrPath)) return collector.result()
-                ranking.ownRole?.takeIf { it in ranking.declaringRoles }?.let(collector::addRole)
+                // Rule 5 (D229): the declaring role's spec, the winner for a selected context, its defaults and vars, every override.
+                val primary = ranking.ownRole?.takeIf { it in ranking.declaringRoles } ?: ranking.declaringRoles.firstOrNull()
+                if (primary != null) {
+                    collector.addSpec(primary)
+                    collector.addWinner(virtualFile, site.range.startOffset)
+                    collector.addRoleValues(primary)
+                    collector.addOverrides()
+                } else {
+                    collector.addWinner(virtualFile, site.range.startOffset)
+                }
                 val runtime = symbol.definitions.filter { it.kind in VarRanking.RUNTIME_KINDS && ranking.isLocal(it) }
-                VarRanking.nearestFirst(runtime, virtualFile, site.range.startOffset).forEach(collector::add)
-                ranking.declaringRoles.filter { it != ranking.ownRole }.forEach(collector::addRole)
+                VarRanking.nearestFirst(runtime, virtualFile, site.range.startOffset).forEach { collector.add(it) }
+                ranking.declaringRoles.filter { it != primary }.forEach(collector::addRole)
                 if (!ranking.anyRoleDeclares) collector.addRemaining(virtualFile)
                 return collector.result()
             }

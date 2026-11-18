@@ -1,11 +1,13 @@
 package de.terletzkiy.ansibility.context.host
 
+import com.intellij.codeInsight.hints.declarative.DeclarativeInlayHintsSettings
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.util.Disposer
 import com.intellij.testFramework.PlatformTestUtil
 import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
 import de.terletzkiy.ansibility.settings.RootContext
+import de.terletzkiy.ansibility.vars.hints.VarSourceHints
 
 /**
  * [HostModeRestarts] (plan amendment R7/R8, A.9 change 6): a selection change restarts the daemon only while host-mode
@@ -37,6 +39,8 @@ class HostModeRestartsTest : HostContextTestCase() {
         val platformFile = vf("$PLATFORM/environments/prod/hosts.yml")
         editors.openFile(falconFile, false)
         editors.openFile(platformFile, false)
+        // The variable source hints (plan amendment R31) are a host-mode presentation that is on by default: off here.
+        DeclarativeInlayHintsSettings.getInstance().setProviderEnabled(VarSourceHints.PROVIDER_ID, false)
         try {
             val start = restarts.restartCount
             context.setSelection(root(FALCON), RootContext(EnvironmentChoice.Named("prod")))
@@ -58,6 +62,7 @@ class HostModeRestartsTest : HostContextTestCase() {
             settle()
             assertEquals(start + 2, restarts.restartCount)
         } finally {
+            DeclarativeInlayHintsSettings.getInstance().setProviderEnabled(VarSourceHints.PROVIDER_ID, true)
             editors.closeFile(falconFile)
             editors.closeFile(platformFile)
         }

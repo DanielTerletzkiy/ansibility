@@ -84,4 +84,40 @@
                                         implementationClass="de.terletzkiy.ansibility.vars.gutter.OverrideLineMarkers"/>
         <codeInsight.gotoSuper language="yaml" implementationClass="de.terletzkiy.ansibility.vars.gutter.OverrideGotoSuper"/>
     </extensions>
+    <!-- r31: inline variable sources (plan amendment R31, D232-D237). One provider id for YAML and Jinja templates, so
+         Settings | Editor | Inlay Hints, the hint's "Disable" menu and the toggle action are one switch (D236). -->
+    <extensions defaultExtensionNs="com.intellij">
+        <codeInsight.declarativeInlayProvider language="yaml"
+                                              implementationClass="de.terletzkiy.ansibility.vars.hints.VarSourceHintsProvider"
+                                              isEnabledByDefault="true"
+                                              group="VALUES_GROUP"
+                                              providerId="ansibility.variable.sources"
+                                              bundle="messages.AnsibilityVarsBundle"
+                                              nameKey="hints.provider.name"
+                                              descriptionKey="hints.provider.description">
+            <option optionId="single.sources" enabledByDefault="false" bundle="messages.AnsibilityVarsBundle"
+                    nameKey="hints.option.defaults.name" descriptionKey="hints.option.defaults.description"/>
+        </codeInsight.declarativeInlayProvider>
+        <codeInsight.declarativeInlayProvider language="AnsibleJinja"
+                                              implementationClass="de.terletzkiy.ansibility.vars.hints.VarSourceHintsProvider"
+                                              isEnabledByDefault="true"
+                                              group="VALUES_GROUP"
+                                              providerId="ansibility.variable.sources"
+                                              bundle="messages.AnsibilityVarsBundle"
+                                              nameKey="hints.provider.name"
+                                              descriptionKey="hints.provider.description">
+            <option optionId="single.sources" enabledByDefault="false" bundle="messages.AnsibilityVarsBundle"
+                    nameKey="hints.option.defaults.name" descriptionKey="hints.option.defaults.description"/>
+        </codeInsight.declarativeInlayProvider>
+        <!-- A click on a hint opens the Ctrl+B list of its reference (D235). -->
+        <codeInsight.inlayActionHandler handlerId="ansibility.variable.sources"
+                                        implementationClass="de.terletzkiy.ansibility.vars.hints.VarSourceHintClickHandler"/>
+    </extensions>
+    <actions resource-bundle="messages.AnsibilityVarsBundle">
+        <!-- "Ansibility: Toggle Variable Source Hints": Find Action, a shortcut, and the editor's menu of Ansible files. -->
+        <action id="Ansibility.ToggleVariableSourceHints" class="de.terletzkiy.ansibility.vars.hints.ToggleVariableSourceHintsAction">
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+        </action>
+    </actions>
+    <!-- /r31 -->
 </idea-plugin>

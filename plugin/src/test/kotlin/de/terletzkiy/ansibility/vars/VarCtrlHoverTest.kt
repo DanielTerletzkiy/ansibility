@@ -50,8 +50,19 @@ class VarCtrlHoverTest : VarsTestCase() {
         copyInfra("repos/falcon")
         val template = "repos/falcon/ansible/roles/postfix/templates/main.cf.j2"
         val targets = gotoTargets(template, offsetAt(template, 9, "postfix_relayhost", 2))
-        assertEquals(2, targets.size)
-        for (target in targets) assertEquals("postfix_relayhost: str = \"\" · postfix (optional)", hintOf(target))
+        // Plan amendment R31 (D229): the spec and the default, then every override, lowest precedence first.
+        val falcon = "repos/falcon/ansible"
+        assertEquals(
+            listOf(
+                "$falcon/roles/postfix/meta/argument_specs.yml",
+                "$falcon/roles/postfix/defaults/main.yml",
+                "$falcon/environments/prod/group_vars/all/vars.yml:471",
+                "$falcon/environments/test/group_vars/all/vars.yml:323",
+                "$falcon/group_vars/all/vars.yml:156",
+            ),
+            targets.map(::describe).mapIndexed { index, it -> if (index < 2) it.substringBeforeLast(':') else it },
+        )
+        for (target in targets.take(2)) assertEquals("postfix_relayhost: str = \"\" · postfix (optional)", hintOf(target))
     }
 
     fun testPlatformCtrlHoverShowsTheHintForASingleTarget() {
