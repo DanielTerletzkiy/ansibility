@@ -9,45 +9,57 @@ import com.intellij.openapi.components.Storage
 import com.intellij.openapi.components.service
 import com.intellij.openapi.util.ModificationTracker
 import com.intellij.openapi.util.SimpleModificationTracker
+import com.intellij.openapi.util.SystemInfo
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.util.messages.Topic
 import com.intellij.util.xmlb.annotations.Attribute
-import com.intellij.util.xmlb.annotations.Tag
 import com.intellij.util.xmlb.annotations.XCollection
 import org.jetbrains.annotations.TestOnly
-import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Which files the IDE keeps out of its indexes (plan amendment R30, D224, D226, D228): per user and for every project,
- * at application level in `ansibility-vault-index.xml` of the IDE configuration directory (roaming disabled, like the
- * rest of the per-user vault state). Application level because [PasswordFileExcluder], an application-wide workspace
- * file index contributor, gets no project.
+ * Which files the IDE keeps out of its indexes (plan amendment R30, D224, D226, D228; R30 review fixes, decisions 1 and
+ * 7): per user and for every project, at application level in `ansibility-vault-index.xml` of the IDE configuration
+ * directory (roaming disabled, like the rest of the per-user vault state). Application level because
+ * [PasswordFileExcluder], an application-wide workspace file index contributor, gets no project.
  *
- * - [patterns]: the built-in names ([PasswordFileNames.BUILT_IN]), the extra names you added (file names only, `*` and
- *   `?` as wildcards, validated by [PasswordFileNames.problemOf]) and `.env.local` when [excludeEnvLocal] is on.
+ * - Name entries ([patterns]): the built-in names ([PasswordFileNames.BUILT_IN]), the extra names you typed (file names
+ *   only, `*` and `?` as wildcards, validated by [PasswordFileNames.problemOf]) and `.env.local` when [excludeEnvLocal]
+ *   is on.
+ * - Exact-path entries ([paths]): the canonical absolute paths of the password files added from the Vault tab, its
+ *   notification or a suggestion of the settings page; only that file is kept out, never another of the same name.
+ * - [rules] compiles both; [KeepOutRules.excludes] never takes a directory, a vars or vault file or a script.
  * - A changed list applies when a project opens (D225): the platform has no public API to apply exclusions again.
- * - Per project location, the [fingerprint] of the list its excluded password files were last re-indexed for (D226),
- *   so `PasswordFileReindex` asks the platform once per project and list version.
+ * - Per project location, whether the one-time Local History notice was shown (decision 7).
  *
- * File names only, never a path or content. Any thread.
+ * File names and paths only, never content. Any thread.
  */
 @Service(Service.Level.APP)
 @State(name = "AnsibilityVaultIndexExclusions", storages = [Storage(value = "ansibility-vault-index.xml", roamingType = RoamingType.DISABLED)])
 class IndexExclusionSettings : PersistentStateComponent<IndexExclusionSettings.StateBean> {
     private val tracker = SimpleModificationTracker()
-    private val reindexed = ConcurrentHashMap<String, String>()
+    private val noticed: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
     @Volatile
     private var extra: List<String> = emptyList()
 
     @Volatile
+    private var exact: List<String> = emptyList()
+
+    @Volatile
     private var envLocal: Boolean = false
 
-    /** Bumped whenever [patterns] changes. */
+    @Volatile
+    private var compiled: KeepOutRules? = null
+
+    /** Bumped whenever [patterns] or [paths] change. */
     val modificationTracker: ModificationTracker get() = tracker
 
     /** The names you added, in order (valid and distinct). */
     val extraNames: List<String> get() = extra
+
+    /** The exact files kept out, as canonical absolute paths, in the order they were added. */
+    val paths: List<String> get() = exact
 
     /** Whether `.env.local` is kept out too (D228; off by default: the `.env` plugin and Compose read `.env*` files). */
     val excludeEnvLocal: Boolean get() = envLocal
@@ -55,19 +67,31 @@ class IndexExclusionSettings : PersistentStateComponent<IndexExclusionSettings.S
     /** Every name pattern kept out of the indexes: built-in, then the extra names, then `.env.local` when ticked. */
     fun patterns(): List<String> = (PasswordFileNames.BUILT_IN + extra + listOfNotNull(PasswordFileNames.ENV_LOCAL.takeIf { envLocal })).distinct()
 
-    /** True when a file named [fileName] is kept out by [patterns] (once a project registers them, D225). */
-    fun isKeptOut(fileName: String): Boolean = PasswordFileNames.matchesAny(patterns(), fileName)
+    /** The name and path entries, compiled ([KeepOutRules]); the same object until the entries change. */
+    fun rules(): KeepOutRules = compiled ?: synchronized(this) { compiled ?: KeepOutRules(patterns(), exact).also { compiled = it } }
+
+    /** True when [file] is kept out by the entries as they are now ([KeepOutRules.excludes]; once a project registers them, D225). */
+    fun isKeptOut(file: VirtualFile): Boolean = rules().excludes(file)
 
     /**
-     * Replaces the extra names and the `.env.local` choice; invalid names are dropped, duplicates and built-in names
-     * too. Tells [IndexExclusionListener.TOPIC] when something changed. Any thread.
+     * True when a file named [fileName] is kept out by a name entry, with the local file system's case rule; exact-path
+     * entries and the guard are not asked (a name only).
      */
-    fun update(extraNames: List<String>, excludeEnvLocal: Boolean) {
+    fun isKeptOut(fileName: String): Boolean = rules().matchesName(fileName, SystemInfo.isFileSystemCaseSensitive)
+
+    /**
+     * Replaces the extra names, the `.env.local` choice and the exact paths; invalid names and paths are dropped,
+     * duplicates and built-in names too. Tells [IndexExclusionListener.TOPIC] when something changed. Any thread.
+     */
+    fun update(extraNames: List<String>, excludeEnvLocal: Boolean, paths: List<String> = this.paths) {
         val names = clean(extraNames)
+        val files = cleanPaths(paths)
         val changed = synchronized(this) {
-            if (names == extra && excludeEnvLocal == envLocal) return
+            if (names == extra && excludeEnvLocal == envLocal && files == exact) return
             extra = names
             envLocal = excludeEnvLocal
+            exact = files
+            compiled = null
             tracker.incModificationCount()
             true
         }
@@ -76,55 +100,41 @@ class IndexExclusionSettings : PersistentStateComponent<IndexExclusionSettings.S
 
     /** Adds [names] (valid ones not yet kept out) to the extra names; returns the names added. */
     fun addNames(names: Collection<String>): List<String> {
-        val added = synchronized(this) { clean(names).filter { !isKeptOut(it) && it !in extra } }
-        if (added.isNotEmpty()) update(extra + added, envLocal)
+        val (added, envLocalNow, pathsNow) = synchronized(this) { Triple(clean(names).filter { !isKeptOut(it) && it !in extra }, envLocal, exact) }
+        if (added.isNotEmpty()) update(extra + added, envLocalNow, pathsNow)
         return added
     }
 
-    /**
-     * A short digest of [patterns] (sorted) and of how this build re-indexes ([REINDEX_VERSION]): what a project's last
-     * re-index is compared with (D226).
-     */
-    fun fingerprint(): String {
-        val text = "$REINDEX_VERSION\n" + patterns().sorted().joinToString("\n")
-        val digest = MessageDigest.getInstance("SHA-256").digest(text.toByteArray(Charsets.UTF_8))
-        return digest.take(FINGERPRINT_BYTES).joinToString("") { "%02x".format(it) }
+    /** Adds the exact [paths] not listed yet; returns the paths added. */
+    fun addPaths(paths: Collection<String>): List<String> {
+        val added = synchronized(this) { cleanPaths(paths).filter { it !in exact } }
+        if (added.isNotEmpty()) update(extra, envLocal, exact + added)
+        return added
     }
 
-    /** The fingerprint the excluded password files of the project at [projectKey] were last re-indexed for, or null. */
-    fun reindexedFingerprint(projectKey: String): String? = reindexed[projectKey]
-
-    /** Records that the excluded password files of the project at [projectKey] were re-indexed for [fingerprint]. */
-    fun markReindexed(projectKey: String, fingerprint: String) {
-        reindexed[projectKey] = fingerprint
-    }
+    /** Records that the Local History notice was shown for the project at [projectKey]; false when it was already. */
+    fun markLocalHistoryNoticed(projectKey: String): Boolean = noticed.add(projectKey)
 
     override fun getState(): StateBean = StateBean().also { bean ->
         bean.extraNames = extra.toMutableList()
         bean.excludeEnvLocal = envLocal
-        bean.reindexed = reindexed.entries.sortedBy { it.key }.mapTo(ArrayList()) { (project, fingerprint) ->
-            ReindexedBean().also {
-                it.project = project
-                it.fingerprint = fingerprint
-            }
-        }
+        bean.paths = exact.toMutableList()
+        bean.localHistoryNoticed = noticed.sorted().toMutableList()
     }
 
     override fun loadState(state: StateBean) {
         synchronized(this) {
             extra = clean(state.extraNames)
             envLocal = state.excludeEnvLocal
-            reindexed.clear()
-            for (bean in state.reindexed) {
-                val project = bean.project ?: continue
-                val fingerprint = bean.fingerprint ?: continue
-                reindexed[project] = fingerprint
-            }
+            exact = cleanPaths(state.paths)
+            noticed.clear()
+            state.localHistoryNoticed.filterTo(noticed) { it.isNotBlank() }
+            compiled = null
             tracker.incModificationCount()
         }
     }
 
-    /** Back to the defaults: no extra names, `.env.local` not kept out, nothing re-indexed (tests share one application). */
+    /** Back to the defaults: no extra names or paths, `.env.local` not kept out, no notice shown (tests share one application). */
     @TestOnly
     fun resetForTests() {
         loadState(StateBean())
@@ -132,6 +142,8 @@ class IndexExclusionSettings : PersistentStateComponent<IndexExclusionSettings.S
 
     private fun clean(names: Collection<String>): List<String> =
         names.map { it.trim() }.filter { PasswordFileNames.isValid(it) && it !in PasswordFileNames.BUILT_IN }.distinct()
+
+    private fun cleanPaths(paths: Collection<String>): List<String> = paths.map { it.trim() }.filter(KeepOutRules::isValidPath).distinct()
 
     /** XML form of the state. */
     class StateBean {
@@ -141,31 +153,19 @@ class IndexExclusionSettings : PersistentStateComponent<IndexExclusionSettings.S
         @get:Attribute("excludeEnvLocal")
         var excludeEnvLocal: Boolean = false
 
-        @get:XCollection(propertyElementName = "reindexed", elementName = "project")
-        var reindexed: MutableList<ReindexedBean> = ArrayList()
-    }
+        @get:XCollection(propertyElementName = "paths", elementName = "file", valueAttributeName = "path")
+        var paths: MutableList<String> = ArrayList()
 
-    /** XML form of one project's last re-index: its location and the list's fingerprint. */
-    @Tag("project")
-    class ReindexedBean {
-        @get:Attribute("location")
-        var project: String? = null
-
-        @get:Attribute("fingerprint")
-        var fingerprint: String? = null
+        @get:XCollection(propertyElementName = "localHistoryNoticed", elementName = "project", valueAttributeName = "location")
+        var localHistoryNoticed: MutableList<String> = ArrayList()
     }
 
     companion object {
-        /** Bumped when the re-index of [PasswordFileReindex] changes, so every project re-indexes once more. */
-        private const val REINDEX_VERSION = 1
-
-        private const val FINGERPRINT_BYTES = 8
-
         fun getInstance(): IndexExclusionSettings = service()
     }
 }
 
-/** Published on the application bus when [IndexExclusionSettings.patterns] changed, on the thread that changed it. */
+/** Published on the application bus when [IndexExclusionSettings.patterns] or its paths changed, on the thread that changed it. */
 fun interface IndexExclusionListener {
     fun exclusionsChanged()
 

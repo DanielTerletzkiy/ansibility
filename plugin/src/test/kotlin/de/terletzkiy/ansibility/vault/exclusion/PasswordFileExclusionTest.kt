@@ -135,7 +135,8 @@ class PasswordFileExclusionTest : BasePlatformTestCase() {
                 "notes.txt" to "zqxwvsentinelfoxtrot\n",
             ),
         )
-        assertEquals(PasswordFileNames.BUILT_IN, listOf(".vault-pass", ".vault_pass", ".vault-password", ".vault_password"))
+        // R30 review fixes, decision 1: Rotate Vault Password's temporary file is built in too.
+        assertEquals(PasswordFileNames.BUILT_IN, listOf(".vault-pass", ".vault_pass", ".vault-password", ".vault_password", ".ansibility-rotate-*.tmp"))
         val words = mapOf(
             ".vault-pass" to "zqxwvsentinelalpha",
             ".vault_pass" to "zqxwvsentinelbravo",
@@ -206,18 +207,23 @@ class PasswordFileExclusionTest : BasePlatformTestCase() {
         assertTrue("other files keep theirs", kept(roots.last().findChild("notes.txt")!!, "zqxwvsentinelmike").words > 0)
     }
 
-    fun testTheReindexRunsOncePerProjectAndListVersion() {
-        root("once", mapOf(".vault-pass" to "zqxwvsentinelnovember\n", "group_vars/all.yml" to "a: 1\n"))
-        val key = PasswordFileReindex.projectKey(project)
-        assertNull(settings.reindexedFingerprint(key))
-        val first = await { PasswordFileReindex.runIfDue(project) }
-        assertTrue("the excluded .vault-pass at least: $first", first != null && first >= 1)
-        assertEquals(settings.fingerprint(), settings.reindexedFingerprint(key))
-        assertNull("not again for the same list", await { PasswordFileReindex.runIfDue(project) })
+    /**
+     * R30 review fixes, decision 2 (replaces "once per project and list version"): the pass runs every time it is asked
+     * (every project open, every new content root), and re-indexes only the excluded files that still have word or
+     * trigram data, so a clean project costs a walk and no re-index.
+     */
+    fun testTheStaleDataPassRunsEveryTimeAndReindexesOnlyFilesWithData() {
+        val stale = root("every", mapOf("secrets/team.vaultpw" to "zqxwvsentinelnovember\n", "group_vars/all.yml" to "a: 1\n")).getValue("secrets/team.vaultpw")
+        assertTrue("indexed like any file", kept(stale, "zqxwvsentinelnovember").words > 0)
+        assertEquals("a clean project: nothing to re-index", 0, await { PasswordFileReindex.runIfDue(project) })
 
         settings.update(listOf("*.vaultpw"), excludeEnvLocal = false)
-        assertNotNull("a changed list is due again (at the next start)", await { PasswordFileReindex.runIfDue(project) })
-        assertNull(await { PasswordFileReindex.runIfDue(project) })
+        rebuildFileSets()
+        assertTrue(kept(stale, "zqxwvsentinelnovember").excluded)
+        assertEquals("the excluded file with data from before", 1, await { PasswordFileReindex.runIfDue(project) })
+        IndexingTestUtil.waitUntilIndexesAreReady(project)
+        assertTrue(kept(stale, "zqxwvsentinelnovember").nothing)
+        assertEquals("the same list again: the walk runs, nothing has data any more", 0, await { PasswordFileReindex.runIfDue(project) })
     }
 
     fun testTheWalkFindsOnlyExcludedPasswordFilesAndKeepsToItsBudget() {
@@ -259,26 +265,48 @@ class PasswordFileExclusionTest : BasePlatformTestCase() {
         assertFalse(PasswordFileNames.matches("vault?.pw", "vault12.pw"))
         assertFalse("literal dots", PasswordFileNames.matches("a.b", "axb"))
         assertFalse("case-sensitive", PasswordFileNames.matches(".vault-pass", ".VAULT-PASS"))
+        // R30 review fixes, decision 3: the file system's case rule, and extensions ignore case as the platform's do.
+        assertTrue("case-insensitive file system", PasswordFileNames.matches(".vault-pass", ".VAULT-PASS", caseSensitive = false))
+        assertTrue("an extension ignores case", PasswordFileNames.matches("*.vaultpw", "TEAM.VAULTPW"))
+        assertFalse("a wildcard pattern does not", PasswordFileNames.matches("team-*.pw", "TEAM-1.PW"))
+        assertTrue(PasswordFileNames.matches("team-*.pw", "TEAM-1.PW", caseSensitive = false))
+        assertTrue(PasswordFileNames.matches(".ansibility-rotate-*.tmp", ".ansibility-rotate-123.tmp"))
+        assertTrue("* matches nothing too", PasswordFileNames.matches("a*b*c", "abc"))
+        assertTrue(PasswordFileNames.matches("a*b*c", "axxbyyc"))
+        assertFalse(PasswordFileNames.matches("a*b*c", "axxbyy"))
+        assertTrue("?* backtracks", PasswordFileNames.matches("*.?w", "x.y.pw"))
     }
 
     fun testSettingsSurviveARoundTripAndDropInvalidNames() {
-        settings.update(listOf(" team.vaultpw ", "", "secrets/dev.pw", "*", ".vault-pass", "team.vaultpw", "ops-*.pw"), excludeEnvLocal = true)
+        settings.update(
+            listOf(" team.vaultpw ", "", "secrets/dev.pw", "*", ".vault-pass", "team.vaultpw", "ops-*.pw"),
+            excludeEnvLocal = true,
+            paths = listOf("/work/infra/secrets/dev.pw", "relative/dev.pw", "/work/infra/../x.pw", "/work/infra/secrets/dev.pw"),
+        )
         assertEquals("trimmed, valid, no built-in name, no duplicate", listOf("team.vaultpw", "ops-*.pw"), settings.extraNames)
+        assertEquals("absolute, normalised, no duplicate", listOf("/work/infra/secrets/dev.pw"), settings.paths)
         assertEquals(PasswordFileNames.BUILT_IN + listOf("team.vaultpw", "ops-*.pw", ".env.local"), settings.patterns())
-        settings.markReindexed("/work/infra", settings.fingerprint())
+        assertTrue("the Local History notice once per project", settings.markLocalHistoryNoticed("/work/infra"))
+        assertFalse(settings.markLocalHistoryNoticed("/work/infra"))
 
         val loaded = IndexExclusionSettings()
         loaded.loadState(com.intellij.util.xmlb.XmlSerializer.deserialize(com.intellij.configurationStore.serialize(settings.state)!!, IndexExclusionSettings.StateBean::class.java))
         assertEquals(settings.extraNames, loaded.extraNames)
+        assertEquals(settings.paths, loaded.paths)
         assertTrue(loaded.excludeEnvLocal)
-        assertEquals(settings.fingerprint(), loaded.fingerprint())
-        assertEquals(settings.fingerprint(), loaded.reindexedFingerprint("/work/infra"))
+        assertEquals(settings.rules(), loaded.rules())
+        assertFalse("remembered", loaded.markLocalHistoryNoticed("/work/infra"))
 
-        val planted = IndexExclusionSettings.StateBean().apply { extraNames = mutableListOf("../x", "*.*", "ok.pw") }
+        val planted = IndexExclusionSettings.StateBean().apply {
+            extraNames = mutableListOf("../x", "*.*", "ok.pw")
+            paths = mutableListOf("/", "C", "/ok/a.pw")
+        }
         loaded.loadState(planted)
         assertEquals("invalid names in the file are ignored", listOf("ok.pw"), loaded.extraNames)
+        assertEquals("invalid paths too", listOf("/ok/a.pw"), loaded.paths)
         assertFalse(loaded.excludeEnvLocal)
-        assertFalse("the fingerprint follows the list", settings.fingerprint() == loaded.fingerprint())
+        assertFalse("the rules follow the list", settings.rules() == loaded.rules())
+        assertEquals(listOf("/ok/b.pw"), loaded.addPaths(listOf("/ok/a.pw", "/ok/b.pw", "x")))
 
         assertEquals(listOf("more.pw"), settings.addNames(listOf("more.pw", "team.vaultpw", ".vault_pass", "bad/name")))
         assertEquals(listOf("team.vaultpw", "ops-*.pw", "more.pw"), settings.extraNames)

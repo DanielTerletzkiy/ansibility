@@ -696,12 +696,15 @@ class RotationService(private val project: Project, private val scope: Coroutine
         VfsUtilCore.visitChildrenRecursively(own, object : VirtualFileVisitor<Any>() {
             override fun visitFile(file: VirtualFile): Boolean {
                 ProgressManager.checkCanceled()
-                if (file != own && (file in skipped || types.isFileIgnored(file) || file.name == ".git" || fileIndex.isExcluded(file) || ignored(file))) return false
-                if (file.isDirectory) return true
-                if (AtomicFiles.isLeftover(file.name)) {
+                if (file != own && (file in skipped || types.isFileIgnored(file) || file.name == ".git" || ignored(file))) return false
+                // Before the exclusion check: the IDE keeps leftovers out of its indexes (plan amendment R30 review fixes,
+                // decision 1), and only files are kept out, never a folder (whose files the walk skips with it).
+                if (!file.isDirectory && AtomicFiles.isLeftover(file.name)) {
                     file.toNioPathOrNull()?.let(leftovers::add)
                     return false
                 }
+                if (file != own && fileIndex.isExcluded(file)) return false
+                if (file.isDirectory) return true
                 if (file !in covered && !VaultIndex.InputFilter.acceptInput(file)) files += file
                 return false
             }

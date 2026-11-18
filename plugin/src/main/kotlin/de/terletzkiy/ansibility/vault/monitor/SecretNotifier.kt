@@ -99,7 +99,7 @@ class SecretNotifier(private val project: Project) {
                 NotificationAction.createSimpleExpiring(message("monitor.notification.action.encrypt")) { VaultFileOperations.getInstance(project).encrypt(files) }
             // Plan amendment R30 (D227): password files the IDE indexes.
             fresh.all { it.fix == SecretFix.KEEP_OUT_OF_INDEXES } ->
-                NotificationAction.createSimpleExpiring(message("monitor.notification.action.keep.out")) { KeepOutOfIndexes.perform(project, files.map { it.name }) }
+                NotificationAction.createSimpleExpiring(message("monitor.notification.action.keep.out")) { KeepOutOfIndexes.perform(project, files) }
             else -> null
         }
     }

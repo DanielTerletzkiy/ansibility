@@ -4,6 +4,7 @@ import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.openapi.vfs.toNioPathOrNull
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiManager
@@ -16,6 +17,7 @@ import de.terletzkiy.ansibility.yaml.YamlPsi
 import org.jetbrains.yaml.psi.YAMLKeyValue
 import org.jetbrains.yaml.psi.YAMLScalar
 import java.io.IOException
+import java.nio.file.Files
 
 /**
  * One vault envelope in a file: where it is, its header as written and the parse result. Not secret: the envelope is
@@ -73,15 +75,25 @@ object VaultEnvelopes {
         return inline(element)
     }
 
-    /** Whether [file] is a whole-file vault: its first 14 bytes are `$ANSIBLE_VAULT`. */
+    /**
+     * Whether [file] is a whole-file vault: its first 14 bytes are `$ANSIBLE_VAULT`. A file on the local file system is
+     * read with `java.nio`, never through the VFS (plan amendment R30 review fixes, decision 5): the VFS keeps the
+     * content of a file it read to the end in its content storage, and the Vault tab and the commit check ask this of
+     * plaintext password files, 14 bytes of which can be the whole password. The bytes read are zeroed.
+     */
     fun isWholeFileVault(file: VirtualFile): Boolean {
         if (file.isDirectory || !file.isValid || file.length < VaultHeaderInfo.MAGIC.length) return false
         val head = try {
-            VfsUtilCore.loadNBytes(file, VaultHeaderInfo.MAGIC.length)
+            val path = if (file.isInLocalFileSystem) file.toNioPathOrNull() else null
+            if (path != null) Files.newInputStream(path).use { it.readNBytes(VaultHeaderInfo.MAGIC.length) } else VfsUtilCore.loadNBytes(file, VaultHeaderInfo.MAGIC.length)
         } catch (_: IOException) {
             return false
         }
-        return VaultEnvelope.isEncryptedFile(head)
+        return try {
+            head.size == VaultHeaderInfo.MAGIC.length && VaultEnvelope.isEncryptedFile(head)
+        } finally {
+            head.fill(0)
+        }
     }
 
     /**

@@ -150,7 +150,9 @@ class IndexedPasswordFileTabTest : VaultUiTestCase() {
 
         reopen.answer = true
         assertTrue(perform(panel, SecretTabActions.KeepOut()))
-        assertEquals(listOf("dev.pw"), exclusions.extraNames)
+        // R30 review fixes, decision 1: the file's exact path, not its name.
+        assertEquals(listOf(vf("$root/secrets/dev.pw").canonicalPath), exclusions.paths)
+        assertEmpty(exclusions.extraNames)
         assertEquals(listOf(listOf("dev.pw")), reopen.asked)
         assertEquals("reopened when you agree", listOf(project), reopen.reopened.toList())
         val listed = monitor.await { s -> indexed(s).singleOrNull()?.details?.single()?.contains("listed") == true }
@@ -176,8 +178,41 @@ class IndexedPasswordFileTabTest : VaultUiTestCase() {
         assertEquals("falcon: 1 password file the IDE indexes (dev.pw)", notification.content)
         assertEquals(listOf("Show", "Keep Out of the IDE's Indexes", "Don't Show Again for These"), VaultNotifications.actions(notification))
         notifications.click(notification, "Keep Out of the IDE's Indexes")
-        assertEquals(listOf("dev.pw"), exclusions.extraNames)
+        // R30 review fixes, decision 1: the file's exact path, not its name.
+        assertEquals(listOf(vf("$root/secrets/dev.pw").canonicalPath), exclusions.paths)
+        assertEmpty(exclusions.extraNames)
         assertEquals("asked, not reopened (answered Later)", listOf(listOf("dev.pw")), reopen.asked)
         assertEmpty(reopen.reopened)
+    }
+
+    /**
+     * R30 review fixes, decision 5: the tab reads the first 14 bytes of a password file (is it vaulted?) with `java.nio`;
+     * a 14-byte password file read through the VFS would be copied into the VFS content storage.
+     */
+    fun testA14BytePasswordFileNeverReachesTheVfsContentStorage() {
+        write("$root/secrets/dev.pw", "zqxwvtabpass\n\n")
+        val file = vf("$root/secrets/dev.pw")
+        assertEquals("14 bytes: the vault magic's length", 14L, file.length)
+        val storage = com.intellij.openapi.vfs.newvfs.persistent.PersistentFS.getInstance()
+        assertEquals("precondition: nothing stored", 0, storage.getCurrentContentId(file))
+        start()
+        assertEquals("secrets/dev.pw", indexed(monitor.await { indexed(it).isNotEmpty() }).single().path)
+        assertEquals("the tab's check stored no copy of the password", 0, storage.getCurrentContentId(file))
+    }
+
+    /**
+     * R30 review fixes, decision 1: a password file the IDE never keeps out (here a `*.key` name, which the vault index
+     * reads) is listed, without the fix, and the details say why.
+     */
+    fun testAPasswordFileTheIdeCannotKeepOutIsListedWithoutTheFix() {
+        root = projectRoot("tern", "[defaults]\nvault_identity_list = dev@secrets/vault.key\n")
+        write("$root/secrets/vault.key", "${VaultVectors.DEV}\n")
+        start()
+        val finding = indexed(monitor.await { indexed(it).isNotEmpty() }).single()
+        assertEquals("secrets/vault.key", finding.path)
+        assertNull("no fix: Keep Out would not keep it out", finding.fix)
+        assertTrue(finding.details.single(), finding.details.single().contains("the IDE cannot keep it out"))
+        assertEmpty("Keep Out adds nothing for it", de.terletzkiy.ansibility.vault.exclusion.KeepOutOfIndexes.perform(project, listOf(finding.file)))
+        assertEmpty(exclusions.paths)
     }
 }

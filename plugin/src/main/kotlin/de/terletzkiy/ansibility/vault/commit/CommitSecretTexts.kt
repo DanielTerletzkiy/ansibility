@@ -34,7 +34,7 @@ class CommitFix(val fix: SecretFix, val files: List<VirtualFile>) {
         when (fix) {
             SecretFix.ENCRYPT -> VaultFileOperations.getInstance(project).encrypt(valid)
             SecretFix.CONVERT -> WholeFileConversions.convert(project, valid)
-            SecretFix.KEEP_OUT_OF_INDEXES -> KeepOutOfIndexes.perform(project, valid.map { it.name })
+            SecretFix.KEEP_OUT_OF_INDEXES -> KeepOutOfIndexes.perform(project, valid)
         }
     }
 

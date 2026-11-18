@@ -21,17 +21,24 @@
         <!-- /V2a; VaultIdentityRegistry, VaultSecretsService, VaultCrypto, VaultProjectSettings and VaultUserState are
              light services (@Service) -->
     </extensions>
-    <!-- r30: keep vault password files out of the IDE's indexes (plan amendment R30, D223-D228). The contributor
-         registers the name patterns of vault.exclusion.IndexExclusionSettings (application level, a light service) as
-         exclusion patterns of every content root, as the platform's own automatic excludes do; a changed list applies
-         when a project opens (D225). Once per project and list version the excluded password files are re-indexed, so
-         index data from before goes (D226). The reopen question of "Keep Out of the IDE's Indexes" (tests replace it).
-         The contributor's package com.intellij.workspaceModel.core.fileIndex is @ApiStatus.Experimental (package-info). -->
+    <!-- r30: keep vault password files out of the IDE's indexes (plan amendment R30, D223-D228; review fixes R30F).
+         The contributor registers an exclusion condition over the entries of vault.exclusion.IndexExclusionSettings
+         (application level, a light service) for every content root: files only (never a folder), named by a name
+         entry or by their exact path, never a vars or vault file or a script; a changed list applies when a project
+         opens (D225). At every project open and for every content root added later, the excluded password files that
+         still have index data are re-indexed, so index data from before goes (D226). The reopen question of "Keep Out
+         of the IDE's Indexes" (tests replace it). The contributor's package com.intellij.workspaceModel.core.fileIndex
+         is @ApiStatus.Experimental (package-info). -->
     <extensions defaultExtensionNs="com.intellij">
         <workspaceModel.fileIndexContributor implementation="de.terletzkiy.ansibility.vault.exclusion.PasswordFileExcluder"/>
         <postStartupActivity implementation="de.terletzkiy.ansibility.vault.exclusion.PasswordFileReindexActivity"/>
         <applicationService serviceInterface="de.terletzkiy.ansibility.vault.exclusion.IndexExclusionPrompts"
                             serviceImplementation="de.terletzkiy.ansibility.vault.exclusion.IndexExclusionDialogPrompts"/>
     </extensions>
+    <projectListeners>
+        <!-- R30F decision 2: content roots added while the project is open get the stale-data pass too -->
+        <listener class="de.terletzkiy.ansibility.vault.exclusion.PasswordFileRootListener"
+                  topic="com.intellij.openapi.roots.ModuleRootListener"/>
+    </projectListeners>
     <!-- /r30 -->
 </idea-plugin>

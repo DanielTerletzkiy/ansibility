@@ -31,6 +31,7 @@ import de.terletzkiy.ansibility.vault.actions.VaultFileOperations
 import de.terletzkiy.ansibility.vault.envelope.VaultEnvelopes
 import de.terletzkiy.ansibility.vault.envelope.WholeFileShapes
 import de.terletzkiy.ansibility.vault.exclusion.IndexExclusionSettings
+import de.terletzkiy.ansibility.vault.exclusion.KeepOutGuard
 import de.terletzkiy.ansibility.vault.keys.PlaintextKeyExclusions
 import de.terletzkiy.ansibility.vault.tab.DecryptedVaultFile
 import de.terletzkiy.ansibility.vault.ui.AnsibilityVaultUiBundle.message
@@ -244,12 +245,17 @@ internal object SecretSnapshotBuilder {
 
     /**
      * A vault password file the IDE indexes (plan amendment R30, D227): WARNING, with "Keep Out of the IDE's Indexes".
-     * When its name is listed already, the list applies once the project is reopened (D225), and the details say so.
+     * When the list keeps it out already (its exact path or a name entry), the list applies once the project is reopened
+     * (D225), and the details say so. A file the IDE never keeps out (R30 review fixes, decision 1: Ansibility reads it
+     * as vars or vault content) gets no fix, and the details say why.
      */
     private fun indexedFinding(facts: FileFacts, source: AnsibleRoot): SecretFinding {
-        val listed = IndexExclusionSettings.getInstance().isKeptOut(facts.file.name)
-        val details = listOf(message(if (listed) "monitor.detail.indexed.listed" else "monitor.detail.indexed", source.displayName))
-        return facts.finding(SecretCategory.INDEXED_PASSWORD_FILES, null, Level.WARNING, details, -1, -1, SecretFix.KEEP_OUT_OF_INDEXES)
+        val (key, fix) = when {
+            KeepOutGuard.reasonNotToKeepOut(facts.file) != null -> "monitor.detail.indexed.protected" to null
+            IndexExclusionSettings.getInstance().isKeptOut(facts.file) -> "monitor.detail.indexed.listed" to SecretFix.KEEP_OUT_OF_INDEXES
+            else -> "monitor.detail.indexed" to SecretFix.KEEP_OUT_OF_INDEXES
+        }
+        return facts.finding(SecretCategory.INDEXED_PASSWORD_FILES, null, Level.WARNING, listOf(message(key, source.displayName)), -1, -1, fix)
     }
 
     /** A weaker signal (D161, `PrivateKeySignatures.isWeakSignal`): at most WARNING. */
@@ -264,7 +270,9 @@ internal object SecretSnapshotBuilder {
     /**
      * The vault password files of [root] that are files of the project (below a content root, also when the IDE keeps
      * them out of its indexes, plan amendment R30), not empty and not vaulted themselves (Ansible decrypts a vaulted
-     * password file: no leak). Only their first 14 bytes are read, for the vault magic.
+     * password file: no leak). Only their first 14 bytes are read, for the vault magic, with `java.nio`
+     * (`VaultEnvelopes.isWholeFileVault`; R30 review fixes, decision 5: never through the VFS, which would keep a copy of
+     * a 14-byte password file in its content storage).
      */
     private fun passwordFiles(project: Project, root: AnsibleRoot): List<VirtualFile> {
         val operations = VaultFileOperations.getInstance(project)

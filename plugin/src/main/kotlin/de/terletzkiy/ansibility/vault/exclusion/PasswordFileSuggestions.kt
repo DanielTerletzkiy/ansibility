@@ -15,18 +15,23 @@ import de.terletzkiy.ansibility.vault.identity.VaultIdentityRegistry
 import de.terletzkiy.ansibility.vault.rotate.RotationSources
 import java.nio.file.Path
 
-/** A file name the settings page suggests keeping out of the indexes, and the password files of the project with it. */
-class PasswordFileSuggestion(val name: String, val paths: List<String>) {
+/**
+ * A password file name the settings page suggests keeping out of the indexes: the name, the password files of the
+ * project with it ([paths], for display, below the project) and their exact-path entries ([files], canonical absolute
+ * paths, what Add adds; R30 review fixes, decision 1).
+ */
+class PasswordFileSuggestion(val name: String, val paths: List<String>, val files: List<String>) {
     override fun toString(): String = "PasswordFileSuggestion($name, $paths)"
 }
 
 /**
- * The suggestions of Settings › Ansibility › Vault › Keep out of the IDE's indexes (plan amendment R30, D224): the names
- * of the password files the project's vault configuration uses inside the project, from every root's discovery
+ * The suggestions of Settings › Ansibility › Vault › Keep out of the IDE's indexes (plan amendment R30, D224): the
+ * password files the project's vault configuration uses inside the project, from every root's discovery
  * (`VaultIdentityRegistry`): the password files of `vault_password_file` and `vault_identity_list`, the conventional
  * names, explicit settings, and the file a `.env.local` names: read (its password-file key only) when its consent still
- * holds, else the file discovery expects. Never password scripts (code, no secret) and never a name the list keeps out
- * already. Names only; no password file is read.
+ * holds, else the file discovery expects. Never password scripts (code, no secret), never a file the list keeps out
+ * already and never one the IDE cannot keep out ([KeepOutGuard]: a vars or vault file). Grouped by name; Add adds each
+ * file's exact path, so no other file of that name is kept out. No password file is read.
  */
 object PasswordFileSuggestions {
     /** The suggestions of [project], by name. Blocking (it may read a consented `.env.local`): off the EDT, outside a read action. */
@@ -43,11 +48,19 @@ object PasswordFileSuggestions {
             ProgressManager.checkCanceled()
             targetOf(sources, discovery, identity)?.let { listOfNotNull(it.declared, it.path) }.orEmpty()
         }.distinct()
-        val files = runReadActionBlocking { filesInProject(project, paths) }
-        return files.filter { !settings.isKeptOut(it.name) }
-            .groupBy { it.name }
-            .map { (name, ofName) -> PasswordFileSuggestion(name, ofName.map { RootKeys.relativePath(project, it) ?: it.path }.distinct().sorted()) }
-            .sortedBy { it.name }
+        return runReadActionBlocking {
+            filesInProject(project, paths)
+                .filter { !settings.isKeptOut(it) && KeepOutGuard.canKeepOut(it) }
+                .groupBy { it.name }
+                .map { (name, ofName) ->
+                    PasswordFileSuggestion(
+                        name,
+                        ofName.map { RootKeys.relativePath(project, it) ?: it.path }.distinct().sorted(),
+                        ofName.map(KeepOutRules::pathOf).distinct(),
+                    )
+                }
+                .sortedBy { it.name }
+        }
     }
 
     /** The password file [identity] reads: its file, or the one a `.env.local` names (consented) or is expected to name. */

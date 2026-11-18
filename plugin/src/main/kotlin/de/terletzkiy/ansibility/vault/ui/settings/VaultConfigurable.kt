@@ -56,11 +56,15 @@ import de.terletzkiy.ansibility.vault.regenerate.RegeneratePrompts
 import de.terletzkiy.ansibility.vault.regenerate.RegenerateTexts
 import de.terletzkiy.ansibility.vault.vcs.TrackedStatuses
 import de.terletzkiy.ansibility.vault.exclusion.IndexExclusionSettings
+import de.terletzkiy.ansibility.vault.exclusion.KeepOutNameCheck
 import de.terletzkiy.ansibility.vault.exclusion.PasswordFileNames
 import de.terletzkiy.ansibility.vault.exclusion.PasswordFileSuggestion
 import de.terletzkiy.ansibility.vault.exclusion.PasswordFileSuggestions
 import com.intellij.openapi.progress.ProcessCanceledException
+import com.intellij.ui.CollectionListModel
+import com.intellij.ui.components.JBList
 import com.intellij.ui.components.JBTextArea
+import javax.swing.JCheckBox
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.openapi.vfs.VfsUtilCore
@@ -90,9 +94,13 @@ import javax.swing.table.TableCellRenderer
  * an id is pending, forgetting or replacing its stored password needs a confirmation (review round 2, decision 8).
  *
  * Plan amendment R30 (D224, D225, D228): "Keep out of the IDE's indexes", per user and for every project
- * (`vault.exclusion.IndexExclusionSettings`): the built-in names, more file names (validated on Apply), "Also keep
- * .env.local out", the names of this project's password files the list does not keep out yet (loaded in the background,
- * each with Add), and that a change applies when a project is reopened.
+ * (`vault.exclusion.IndexExclusionSettings`): the built-in names, the password files kept out by their exact path (added
+ * from the Vault tab, its notification or a suggestion; Remove only), more file names (validated on Apply: file names
+ * only, never one that names a vars or vault file of an open project or more than a handful of files), "Also keep
+ * .env.local out", this project's password files the list does not keep out yet (loaded in the background, each name
+ * with Add, which adds the files' exact paths), and that a change applies when a project is reopened. Apply merges
+ * with entries added meanwhile (the Vault tab writes the same list), and Reset turns the suggestions' Add back on (R30
+ * review fixes, decisions 1 and 6).
  */
 class VaultConfigurable(private val project: Project) : BoundSearchableConfigurable(message("settings.vault.name"), ID, ID) {
     internal data class RootEntry(
@@ -241,6 +249,23 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
     /** The "More file names" text area (plan amendment R30); set by [createPanel]. */
     private var indexNames: JBTextArea? = null
 
+    /** "Also keep .env.local out" (plan amendment R30, D228); set by [createPanel]. */
+    private var indexEnvLocal: JCheckBox? = null
+
+    /** The exact-path entries (R30 review fixes, decision 1): added by a suggestion's Add, removed with Remove. */
+    private val indexPathModel = CollectionListModel<String>()
+
+    private val indexPathList = JBList(indexPathModel).apply {
+        name = INDEX_PATHS_COMPONENT
+        emptyText.text = message("settings.vault.index.paths.empty")
+        visibleRowCount = INDEX_NAMES_ROWS
+    }
+
+    /** The index entries as the page last loaded them: what Apply merges the page's changes against (decision 6). */
+    private var loadedIndexNames: List<String> = emptyList()
+    private var loadedIndexPaths: List<String> = emptyList()
+    private var loadedEnvLocal: Boolean = false
+
     /** The suggested names (plan amendment R30, D224); its content is swapped when they are loaded. */
     private val suggestionsHolder = JPanel(BorderLayout()).apply {
         isOpaque = false
@@ -262,6 +287,11 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
             .setMoveDownAction { move(1) }
             .createPanel()
         val envs = ToolbarDecorator.createDecorator(envTable).disableAddAction().disableRemoveAction().disableUpDownActions().createPanel()
+        val indexPaths = ToolbarDecorator.createDecorator(indexPathList)
+            .disableAddAction()
+            .disableUpDownActions()
+            .setRemoveAction { removeIndexPaths() }
+            .createPanel()
         val rules = ToolbarDecorator.createDecorator(ruleTable)
             .setAddAction { addRule() }
             .setRemoveAction { removeRule() }
@@ -325,12 +355,18 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
             // Plan amendment R30 (D223-D228): per user and for every project; applies when a project opens (D225).
             group(message("settings.vault.index")) {
                 row { comment(message("settings.vault.index.builtin", PasswordFileNames.BUILT_IN.joinToString(", "))) }
+                // Not bound: Apply merges with entries the Vault tab added meanwhile (R30 review fixes, decision 6).
+                row {
+                    cell(indexPaths)
+                        .label(message("settings.vault.index.paths"), LabelPosition.TOP)
+                        .align(AlignX.FILL)
+                        .comment(message("settings.vault.index.paths.comment"))
+                }
                 row {
                     textArea()
                         .label(message("settings.vault.index.names"), LabelPosition.TOP)
                         .rows(INDEX_NAMES_ROWS)
                         .align(AlignX.FILL)
-                        .bindText({ exclusions.extraNames.joinToString("\n") }, { exclusions.update(indexNameLines(it), exclusions.excludeEnvLocal) })
                         .comment(message("settings.vault.index.names.comment"))
                         .applyToComponent {
                             name = INDEX_NAMES_COMPONENT
@@ -339,9 +375,11 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
                 }
                 row {
                     checkBox(message("settings.vault.index.envLocal"))
-                        .bindSelected({ exclusions.excludeEnvLocal }, { exclusions.update(exclusions.extraNames, it) })
                         .comment(message("settings.vault.index.envLocal.comment"))
-                        .applyToComponent { name = INDEX_ENV_LOCAL_COMPONENT }
+                        .applyToComponent {
+                            name = INDEX_ENV_LOCAL_COMPONENT
+                            indexEnvLocal = this
+                        }
                 }
                 row { cell(suggestionsHolder).align(AlignX.FILL) }
                 row { comment(message("settings.vault.index.reopen")) }
@@ -385,9 +423,10 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
         }
     }
 
+    /** Shows [suggestions]; a suggestion's Add is on while one of its files is not in the page's path list. EDT. */
     private fun showSuggestions() {
         val shown = suggestions
-        val listed = indexNameLines(indexNames?.text.orEmpty()).toSet()
+        val listed = indexPathModel.items.toSet()
         suggestionsHolder.removeAll()
         suggestionsHolder.add(
             panel {
@@ -399,9 +438,9 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
                         for (suggestion in shown) {
                             row {
                                 label(message("settings.vault.index.suggestion", suggestion.name, suggestion.paths.joinToString(", ")))
-                                button(message("settings.vault.index.add")) { addIndexName(suggestion.name) }.applyToComponent {
+                                button(message("settings.vault.index.add")) { addIndexPaths(suggestion.files) }.applyToComponent {
                                     name = INDEX_ADD_COMPONENT + suggestion.name
-                                    isEnabled = suggestion.name !in listed
+                                    isEnabled = suggestion.files.any { it !in listed }
                                 }
                             }
                         }
@@ -414,21 +453,66 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
         suggestionsHolder.repaint()
     }
 
-    /** Add (plan amendment R30): appends [name] to "More file names" unless it is there; Apply stores it. EDT. */
-    internal fun addIndexName(name: String) {
-        val area = indexNames ?: return
-        val lines = indexNameLines(area.text)
-        if (name !in lines) area.text = (lines + name).joinToString("\n")
+    /**
+     * Add (R30 review fixes, decision 1): appends the exact [paths] of a suggestion's files to the page's path list
+     * unless they are there; Apply stores them. Only those files are kept out, never another of the same name. EDT.
+     */
+    internal fun addIndexPaths(paths: List<String>) {
+        for (path in paths) if (path !in indexPathModel.items) indexPathModel.add(path)
         showSuggestions()
     }
+
+    /** Remove: drops the selected paths from the page's path list; Apply stores it. EDT. */
+    private fun removeIndexPaths() {
+        val selected = indexPathList.selectedValuesList
+        if (selected.isEmpty()) return
+        selected.forEach(indexPathModel::remove)
+        showSuggestions()
+    }
+
+    /** The index entries of the page as stored now (Reset, and after Apply): the base of the next merge. EDT. */
+    private fun loadIndexEntries() {
+        loadedIndexNames = exclusions.extraNames
+        loadedIndexPaths = exclusions.paths
+        loadedEnvLocal = exclusions.excludeEnvLocal
+        indexNames?.text = loadedIndexNames.joinToString("\n")
+        indexEnvLocal?.isSelected = loadedEnvLocal
+        indexPathModel.replaceAll(loadedIndexPaths)
+        showSuggestions()
+    }
+
+    private fun indexModified(): Boolean {
+        val area = indexNames ?: return false
+        return indexNameLines(area.text) != loadedIndexNames || indexPathModel.items != loadedIndexPaths ||
+            (indexEnvLocal?.isSelected ?: loadedEnvLocal) != loadedEnvLocal
+    }
+
+    /**
+     * Stores the page's index entries merged with the list as it is now (R30 review fixes, decision 6): what the page
+     * removed goes, what it added comes, and an entry the Vault tab added meanwhile stays. Then shows the stored list.
+     */
+    private fun applyIndexEntries(names: List<String>) {
+        if (indexNames == null) return
+        val envLocal = indexEnvLocal?.isSelected ?: loadedEnvLocal
+        exclusions.update(
+            merged(loadedIndexNames, names, exclusions.extraNames),
+            if (envLocal != loadedEnvLocal) envLocal else exclusions.excludeEnvLocal,
+            merged(loadedIndexPaths, indexPathModel.items, exclusions.paths),
+        )
+        loadIndexEntries()
+    }
+
+    /** For tests: the exact-path entries the page shows. */
+    @TestOnly
+    internal fun shownIndexPaths(): List<String> = indexPathModel.items.toList()
 
     /** For tests: the suggested names, or null while they load. */
     @TestOnly
     internal fun suggestedIndexNames(): List<String>? = suggestions?.map { it.name }
 
     /** Throws when a line of "More file names" is no valid name pattern (plan amendment R30, [PasswordFileNames.problemOf]). */
-    private fun validateIndexNames() {
-        for (name in indexNameLines(indexNames?.text.orEmpty())) {
+    private fun validateIndexNames(names: List<String>) {
+        for (name in names) {
             val problem = PasswordFileNames.problemOf(name) ?: continue
             val reason = when (problem) {
                 PasswordFileNames.Problem.EMPTY -> continue
@@ -439,6 +523,24 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
             }
             throw ConfigurationException(message("settings.vault.invalid.index.name", name, reason))
         }
+    }
+
+    /**
+     * Throws when a new name of "More file names" names a vars or vault file of an open project, or more than a handful
+     * of files (R30 review fixes, decision 1; [KeepOutNameCheck]). Names the page loaded are not checked again.
+     */
+    private fun checkNewIndexNames(names: List<String>) {
+        val added = names.filter { it !in loadedIndexNames }.distinct()
+        if (added.isEmpty()) return
+        val problem = KeepOutNameCheck.problemOf(added, KeepOutNameCheck.projects(project)) ?: return
+        throw ConfigurationException(
+            when (problem) {
+                is KeepOutNameCheck.Problem.VarsOrVault -> message("settings.vault.invalid.index.protected", problem.name, problem.files.joinToString(", "))
+                is KeepOutNameCheck.Problem.TooMany ->
+                    message("settings.vault.invalid.index.many", problem.name, problem.count, problem.files.joinToString(", "), KeepOutNameCheck.MAX_FILES)
+                is KeepOutNameCheck.Problem.Indexing -> message("settings.vault.invalid.index.indexing", problem.name, problem.project)
+            },
+        )
     }
 
     /** Finds the CLIs off the EDT (the login shell's `PATH` may still be loading). */
@@ -774,17 +876,19 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
         }
     }
 
-    override fun isModified(): Boolean = super.isModified() || forgotten.values.any { it.isNotEmpty() } ||
+    override fun isModified(): Boolean = super.isModified() || indexModified() || forgotten.values.any { it.isNotEmpty() } ||
         edits.any { (key, edited) -> toSettings(key, edited) != settings.rootSettings(key) || edited.ids.any { it.password != null } }
 
     override fun apply() {
-        validateIndexNames()
+        // Plan amendment R30: the index names are checked before anything is stored, and stored after every check.
+        val indexNameList = indexNameLines(indexNames?.text.orEmpty())
+        validateIndexNames(indexNameList)
+        checkNewIndexNames(indexNameList)
         super.apply()
-        // The list as stored (trimmed, without blank lines, duplicates or built-in names), so the page is not modified.
-        indexNames?.text = exclusions.extraNames.joinToString("\n")
-        showSuggestions()
         capture()
         for ((key, edited) in edits) validate(key, edited)
+        // The list as stored (merged, trimmed, without blank lines, duplicates or built-in names), so the page is not modified.
+        applyIndexEntries(indexNameList)
         val passwords = ArrayList<Triple<String, String, CharArray?>>()
         for ((key, labels) in forgotten) labels.forEach { passwords += Triple(key, it, null) }
         for ((key, edited) in edits) {
@@ -851,6 +955,8 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
         edits.clear()
         forgotten.clear()
         select(current)
+        // Plan amendment R30: the stored entries again, and the suggestions' Add buttons with them (R30 review fixes, decision 6).
+        loadIndexEntries()
     }
 
     override fun disposeUIResources() {
@@ -895,6 +1001,9 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
         /** The component name of "Also keep .env.local out" (plan amendment R30, D228; tests find it by name). */
         const val INDEX_ENV_LOCAL_COMPONENT = "ansibility.vault.indexExcludeEnvLocal"
 
+        /** The component name of the exact-path list (R30 review fixes, decision 1; tests find it by name). */
+        const val INDEX_PATHS_COMPONENT = "ansibility.vault.indexExclusionPaths"
+
         /** The component name of the suggestions (plan amendment R30, D224; tests find it by name). */
         const val INDEX_SUGGESTIONS_COMPONENT = "ansibility.vault.indexSuggestions"
 
@@ -905,6 +1014,15 @@ class VaultConfigurable(private val project: Project) : BoundSearchableConfigura
 
         /** The non-blank, trimmed lines of "More file names". */
         internal fun indexNameLines(text: String): List<String> = text.lines().map { it.trim() }.filter { it.isNotEmpty() }
+
+        /**
+         * Decision 6: the [stored] entries without those the page removed since it [loaded] them, plus those it added to
+         * [page]; an entry added elsewhere meanwhile (the Vault tab) stays.
+         */
+        internal fun merged(loaded: List<String>, page: List<String>, stored: List<String>): List<String> {
+            val removed = loaded.toSet() - page.toSet()
+            return (stored.filter { it !in removed } + page.filter { it !in loaded }).distinct()
+        }
 
         /** How many folders up from a root Import from Script… looks for `bin/`. */
         private const val ROTATION_SCRIPT_DEPTH = 4

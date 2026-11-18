@@ -79,14 +79,15 @@ object SecretTabActions {
     }
 
     /**
-     * "Keep Out of the IDE's Indexes" (plan amendment R30, D227): adds the names of the selected password files to the
-     * list of Settings › Vault and offers to reopen the project (`vault.exclusion.KeepOutOfIndexes`).
+     * "Keep Out of the IDE's Indexes" (plan amendment R30, D227): adds the selected password files (their exact paths,
+     * R30 review fixes, decision 1) to the list of Settings › Vault and offers to reopen the project
+     * (`vault.exclusion.KeepOutOfIndexes`).
      */
     class KeepOut : TabAction(message("monitor.action.keep.out"), message("monitor.action.keep.out.description"), AllIcons.Actions.Cancel) {
         override fun applicable(selected: List<SecretFinding>) = selected.filter { it.fix == SecretFix.KEEP_OUT_OF_INDEXES }
 
         override fun perform(project: Project, findings: List<SecretFinding>) {
-            KeepOutOfIndexes.perform(project, findings.map { it.file.name })
+            KeepOutOfIndexes.perform(project, findings.map { it.file })
         }
     }
 
