@@ -9,7 +9,6 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.application.EDT
 import com.intellij.openapi.application.smartReadAction
-import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.project.DumbAwareAction
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
@@ -26,7 +25,6 @@ import com.intellij.ui.treeStructure.Tree
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.tree.TreeUtil
 import de.terletzkiy.ansibility.api.AnsibleRoot
-import de.terletzkiy.ansibility.api.SourceLocation
 import de.terletzkiy.ansibility.dispatch.SitePresentation
 import de.terletzkiy.ansibility.toolwindow.AnsibleToolWindowScope
 import de.terletzkiy.ansibility.workspace.AnsibilityScopeBundle.message
@@ -178,7 +176,7 @@ class VarInAllReposPanel(
             val definition = item.definition
             icon = AllIcons.Nodes.Variable
             val path = VfsUtilCore.getRelativePath(definition.location.file, row.root.dir, '/') ?: definition.location.file.name
-            append(path + line(definition.location))
+            append(path + (item.line?.let { ":$it" } ?: ""))
             definition.preview?.let { append(" = $it", SimpleTextAttributes.GRAYED_ATTRIBUTES) }
             append("   " + SitePresentation.definitionKindName(definition.kind), SimpleTextAttributes.GRAYED_SMALL_ATTRIBUTES)
             when (val mark = item.mark) {
@@ -187,11 +185,6 @@ class VarInAllReposPanel(
                 is DefinitionMark.NotLoaded -> append("   " + message("allrepos.mark.unloaded"), SimpleTextAttributes.GRAYED_ITALIC_ATTRIBUTES)
                 DefinitionMark.None -> Unit
             }
-        }
-
-        private fun line(location: SourceLocation): String {
-            val document = FileDocumentManager.getInstance().getDocument(location.file) ?: return ""
-            return ":" + (document.getLineNumber(location.offset.coerceIn(0, document.textLength)) + 1)
         }
     }
 }

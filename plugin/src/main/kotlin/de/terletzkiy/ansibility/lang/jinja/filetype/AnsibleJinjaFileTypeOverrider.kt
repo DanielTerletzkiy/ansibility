@@ -8,6 +8,7 @@ import com.intellij.openapi.fileTypes.FileTypeManager
 import com.intellij.openapi.fileTypes.UnknownFileType
 import com.intellij.openapi.fileTypes.impl.FileTypeOverrider
 import com.intellij.openapi.project.DumbAware
+import com.intellij.openapi.vfs.InvalidVirtualFileAccessException
 import com.intellij.openapi.vfs.VirtualFile
 import de.terletzkiy.ansibility.lang.jinja.AnsibleJinjaFileType
 import de.terletzkiy.ansibility.settings.AnsibilityAppSettings
@@ -28,8 +29,12 @@ import de.terletzkiy.ansibility.settings.JinjaSettings
  * changes of either to the platform.
  */
 class AnsibleJinjaFileTypeOverrider : FileTypeOverrider, DumbAware {
-    override fun getOverriddenFileType(file: VirtualFile): FileType? =
+    override fun getOverriddenFileType(file: VirtualFile): FileType? = try {
         if (AnsibleJinjaFileTypeRules.claims(file, currentSettings())) AnsibleJinjaFileType else null
+    } catch (_: InvalidVirtualFileAccessException) {
+        // A folder above the file was deleted while the rules walked up (the platform asks for types of deleted files too).
+        null
+    }
 
     private fun currentSettings(): JinjaSettings {
         val application = ApplicationManager.getApplication() ?: return DEFAULT
@@ -49,7 +54,7 @@ object AnsibleJinjaFileTypeRules {
 
     /** Whether [file] is an Ansible Jinja template under [settings]. */
     fun claims(file: VirtualFile, settings: JinjaSettings): Boolean {
-        if (file.isDirectory) return false
+        if (!file.isValid || file.isDirectory) return false
         val name = file.name
         return if (isJ2(name)) {
             claimsJ2(settings) && AnsibleTemplatePaths.isInsideAnsibleContent(file)

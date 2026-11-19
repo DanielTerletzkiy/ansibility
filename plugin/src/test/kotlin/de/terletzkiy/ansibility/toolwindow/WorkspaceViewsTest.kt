@@ -87,7 +87,10 @@ class WorkspaceViewsTest : ToolWindowTestCase() {
         assertTrue(roots.toString(), "falcon" in roots && roots.size > 1)
         assertTrue(report.definitionCount >= roots.size)
         val falcon = report.groups.first { it.root.displayName == "falcon" }
-        assertTrue(falcon.definitions.any { it.definition.location.file.path.endsWith("group_vars/all/vars.yml") })
+        // lines are read with the report, so the tree's renderer never reads a document (2026.3 asserts on that while painting)
+        val lines = falcon.definitions.associate { it.definition.location.file.path.substringAfter("/falcon/ansible/") to it.line }
+        assertEquals(156, lines["group_vars/all/vars.yml"])
+        assertEquals(471, lines["environments/prod/group_vars/all/vars.yml"])
     }
 
     fun testSymbolsContributorFindsRolesAndVariablesPerRoot() {

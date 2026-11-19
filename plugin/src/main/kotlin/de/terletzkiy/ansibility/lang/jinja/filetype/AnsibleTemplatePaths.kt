@@ -40,6 +40,8 @@ object AnsibleTemplatePaths {
         var dir = file.parent
         var depth = 0
         while (dir != null && depth < MAX_DEPTH) {
+            // a deleted folder has no children to look at (findChild throws), so nothing above it counts either
+            if (!dir.isValid) return null
             if (hasAnsibleCfg(dir)) return dir
             // dir/roles/<role>/<x>/…/file: `child` is the role directory, `childOfChild` the directory inside it
             if (roleBase == null && dir.name == ROLES && childOfChild != null && child.isDirectory && RoleDirectories.isRole(child)) {

@@ -123,6 +123,22 @@ class AnsibleJinjaFileTypeOverriderTest : AnsibleJinjaTemplateTestCase() {
         assertInstanceOf(viewProvider("lib/roles/web/templates/site.conf.j2"), AnsibleJinjaFileViewProvider::class.java)
     }
 
+    /** The platform asks for the type of a file whose folder was deleted (an editor tab of it); no exception. */
+    fun testDeletedFoldersAreNeverClaimed() {
+        createFile("site/ansible.cfg", "[defaults]\n")
+        createFile("site/roles/web/tasks/main.yml", "- debug: msg=x\n")
+        val template = createFile("site/roles/web/templates/site.conf.j2", "{{ x }}\n")
+        val plain = createFile("site/roles/web/templates/motd", "{{ x }}\n")
+        assertSame(AnsibleJinjaFileType, template.fileType)
+        val templates = template.parent
+        WriteAction.runAndWait<Throwable> { templates.delete(this) }
+        assertFalse(templates.isValid || template.isValid)
+        val overrider = AnsibleJinjaFileTypeOverrider()
+        assertNull(overrider.getOverriddenFileType(template))
+        assertNull(overrider.getOverriddenFileType(plain))
+        assertNull(AnsibleTemplatePaths.ansibleBase(template))
+    }
+
     fun testPathHelpers() {
         createFile("x/roles/r/templates/a/b.conf", "")
         createFile("x/roles/r/files/templates/c.conf", "")

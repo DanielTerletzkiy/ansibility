@@ -1,5 +1,6 @@
 package de.terletzkiy.ansibility.workspace.crossroot
 
+import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
@@ -24,7 +25,8 @@ sealed interface DefinitionMark {
     data object None : DefinitionMark
 }
 
-class CrossRootDefinition(val definition: VarDefinition, val mark: DefinitionMark)
+/** [line] is the definition's 1-based line, read with the report (renderers run without a read action), null when unknown. */
+class CrossRootDefinition(val definition: VarDefinition, val mark: DefinitionMark, val line: Int? = null)
 
 class CrossRootGroup(val root: AnsibleRoot, val inScope: Boolean, val definitions: List<CrossRootDefinition>)
 
@@ -59,9 +61,15 @@ object CrossRootVars {
                 .distinctBy { it.location }
             if (definitions.isEmpty()) return@mapNotNull null
             definitions.mapNotNullTo(environments) { it.environment }
-            CrossRootGroup(root, root in inScope, definitions.map { CrossRootDefinition(it, mark(context, it, environment)) })
+            CrossRootGroup(root, root in inScope, definitions.map { CrossRootDefinition(it, mark(context, it, environment), lineOf(it)) })
         }.sortedBy { if (it.inScope) 0 else 1 }
         return CrossRootReport(name, environment, groups, environments.toList())
+    }
+
+    private fun lineOf(definition: VarDefinition): Int? {
+        val file = definition.location.file.takeIf { it.isValid } ?: return null
+        val document = FileDocumentManager.getInstance().getDocument(file) ?: return null
+        return document.getLineNumber(definition.location.offset.coerceIn(0, document.textLength)) + 1
     }
 
     private fun mark(context: AnsibleContextService, definition: VarDefinition, environment: String?): DefinitionMark {
