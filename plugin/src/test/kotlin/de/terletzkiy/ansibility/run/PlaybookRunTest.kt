@@ -439,7 +439,9 @@ class PlaybookRunTest : VaultTestCase() {
         PlatformTestUtil.waitWithEventsDispatching("git fetch did not start", { Files.exists(pid) && Files.readString(pid).isNotBlank() }, 30)
         assertTrue(run.all, "Preparing: checking that the checkout is up to date with main…" in run.stdout)
         assertTrue(run.handler.isPreparing)
-        assertEquals("Preparing: checking that the checkout is up to date with main…", run.state.bannerForTests().messageForTests())
+        // The phase reaches the banner through invokeLater, posted before the fetch starts but maybe not yet applied.
+        val fetching = "Preparing: checking that the checkout is up to date with main…"
+        PlatformTestUtil.waitWithEventsDispatching("the banner does not show the fetch", { run.state.bannerForTests().messageForTests() == fetching }, 10)
         assertEquals(RunBanner.Status.INFO, run.state.bannerForTests().statusForTests())
 
         run.handler.destroyProcess()
