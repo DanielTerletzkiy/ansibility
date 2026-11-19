@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.0.6 - 2026-11-19
+
 ### Added
 
 - **Variable source hints**: after a variable reference in tasks, handlers, playbooks and Jinja2 templates, an inline hint shows what the hosts get there, per environment: `default 1.2.0 · prod 1.4.0 · test 1.3.0`.
@@ -15,6 +17,7 @@
   - Runs in the repository's Compose service with "lint" in its name when one mounts the root (the team's pinned versions), else with a local `ansible-lint`. The config (`ansible-lint.yml`, `.ansible-lint`, `.config/ansible-lint.yml`) is found automatically.
   - ansible-lint errors show as warnings, everything else as weak warnings; they can also show as ansible-lint reports them, or all as weak warnings.
   - Quick fixes: `# noqa: <rule>` on the line, add to `.ansible-lint-ignore` or `skip_list`, Fix with ansible-lint (one undo step), open the rule documentation, copy the message.
+
   - Settings › Ansibility › Lint, per root. An optional commit check (off by default) stops commits with ansible-lint errors in the changed files, with Commit Anyway.
   - Offers once to disable the Ansible Lint plugin, so findings are not shown twice.
 - **Regenerate Secrets…** (Ansibility Vault menu of files, folders, roots and repository folders; Tools; Find Action): new random values for chosen `!vault` values, encrypted directly with each value's vault id, password and header (`1.2;AES256;default` stays exactly as written). No plaintext reaches the disk.
