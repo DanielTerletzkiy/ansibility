@@ -83,19 +83,20 @@ class VarNavigationTest : VarsTestCase() {
 
     fun testReferenceOrdering() {
         copyVarsData("site")
+        // Plan amendment R31 (D229): the declaring role, then every override (here dev's group_vars), then the other roles.
         assertEquals(
-            "own spec, own defaults, then other roles; no inventory while roles declare it",
-            listOf("site/roles/web/meta/argument_specs.yml:5", "site/roles/web/defaults/main.yml:3", "site/roles/other/meta/argument_specs.yml:5"),
+            "own spec, own defaults, every override, then other roles",
+            listOf("site/roles/web/meta/argument_specs.yml:5", "site/roles/web/defaults/main.yml:3", "$GROUP_VARS:2", "site/roles/other/meta/argument_specs.yml:5"),
             targets(TASKS, 31, "web_port"),
         )
         assertEquals(
-            "from a playbook: roles applied by the same play first",
-            listOf("site/roles/web/meta/argument_specs.yml:5", "site/roles/web/defaults/main.yml:3", "site/roles/other/meta/argument_specs.yml:5"),
+            "from a playbook: the role applied by the same play first",
+            listOf("site/roles/web/meta/argument_specs.yml:5", "site/roles/web/defaults/main.yml:3", "$GROUP_VARS:2", "site/roles/other/meta/argument_specs.yml:5"),
             targets(PLAYBOOK, 13, "web_port"),
         )
         assertEquals(
             "from another role: its own spec first",
-            listOf("site/roles/other/meta/argument_specs.yml:5", "site/roles/web/meta/argument_specs.yml:5", "site/roles/web/defaults/main.yml:3"),
+            listOf("site/roles/other/meta/argument_specs.yml:5", "$GROUP_VARS:2", "site/roles/web/meta/argument_specs.yml:5", "site/roles/web/defaults/main.yml:3"),
             targets("site/roles/other/tasks/main.yml", 4, "web_port"),
         )
     }

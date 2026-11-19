@@ -16,9 +16,12 @@ import org.jetbrains.yaml.psi.YAMLScalar
 
 /** Positions of variable definitions: `path:line` labels relative to a root, and the PSI written there. */
 internal object VarLocations {
-    /** The 1-based line of [offset] in [file]. */
+    /**
+     * The 1-based line of [offset] in [file]: from its open document when one is loaded (unsaved changes included), else
+     * from the file's text, without creating a document or PSI (a Ctrl+B list of hundreds of `host_vars` rows).
+     */
     fun line(file: VirtualFile, offset: Int): Int {
-        val document = FileDocumentManager.getInstance().getDocument(file)
+        val document = FileDocumentManager.getInstance().getCachedDocument(file)
         if (document != null && offset <= document.textLength) return document.getLineNumber(offset) + 1
         return StringUtil.offsetToLineNumber(VfsUtilCore.loadText(file), offset) + 1
     }

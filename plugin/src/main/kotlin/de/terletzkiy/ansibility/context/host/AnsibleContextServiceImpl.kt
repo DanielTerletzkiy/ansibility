@@ -220,6 +220,19 @@ class AnsibleContextServiceImpl(private val project: Project) : AnsibleContextSe
         scope(root, file, context, -1, RootContext.DEFAULT, followEditor = true, moleculeHosts = true)
     }
 
+    /**
+     * Every host [file] applies to at [offset] whatever the selection (plan amendment R31 fixes: what each environment
+     * gets at a usage): [allHostsScope] narrowed by the caret like [cardScope] (the play at the caret of a playbook) and,
+     * like [cardScope], with a role library's Molecule hosts only while "Show Molecule in navigation and search" is on.
+     */
+    internal fun allHostsScopeAt(file: VirtualFile, offset: Int): HostScope = readLocked {
+        val (root, context) = locate(file)
+        scope(root, file, context, offset, RootContext.DEFAULT, followEditor = true, presentationMoleculeHosts())
+    }
+
+    /** The Molecule hosts that accompany [scope] in presentation (F8.10, plan amendment R20); empty unless shown. */
+    internal fun moleculeCompanionTargets(scope: HostScope): List<EvalTarget> = readLocked { moleculeCompanions(scope, runningRole(scope)) }
+
     /** Whether presentation shows Molecule hosts outside Molecule files: "Show Molecule in navigation and search". */
     private fun presentationMoleculeHosts(): Boolean = MoleculeVisibility.showInNavigation(project)
 

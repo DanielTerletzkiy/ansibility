@@ -29,6 +29,7 @@ Instead of treating Ansible as plain YAML, Ansibility understands your entire An
 * **Effective Variables:** Computes exact variable values according to Ansible’s 22-step precedence order.
 * **Interactive Documentation Cards:** Hover over any variable in YAML or Jinja2 to view its resolved value, definition origin, data type, and usage context.
 * **Explain Precedence Breakdown:** Click "Explain precedence" to view an interactive card showing every file, inventory level, role default, and play variable that defines or overrides that variable.
+* **Variable Source Hints:** After a variable reference in tasks, playbooks and templates, an inline hint shows what each environment's hosts get there (`default 1.2.0 · prod 1.4.0 · test 1.3.0`), only where the values differ, with the value for the selected context first. Click a hint for every definition; toggle them everywhere with "Ansibility: Toggle Variable Source Hints" or in Settings › Editor › Inlay Hints.
 
 ### 3. Comprehensive Ansible Vault Integration
 * **Gutter Lock Markers:** Visual indicators in the editor gutter for encrypted blocks and files.
@@ -73,6 +74,7 @@ Instead of treating Ansible as plain YAML, Ansibility understands your entire An
 
 ### 8. Navigation, Find Usages & Refactoring
 * **Go to Definition (Ctrl+B / Cmd+B):** Jump directly from variable usages, task references, `include_tasks`, `import_playbook`, and role references to their declarations.
+* **Every Definition from a Usage:** Ctrl+B on a variable lists its spec, the definition that wins for the selected context, the role default and every override per environment that reaches the role's hosts, each with its file, line and value.
 * **Find Usages (Alt+F7):** Search for variable usages across your entire repository, categorized into Read, Set, and Spec definitions.
 * **Safe Rename Refactoring (Shift+F6):** Rename variables and roles with automatic, project-wide reference updates.
 * **Registered Variables (`register:`):** Type-aware completion and documentation for task return objects and facts.

@@ -121,6 +121,29 @@ class HostCardViews(private val project: Project) {
         }
     }
 
+    /**
+     * [view] over every host [file] applies to at [offset] whatever the selection
+     * ([AnsibleContextServiceImpl.allHostsScopeAt]): which definitions load on some host at that usage (plan amendment
+     * R31 fixes, the reach of Ctrl+B's override rows). Null as for [view].
+     */
+    internal fun allHostsView(file: VirtualFile, offset: Int, name: String): CardView? {
+        if (DumbService.isDumb(project)) return null
+        if (AnsibleWorkspace.getInstance(project).rootFor(file) == null) return null
+        val impl = AnsibleContextServiceImpl.getInstance(project) ?: return null
+        return try {
+            val scope = impl.allHostsScopeAt(file, offset)
+            val taskVars = TaskVars.at(project, scope.root, file, offset, name)
+            cache.get(Key(scope, taskVars, name)) { compute(impl, scope, taskVars, name) }
+        } catch (e: ProcessCanceledException) {
+            throw e
+        } catch (_: IndexNotReadyException) {
+            null
+        } catch (e: RuntimeException) {
+            LOG.warn("Ansibility: all-hosts view of $name in ${file.path} failed (${e.javaClass.simpleName})", e)
+            null
+        }
+    }
+
     private class Accumulator {
         var explainTarget: EvalTarget? = null
         val shadowed = LinkedHashMap<Location, Pair<VarSourceRef, LinkedHashSet<HostKey>>>()
