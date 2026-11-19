@@ -58,6 +58,7 @@
 
 ### Fixed
 
+- Changing the golden root's git repository now always deletes the old mirror from the IDE's cache; it could stay on disk until the weekly clean-up when the golden state was read right after the change.
 - Rekey…, Change Vault Id… and Encrypt value write a `!vault` value inside a flow mapping or sequence as one double-quoted line. Before, they wrote a `!vault |` block there, which YAML does not allow.
 - A quoted `!vault` value with an anchor (`&pw !vault "…"`) is read correctly by Reveal, the vault actions and the vault index.
 

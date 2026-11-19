@@ -571,6 +571,20 @@ class GoldenMirrorServiceTest : BasePlatformTestCase() {
         assertFalse(Files.exists(current))
     }
 
+    /** A reader of [GoldenMirrorService.state] adopts a new setting first; the reconcile still deletes the old mirror. */
+    fun testTheOldMirrorGoesAlsoWhenTheStateWasReadBeforeTheReconcile() {
+        val first = repo("first")
+        val second = repo("second")
+        useGit(first.url)
+        fetchNow()
+        val old = state().baseDir!!
+        GoldenMirrorConsents.getInstance().set(second.url, true)
+        MirrorSettings.useGit(project, second.url, "", "", 30, 1)
+        assertEquals("second", service.state()?.name)
+        GoldenTestSupport.await { service.reconcileForTests() }
+        assertFalse("the old mirror is deleted on change", Files.exists(old))
+    }
+
     fun testLeftoversAndStaleMirrorsGoAtStartNeverTheCurrentOne() {
         val golden = repo()
         useGit(golden.url)

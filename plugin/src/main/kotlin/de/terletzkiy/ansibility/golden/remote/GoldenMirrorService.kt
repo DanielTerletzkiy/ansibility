@@ -94,6 +94,12 @@ class GoldenMirrorService(private val project: Project, private val scope: Corou
     private val mutex = Mutex()
     private val lock = Any()
 
+    /**
+     * The mirror key [reconcile] adopted last, under [mutex]: the one to delete when the setting moves on. Not
+     * [stateConfig], which [state] may already have switched to the new setting before [reconcile] runs.
+     */
+    private var reconciledKey: String? = null
+
     // Guarded by [lock].
     private var stateConfig: MirrorConfig? = null
     private var meta: GoldenMirrorMeta? = null
@@ -180,8 +186,7 @@ class GoldenMirrorService(private val project: Project, private val scope: Corou
 
     override fun state(): GoldenMirrorState? {
         val config = configNow() ?: return null
-        val known = current
-        if (known != null && synchronized(lock) { stateConfig } == config) return known
+        // The setting and its state are read together: a reconcile adopting a new setting sets both under [lock].
         return synchronized(lock) {
             if (stateConfig != config) adopt(config)
             current
@@ -590,13 +595,14 @@ class GoldenMirrorService(private val project: Project, private val scope: Corou
     private suspend fun reconcile(atStart: Boolean) {
         mutex.withLock {
             val config = configNow()
-            val previous = synchronized(lock) {
-                val before = stateConfig
-                if (before != config || current == null && config != null) adopt(config)
-                before
+            synchronized(lock) {
+                if (stateConfig != config || current == null && config != null) adopt(config)
             }
-            if (config != null && config.kind == Kind.GIT) touch(baseDir().resolve(config.key))
-            cleanUp(atStart, previous?.takeIf { it.kind == Kind.GIT && it.key != config?.key }?.key)
+            val key = config?.takeIf { it.kind == Kind.GIT }?.key
+            val previous = reconciledKey?.takeIf { it != key }
+            reconciledKey = key
+            if (key != null) touch(baseDir().resolve(key))
+            cleanUp(atStart, previous)
         }
         wake()
     }
@@ -864,6 +870,7 @@ class GoldenMirrorService(private val project: Project, private val scope: Corou
         trustedOverride = null
         powerSaveOverride = null
         externalAgentOverride = null
+        reconciledKey = null
         synchronized(lock) {
             stateConfig = null
             meta = null

@@ -382,8 +382,23 @@ internal class RotationDialog(project: Project, private val request: RotationReq
         }
     }
 
-    /** The answer after OK: the new password (generated or typed); the fields are cleared. */
-    fun answer(): NewPassword = NewPassword(current(), generated = generateButton.isSelected).also { clear() }
+    /** The answer taken at OK, before closing disposes the dialog and [dispose] clears its fields. */
+    private var answered: NewPassword? = null
+
+    override fun doOKAction() {
+        answered?.close()
+        answered = NewPassword(current(), generated = generateButton.isSelected)
+        super.doOKAction()
+    }
+
+    /**
+     * The answer after OK: the new password (generated or typed) as taken at OK; on a dialog still open, what its fields
+     * hold now. The fields are cleared.
+     */
+    fun answer(): NewPassword = (answered ?: NewPassword(current(), generated = generateButton.isSelected)).also {
+        answered = null
+        clear()
+    }
 
     /** Clears every password field (after the dialog closed either way). */
     fun clear() {
@@ -425,6 +440,10 @@ internal class RotationDialog(project: Project, private val request: RotationReq
     /** For tests: what the dialog's validation says now. */
     @TestOnly
     fun validation(): ValidationInfo? = doValidate()
+
+    /** For tests: OK as the button does it (headless dialogs have no root pane to click): the answer, then close. */
+    @TestOnly
+    fun pressOk() = doOKAction()
 
     /** For tests: the components a test clicks. */
     @TestOnly

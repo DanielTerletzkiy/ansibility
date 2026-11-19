@@ -43,6 +43,38 @@ class RotationDialogTest : RotationTestCase() {
         assertFalse("two dialogs, two passwords", password == NewPassword.generate(SecureRandom()).use { String(it.chars()) })
     }
 
+    /**
+     * OK closes and disposes the dialog, which clears its fields, before the prompt reads the answer (as
+     * `showAndGet()` then `answer()` does): the generated and the typed password still arrive whole, as a secret.
+     */
+    fun testTheAnswerSurvivesTheDialogClosingOnOk() {
+        write(vaultPath, VaultVectors.inline("vault_db_password", VaultVectors.encrypt("Db0Old0Value0001", VaultVectors.PW1)))
+        ready()
+        val answers = ArrayList<Pair<Boolean, Int>>()
+        var failure: Throwable? = null
+        rotationPrompts.onRotation = { request ->
+            try {
+                val generating = RotationDialog(project, request, SecureRandom())
+                generating.pressOk()
+                assertTrue("OK closed the dialog", generating.isDisposed)
+                generating.answer().use { answer -> answer.secret()!!.use { answers += answer.generated to it.size } }
+                val typing = RotationDialog(project, request, SecureRandom())
+                typing.type("Abc0Def0Ghi0Jkl0", "Abc0Def0Ghi0Jkl0")
+                typing.pressOk()
+                assertTrue("OK closed the dialog", typing.isDisposed)
+                typing.answer().use { answer -> answer.secret()!!.use { answers += answer.generated to it.size } }
+            } catch (e: Throwable) {
+                failure = e
+            }
+            null
+        }
+
+        rotate()
+
+        failure?.let { throw it }
+        assertEquals(listOf(true to 64, false to 16), answers)
+    }
+
     /** Drives the dialog on [request] through its checks, then answers a second one with its generated password. EDT. */
     private fun drive(request: RotationRequest): Seen {
         val checks = ArrayList<String?>()
