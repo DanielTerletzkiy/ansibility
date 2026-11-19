@@ -191,12 +191,14 @@ class SecretHealthServiceTest : BasePlatformTestCase() {
         val other = create("site/README.md", "notes\n")
         monitor.start().await { it.findings.size == 1 }
         monitor.refresh()
-        val builds = monitor.service.buildCount
+        // Rebuilds asked for by status checks only: other sources (late VFS events of the files just created) may
+        // rebuild meanwhile on a loaded machine, and are not what this test is about.
+        val changed = monitor.service.changedStatusChecks
         repeat(5) { vcs.fire(null) }
         vcs.fire(file)
         vcs.fire(other)
         PlatformTestUtil.waitWithEventsDispatching("the statuses were compared", { monitor.service.unchangedStatusChecks > 0 }, 30)
-        assertEquals("the VCS refreshed its change lists but no status that matters changed", builds, monitor.service.buildCount)
+        assertEquals("the VCS refreshed its change lists but no status that matters changed", changed, monitor.service.changedStatusChecks)
 
         vcs.statuses["web.key"] = TrackedStatus.UNTRACKED
         vcs.fire(null)

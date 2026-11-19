@@ -136,7 +136,12 @@ class SecretHealthService(private val project: Project, private val scope: Corou
             started.statusChecks.consumeAsFlow().collectLatest {
                 delay(debounceMillis)
                 val changed = readAction { builtStatuses.any { (file, status) -> !file.isValid || statuses.status(file) != status } }
-                if (changed) requestRefresh() else statusChecksWithoutChange.incrementAndGet()
+                if (changed) {
+                    statusChecksWithChange.incrementAndGet()
+                    requestRefresh()
+                } else {
+                    statusChecksWithoutChange.incrementAndGet()
+                }
             }
         }
         val ready = scope.launch(Dispatchers.Default) { awaitStatuses(started) }
@@ -164,6 +169,12 @@ class SecretHealthService(private val project: Project, private val scope: Corou
     /** How many status events were checked and found no change that matters (tests). */
     @get:TestOnly
     val unchangedStatusChecks: Long get() = statusChecksWithoutChange.get()
+
+    private val statusChecksWithChange = AtomicLong()
+
+    /** How many status checks found a change that matters and asked for a rebuild (tests). */
+    @get:TestOnly
+    val changedStatusChecks: Long get() = statusChecksWithChange.get()
 
     private fun subscribe(parent: Disposable) {
         val connection = project.messageBus.connect(parent)
