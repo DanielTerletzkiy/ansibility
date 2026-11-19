@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ansibility — Ansible Plugin for JetBrains IDEs</title>
-  <meta name="description" content="Ansibility brings deep, native Ansible support to JetBrains IDEs. Host awareness, 22-step variable precedence, vault security, Jinja2 preview, role argument specs, and playbook and Molecule runs.">
+  <meta name="description" content="Ansibility brings deep, native Ansible support to JetBrains IDEs. Host awareness, 22-step variable precedence, vault security, Jinja2 preview, role argument specs, ansible-lint, and playbook and Molecule runs.">
   <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -459,6 +459,7 @@
             <li>Hover inspection cards showing origin and data type</li>
             <li>"Explain precedence" drill-down showing winning & overridden layers</li>
             <li>Witness host analysis for conditionally undefined variables</li>
+            <li>Inline hints with each environment's value after every usage, switchable globally</li>
           </ul>
         </div>
 
@@ -469,6 +470,8 @@
             <li>Inline vault reveal popup, rekey, and in-place edit</li>
             <li>Whole-file vault tabs with automatic background sync protection</li>
             <li>Passwords from 1Password, Bitwarden, KeePassXC or Proton Pass CLIs</li>
+            <li>Rotate a vault id's password and regenerate secrets across repositories, no plaintext on disk</li>
+            <li>Vault password files kept out of the IDE's search indexes and Local History</li>
             <li>Static envelope linting (ANS-V101..ANS-V103) without requiring passwords</li>
           </ul>
         </div>
@@ -518,6 +521,7 @@
           <p>Full IDE navigation and refactoring tools tailored specifically to Ansible repository architecture.</p>
           <ul>
             <li>Go to Definition (Ctrl+B) for variables, roles, task includes, and playbooks</li>
+            <li>Every definition of a variable from one usage: spec, default and each environment's override with its value</li>
             <li>Find Usages (Alt+F7) categorized into Read, Set, and Spec definitions</li>
             <li>Safe rename refactoring across multi-role projects with reference updates</li>
           </ul>
@@ -561,6 +565,16 @@
             <li><code>test</code>, <code>converge</code>, <code>verify</code>, <code>idempotence</code> and <code>destroy</code></li>
             <li>Local <code>molecule</code> or a Docker Compose service</li>
             <li>Automatic instance cleanup with a "keep them" countdown banner</li>
+          </ul>
+        </div>
+
+        <div class="feature-item">
+          <h3>13. ansible-lint Built In</h3>
+          <p>Ansibility runs ansible-lint itself on open and save, so the separate Ansible Lint plugin is no longer needed.</p>
+          <ul>
+            <li>Local <code>ansible-lint</code> or the repository's Docker Compose lint service</li>
+            <li>Quick fixes: <code># noqa</code>, ignore file, skip list, Fix with ansible-lint</li>
+            <li>Optional commit check for ansible-lint errors in changed files</li>
           </ul>
         </div>
       </div>

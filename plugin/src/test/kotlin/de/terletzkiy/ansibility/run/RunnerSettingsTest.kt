@@ -21,21 +21,21 @@ import java.util.concurrent.TimeUnit
 class RunnerSettingsTest {
     private val jump = RunnerRootSettings(
         remoteUser = "jane",
-        jumpHost = JumpHost(enabled = true, host = "proxy.example.test", port = "42022", forwardAgent = true, extraArgs = "-o StrictHostKeyChecking=no"),
+        jumpHost = JumpHost(enabled = true, host = "proxy.example.test", port = "2222", forwardAgent = true, extraArgs = "-o StrictHostKeyChecking=no"),
         skipHostKeyChecking = true,
     )
 
     @Test
     fun `the jump host becomes a ProxyCommand in ansible_ssh_common_args, like the provisioning scripts build it`() {
-        assertEquals("ssh -A -p 42022 -o StrictHostKeyChecking=no -W %h:%p jane@proxy.example.test", RunConnection.proxyCommand(jump))
+        assertEquals("ssh -A -p 2222 -o StrictHostKeyChecking=no -W %h:%p jane@proxy.example.test", RunConnection.proxyCommand(jump))
         assertEquals(
             "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null " +
-                "-o ProxyCommand=\"ssh -A -p 42022 -o StrictHostKeyChecking=no -W %h:%p jane@proxy.example.test\"",
+                "-o ProxyCommand=\"ssh -A -p 2222 -o StrictHostKeyChecking=no -W %h:%p jane@proxy.example.test\"",
             RunConnection.sshCommonArgs(jump),
         )
         assertEquals(
             "{\"ansible_user\":\"jane\",\"ansible_ssh_common_args\":\"-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null " +
-                "-o ProxyCommand=\\\"ssh -A -p 42022 -o StrictHostKeyChecking=no -W %h:%p jane@proxy.example.test\\\"\"}",
+                "-o ProxyCommand=\\\"ssh -A -p 2222 -o StrictHostKeyChecking=no -W %h:%p jane@proxy.example.test\\\"\"}",
             RunConnection.extraVarsArgument(jump),
         )
 
@@ -60,11 +60,11 @@ class RunnerSettingsTest {
     fun `a provisioning env file is imported as the connection and the compose variables the services use`() {
         val values = mapOf(
             "ANSIBLE_USER" to "jane",
-            "ANSIBLE_PORT" to "42022",
+            "ANSIBLE_PORT" to "2222",
             "SSH_JUMP_HOST_ENABLED" to "true",
             "SSH_JUMP_HOST_USER" to "jane",
             "SSH_JUMP_HOST_HOSTNAME" to "proxy.example.test",
-            "SSH_JUMP_HOST_PORT" to "42022",
+            "SSH_JUMP_HOST_PORT" to "2222",
             "SSH_JUMP_HOST_FORWARD_AGENT" to "yes",
             "SSH_JUMP_HOST_EXTRA_ARGS" to "-o StrictHostKeyChecking=no",
             "LOCAL_VAULT_FILE" to ".vault-pass",
@@ -72,7 +72,7 @@ class RunnerSettingsTest {
         )
         val imported = EnvLocalImport.apply(RunnerRootSettings(), values, listOf("KNOWN_HOSTS", "LOCAL_VAULT_FILE", "AGENT_SOCK"), ignored = listOf("LOCAL_VAULT_FILE", "AGENT_SOCK"))
         assertEquals("jane", imported.remoteUser)
-        assertEquals(JumpHost(true, "", "proxy.example.test", "42022", true, "-o StrictHostKeyChecking=no"), imported.jumpHost)
+        assertEquals(JumpHost(true, "", "proxy.example.test", "2222", true, "-o StrictHostKeyChecking=no"), imported.jumpHost)
         assertTrue("the scripts always skip host key checks", imported.skipHostKeyChecking)
         assertEquals(mapOf("KNOWN_HOSTS" to "/home/jane/.ssh/known_hosts"), imported.composeVariables)
         assertEquals(RunConnection.proxyCommand(jump), RunConnection.proxyCommand(imported))

@@ -102,6 +102,12 @@ Instead of treating Ansible as plain YAML, Ansibility understands your entire An
 * **Local or Docker Compose:** Runs the local `molecule`, or a Docker Compose service that has Molecule installed.
 * **Automatic Cleanup:** Test instances are destroyed after a configurable delay. A banner counts down and lets you keep them.
 
+### 12. ansible-lint
+* **Built In:** Ansibility runs ansible-lint itself, so the separate Ansible Lint plugin is no longer needed. Files are linted when opened and after each save, and findings stay on their lines while you edit.
+* **Local or Docker Compose:** Runs in the repository's Docker Compose service with "lint" in its name (the team's pinned versions), else the local `ansible-lint`. The config (`.ansible-lint`, `ansible-lint.yml`, `.config/ansible-lint.yml`) is found automatically.
+* **Quick Fixes:** `# noqa: <rule>` on the line, add to `.ansible-lint-ignore` or `skip_list`, Fix with ansible-lint as one undo step, and the rule's documentation.
+* **Settings per Root and Commit Check:** On/off, where it runs, config, extra arguments and how findings show, under Settings › Ansibility › Lint; an optional commit check stops commits with ansible-lint errors in the changed files.
+
 ---
 
 ## Compatibility

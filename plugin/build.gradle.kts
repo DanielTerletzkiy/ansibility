@@ -107,6 +107,10 @@ intellijPlatform {
             create(IntelliJPlatformType.WebStorm, "2026.2.3")
             create(IntelliJPlatformType.PhpStorm, "2026.2.3")
             create(IntelliJPlatformType.IntellijIdea, "2026.2.3")
+            // Not 2026.3 (263), although untilBuild is open: there VCS is the bundled plugin com.intellij.platform.vcs, our
+            // optional `com.intellij.modules.vcs` dependency resolves to its module intellij.platform.vcs.impl, and the
+            // verifier does not follow that module's dependency on intellij.platform.vcs, so it reports every VCS class
+            // as unresolved (48 false problems). The IDE loads ansibility-vcs.xml and its classes fine (2026-11-19).
         }
     }
 }
