@@ -2,7 +2,6 @@ package de.terletzkiy.ansibility.context.switching
 
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
 import com.intellij.codeInsight.daemon.impl.DaemonCodeAnalyzerImpl
-import com.intellij.codeInsight.hints.declarative.DeclarativeInlayHintsSettings
 import com.intellij.openapi.actionSystem.ActionGroup
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.vfs.VirtualFile
@@ -11,7 +10,6 @@ import com.intellij.testFramework.PlatformTestUtil
 import de.terletzkiy.ansibility.context.host.HostModeRestarts
 import de.terletzkiy.ansibility.fixtures.RequiresInfraFixture
 import de.terletzkiy.ansibility.model.inventory.ModelCaches
-import de.terletzkiy.ansibility.vars.hints.VarSourceHints
 
 /**
  * D32: switching the Ansible context through the F8.1 UI never restarts inspections. Counted with the daemon's own
@@ -49,17 +47,6 @@ class SelectionChangeRestartTest : ContextSwitchingTestCase() {
     }
 
     fun testSwitchingTheContextRestartsNoInspection() {
-        // Without any host-mode presentation: the variable source hints (plan amendment R31) are one, and on by default.
-        val hints = DeclarativeInlayHintsSettings.getInstance()
-        hints.setProviderEnabled(VarSourceHints.PROVIDER_ID, false)
-        try {
-            switchWithoutPresentation()
-        } finally {
-            hints.setProviderEnabled(VarSourceHints.PROVIDER_ID, true)
-        }
-    }
-
-    private fun switchWithoutPresentation() {
         // The light fixture keeps one editor open; the daemon tracks the file of that editor.
         val files = listOf(vf(prod1Vars))
         highlight(files.single())

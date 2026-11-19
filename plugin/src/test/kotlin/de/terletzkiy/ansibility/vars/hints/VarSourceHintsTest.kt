@@ -14,9 +14,11 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.actionSystem.ex.ActionUtil
 import com.intellij.openapi.actionSystem.impl.SimpleDataContext
+import com.intellij.openapi.application.WriteAction
 import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.openapi.progress.EmptyProgressIndicator
 import com.intellij.openapi.util.text.StringUtil
+import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.testFramework.PlatformTestUtil
 import de.terletzkiy.ansibility.api.AnsibleContextService
 import de.terletzkiy.ansibility.api.AnsibleRoot
@@ -36,11 +38,13 @@ import de.terletzkiy.ansibility.vars.hints.VarSourcesFixture.TEMPLATE
 import de.terletzkiy.ansibility.vault.crypto.VaultCrypto
 
 /**
- * Plan amendment R31, Part 2 (D232–D237): the variable source hints on YAML values, bare conditions and `.j2`
- * templates, several on one line; only overridden variables unless the option is on; collapsing and `+N more`; the
- * winner first with a selected context and after a switch; vault and `no_log` values as `🔒`, nothing decrypted; no hint
- * for loop variables, template locals, registered results, facts, magic variables and undefined names; the click opens
- * the Ctrl+B list; the toggle action, the platform setting and the provider are one switch ([VarSourcesFixture]).
+ * Plan amendment R31, Part 2 (D232–D237, as amended by the R31 fixes): the variable source hints on YAML values, bare
+ * conditions and `.j2` templates, several on one line; only where the values differ unless the option is on; what each
+ * environment's hosts get, grouped, about 45 characters then `+N`; the winner first with a selected context and after a
+ * switch; vault and `no_log` values as `🔒` (no hint when every value is one), nothing decrypted; no hint for loop
+ * variables, template locals, registered results, facts, magic variables and undefined names; the click opens the
+ * Ctrl+B list; the toggle action, the platform setting and the provider are one switch ([VarSourcesFixture]). The
+ * review's scenarios are in [VarSourceHintsRegressionTest], the fixes' own cases in [VarSourceHintsFixesTest].
  */
 class VarSourceHintsTest : VarsTestCase() {
     override fun setUp() {
@@ -88,9 +92,9 @@ class VarSourceHintsTest : VarsTestCase() {
     fun testHintsInValuesBareConditionsAndSeveralOnOneLine() {
         assertEquals("name: \"app-{{ app_version‹$VERSION› }}-{{ app_port‹$PORT› }}\"", line(TASKS, 4))
         assertEquals("when: app_version‹$VERSION› is version('1.0', '>=') and app_port‹$PORT› > 0", line(TASKS, 5))
+        // R31 fixes, decision 5: variables whose every value is a vault or no_log value get no hint.
         assertEquals(
-            "msg: \"{{ app_version‹$VERSION› }} {{ app_port‹$PORT› }} {{ app_only_default }} {{ app_token‹prod 🔒 · test 🔒› }} " +
-                "{{ app_password‹default 🔒 · prod 🔒› }}\"",
+            "msg: \"{{ app_version‹$VERSION› }} {{ app_port‹$PORT› }} {{ app_only_default }} {{ app_token }} {{ app_password }}\"",
             line(TASKS, 8),
         )
     }
@@ -112,21 +116,33 @@ class VarSourceHintsTest : VarsTestCase() {
         assertTrue(line(TASKS, 8, single = true), "{{ app_only_default‹default lonely› }}" in line(TASKS, 8, single = true))
     }
 
-    /** D233: "set in more than its own default" includes a value only one environment sets. */
-    fun testAVariableOnlyOneEnvironmentSetsGetsAHint() {
+    /**
+     * D233 as amended by the R31 fixes (decision 5): a value only one environment sets is one value, so it gets a hint
+     * only with "Also when every environment gets the same value".
+     */
+    fun testAVariableOnlyOneEnvironmentSetsGetsAHintOnlyWithTheOption() {
         myFixture.tempDirFixture.createFile("s/environments/stage/group_vars/web.yml", "---\nstage_only: blue\n")
         val tasks = "s/roles/app/tasks/single.yml"
         myFixture.tempDirFixture.createFile(tasks, "---\n- name: One\n  ansible.builtin.debug:\n    msg: \"{{ stage_only }} {{ app_only_default }}\"\n")
-        assertEquals("msg: \"{{ stage_only‹stage blue› }} {{ app_only_default }}\"", line(tasks, 4))
+        assertEquals("msg: \"{{ stage_only }} {{ app_only_default }}\"", line(tasks, 4))
+        assertEquals("msg: \"{{ stage_only‹stage blue› }} {{ app_only_default‹default lonely› }}\"", line(tasks, 4, single = true))
     }
 
+    /**
+     * The hint follows the constant accessors as written and names the accessed value (R31 fixes, decision 6). One hint
+     * per name in a scalar (decision 5), so each accessor has its own scalar here.
+     */
     fun testAHintAfterAnAttributePathDoesNotSplitIt() {
-        val text = "---\n- name: Paths\n  ansible.builtin.debug:\n    msg: \"{{ app_version.major }} {{ app_version['minor'] }} {{ app_version [ \\\"x\\\" ] }}\"\n"
+        myFixture.tempDirFixture.createFile("s/environments/stage/group_vars/web.yml", "---\napp_map: {major: 2, minor: 3, x: 4}\n")
+        val defaults = VarSourcesFixture.FILES.getValue(DEFAULTS) + "app_map: {major: 1, minor: 2, x: 3}\n"
+        WriteAction.runAndWait<Throwable> { VfsUtil.saveText(vf(DEFAULTS), defaults) }
+        val text = "---\n- name: Paths\n  ansible.builtin.debug:\n    msg: \"{{ app_map.major }}\"\n" +
+            "- name: Minor\n  ansible.builtin.debug:\n    msg: \"{{ app_map['minor'] }}\"\n" +
+            "- name: Spaced\n  ansible.builtin.debug:\n    msg: \"{{ app_map [ \\\"x\\\" ] }}\"\n"
         myFixture.tempDirFixture.createFile("s/roles/app/tasks/paths.yml", text)
-        assertEquals(
-            "msg: \"{{ app_version.major‹$VERSION› }} {{ app_version['minor']‹$VERSION› }} {{ app_version‹$VERSION› [ \\\"x\\\" ] }}\"",
-            line("s/roles/app/tasks/paths.yml", 4),
-        )
+        assertEquals("msg: \"{{ app_map.major‹default 1 · stage 2› }}\"", line("s/roles/app/tasks/paths.yml", 4))
+        assertEquals("msg: \"{{ app_map['minor']‹default 2 · stage 3› }}\"", line("s/roles/app/tasks/paths.yml", 7))
+        assertEquals("msg: \"{{ app_map‹default 3 · stage 4› [ \\\"x\\\" ] }}\"", line("s/roles/app/tasks/paths.yml", 10))
     }
 
     fun testSegmentsStayWithinThePlatformLimitAndTheTooltipListsEveryDefinition() {
@@ -146,9 +162,14 @@ class VarSourceHintsTest : VarsTestCase() {
 
     fun testVaultAndNoLogValuesAreLocksAndNothingIsDecrypted() {
         val decrypts = VaultCrypto.getInstance(project).decryptAttempts
-        val all = hints(TASKS).joinToString("\n") { it.text + "\n" + it.tooltip }
+        // R31 fixes, decision 5: a variable whose every value is a lock gets no hint; a vault value among plain ones is a lock.
+        myFixture.tempDirFixture.createFile("s/environments/stage/group_vars/web.yml", "---\napp_port: !vault \"\$ANSIBLE_VAULT;1.1;AES256\\n6162\"\n")
+        val hints = hints(TASKS)
+        assertFalse(hints.joinToString { it.name }, hints.any { it.name == "app_token" || it.name == "app_password" })
+        val all = hints.joinToString("\n") { it.text + "\n" + it.tooltip }
         for (secret in listOf("6162", "hunter2", "also-secret", "ANSIBLE_VAULT")) assertFalse(all, secret in all)
-        assertTrue(all, "🔒 vault" in all && "🔒 no_log" in all)
+        assertEquals("default 80 · prod 8443 · stage 🔒", hints.first { it.name == "app_port" }.text)
+        assertTrue(all, "🔒 vault" in all)
         assertEquals("nothing was decrypted", decrypts, VaultCrypto.getInstance(project).decryptAttempts)
     }
 
@@ -160,21 +181,21 @@ class VarSourceHintsTest : VarsTestCase() {
 
     // ------------------------------------------------------------------------------------------------ winner (D234)
 
+    /** R31 fixes, decision 1: the winner text says how many of the selection's hosts get it, then the default. */
     fun testTheWinnerComesFirstWithASelectedContext() {
         select(RootContext(environment = EnvironmentChoice.Named("prod")))
         assertEquals(
-            "name: \"app-{{ app_version‹→ 1.4.1 (prod, group_vars web, 2/3 hosts) · default 1.2.0 · +4› }}-{{ app_port‹→ 8443 (prod, group_vars all) · default 80› }}\"",
+            "name: \"app-{{ app_version‹→ 1.4.1 on 2 of 3 hosts (prod) · default 1.2.0› }}-{{ app_port‹→ 8443 (prod) · default 80› }}\"",
             line(TASKS, 4),
         )
-        assertTrue(line(TASKS, 8), "{{ app_token‹→ 🔒 (prod, group_vars all) · +1› }}" in line(TASKS, 8))
-        assertTrue(line(TASKS, 8), "{{ app_password‹→ 🔒 (prod, group_vars all) · default 🔒› }}" in line(TASKS, 8))
+        assertTrue("lock-only variables get no hint in any context: ${line(TASKS, 8)}", "{{ app_token }} {{ app_password }}" in line(TASKS, 8))
 
         select(RootContext(environment = EnvironmentChoice.Named("prod"), host = "prod-web2"))
-        assertTrue(line(TASKS, 4), "app_version‹→ 1.4.2-hotfix (prod, host_vars prod-web2) · default 1.2.0 · +4›" in line(TASKS, 4))
+        assertTrue(line(TASKS, 4), "app_version‹→ 1.4.2-hotfix (prod-web2) · default 1.2.0›" in line(TASKS, 4))
 
         select(RootContext(environment = EnvironmentChoice.Named("test")))
         assertTrue(line(TASKS, 4), "app_version‹→ 2.0.0 (test-web1" !in line(TASKS, 4))
-        assertTrue(line(TASKS, 4), "app_version‹→ 2.0.0 (test, playbook group_vars all) · default 1.2.0 · +4›" in line(TASKS, 4))
+        assertTrue(line(TASKS, 4), "app_version‹→ 2.0.0 (test) · default 1.2.0›" in line(TASKS, 4))
 
         select(RootContext.DEFAULT)
         assertEquals("name: \"app-{{ app_version‹$VERSION› }}-{{ app_port‹$PORT› }}\"", line(TASKS, 4))
@@ -202,7 +223,8 @@ class VarSourceHintsTest : VarsTestCase() {
     fun testThePassWithTheOptionOn() {
         myFixture.configureFromExistingVirtualFile(vf(TASKS))
         val file = myFixture.file
-        val info = InlayProviderPassInfo(VarSourceHintsProvider(), VarSourceHints.PROVIDER_ID, mapOf(VarSourceHints.OPTION_SINGLE to true))
+        val options = mapOf(VarSourceHints.OPTION_SINGLE to true, VarSourceHints.OPTION_VARS_FILES to false)
+        val info = InlayProviderPassInfo(VarSourceHintsProvider(), VarSourceHints.PROVIDER_ID, options)
         val pass = ActionUtil.underModalProgress(project, "") { DeclarativeInlayHintsPass(file, myFixture.editor, listOf(info), false, false) }
         pass.setContext(file.codeInsightContext)
         ActionUtil.underModalProgress(project, "") { pass.doCollectInformation(EmptyProgressIndicator()) }
@@ -220,7 +242,7 @@ class VarSourceHintsTest : VarsTestCase() {
         select(RootContext(environment = EnvironmentChoice.Named("prod")))
         PlatformTestUtil.waitWithEventsDispatching("the selection change recomputes the hints", { restarts.inlayRecomputeCount > before }, 10)
         val shown = editorLine(TASKS, 4)
-        assertTrue(shown, "→ 1.4.1 (prod, group_vars web, 2/3 hosts)" in shown)
+        assertTrue(shown, "→ 1.4.1 on 2 of 3 hosts (prod)" in shown)
     }
 
     fun testAContextSwitchRestartsNothingWhileTheHintsAreOff() {
@@ -228,9 +250,11 @@ class VarSourceHintsTest : VarsTestCase() {
         VarSourceHintsRefresh.setEnabled(false)
         val restarts = HostModeRestarts.getInstance(project)
         val before = restarts.restartCount
+        val recomputes = restarts.inlayRecomputeCount
         select(RootContext(environment = EnvironmentChoice.Named("prod")))
         repeat(10) { PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue(); Thread.sleep(10) }
         assertEquals(before, restarts.restartCount)
+        assertEquals(recomputes, restarts.inlayRecomputeCount)
     }
 
     // ------------------------------------------------------------------------------------------------ click and toggle
@@ -239,9 +263,12 @@ class VarSourceHintsTest : VarsTestCase() {
         val handler = InlayActionHandler.getActionHandler(VarSourceHints.HANDLER_ID)
         assertInstanceOf(handler, VarSourceHintClickHandler::class.java)
         val hint = hints(TASKS).first { it.name == "app_version" }
-        assertEquals(hint.reference to "app_version", VarSourceHints.parsePayload(hint.payload))
+        // R31 fixes, decision 9: the payload holds the hint's distance from its reference, found again from the inlay.
+        val (distance, name) = VarSourceHints.parsePayload(hint.payload)!!
+        assertEquals(hint.offset - hint.reference to "app_version", distance to name)
         myFixture.configureFromExistingVirtualFile(vf(TASKS))
         val document = myFixture.editor.document
+        assertEquals(hint.reference, VarSourceHintClickHandler.referenceStart(document.immutableCharSequence, hint.offset, distance, name))
         val targets = inBackgroundReadAction { VarSourceHintClickHandler.targets(project, document, hint.reference) }
         assertEquals(gotoTargets(TASKS, hint.reference).map(::describe), targets.map(::describe))
         assertEquals(listOf("$SPEC:5", "$DEFAULTS:2"), targets.take(2).map(::describe))
@@ -293,7 +320,11 @@ class VarSourceHintsTest : VarsTestCase() {
     }
 
     private companion object {
-        const val VERSION = "default 1.2.0 · dev 1.3.9-dev-build-with-a-… · prod 1.4.0 (+2) · stage 1.3.5 · +2 more"
+        /**
+         * R31 fixes, decisions 1 and 5: what the hosts get (prod: 1.4.1 from group_vars web, 1.4.2-hotfix on prod-web2;
+         * dev, stage, test: the playbook-level 2.0.0), environments with one value share an entry, about 45 characters.
+         */
+        const val VERSION = "default 1.2.0 · dev, stage, test 2.0.0 · +1"
         const val PORT = "default 80 · prod 8443"
     }
 }

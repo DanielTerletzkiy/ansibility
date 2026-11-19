@@ -12,7 +12,9 @@ import org.jetbrains.yaml.psi.YAMLKeyValue
 /**
  * Plan A4: the Ctrl-hover hint. Ctrl-hover asks Go to Declaration for targets and, for a single target, shows the
  * hint of that element's PSI documentation target, so [VarPsiDocumentationTargetProvider] answers for our targets
- * and for variable keys. With several targets the platform shows no documentation hint (a platform limitation).
+ * and for variable keys. With several targets the platform shows no documentation hint (a platform limitation), so a
+ * variable reference, whose Ctrl+B lists several definitions since plan amendment R31, gives the hover its declaration
+ * alone ([CtrlHover], R31 fixes, decision 8).
  */
 @RequiresInfraFixture
 class VarCtrlHoverTest : VarsTestCase() {
@@ -80,15 +82,21 @@ class VarCtrlHoverTest : VarsTestCase() {
         assertTrue(hint, hint.startsWith("_chronod_nginx_cert"))
     }
 
-    fun testSeveralTargetsShowNoVariableHint() {
+    /**
+     * Ctrl+B lists several targets (spec, default, overrides), Ctrl-hover still shows the variable's hint (R31 fixes,
+     * decision 8: [CtrlHover] gives the hover the declaration alone; before, the platform showed "Multiple
+     * implementations" here).
+     */
+    fun testSeveralTargetsStillShowTheVariableHint() {
         copyInfra("repos/falcon")
         val template = "repos/falcon/ansible/roles/postfix/templates/main.cf.j2"
         myFixture.configureFromTempProjectFile(template)
         val editor = myFixture.editor
         val file = myFixture.file
         val offset = offsetAt(template, 9, "postfix_relayhost", 2)
+        assertTrue("Ctrl+B has several targets", gotoTargets(template, offset).size > 1)
         val data = inBackgroundReadAction { GotoDeclarationOrUsageHandler2.getCtrlMouseData(editor, file, offset) }
         assertNotNull(data)
-        assertFalse("the platform shows no documentation hint for several targets", plain(data!!.hintText ?: "").startsWith("postfix_relayhost:"))
+        assertEquals("postfix_relayhost: str = \"\" · postfix (optional)", plain(data!!.hintText ?: ""))
     }
 }

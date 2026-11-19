@@ -11,7 +11,7 @@ import java.util.Locale
 
 /**
  * Plan amendment R31, D237: the variable source hints of a task file with 300 variable references take under 100 ms
- * warm, from cached data only. The project is shaped like the infra fixture's roots: a role with 30 declared variables,
+ * warm, from cached data only (the R31 fixes evaluate what each host gets: the background summary's winners). The project is shaped like the infra fixture's roots: a role with 30 declared variables,
  * four environments with `group_vars` (all and a group) and `host_vars`, playbook-level `group_vars`, and a play applying
  * the role; the task file reads each variable ten times (values, bare conditions, several per line).
  *
@@ -71,7 +71,8 @@ class VarSourceHintsBudgetTest : VarsTestCase() {
 
     private fun measure(label: String, budget: Long) {
         val hints = collect()
-        assertTrue("at least 300 hints: ${hints.size}", hints.size >= USES)
+        // 300 references, 4 per task; one hint per name in a scalar (R31 fixes, decision 5) leaves 3 per task.
+        assertTrue("at least 225 hints: ${hints.size}", hints.size >= USES * 3 / 4)
         var best = Long.MAX_VALUE
         for (series in 1..MAX_SERIES) {
             val samples = (1..ROUNDS).map { timed() }.sorted()

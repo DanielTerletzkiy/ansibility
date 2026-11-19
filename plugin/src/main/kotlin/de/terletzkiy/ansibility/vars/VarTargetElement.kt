@@ -1,12 +1,14 @@
 package de.terletzkiy.ansibility.vars
 
-import de.terletzkiy.ansibility.navigation.EditorJumps
 import com.intellij.icons.AllIcons
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
+import com.intellij.psi.PsiManager
 import com.intellij.psi.impl.FakePsiElement
 import de.terletzkiy.ansibility.api.SourceLocation
+import de.terletzkiy.ansibility.navigation.EditorJumps
 import javax.swing.Icon
 
 /**
@@ -20,18 +22,40 @@ import javax.swing.Icon
  * starts exactly at [location], so platform code that looks for the source finds it; otherwise it is the target
  * itself, whose [navigate] opens the exact offset. The Ctrl-hover hint of a single target comes from
  * [VarPsiDocumentationTargetProvider] through [subject].
+ *
+ * The element written there and the [subject] are resolved on first use (plan amendment R31 fixes, decision 10): a
+ * chooser of hundreds of `host_vars` rows parses only the file of the row that is chosen. Until then the target's
+ * parent is its file.
  */
 class VarTargetElement internal constructor(
-    private val anchor: PsiElement,
+    private val project: Project,
     val location: SourceLocation,
     private val displayName: String,
     private val locationText: String,
-    internal val subject: VarSubject,
+    subject: () -> VarSubject,
+    anchor: () -> PsiElement?,
 ) : FakePsiElement() {
+    /** A target whose element and subject are known already. */
+    internal constructor(anchor: PsiElement, location: SourceLocation, displayName: String, locationText: String, subject: VarSubject) :
+        this(anchor.project, location, displayName, locationText, { subject }, { anchor })
 
-    override fun getParent(): PsiElement = anchor
+    private val anchorValue = lazy(anchor)
+    private val resolvedAnchor: PsiElement? get() = anchorValue.value
 
-    override fun getNavigationElement(): PsiElement = if (anchor.textOffset == location.offset) anchor else this
+    /** Whether the element written at [location] was looked up (its file parsed) yet. */
+    internal val isResolved: Boolean get() = anchorValue.isInitialized()
+
+    internal val subject: VarSubject by lazy(subject)
+
+    private fun file(): PsiFile? = if (location.file.isValid) PsiManager.getInstance(project).findFile(location.file) else null
+
+    override fun getProject(): Project = project
+
+    override fun getManager(): PsiManager = PsiManager.getInstance(project)
+
+    override fun getParent(): PsiElement = file() ?: resolvedAnchor ?: this
+
+    override fun getNavigationElement(): PsiElement = resolvedAnchor?.takeIf { it.textOffset == location.offset } ?: this
 
     override fun getName(): String = displayName
 
@@ -41,20 +65,20 @@ class VarTargetElement internal constructor(
 
     override fun getIcon(open: Boolean): Icon = AllIcons.Nodes.Variable
 
-    override fun getTextRange(): TextRange? = anchor.textRange
+    override fun getTextRange(): TextRange = TextRange.from(location.offset, 0)
 
     override fun getTextOffset(): Int = location.offset
 
-    override fun getContainingFile(): PsiFile? = anchor.containingFile
+    override fun getContainingFile(): PsiFile? = file()
 
-    override fun isValid(): Boolean = anchor.isValid && location.file.isValid
+    override fun isValid(): Boolean = location.file.isValid
 
     override fun canNavigate(): Boolean = location.file.isValid
 
     override fun canNavigateToSource(): Boolean = canNavigate()
 
     override fun navigate(requestFocus: Boolean) {
-        EditorJumps.open(anchor.project, location.file, location.offset, requestFocus)
+        EditorJumps.open(project, location.file, location.offset, requestFocus)
     }
 
     override fun equals(other: Any?): Boolean = this === other || other is VarTargetElement && other.location == location

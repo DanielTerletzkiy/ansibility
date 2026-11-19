@@ -5,6 +5,7 @@ import com.intellij.openapi.vfs.VirtualFile
 import de.terletzkiy.ansibility.api.AnsibleContextService
 import de.terletzkiy.ansibility.api.AnsibleRoot
 import de.terletzkiy.ansibility.api.HostKey
+import de.terletzkiy.ansibility.api.OutcomeGroup
 import de.terletzkiy.ansibility.api.SourceLocation
 import de.terletzkiy.ansibility.api.VarSourceRef
 import de.terletzkiy.ansibility.context.host.card.HostCardViews
@@ -59,6 +60,19 @@ internal class VarContextWinner private constructor(
             val winner = best.group.winner ?: return null
             val environment = best.group.hosts.map { it.environment }.distinct().singleOrNull()?.let(VarSourceTexts::environmentName)
             return VarContextWinner(winner, environment, hosts.singleOrNull(), best.group.hosts.distinct().size, hosts.size)
+        }
+
+        /**
+         * Every outcome of [name] for the selection of [root] seen from [offset] of [file] (the card's outcome groups of
+         * the selection's own hosts, largest first, block and task vars applied), or null exactly when [at] is null for
+         * want of a scope: All mode, a file whose own scope overrides the selection, an empty scope, dumb mode. The
+         * variable source hints group these hosts by value (plan amendment R31 fixes: `→ 1.4.1 on 2 of 3 hosts`).
+         */
+        fun outcomes(project: Project, root: AnsibleRoot, file: VirtualFile, offset: Int, name: String): List<OutcomeGroup>? {
+            if (!isSelected(project, root)) return null
+            val view = HostCardViews.getInstance(project).view(file, offset, name) ?: return null
+            if (view.scope.targets.isEmpty() || view.scope.overriddenSelection) return null
+            return view.outcomes.map { it.group }
         }
 
         /** True when the selection of [root] names an environment or a host (anything but All). */

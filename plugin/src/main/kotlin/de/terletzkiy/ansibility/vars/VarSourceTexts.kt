@@ -1,10 +1,15 @@
 package de.terletzkiy.ansibility.vars
 
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.vfs.VfsUtilCore
 import de.terletzkiy.ansibility.api.AnsibleRoot
+import de.terletzkiy.ansibility.api.AnsibleWorkspace
+import de.terletzkiy.ansibility.api.RootKind
 import de.terletzkiy.ansibility.api.ValueShape
 import de.terletzkiy.ansibility.api.VarDefKind
 import de.terletzkiy.ansibility.api.VarDefinition
 import de.terletzkiy.ansibility.api.VarsLayer
+import de.terletzkiy.ansibility.context.AnsibleLayout
 import org.jetbrains.annotations.Nls
 
 /**
@@ -56,10 +61,40 @@ internal object VarSourceTexts {
     /** `prod` of `environments/prod` (and of a plain `prod`). */
     fun environmentName(environment: String): String = environment.substringAfterLast('/')
 
-    /** The owner a row names after the layer: the role of a role's own files, else the environment, else the role. */
-    fun owner(definition: VarDefinition): String? = when {
+    /**
+     * The owner a row names after the layer: the role of a role's own files, else the environment (with [project], every
+     * environment a shared vars directory serves: `prod, staging`), else, for playbook-level vars of a nested playbook
+     * root, that root's directory (`deploy`), else the role.
+     */
+    fun owner(definition: VarDefinition, project: Project? = null): String? = when {
         definition.kind in ROLE_KINDS -> definition.roleName
-        else -> environment(definition) ?: definition.roleName
+        else -> environments(definition, project) ?: project?.let { playbookDir(it, definition) } ?: definition.roleName
+    }
+
+    /**
+     * `prod` of a definition in `environments/prod`; with [project], `prod, staging` for a vars directory that several
+     * inventories share (`inventory/group_vars` next to `inventory/prod.yml` and `inventory/staging.yml`); null outside
+     * the inventories.
+     */
+    fun environments(definition: VarDefinition, project: Project?): String? {
+        val own = environment(definition) ?: return null
+        if (project == null) return own
+        val served = AnsibleWorkspace.getInstance(project).contextOf(definition.location.file)?.environments.orEmpty()
+        return if (served.size > 1) served.joinToString(", ", transform = ::environmentName) else own
+    }
+
+    /**
+     * For a playbook-level `group_vars`/`host_vars` definition of a nested playbook root (plan amendment R31 fixes,
+     * decision 11), that root's directory relative to the root it is nested in (`deploy`, `danger_zone/database`): its
+     * values apply only to the playbooks there, and its paths read like the project root's own. Null otherwise.
+     */
+    fun playbookDir(project: Project, definition: VarDefinition): String? {
+        if (definition.layer !in PLAYBOOK_LAYERS) return null
+        val dir = generateSequence(definition.location.file.parent) { it.parent }
+            .firstOrNull { it.name == AnsibleLayout.GROUP_VARS || it.name == AnsibleLayout.HOST_VARS }
+            ?.parent ?: return null
+        val nested = AnsibleWorkspace.getInstance(project).roots().firstOrNull { it.dir == dir && it.kind == RootKind.NESTED_PLAYBOOK } ?: return null
+        return nested.parentDir?.let { VfsUtilCore.getRelativePath(dir, it) } ?: dir.name
     }
 
     /** True when the value of [definition] is never shown: a vault file, a `vault_*` name or a `!vault` value. */
@@ -96,16 +131,20 @@ internal object VarSourceTexts {
 
     /**
      * One Ctrl+B row (D230): `group_vars web · prod · environments/prod/group_vars/web/vars.yml:12 = 1.4.0`, `defaults ·
-     * web · roles/web/defaults/main.yml:3 = 80`, `spec · web · roles/web/meta/argument_specs.yml:5`; [mark] in front
+     * web · roles/web/defaults/main.yml:3 = 80`, `spec · web · roles/web/meta/argument_specs.yml:5`, `playbook group_vars
+     * all · deploy · group_vars/all.yml:2 = 3.0.0` (a nested playbook root's vars, from that root); [mark] in front
      * (`✓ wins for prod-web1`).
      */
     @Nls
-    fun row(root: AnsibleRoot, definition: VarDefinition, noLog: Boolean, mark: String? = null): String {
+    fun row(project: Project, root: AnsibleRoot, definition: VarDefinition, noLog: Boolean, mark: String? = null): String {
         val where = VarLocations.label(root, definition.location)
         val value = value(definition, ROW_VALUE_MAX, noLog)
         val located = if (value == null) where else AnsibilityVarsBundle.message("source.row.value", where, value)
-        return listOfNotNull(mark, layer(definition), owner(definition), located).joinToString(VarLabels.SEPARATOR)
+        return listOfNotNull(mark, layer(definition), owner(definition, project), located).joinToString(VarLabels.SEPARATOR)
     }
 
     private const val ALL = "all"
+
+    /** The playbook-level layers, whose definitions apply only to the playbooks of their directory. */
+    private val PLAYBOOK_LAYERS = setOf(VarsLayer.PLAYBOOK_GROUP_VARS_ALL, VarsLayer.PLAYBOOK_GROUP_VARS, VarsLayer.PLAYBOOK_HOST_VARS)
 }

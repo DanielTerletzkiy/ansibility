@@ -95,8 +95,12 @@
                                               bundle="messages.AnsibilityVarsBundle"
                                               nameKey="hints.provider.name"
                                               descriptionKey="hints.provider.description">
+            <!-- R31 fixes: "Also when every environment gets the same value" (the R31 id kept) and "Also in vars and
+                 inventory files", both off. -->
             <option optionId="single.sources" enabledByDefault="false" bundle="messages.AnsibilityVarsBundle"
                     nameKey="hints.option.defaults.name" descriptionKey="hints.option.defaults.description"/>
+            <option optionId="vars.files" enabledByDefault="false" bundle="messages.AnsibilityVarsBundle"
+                    nameKey="hints.option.vars.name" descriptionKey="hints.option.vars.description"/>
         </codeInsight.declarativeInlayProvider>
         <codeInsight.declarativeInlayProvider language="AnsibleJinja"
                                               implementationClass="de.terletzkiy.ansibility.vars.hints.VarSourceHintsProvider"
@@ -108,6 +112,8 @@
                                               descriptionKey="hints.provider.description">
             <option optionId="single.sources" enabledByDefault="false" bundle="messages.AnsibilityVarsBundle"
                     nameKey="hints.option.defaults.name" descriptionKey="hints.option.defaults.description"/>
+            <option optionId="vars.files" enabledByDefault="false" bundle="messages.AnsibilityVarsBundle"
+                    nameKey="hints.option.vars.name" descriptionKey="hints.option.vars.description"/>
         </codeInsight.declarativeInlayProvider>
         <!-- A click on a hint opens the Ctrl+B list of its reference (D235). -->
         <codeInsight.inlayActionHandler handlerId="ansibility.variable.sources"

@@ -5,6 +5,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
+import com.intellij.psi.PsiManager
 import de.terletzkiy.ansibility.api.AnsibleRoot
 import de.terletzkiy.ansibility.api.AnsibleSite
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
@@ -48,10 +49,12 @@ import org.jetbrains.yaml.psi.YAMLKeyValue
  * 5. the declaring role (the own role when it declares the name, else the first role [VarRanking] ranks) and every
  *    definition that overrides it, one list (plan amendment R31, D229): its spec option; with an Ansible context
  *    selected (an environment or a host), the definition that wins for it, marked `✓ wins for prod-web1`
- *    ([VarContextWinner], the card's winner logic); its `defaults/` and `vars/` keys; then every override of the root,
- *    lowest precedence first ([OverrideLineMarkers.levelOf]), then by environment and path: inventory `group_vars`,
- *    `host_vars` and `hosts.yml` of each environment, playbook-level `group_vars`/`host_vars`, play `vars`/`vars_files`,
- *    `include_vars` files, role and include params;
+ *    ([VarContextWinner], the card's winner logic); its `defaults/` and `vars/` keys; then every override of the root
+ *    that can reach the usage ([UsageReach]: some host running the file loads it there), lowest precedence first
+ *    ([OverrideLineMarkers.levelOf]), then by environment and path: inventory `group_vars`, `host_vars` and `hosts.yml`
+ *    of each environment, playbook-level `group_vars`/`host_vars`, play `vars`/`vars_files`, `include_vars` files, role
+ *    and include params. Ctrl-hover, which shows a documentation hint for a single target only, gets the declaration
+ *    alone ([CtrlHover]); Ctrl+B and Ctrl+click get the list;
  * 6. `set_fact`/`register`/`loop_var`/task, block and play `vars` in the same role (outside roles: the same file),
  *    before the caret and nearest first, then after it;
  * 7. the other roles of the root that declare the name (spec, defaults, vars), ranked by [VarRanking];
@@ -107,13 +110,22 @@ class VarNavigation : SiteNavigation {
         /** A spec keeps every value of the variable secret (`no_log`, plan amendment R23): rows show no value. */
         private val noLog: Boolean by lazy(LazyThreadSafetyMode.NONE) { ranking.symbol.specBindings.any { SpecDefaults.hasNoLog(it.option) } }
 
-        /** The target at [location] (a key, or the nested key [path] below it) with the row text [text]. */
+        /**
+         * The target at [location] (a key, or the nested key [path] below it) with the row text [text]. The element
+         * written there and the card's subject are resolved when used (plan amendment R31 fixes, decision 10): a list of
+         * hundreds of `host_vars` rows parses no file until a row is chosen.
+         */
         private fun put(location: SourceLocation, path: List<String>, text: String) {
             ProgressManager.checkCanceled()
             if (location in excluded || location in targets) return
-            val anchor = VarLocations.elementAt(project, location) ?: return
-            val display = (listOf(name) + path).joinToString(".")
-            targets[location] = VarTargetElement(anchor, location, display, text, VarSubject.definition(project, root, name, path, location))
+            if (!location.file.isValid || PsiManager.getInstance(project).findFile(location.file) == null) return
+            val variable = name
+            val display = (listOf(variable) + path).joinToString(".")
+            targets[location] = VarTargetElement(
+                project, location, display, text,
+                subject = { VarSubject.definition(project, root, variable, path, location) },
+                anchor = { VarLocations.elementAt(project, location) },
+            )
         }
 
         /** `spec · web · roles/web/meta/argument_specs.yml:5`: [kindLabel], its [owner] and where. */
@@ -126,7 +138,7 @@ class VarNavigation : SiteNavigation {
         /** [definition] with its layer, owner, place and value (D230), [mark] in front. */
         fun add(definition: VarDefinition, mark: String? = null) {
             if (definition.location in excluded || definition.location in targets) return
-            put(definition.location, emptyList(), VarSourceTexts.row(root, definition, noLog, mark))
+            put(definition.location, emptyList(), VarSourceTexts.row(project, root, definition, noLog, mark))
         }
 
         /** The spec option, `defaults/` and `vars/` keys of [role]. */
@@ -172,12 +184,14 @@ class VarNavigation : SiteNavigation {
         }
 
         /**
-         * Every override of the root (D229 item 4): inventory and playbook `group_vars`/`host_vars`, `hosts.yml`, play
-         * `vars`/`vars_files`, `include_vars` files, role and include params (and Molecule inventories when the view shows
-         * them), lowest precedence first, then by environment and path.
+         * Every override of the root that can reach the usage (D229 item 4; [UsageReach], plan amendment R31 fixes):
+         * inventory and playbook `group_vars`/`host_vars`, `hosts.yml`, play `vars`/`vars_files`, `include_vars` files,
+         * role and include params (and Molecule inventories when the view shows them) that some host running the file
+         * loads there, lowest precedence first, then by environment and path. Without [reach] (the model cannot tell),
+         * every override of the root.
          */
-        fun addOverrides() {
-            ranking.symbol.definitions.filter { it.kind in OVERRIDE_KINDS }
+        fun addOverrides(reach: UsageReach?) {
+            ranking.symbol.definitions.filter { it.kind in OVERRIDE_KINDS && (reach == null || reach.reaches(it)) }
                 .sortedWith(
                     compareBy<VarDefinition>(
                         { OverrideLineMarkers.levelOf(it) ?: Int.MAX_VALUE },
@@ -302,10 +316,16 @@ class VarNavigation : SiteNavigation {
                 // Rule 5 (D229): the declaring role's spec, the winner for a selected context, its defaults and vars, every override.
                 val primary = ranking.ownRole?.takeIf { it in ranking.declaringRoles } ?: ranking.declaringRoles.firstOrNull()
                 if (primary != null) {
+                    // Ctrl-hover shows the documentation hint of a single target only (plan A4): there, the declaration.
+                    if (CtrlHover.isComputing()) {
+                        collector.addSpec(primary)
+                        if (collector.targets.isEmpty()) collector.addRoleValues(primary)
+                        return collector.result().take(1)
+                    }
                     collector.addSpec(primary)
                     collector.addWinner(virtualFile, site.range.startOffset)
                     collector.addRoleValues(primary)
-                    collector.addOverrides()
+                    collector.addOverrides(UsageReach.at(project, virtualFile, site.range.startOffset, site.name))
                 } else {
                     collector.addWinner(virtualFile, site.range.startOffset)
                 }

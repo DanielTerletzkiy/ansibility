@@ -1,6 +1,11 @@
 package de.terletzkiy.ansibility.vars.hints
 
 import com.intellij.openapi.application.runReadActionBlocking
+import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.fileEditor.FileDocumentManager
+import com.intellij.psi.PsiDocumentManager
+import com.intellij.psi.impl.PsiManagerEx
+import com.intellij.psi.impl.source.PsiFileImpl
 import de.terletzkiy.ansibility.api.AnsibleContextService
 import de.terletzkiy.ansibility.api.AnsibleRoot
 import de.terletzkiy.ansibility.api.AnsibleWorkspace
@@ -25,6 +30,8 @@ import de.terletzkiy.ansibility.vars.hints.VarSourcesFixture.TASKS
 import de.terletzkiy.ansibility.vars.hints.VarSourcesFixture.TEMPLATE
 import de.terletzkiy.ansibility.vars.hints.VarSourcesFixture.TEST_ALL
 import de.terletzkiy.ansibility.vault.crypto.VaultCrypto
+import org.jetbrains.yaml.psi.YAMLKeyValue
+import java.util.Locale
 
 /**
  * Plan amendment R31, Part 1 (D229–D231): Ctrl+B from a usage inside a role lists the spec, the winner for a selected
@@ -136,6 +143,106 @@ class VarSourcesNavigationTest : VarsTestCase() {
     fun testTheRolesOwnDeclarationStillShowsUsages() {
         assertEquals(emptyList<String>(), gotoTargets(DEFAULTS, offsetAt(DEFAULTS, 2, "app_version", 1)))
         assertEquals(emptyList<String>(), gotoTargets(SPEC, offsetAt(SPEC, 5, "app_version", 1)))
+    }
+
+    // ------------------------------------------------------------------------------------------------ R31 fixes
+
+    /** Writes [text] to [path] through its document (a document already loaded would otherwise keep the old text). */
+    private fun write(path: String, text: String) {
+        val existing = myFixture.findFileInTempDir(path) ?: return run { myFixture.tempDirFixture.createFile(path, text) }
+        val document = runReadActionBlocking { FileDocumentManager.getInstance().getDocument(existing)!! }
+        WriteCommandAction.runWriteCommandAction(project) {
+            document.setText(text)
+            PsiDocumentManager.getInstance(project).commitDocument(document)
+            FileDocumentManager.getInstance().saveDocument(document)
+        }
+    }
+
+    /**
+     * Decision 2: the override rows list only what can reach the role's hosts at the usage: no `group_vars` of a group
+     * that never runs the role, no role params given to another role, no play vars of a play that never applies it.
+     */
+    fun testOverridesThatNeverReachTheRoleAreNotListed() {
+        write(
+            "s/environments/prod/hosts.yml",
+            "---\nall:\n  children:\n    web:\n      hosts:\n        prod-web1:\n        prod-web2:\n        prod-web3:\n    db:\n      hosts:\n        prod-db1:\n",
+        )
+        write("s/environments/prod/group_vars/db.yml", "---\napp_port: 5432\n")
+        write("s/environments/prod/group_vars/web.yml", "---\napp_version: 1.4.1\napp_port: 8080\n")
+        write(
+            VarSourcesFixture.SITE,
+            "---\n- name: Web\n  hosts: web\n  roles:\n    - app\n- name: Other\n  hosts: web\n  roles:\n    - role: other\n      app_port: 1234\n",
+        )
+        write("s/db.yml", "---\n- name: Db\n  hosts: db\n  vars:\n    app_port: 5433\n  tasks:\n    - name: Ping\n      ansible.builtin.ping:\n")
+        refreshRoots()
+        val rows = rows(TASKS, 8, "app_port").map { it.second }
+        assertTrue(rows.joinToString("\n"), rows.any { it.startsWith("group_vars web · prod ·") && it.endsWith("= 8080") })
+        for (unreachable in listOf("5432", "1234", "5433")) assertFalse(rows.joinToString("\n"), rows.any { it.endsWith("= $unreachable") })
+    }
+
+    /** Low 7 of the review: a vars directory several inventories share names every environment it serves. */
+    fun testASharedVarsDirectoryRowNamesEveryEnvironment() {
+        write("f/inventory/prod.yml", "all:\n  children:\n    web:\n      hosts:\n        prod-web1:\n")
+        write("f/inventory/staging.yml", "all:\n  children:\n    web:\n      hosts:\n        stage-web1:\n")
+        write("f/inventory/group_vars/all.yml", "app_mode: shared\n")
+        write("f/site.yml", "- hosts: web\n  roles:\n    - app\n")
+        write("f/roles/app/defaults/main.yml", "app_mode: default-mode\n")
+        val tasks = "f/roles/app/tasks/main.yml"
+        write(tasks, "- name: Mode\n  ansible.builtin.debug:\n    msg: \"{{ app_mode }}\"\n")
+        refreshRoots()
+        val rows = rows(tasks, 3, "app_mode").toMap()
+        assertEquals("group_vars all · prod, staging · inventory/group_vars/all.yml:1 = shared", rows["f/inventory/group_vars/all.yml:1"])
+    }
+
+    /**
+     * Decision 11: playbook-level vars of a nested playbook root are labelled with its directory: from a playbook there,
+     * their path (relative to the nested root) reads like the project root's own `group_vars/all.yml`.
+     */
+    fun testPlaybookVarsOfANestedPlaybookRootNameTheirDirectory() {
+        val playbook = "s/deploy/playbook-deploy.yml"
+        write(playbook, "---\n- name: Deploy\n  hosts: web\n  roles:\n    - app\n  tasks:\n    - name: Show\n      ansible.builtin.debug:\n        msg: \"{{ app_version }}\"\n")
+        write("s/deploy/roles/helper/tasks/main.yml", "---\n- name: Help\n  ansible.builtin.ping:\n")
+        write("s/deploy/group_vars/all.yml", "---\napp_version: 3.0.0\n")
+        refreshRoots()
+        val rows = rows(playbook, 9, "app_version").map { it.second }
+        assertTrue(rows.joinToString("\n"), "playbook group_vars all · deploy · group_vars/all.yml:2 = 3.0.0" in rows)
+        assertTrue("the project root's own playbook vars stay unlabelled", rows(TASKS, 8, "app_version").any { it.second == "playbook group_vars all · group_vars/all.yml:2 = 2.0.0" })
+    }
+
+    /**
+     * Decision 10: Ctrl+B on a variable that 300 `host_vars` files set builds its rows from the index (line numbers from
+     * the text), and looks up the element written there only for the row that is chosen. (The inventory model reads
+     * those files anyway, through their PSI, for every effective value; the rows add no lookup of their own.)
+     */
+    fun testHundredsOfHostVarsRowsLookUpNoElement() {
+        val hosts = (1..300).map { "prod-web$it" }
+        write("s/environments/prod/hosts.yml", "---\nall:\n  children:\n    web:\n      hosts:\n" + hosts.joinToString("") { "        $it:\n" })
+        for ((i, host) in hosts.withIndex()) {
+            write("s/environments/prod/host_vars/$host.yml", "---\nother: 1\napp_port: ${8000 + i}\n")
+        }
+        refreshRoots()
+        val files = hosts.map { vf("s/environments/prod/host_vars/$it.yml") }
+        fun parsed(): Int = runReadActionBlocking {
+            val manager = PsiManagerEx.getInstanceEx(project).fileManager
+            files.count { (manager.getCachedPsiFile(it) as? PsiFileImpl)?.treeElement != null }
+        }
+        val offset = offsetAt(TASKS, 8, "app_port", 1)
+        val before = parsed()
+        var start = System.nanoTime()
+        val targets = gotoTargets(TASKS, offset)
+        val cold = (System.nanoTime() - start) / 1_000_000
+        start = System.nanoTime()
+        gotoTargets(TASKS, offset)
+        val warm = (System.nanoTime() - start) / 1_000_000
+        println(String.format(Locale.ROOT, "Ctrl+B with 300 host_vars rows: %d targets, first call %d ms (files parsed by the model: %d before, %d after), second %d ms", targets.size, cold, before, parsed(), warm))
+        assertTrue(targets.size > 300)
+        val rows = targets.map { it as VarTargetElement }.filter { "/host_vars/" in it.location.file.path }
+        assertEquals(300, rows.size)
+        assertTrue("no row looked up its element", rows.none { it.isResolved })
+        val chosen = rows.first { describe(it).startsWith("s/environments/prod/host_vars/prod-web7.yml") }
+        assertEquals("prod-web7's row", "host_vars prod-web7 · prod · environments/prod/host_vars/prod-web7.yml:3 = 8006", chosen.locationString)
+        assertEquals("app_port", (runReadActionBlocking { chosen.navigationElement } as YAMLKeyValue).keyText)
+        assertTrue(chosen.isResolved)
     }
 
     /** Molecule definitions follow "Show Molecule in navigation and search" (R20, D231). */
