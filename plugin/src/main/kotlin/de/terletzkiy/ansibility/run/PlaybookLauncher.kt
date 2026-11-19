@@ -73,7 +73,9 @@ object PlaybookLauncher {
         val initial = base?.spec?.let { context.withTarget(it, target) }
             ?.let { spec -> if (context.environment(spec.environment) == null) spec.copy(environment = context.preselectedEnvironment()) else spec }
             ?: context.initialSpec(target)
-        val dialog = RunPlaybookDialog(project, context, initial, saved = own != null && !own.isTemporary)
+        // "Save as run configuration" adds a new saved configuration, so it starts off: a saved one is changed in its
+        // own editor, never by a run from here (configurationFor).
+        val dialog = RunPlaybookDialog(project, context, initial, saved = false)
         if (!dialog.showAndGet()) return
         val additions = dialog.additions
         if (!PlaybookTagEdits.apply(project, playbook, additions)) {
@@ -100,27 +102,47 @@ object PlaybookLauncher {
     @Volatile
     internal var runOnceForTests: ((PlaybookRunSpec, String) -> Unit)? = null
 
-    /**
-     * Runs [spec]: a configuration of the playbook for the same target and environment is updated (a temporary one of
-     * the target otherwise), else a new one is added, temporary unless [save].
-     */
+    /** Runs [spec] through the configuration [configurationFor] picks, and selects it. */
     fun run(project: Project, spec: PlaybookRunSpec, save: Boolean): RunnerAndConfigurationSettings {
-        val runManager = RunManager.getInstance(project)
-        val existing = configurations(project, spec.playbook, spec.target)
-        val name = AnsiblePlaybookConfiguration.nameFor(spec)
-        val reused = existing.firstOrNull { (it.configuration as AnsiblePlaybookConfiguration).spec.environment == spec.environment }
-            ?: existing.firstOrNull { it.isTemporary }
-        val settings = reused ?: runManager.createConfiguration(name, AnsiblePlaybookConfigurationType.getInstance().factory)
-        (settings.configuration as AnsiblePlaybookConfiguration).spec = spec
-        if (reused == null || reused.isTemporary) settings.name = name
-        if (reused == null) {
-            settings.isTemporary = !save
-            runManager.addConfiguration(settings)
-        } else if (save && reused.isTemporary) {
-            runManager.makeStable(reused)
-        }
-        runManager.selectedConfiguration = settings
+        val settings = configurationFor(project, spec, save)
+        RunManager.getInstance(project).selectedConfiguration = settings
         ProgramRunnerUtil.executeConfiguration(settings, DefaultRunExecutor.getRunExecutorInstance())
         return settings
+    }
+
+    /**
+     * The configuration a run of [spec] goes through. A saved configuration is never changed here, only in its own
+     * editor: one of the playbook with exactly [spec] is taken as it is (made permanent with [save]). Otherwise [save]
+     * adds a new saved configuration under a name of its own, and a run without [save] updates a temporary
+     * configuration of the playbook's target (the one of the same environment first) or adds a new temporary one.
+     */
+    internal fun configurationFor(project: Project, spec: PlaybookRunSpec, save: Boolean): RunnerAndConfigurationSettings {
+        val runManager = RunManager.getInstance(project)
+        val type = AnsiblePlaybookConfigurationType.getInstance()
+        val existing = configurations(project, spec.playbook, spec.target)
+        fun specOf(settings: RunnerAndConfigurationSettings) = (settings.configuration as AnsiblePlaybookConfiguration).spec
+        existing.firstOrNull { specOf(it) == spec }?.let { identical ->
+            if (save && identical.isTemporary) runManager.makeStable(identical)
+            return identical
+        }
+        val name = AnsiblePlaybookConfiguration.nameFor(spec)
+        if (save) {
+            val created = runManager.createConfiguration(runManager.suggestUniqueName(name, type), type.factory)
+            (created.configuration as AnsiblePlaybookConfiguration).spec = spec
+            runManager.addConfiguration(created)
+            return created
+        }
+        val temporary = existing.firstOrNull { it.isTemporary && specOf(it).environment == spec.environment }
+            ?: existing.firstOrNull { it.isTemporary }
+        if (temporary != null) {
+            (temporary.configuration as AnsiblePlaybookConfiguration).spec = spec
+            temporary.name = name
+            return temporary
+        }
+        val created = runManager.createConfiguration(name, type.factory)
+        (created.configuration as AnsiblePlaybookConfiguration).spec = spec
+        created.isTemporary = true
+        runManager.addConfiguration(created)
+        return created
     }
 }

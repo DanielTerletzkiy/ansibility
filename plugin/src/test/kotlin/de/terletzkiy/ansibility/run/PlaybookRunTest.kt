@@ -27,6 +27,8 @@ import de.terletzkiy.ansibility.run.notify.RunNotifier
 import de.terletzkiy.ansibility.run.view.AnsibleRunConsole
 import de.terletzkiy.ansibility.run.view.RunBanner
 import de.terletzkiy.ansibility.run.view.RunViewTexts
+import com.intellij.execution.RunManager
+import com.intellij.execution.RunnerAndConfigurationSettings
 import de.terletzkiy.ansibility.settings.EnvironmentChoice
 import de.terletzkiy.ansibility.settings.RootContext
 import de.terletzkiy.ansibility.settings.RootKeys
@@ -106,6 +108,64 @@ class PlaybookRunTest : VaultTestCase() {
         assertEquals("AGENT_SOCK", target.sshSocketVariable)
         assertEquals("/ansible/ansible", target.containerPath(context.rootPath))
         assertEquals(PlaybookExecutor.DOCKER, context.executor(PlaybookRunSpec(playbook = "")))
+    }
+
+    /**
+     * A run from the gutter or the dialog never changes a saved configuration: the same settings run it as it is, other
+     * settings go to a temporary configuration, and "save" adds a new saved one under a name of its own.
+     */
+    fun testARunNeverChangesASavedConfiguration() {
+        root(falcon)
+        val path = vf(playbook).path
+        val runManager = RunManager.getInstance(project)
+        val type = AnsiblePlaybookConfigurationType.getInstance()
+        fun specOf(settings: RunnerAndConfigurationSettings) = (settings.configuration as AnsiblePlaybookConfiguration).spec
+        val mine = PlaybookRunSpec(playbook = path, environment = "prod", limit = "web1.prod", tags = "nginx")
+        val saved = runManager.createConfiguration("My prod web", type.factory).also {
+            (it.configuration as AnsiblePlaybookConfiguration).spec = mine
+            runManager.addConfiguration(it)
+        }
+        try {
+            val other = mine.copy(limit = "web")
+            val temporary = PlaybookLauncher.configurationFor(project, other, save = false)
+            assertNotSame(saved, temporary)
+            assertTrue(temporary.isTemporary)
+            assertEquals("the saved configuration keeps its settings", mine, specOf(saved))
+            assertEquals("and its name", "My prod web", saved.name)
+
+            assertSame("the same settings run the saved configuration as it is", saved, PlaybookLauncher.configurationFor(project, mine, save = false))
+            assertSame("other settings reuse the temporary one", temporary, PlaybookLauncher.configurationFor(project, other.copy(tags = ""), save = false))
+
+            val added = PlaybookLauncher.configurationFor(project, other.copy(limit = "web1.prod,web"), save = true)
+            assertFalse(added.isTemporary)
+            assertNotSame(saved, added)
+            assertEquals(mine, specOf(saved))
+            val names = runManager.getConfigurationSettingsList(type).map { it.name }
+            assertEquals("every configuration has a name of its own", names.distinct(), names)
+        } finally {
+            runManager.getConfigurationSettingsList(type).toList().forEach(runManager::removeConfiguration)
+        }
+    }
+
+    /** The run configuration editor completes environments, limits and tags like the run dialog (from its playbook). */
+    fun testTheConfigurationEditorCompletesLikeTheRunDialog() {
+        root(falcon)
+        val configuration = AnsiblePlaybookConfigurationType.getInstance().factory.createTemplateConfiguration(project) as AnsiblePlaybookConfiguration
+        configuration.spec = PlaybookRunSpec(playbook = vf(playbook).path)
+        val editor = PlaybookSettingsEditor(project)
+        Disposer.register(testRootDisposable, editor)
+        editor.component
+        editor.resetFrom(configuration)
+        await { editor.awaitCompletionForTests() }
+        PlatformTestUtil.waitWithEventsDispatching("the editor got its completion", { editor.formForTests.completionsForTests.containsKey("tags") }, 10)
+        val completions = editor.formForTests.completionsForTests
+        assertEquals(listOf("dev", "prod"), completions["environment"])
+        assertTrue(completions.toString(), completions["tags"]!!.contains("nginx"))
+        assertEquals("no environment typed: every environment's groups and hosts", listOf("web", "web1.dev", "web1.prod"), completions["limit"])
+
+        configuration.spec = configuration.spec.copy(environment = "prod")
+        editor.resetFrom(configuration)
+        PlatformTestUtil.waitWithEventsDispatching("the limit follows the environment", { editor.formForTests.completionsForTests["limit"] == listOf("web", "web1.prod") }, 10)
     }
 
     fun testTheContextSelectionPreselectsTheEnvironmentAndTheLimit() {

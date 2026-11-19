@@ -58,6 +58,8 @@
 
 ### Fixed
 
+- A playbook run from the gutter or the Run Playbook dialog no longer changes a saved run configuration. The same settings run it as it is; other settings go to a temporary configuration; "Save as run configuration" (now off by default) adds a new one under a name of its own. Change a saved configuration in its own editor.
+- The Ansible Playbook run configuration editor completes environments, limits (the environment's groups and hosts) and tags, like the Run Playbook dialog.
 - Changing the golden root's git repository now always deletes the old mirror from the IDE's cache; it could stay on disk until the weekly clean-up when the golden state was read right after the change.
 - Rekey…, Change Vault Id… and Encrypt value write a `!vault` value inside a flow mapping or sequence as one double-quoted line. Before, they wrote a `!vault |` block there, which YAML does not allow.
 - A quoted `!vault` value with an anchor (`&pw !vault "…"`) is read correctly by Reveal, the vault actions and the vault index.

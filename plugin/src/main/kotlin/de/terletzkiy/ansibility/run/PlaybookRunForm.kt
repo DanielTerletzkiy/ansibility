@@ -1,11 +1,14 @@
 package de.terletzkiy.ansibility.run
 
+import com.intellij.openapi.editor.event.DocumentEvent
+import com.intellij.openapi.editor.event.DocumentListener
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.ui.TextFieldWithBrowseButton
 import com.intellij.openapi.util.text.StringUtil
+import com.intellij.ui.DocumentAdapter
 import com.intellij.ui.TextFieldWithAutoCompletion
 import com.intellij.ui.components.JBCheckBox
 import com.intellij.ui.components.JBLabel
@@ -18,6 +21,7 @@ import com.intellij.ui.dsl.listCellRenderer.textListCellRenderer
 import com.intellij.util.ui.UIUtil
 import de.terletzkiy.ansibility.run.become.BecomePasswords
 import de.terletzkiy.ansibility.run.settings.RunnerConfigurable
+import org.jetbrains.annotations.TestOnly
 import javax.swing.JComponent
 
 /**
@@ -42,7 +46,8 @@ class PlaybookRunForm(private val project: Project, private val context: Playboo
     private val environmentCombo = ComboBox(environmentIds.toTypedArray()).apply {
         renderer = textListCellRenderer(message("run.form.environment.choose")) { id -> context?.environment(id)?.label ?: id }
     }
-    private val environmentText = JBTextField()
+    /** The configuration editor's environment (it has no context for the combo); completes once [useCompletion] ran. */
+    private val environmentText = TextFieldWithAutoCompletion(project, PatternCompletion(emptyList(), ""), false, "")
     private val limitProvider = PatternCompletion(emptyList(), ",:&!")
     private val limitField = TextFieldWithAutoCompletion(project, limitProvider, false, "")
     private val tagsField = TextFieldWithAutoCompletion(project, PatternCompletion(context?.tags.orEmpty(), ","), false, "")
@@ -91,7 +96,16 @@ class PlaybookRunForm(private val project: Project, private val context: Playboo
     private var playbookPath: String = context?.playbookPath?.toString().orEmpty()
     private var target: PlaybookTarget = PlaybookTarget.PLAYBOOK
 
+    /**
+     * The context the configuration editor completes with ([useCompletion]); the run dialog has [context] from the
+     * start. Only completion comes from it: what the editor shows and saves stays the configuration's own.
+     */
+    private var completion: PlaybookRunContext? = context
+
     init {
+        environmentText.addDocumentListener(object : DocumentListener {
+            override fun documentChanged(event: DocumentEvent) = updateLimitVariants()
+        })
         environmentCombo.addActionListener {
             updateLimitVariants()
             updateRunner()
@@ -302,8 +316,45 @@ class PlaybookRunForm(private val project: Project, private val context: Playboo
     }
 
     private fun updateLimitVariants() {
-        val environment = context?.environment(environmentCombo.item) ?: return
-        limitField.setVariants(environment.groups + environment.hosts)
+        val known = completion ?: return
+        if (context != null) {
+            val environment = known.environment(environmentCombo.item) ?: return
+            limitField.setVariants(environment.groups + environment.hosts)
+            return
+        }
+        // The editor: the typed environment's groups and hosts, or every environment's while none (or another) is typed.
+        val environments = known.environment(environmentText.text.trim())?.let(::listOf) ?: known.environments
+        val variants = (environments.flatMap { it.groups } + environments.flatMap { it.hosts }).distinct()
+        limitField.setVariants(variants)
+        completionsForTests["limit"] = variants
+    }
+
+    /**
+     * The configuration editor (no [context]): completes environments, limits and tags from [found], the context of the
+     * configuration's playbook collected in the background.
+     */
+    fun useCompletion(found: PlaybookRunContext) {
+        completion = found
+        environmentText.setVariants(found.environments.map { it.id })
+        tagsField.setVariants(found.tags)
+        skipTagsField.setVariants(found.tags)
+        completionsForTests["environment"] = found.environments.map { it.id }
+        completionsForTests["tags"] = found.tags
+        updateLimitVariants()
+    }
+
+    /** For tests: the editor's completion lists by field (`environment`, `limit`, `tags`), as last set. */
+    @TestOnly
+    internal val completionsForTests: MutableMap<String, List<String>> = HashMap()
+
+    /** The playbook path the editor's field holds now. */
+    val playbookText: String get() = playbookField.text.trim()
+
+    /** Calls [listener] whenever the editor's playbook path changes. */
+    fun onPlaybookChange(listener: () -> Unit) {
+        playbookField.textField.document.addDocumentListener(object : DocumentAdapter() {
+            override fun textChanged(e: javax.swing.event.DocumentEvent) = listener()
+        })
     }
 
     private fun executorItems(): List<ExecutorItem> {
